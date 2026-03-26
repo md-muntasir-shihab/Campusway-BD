@@ -23,8 +23,9 @@ import { calculatePasswordExpiryDate, getPasswordPolicyForRole, isPasswordCompli
 import { clearPersistentRateLimit, consumePersistentRateLimit } from '../services/securityRateLimitService';
 import { findValidSecurityToken, incrementSecurityTokenAttempts, invalidateSecurityTokens, issueSecurityToken, markSecurityTokenConsumed } from '../services/securityTokenService';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_SECRET || 'refresh_secret';
+const IS_PROD_AUTH = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET || (IS_PROD_AUTH ? (() => { throw new Error('JWT_SECRET is required in production'); })() : 'dev-only-jwt-secret-do-not-use');
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_SECRET || (IS_PROD_AUTH ? (() => { throw new Error('REFRESH_SECRET is required in production'); })() : 'dev-only-refresh-secret-do-not-use');
 const APP_DOMAIN = process.env.APP_DOMAIN || 'http://localhost:5173';
 const ADMIN_UI_PATH = process.env.ADMIN_UI_PATH || '__cw_admin__';
 
@@ -49,7 +50,7 @@ function generateAccessToken(user: IUser, fullName: string, sessionId?: string, 
         email: user.email,
         role: user.role,
         fullName,
-        permissions: user.permissions,
+        permissions: resolvePermissions(user.role, user.permissions || undefined),
         permissionsV2: (user.permissionsV2 && Object.keys(user.permissionsV2).length > 0)
             ? (user.permissionsV2 as Record<string, Record<string, boolean>>)
             : resolvePermissionsV2(user.role),
@@ -1743,7 +1744,7 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
                 twoFactorEnabled: Boolean(user.twoFactorEnabled),
                 twoFactorMethod: user.two_factor_method || null,
                 passwordExpiresAt: user.passwordExpiresAt || null,
-                permissions: user.permissions,
+                permissions: resolvePermissions(user.role, user.permissions || undefined),
                 permissionsV2: user.permissionsV2 || resolvePermissionsV2(user.role),
                 mustChangePassword: user.mustChangePassword,
                 redirectTo: getRedirectPath(user.role),

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { escapeRegex } from '../utils/escapeRegex';
 import mongoose from 'mongoose';
 import slugify from 'slugify';
 import University from '../models/University';
@@ -53,11 +54,12 @@ export async function adminGetUniversityCategoryMaster(req: Request, res: Respon
         if (status === 'active') filter.isActive = true;
         if (status === 'inactive') filter.isActive = false;
         if (q) {
+            const safeQ = escapeRegex(q);
             filter.$or = [
-                { name: { $regex: q, $options: 'i' } },
-                { labelBn: { $regex: q, $options: 'i' } },
-                { labelEn: { $regex: q, $options: 'i' } },
-                { slug: { $regex: q, $options: 'i' } },
+                { name: { $regex: safeQ, $options: 'i' } },
+                { labelBn: { $regex: safeQ, $options: 'i' } },
+                { labelEn: { $regex: safeQ, $options: 'i' } },
+                { slug: { $regex: safeQ, $options: 'i' } },
             ];
         }
 

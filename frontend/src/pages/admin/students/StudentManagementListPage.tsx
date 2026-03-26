@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -40,7 +40,13 @@ export default function StudentManagementListPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [expiringDays, setExpiringDays] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const limit = 25;
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data: metrics } = useQuery({
     queryKey: ['student-metrics'],
@@ -56,9 +62,9 @@ export default function StudentManagementListPage() {
   const allGroups: { _id: string; name: string }[] = groupsData?.data ?? groupsData ?? [];
 
   const { data: listData, isLoading, refetch } = useQuery({
-    queryKey: ['students-list', page, search, statusFilter, subFilter, departmentFilter, groupFilter, sortBy, sortOrder, expiringDays],
+    queryKey: ['students-list', page, debouncedSearch, statusFilter, subFilter, departmentFilter, groupFilter, sortBy, sortOrder, expiringDays],
     queryFn: () => getStudentsList({
-      page, limit, q: search || undefined,
+      page, limit, q: debouncedSearch || undefined,
       status: statusFilter || undefined,
       subscriptionStatus: subFilter || undefined,
       expiringDays: expiringDays ? Number(expiringDays) : undefined,

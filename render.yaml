@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: campusway-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    region: singapore
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: FRONTEND_URL
+        value: https://campuswaybd.web.app
+      - key: MONGO_URI
+        sync: false # Set this in the Render dashboard manually for security!
+      - key: FIREBASE_PROJECT_ID
+        value: campuswaybd
+      - key: FIREBASE_CLIENT_EMAIL
+        value: firebase-adminsdk-fbsvc@campuswaybd.iam.gserviceaccount.com
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false # Set this in the Render dashboard manually for security!
+      - key: JWT_SECRET
+        generateValue: true

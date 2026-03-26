@@ -125,29 +125,29 @@ export default function ReportsPanel(_props: ReportsPanelProps = {}) {
                 <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <article className="card-flat p-4">
                         <p className="text-xs uppercase tracking-widest cw-muted">Active Subscriptions</p>
-                        <p className="mt-1 text-2xl font-bold cw-text">{summary.activeSubscriptions.toLocaleString()}</p>
+                        <p className="mt-1 text-2xl font-bold cw-text">{(Number(summary.activeSubscriptions) || 0).toLocaleString()}</p>
                     </article>
                     <article className="card-flat p-4">
                         <p className="text-xs uppercase tracking-widest cw-muted">Payments Received</p>
-                        <p className="mt-1 text-2xl font-bold cw-text">{summary.payments.receivedAmount.toLocaleString()}</p>
-                        <p className="text-xs cw-muted">{summary.payments.receivedCount} transactions</p>
+                        <p className="mt-1 text-2xl font-bold cw-text">{(Number(summary.payments?.receivedAmount) || 0).toLocaleString()}</p>
+                        <p className="text-xs cw-muted">{Number(summary.payments?.receivedCount) || 0} transactions</p>
                     </article>
                     <article className="card-flat p-4">
                         <p className="text-xs uppercase tracking-widest cw-muted">Pending Payments</p>
-                        <p className="mt-1 text-2xl font-bold cw-text">{summary.payments.pendingCount.toLocaleString()}</p>
+                        <p className="mt-1 text-2xl font-bold cw-text">{(Number(summary.payments?.pendingCount) || 0).toLocaleString()}</p>
                     </article>
                     <article className="card-flat p-4">
                         <p className="text-xs uppercase tracking-widest cw-muted">Exam Attempts / Submits</p>
-                        <p className="mt-1 text-2xl font-bold cw-text">{summary.exams.attempted.toLocaleString()} / {summary.exams.submitted.toLocaleString()}</p>
+                        <p className="mt-1 text-2xl font-bold cw-text">{(Number(summary.exams?.attempted) || 0).toLocaleString()} / {(Number(summary.exams?.submitted) || 0).toLocaleString()}</p>
                     </article>
                     <article className="card-flat p-4">
                         <p className="text-xs uppercase tracking-widest cw-muted">Support (Opened/Resolved)</p>
-                        <p className="mt-1 text-2xl font-bold cw-text">{summary.supportTickets.opened} / {summary.supportTickets.resolved}</p>
+                        <p className="mt-1 text-2xl font-bold cw-text">{Number(summary.supportTickets?.opened) || 0} / {Number(summary.supportTickets?.resolved) || 0}</p>
                     </article>
                     <article className="card-flat p-4">
                         <p className="text-xs uppercase tracking-widest cw-muted">Resource Downloads</p>
-                        <p className="mt-1 text-2xl font-bold cw-text">{summary.resourceDownloads.eventCount.toLocaleString()}</p>
-                        <p className="text-xs cw-muted">Counter: {summary.resourceDownloads.totalCounter.toLocaleString()}</p>
+                        <p className="mt-1 text-2xl font-bold cw-text">{(Number(summary.resourceDownloads?.eventCount) || 0).toLocaleString()}</p>
+                        <p className="text-xs cw-muted">Counter: {(Number(summary.resourceDownloads?.totalCounter) || 0).toLocaleString()}</p>
                     </article>
                     <article className="card-flat p-4 md:col-span-2 xl:col-span-2">
                         <p className="text-xs uppercase tracking-widest cw-muted">Top News Sources</p>

@@ -20,6 +20,7 @@ import { sanitizeRichHtml } from '../utils/questionBank';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { executeCampaign } from '../services/notificationOrchestrationService';
+import { escapeRegex } from '../utils/escapeRegex';
 
 type NewsStatus =
     | 'published'
@@ -1903,7 +1904,7 @@ export async function adminNewsV2GetItems(req: AuthRequest, res: Response): Prom
             filter.status = ensureStatus(req.query.status, 'draft');
         }
         if (req.query.sourceId) filter.sourceId = String(req.query.sourceId);
-        if (req.query.q) filter.$or = [{ title: { $regex: String(req.query.q), $options: 'i' } }, { shortDescription: { $regex: String(req.query.q), $options: 'i' } }];
+        if (req.query.q) { const safeQ = escapeRegex(String(req.query.q)); filter.$or = [{ title: { $regex: safeQ, $options: 'i' } }, { shortDescription: { $regex: safeQ, $options: 'i' } }]; }
         if (req.query.aiOnly === 'true') filter.sourceType = 'ai_assisted';
         if (req.query.aiSelected === 'true') filter.aiSelected = true;
         if (req.query.duplicateFlagged === 'true') filter['dedupe.duplicateFlag'] = true;
@@ -3603,7 +3604,7 @@ export async function adminNewsV2GetMedia(req: AuthRequest, res: Response): Prom
         const limit = Math.min(100, Math.max(1, Number(req.query.limit || 24)));
         const filter: Record<string, unknown> = {};
         if (req.query.sourceType) filter.sourceType = String(req.query.sourceType);
-        if (req.query.q) filter.$or = [{ altText: { $regex: String(req.query.q), $options: 'i' } }, { url: { $regex: String(req.query.q), $options: 'i' } }];
+        if (req.query.q) { const safeQ = escapeRegex(String(req.query.q)); filter.$or = [{ altText: { $regex: safeQ, $options: 'i' } }, { url: { $regex: safeQ, $options: 'i' } }]; }
         const total = await NewsMedia.countDocuments(filter);
         const items = await NewsMedia.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
         res.json({ items, total, page, pages: Math.ceil(total / limit) });

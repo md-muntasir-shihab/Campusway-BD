@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { escapeRegex } from '../utils/escapeRegex';
 import Service from '../models/Service';
 import ServiceCategory from '../models/ServiceCategory';
 import ServicePricingPlan from '../models/ServicePricingPlan';
@@ -23,11 +24,12 @@ export async function getServices(req: Request, res: Response): Promise<void> {
 
         // Handle search query across both languages
         if (q) {
+            const safeQ = escapeRegex(String(q));
             filter.$or = [
-                { title_en: { $regex: q, $options: 'i' } },
-                { title_bn: { $regex: q, $options: 'i' } },
-                { description_en: { $regex: q, $options: 'i' } },
-                { description_bn: { $regex: q, $options: 'i' } }
+                { title_en: { $regex: safeQ, $options: 'i' } },
+                { title_bn: { $regex: safeQ, $options: 'i' } },
+                { description_en: { $regex: safeQ, $options: 'i' } },
+                { description_bn: { $regex: safeQ, $options: 'i' } }
             ];
         }
 

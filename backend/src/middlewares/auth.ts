@@ -33,7 +33,8 @@ interface DecodedAuthToken {
 }
 
 function decodeAndAttach(req: AuthRequest, token: string): void {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as DecodedAuthToken;
+    const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('JWT_SECRET is required in production'); })() : 'dev-only-jwt-secret-do-not-use');
+    const decoded = jwt.verify(token, jwtSecret) as DecodedAuthToken;
     req.user = { ...decoded, id: decoded._id };
 }
 

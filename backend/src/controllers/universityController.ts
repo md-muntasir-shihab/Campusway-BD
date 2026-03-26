@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { escapeRegex } from '../utils/escapeRegex';
 import ExcelJS from 'exceljs';
 import slugify from 'slugify';
 import HomeSettings from '../models/HomeSettings';
@@ -449,12 +450,13 @@ function buildUniversityFilter(
 
     const searchTerm = String(search || q || '').trim();
     if (searchTerm) {
+        const safeTerm = escapeRegex(searchTerm);
         filter.$or = [
-            { name: { $regex: searchTerm, $options: 'i' } },
-            { shortForm: { $regex: searchTerm, $options: 'i' } },
-            { address: { $regex: searchTerm, $options: 'i' } },
-            { description: { $regex: searchTerm, $options: 'i' } },
-            { shortDescription: { $regex: searchTerm, $options: 'i' } },
+            { name: { $regex: safeTerm, $options: 'i' } },
+            { shortForm: { $regex: safeTerm, $options: 'i' } },
+            { address: { $regex: safeTerm, $options: 'i' } },
+            { description: { $regex: safeTerm, $options: 'i' } },
+            { shortDescription: { $regex: safeTerm, $options: 'i' } },
         ];
     }
     return { filter, categoryMissing };

@@ -1,4 +1,4 @@
-﻿import { Response } from 'express';
+import { Response } from 'express';
 import XLSX from 'xlsx';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middlewares/auth';
@@ -16,6 +16,7 @@ import {
     sanitizeRichHtml,
     validateImageUrl,
 } from '../utils/questionBank';
+import { escapeRegex } from '../utils/escapeRegex';
 
 type QBankAction = 'create' | 'edit' | 'delete' | 'approve' | 'bulk_import' | 'export' | 'lock';
 
@@ -241,19 +242,20 @@ function buildFilter(query: Record<string, unknown>): Record<string, unknown> {
 
     const search = String(query.search || '').trim();
     if (search) {
+        const safeSearch = escapeRegex(search);
         filter.$or = [
             ...((filter.$or as Record<string, unknown>[]) || []),
-            { question: { $regex: search, $options: 'i' } },
-            { question_text: { $regex: search, $options: 'i' } },
-            { 'questionText.en': { $regex: search, $options: 'i' } },
-            { 'questionText.bn': { $regex: search, $options: 'i' } },
-            { 'optionsLocalized.text.en': { $regex: search, $options: 'i' } },
-            { 'optionsLocalized.text.bn': { $regex: search, $options: 'i' } },
-            { 'explanationText.en': { $regex: search, $options: 'i' } },
-            { 'explanationText.bn': { $regex: search, $options: 'i' } },
-            { subject: { $regex: search, $options: 'i' } },
-            { chapter: { $regex: search, $options: 'i' } },
-            { tags: { $elemMatch: { $regex: search, $options: 'i' } } },
+            { question: { $regex: safeSearch, $options: 'i' } },
+            { question_text: { $regex: safeSearch, $options: 'i' } },
+            { 'questionText.en': { $regex: safeSearch, $options: 'i' } },
+            { 'questionText.bn': { $regex: safeSearch, $options: 'i' } },
+            { 'optionsLocalized.text.en': { $regex: safeSearch, $options: 'i' } },
+            { 'optionsLocalized.text.bn': { $regex: safeSearch, $options: 'i' } },
+            { 'explanationText.en': { $regex: safeSearch, $options: 'i' } },
+            { 'explanationText.bn': { $regex: safeSearch, $options: 'i' } },
+            { subject: { $regex: safeSearch, $options: 'i' } },
+            { chapter: { $regex: safeSearch, $options: 'i' } },
+            { tags: { $elemMatch: { $regex: safeSearch, $options: 'i' } } },
         ];
     }
 

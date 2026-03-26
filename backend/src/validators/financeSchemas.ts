@@ -15,7 +15,7 @@ const tags = z.array(z.string().trim().max(100)).max(20).optional();
 // ── Transactions ────────────────────────────────────────
 export const createTransactionSchema = z.object({
     direction,
-    amount: z.number().positive(),
+    amount: z.coerce.number().positive(),
     currency: z.string().max(10).default('BDT'),
     dateUTC: z.string().datetime().optional(),
     accountCode: safeStr.min(1),
@@ -36,7 +36,7 @@ export const createTransactionSchema = z.object({
 
 export const updateTransactionSchema = z.object({
     direction: direction.optional(),
-    amount: z.number().positive().optional(),
+    amount: z.coerce.number().positive().optional(),
     currency: z.string().max(10).optional(),
     dateUTC: z.string().datetime().optional(),
     accountCode: safeStr.optional(),
@@ -60,21 +60,21 @@ export const createInvoiceSchema = z.object({
     planId: objectId,
     examId: objectId,
     serviceId: objectId,
-    amountBDT: z.number().positive(),
+    amountBDT: z.coerce.number().positive(),
     dueDateUTC: z.string().datetime().optional(),
     notes: safeStr.optional(),
 });
 
 export const updateInvoiceSchema = z.object({
-    amountBDT: z.number().positive().optional(),
-    paidAmountBDT: z.number().min(0).optional(),
+    amountBDT: z.coerce.number().positive().optional(),
+    paidAmountBDT: z.coerce.number().min(0).optional(),
     status: z.enum(['unpaid', 'partial', 'paid', 'cancelled', 'overdue']).optional(),
     dueDateUTC: z.string().datetime().optional(),
     notes: safeStr.optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
 
 export const markInvoicePaidSchema = z.object({
-    paidAmount: z.number().positive().optional(),
+    paidAmount: z.coerce.number().positive().optional(),
 });
 
 // ── Budgets ─────────────────────────────────────────────
@@ -82,8 +82,8 @@ export const createBudgetSchema = z.object({
     month: z.string().regex(/^\d{4}-\d{2}$/, 'Format: YYYY-MM'),
     accountCode: safeStr.min(1),
     categoryLabel: safeStr.min(1),
-    amountLimit: z.number().positive(),
-    alertThresholdPercent: z.number().min(1).max(100).default(80),
+    amountLimit: z.coerce.number().positive(),
+    alertThresholdPercent: z.coerce.number().min(1).max(100).default(80),
     direction,
     costCenterId: safeStr.optional(),
     notes: safeStr.optional(),
@@ -92,8 +92,8 @@ export const createBudgetSchema = z.object({
 export const updateBudgetSchema = z.object({
     accountCode: safeStr.optional(),
     categoryLabel: safeStr.optional(),
-    amountLimit: z.number().positive().optional(),
-    alertThresholdPercent: z.number().min(1).max(100).optional(),
+    amountLimit: z.coerce.number().positive().optional(),
+    alertThresholdPercent: z.coerce.number().min(1).max(100).optional(),
     direction: direction.optional(),
     costCenterId: safeStr.optional(),
     notes: safeStr.optional(),
@@ -103,7 +103,7 @@ export const updateBudgetSchema = z.object({
 export const createRecurringRuleSchema = z.object({
     name: safeStr.min(1),
     direction,
-    amount: z.number().positive(),
+    amount: z.coerce.number().positive(),
     currency: z.string().max(10).default('BDT'),
     accountCode: safeStr.min(1),
     categoryLabel: safeStr.min(1),
@@ -113,8 +113,8 @@ export const createRecurringRuleSchema = z.object({
     costCenterId: safeStr.optional(),
     vendorId: objectId,
     frequency: z.enum(['monthly', 'weekly', 'yearly', 'custom']),
-    dayOfMonth: z.number().int().min(1).max(31).optional(),
-    intervalDays: z.number().int().min(1).max(365).optional(),
+    dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
+    intervalDays: z.coerce.number().int().min(1).max(365).optional(),
     nextRunAtUTC: z.string().datetime().optional(),
     endAtUTC: z.string().datetime().optional(),
     isActive: z.boolean().default(true),
@@ -123,7 +123,7 @@ export const createRecurringRuleSchema = z.object({
 export const updateRecurringRuleSchema = z.object({
     name: safeStr.optional(),
     direction: direction.optional(),
-    amount: z.number().positive().optional(),
+    amount: z.coerce.number().positive().optional(),
     accountCode: safeStr.optional(),
     categoryLabel: safeStr.optional(),
     description: safeStr.optional(),
@@ -132,8 +132,8 @@ export const updateRecurringRuleSchema = z.object({
     costCenterId: safeStr.optional(),
     vendorId: objectId,
     frequency: z.enum(['monthly', 'weekly', 'yearly', 'custom']).optional(),
-    dayOfMonth: z.number().int().min(1).max(31).optional(),
-    intervalDays: z.number().int().min(1).max(365).optional(),
+    dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
+    intervalDays: z.coerce.number().int().min(1).max(365).optional(),
     nextRunAtUTC: z.string().datetime().optional(),
     endAtUTC: z.string().datetime().optional(),
     isActive: z.boolean().optional(),
@@ -166,10 +166,10 @@ export const updateSettingsSchema = z.object({
     requireApprovalForIncome: z.boolean().optional(),
     enableBudgets: z.boolean().optional(),
     enableRecurringEngine: z.boolean().optional(),
-    receiptRequiredAboveAmount: z.number().min(0).optional(),
+    receiptRequiredAboveAmount: z.coerce.number().min(0).optional(),
     exportFooterNote: z.string().max(2000).optional(),
-    smsCostPerMessageBDT: z.number().min(0).optional(),
-    emailCostPerMessageBDT: z.number().min(0).optional(),
+    smsCostPerMessageBDT: z.coerce.number().min(0).optional(),
+    emailCostPerMessageBDT: z.coerce.number().min(0).optional(),
     costCenters: z.array(z.string().trim().max(100)).max(50).optional(),
 });
 
@@ -178,7 +178,7 @@ export const createRefundSchema = z.object({
     originalPaymentId: objectId,
     financeTxnId: objectId,
     studentId: objectId,
-    amountBDT: z.number().positive(),
+    amountBDT: z.coerce.number().positive(),
     reason: safeStr.min(1),
 });
 
@@ -191,7 +191,7 @@ export const processRefundSchema = z.object({
 export const importCommitSchema = z.object({
     rows: z.array(z.object({
         direction: direction.optional(),
-        amount: z.number().positive(),
+        amount: z.coerce.number().positive(),
         accountCode: safeStr.min(1),
         categoryLabel: safeStr.min(1),
         description: safeStr.optional(),

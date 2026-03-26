@@ -793,32 +793,38 @@ export default function AdminSubscriptionPlansPage() {
                             ) : (
                                 <div className="space-y-3">
                                     {orderedPlans.map((plan, index) => (
-                                        <div key={plan._id} className="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/70">
-                                            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <Link to={`${basePath}/${plan._id}`} className="text-lg font-semibold text-slate-950 hover:text-cyan-700 dark:text-white dark:hover:text-cyan-300">{plan.name}</Link>
-                                                        {plan.isFeatured ? <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">Featured</span> : null}
-                                                        {plan.isArchived ? <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-800 dark:bg-rose-950/50 dark:text-rose-200">Archived</span> : null}
-                                                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${plan.isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>{plan.isActive ? 'Active' : 'Inactive'}</span>
+                                        <div key={plan._id} className="rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-950/70 transition-all hover:shadow-md">
+                                            <div className="flex flex-col gap-4">
+                                                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <Link to={`${basePath}/${plan._id}`} className="text-lg font-semibold text-slate-950 hover:text-cyan-700 dark:text-white dark:hover:text-cyan-300">{plan.name}</Link>
+                                                            {plan.isFeatured ? <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">Featured</span> : null}
+                                                            {plan.isArchived ? <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-800 dark:bg-rose-950/50 dark:text-rose-200">Archived</span> : null}
+                                                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${plan.isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>{plan.isActive ? 'Active' : 'Inactive'}</span>
+                                                        </div>
+                                                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{plan.tagline || plan.shortDescription || 'Plan tagline not added yet.'}</p>
+                                                        
+                                                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:flex lg:flex-wrap lg:gap-5 text-sm text-slate-600 dark:text-slate-300">
+                                                            <div className="flex flex-col rounded-xl bg-slate-50 p-2 dark:bg-slate-900/50 sm:bg-transparent sm:p-0"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Price</span><span className="font-medium text-slate-900 dark:text-white">{formatPrice(plan)}</span></div>
+                                                            <div className="flex flex-col rounded-xl bg-slate-50 p-2 dark:bg-slate-900/50 sm:bg-transparent sm:p-0"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Cycle</span><span className="font-medium text-slate-900 dark:text-white">{plan.billingCycle || 'monthly'}</span></div>
+                                                            <div className="flex flex-col rounded-xl bg-slate-50 p-2 dark:bg-slate-900/50 sm:bg-transparent sm:p-0"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Order</span><span className="font-medium text-slate-900 dark:text-white">{plan.sortOrder || plan.displayOrder || 100}</span></div>
+                                                            <div className="flex flex-col rounded-xl bg-slate-50 p-2 dark:bg-slate-900/50 sm:bg-transparent sm:p-0"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Home</span><span className="font-medium text-slate-900 dark:text-white">{plan.showOnHome ? 'Visible' : 'Hidden'}</span></div>
+                                                        </div>
                                                     </div>
-                                                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{plan.tagline || plan.shortDescription || 'Plan tagline not added yet.'}</p>
-                                                    <div className="mt-3 flex flex-wrap gap-5 text-sm text-slate-600 dark:text-slate-300">
-                                                        <span><strong className="text-slate-900 dark:text-white">Price:</strong> {formatPrice(plan)}</span>
-                                                        <span><strong className="text-slate-900 dark:text-white">Cycle:</strong> {plan.billingCycle || 'monthly'}</span>
-                                                        <span><strong className="text-slate-900 dark:text-white">Order:</strong> {plan.sortOrder || plan.displayOrder || 100}</span>
-                                                        <span><strong className="text-slate-900 dark:text-white">Home:</strong> {plan.showOnHome ? 'Visible' : 'Hidden'}</span>
+                                                    <div className="flex items-center gap-1 shrink-0 rounded-[1.25rem] bg-slate-50 p-1 dark:bg-slate-900/60 self-start">
+                                                        <button type="button" onClick={() => movePlan(plan._id, 'up')} disabled={index === 0} className="flex h-9 w-9 items-center justify-center rounded-xl transition hover:bg-white hover:shadow-sm disabled:opacity-40 hover:text-cyan-600 dark:hover:bg-slate-800 dark:hover:text-cyan-400" title="Move Up"><ArrowUp className="h-4 w-4" /></button>
+                                                        <button type="button" onClick={() => movePlan(plan._id, 'down')} disabled={index === orderedPlans.length - 1} className="flex h-9 w-9 items-center justify-center rounded-xl transition hover:bg-white hover:shadow-sm disabled:opacity-40 hover:text-cyan-600 dark:hover:bg-slate-800 dark:hover:text-cyan-400" title="Move Down"><ArrowDown className="h-4 w-4" /></button>
                                                     </div>
                                                 </div>
-                                                <div className="flex flex-wrap gap-2 xl:justify-end">
-                                                    <button type="button" onClick={() => movePlan(plan._id, 'up')} disabled={index === 0} className="btn-outline text-xs disabled:opacity-40"><ArrowUp className="h-4 w-4" />Up</button>
-                                                    <button type="button" onClick={() => movePlan(plan._id, 'down')} disabled={index === orderedPlans.length - 1} className="btn-outline text-xs disabled:opacity-40"><ArrowDown className="h-4 w-4" />Down</button>
-                                                    <Link to={`${basePath}/${plan._id}`} className="btn-outline text-xs"><Eye className="h-4 w-4" />Preview</Link>
-                                                    <Link to={`${basePath}/${plan._id}/edit`} className="btn-outline text-xs"><Pencil className="h-4 w-4" />Edit</Link>
-                                                    <button type="button" onClick={() => duplicatePlan(plan)} className="btn-outline text-xs"><Copy className="h-4 w-4" />Duplicate</button>
-                                                    <button type="button" onClick={() => toggleActive(plan)} className="btn-outline text-xs">{plan.isActive ? 'Deactivate' : 'Activate'}</button>
-                                                    <button type="button" onClick={() => toggleFeatured(plan)} className="btn-outline text-xs">{plan.isFeatured ? 'Unfeature' : 'Feature'}</button>
-                                                    <button type="button" onClick={() => archivePlan(plan)} className="btn-outline text-xs text-rose-600 hover:border-rose-300 hover:text-rose-700 dark:text-rose-300"><Trash2 className="h-4 w-4" />Archive</button>
+                                                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 dark:border-slate-800/80">
+                                                    <Link to={`${basePath}/${plan._id}`} className="btn-outline h-8 px-3 text-xs"><Eye className="h-3.5 w-3.5" />Preview</Link>
+                                                    <Link to={`${basePath}/${plan._id}/edit`} className="btn-outline h-8 px-3 text-xs"><Pencil className="h-3.5 w-3.5" />Edit</Link>
+                                                    <button type="button" onClick={() => duplicatePlan(plan)} className="btn-outline h-8 px-3 text-xs"><Copy className="h-3.5 w-3.5" />Duplicate</button>
+                                                    <button type="button" onClick={() => toggleActive(plan)} className="btn-outline h-8 px-3 text-xs">{plan.isActive ? 'Deactivate' : 'Activate'}</button>
+                                                    <button type="button" onClick={() => toggleFeatured(plan)} className="btn-outline h-8 px-3 text-xs">{plan.isFeatured ? 'Unfeature' : 'Feature'}</button>
+                                                    <div className="flex-1" />
+                                                    <button type="button" onClick={() => archivePlan(plan)} className="btn-outline h-8 px-3 text-xs text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30"><Trash2 className="h-3.5 w-3.5" />Archive</button>
                                                 </div>
                                             </div>
                                         </div>

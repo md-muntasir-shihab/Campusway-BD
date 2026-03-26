@@ -14,6 +14,7 @@ import type { AuthRequest } from '../middlewares/auth';
 import { DEFAULT_TEAM_ROLES, TEAM_ACTIONS, TEAM_MODULES } from '../teamAccess/defaults';
 import { issueSecurityToken } from '../services/securityTokenService';
 import { sendCampusMail } from '../utils/mailer';
+import { escapeRegex } from '../utils/escapeRegex';
 
 const TEAM_USER_ROLES = ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'] as const;
 const APP_DOMAIN = process.env.APP_DOMAIN || process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -214,10 +215,11 @@ export async function teamGetMembers(req: Request, res: Response): Promise<void>
 
         if (status) filter.status = status;
         if (search) {
+            const safeSearch = escapeRegex(search);
             filter.$or = [
-                { full_name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } },
-                { username: { $regex: search, $options: 'i' } },
+                { full_name: { $regex: safeSearch, $options: 'i' } },
+                { email: { $regex: safeSearch, $options: 'i' } },
+                { username: { $regex: safeSearch, $options: 'i' } },
             ];
         }
         if (roleId && mongoose.Types.ObjectId.isValid(roleId)) {

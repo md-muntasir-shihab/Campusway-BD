@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { escapeRegex } from '../utils/escapeRegex';
 import News from '../models/News';
 import Service from '../models/Service';
 import ServicePageConfig from '../models/ServicePageConfig';
@@ -89,10 +90,13 @@ export async function adminGetNews(req: Request, res: Response): Promise<void> {
         const filter: Record<string, unknown> = {};
         if (category) filter.category = category;
         if (status) filter.status = status;
-        if (q) filter.$or = [
-            { title: { $regex: q, $options: 'i' } },
-            { shortDescription: { $regex: q, $options: 'i' } },
-        ];
+        if (q) {
+            const safeQ = escapeRegex(String(q));
+            filter.$or = [
+                { title: { $regex: safeQ, $options: 'i' } },
+                { shortDescription: { $regex: safeQ, $options: 'i' } },
+            ];
+        }
         const total = await News.countDocuments(filter);
         const news = await News.find(filter)
             .sort({ createdAt: -1 })
@@ -183,10 +187,13 @@ export async function getPublicNews(req: Request, res: Response): Promise<void> 
         const filter: Record<string, unknown> = { status: 'published', isPublished: true };
 
         if (category && category !== 'All') filter.category = category;
-        if (search) filter.$or = [
-            { title: { $regex: search, $options: 'i' } },
-            { shortDescription: { $regex: search, $options: 'i' } },
-        ];
+        if (search) {
+            const safeSearch = escapeRegex(String(search));
+            filter.$or = [
+                { title: { $regex: safeSearch, $options: 'i' } },
+                { shortDescription: { $regex: safeSearch, $options: 'i' } },
+            ];
+        }
 
         const total = await News.countDocuments(filter);
         const news = await News.find(filter)

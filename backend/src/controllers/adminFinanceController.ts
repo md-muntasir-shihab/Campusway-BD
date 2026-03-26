@@ -17,6 +17,7 @@ import { ensureSecureUploadUrl } from '../services/secureUploadService';
 import { getClientIp } from '../utils/requestMeta';
 import { createIncomeFromPayment } from '../services/financeCenterService';
 import { activateSubscriptionFromPayment, recomputeStudentDueLedger } from '../services/subscriptionLifecycleService';
+import { escapeRegex } from '../utils/escapeRegex';
 
 type DateRange = { from?: Date; to?: Date };
 const SECURE_FINANCE_ACCESS_ROLES = ['superadmin', 'admin', 'finance_agent', 'moderator'];
@@ -117,10 +118,11 @@ function buildPaymentFilter(query: Record<string, unknown>): Record<string, unkn
 
     const q = String(query.q || '').trim();
     if (q) {
+        const safeQ = escapeRegex(q);
         filter.$or = [
-            { reference: { $regex: q, $options: 'i' } },
-            { transactionId: { $regex: q, $options: 'i' } },
-            { notes: { $regex: q, $options: 'i' } },
+            { reference: { $regex: safeQ, $options: 'i' } },
+            { transactionId: { $regex: safeQ, $options: 'i' } },
+            { notes: { $regex: safeQ, $options: 'i' } },
         ];
     }
     return filter;
