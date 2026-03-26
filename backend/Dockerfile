@@ -28,10 +28,7 @@ RUN npm ci --omit=dev
 # Copy built artifacts from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy production environment file (this will be loaded by dotenv)
-COPY .env.production .env
-
-# Expose port (Cloud Run defaults to 8080)
+# Expose port (Cloud Run/Render defaults to 8080)
 EXPOSE 8080
 
 # Start server
