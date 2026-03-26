@@ -1,0 +1,52 @@
+CampusWay Admin Guide
+=====================
+Date: March 2, 2026
+
+1) Admin Entry Points
+---------------------
+- Main control center: `http://localhost:5175/campusway-secure-admin`
+- Admin aliases:
+  - `/admin/dashboard`
+  - `/admin/exams`
+  - `/admin/students`
+  - `/admin/payments`
+  - `/admin/settings`
+- News admin console: `http://localhost:5175/admin/news`
+
+2) Login
+--------
+- Use current credentials from: `backend/INITIAL_ACCESS_INFO.txt`
+- Change default password after first login.
+
+3) What Admin Can Control
+-------------------------
+Core dashboard (`/campusway-secure-admin` tabs):
+- Exams: create/edit/publish exams, question ops, monitoring
+- Students: profile/access controls and student records
+- Payments/Finance: payment records and finance controls
+- Settings: runtime/security/admin settings
+
+News control center (`/admin/news`):
+- RSS source add/test/enable/reorder
+- Review queue: approve/reject/publish/schedule
+- Appearance settings + defaults/fallback media
+- Exports and audit logs
+
+4) Safe Operating Rules
+-----------------------
+- Use confirm dialogs for destructive actions.
+- Keep backups before bulk edits.
+- Use role-appropriate accounts (admin vs superadmin).
+
+5) Security Notes
+-----------------
+- Admin API base path: `/api/campusway-secure-admin`
+- Keep `.env` secrets private (`JWT_*`, mail keys, db URI).
+- Restrict production CORS to known frontend/admin origins.
+
+6) Quick Troubleshooting
+------------------------
+- If admin screen is blank: open browser devtools and refresh once.
+- If data does not update: hard refresh and retry action.
+- If login loops/fails: verify backend is running and token cookies are allowed.
+- If permission denied: confirm account role/permission flags.

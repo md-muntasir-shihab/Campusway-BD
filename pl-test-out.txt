@@ -1,0 +1,135 @@
+﻿
+Running 4 tests using 1 worker
+
+  Ô£ÿ  1 [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:9:5 ÔÇ║ Communication Hub ÔÇ║ should navigate to Communication Hub and load all panels (49.4s)
+  Ô£ÿ  2 [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:30:5 ÔÇ║ Communication Hub ÔÇ║ should allow interacting with Export Center options (21.2s)
+  Ô£ÿ  3 [chromium-mobile] ÔÇ║ e2e\campaignHub.spec.ts:9:5 ÔÇ║ Communication Hub ÔÇ║ should navigate to Communication Hub and load all panels (21.8s)
+  Ô£ÿ  4 [chromium-mobile] ÔÇ║ e2e\campaignHub.spec.ts:30:5 ÔÇ║ Communication Hub ÔÇ║ should allow interacting with Export Center options (21.5s)
+
+
+  1) [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:9:5 ÔÇ║ Communication Hub ÔÇ║ should navigate to Communication Hub and load all panels 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:108
+
+      106 |         const creds = attempts[i];
+      107 |         await page.goto('/__cw_admin__/login');
+    > 108 |         await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(creds.email);
+          |                                                                                                                           ^
+      109 |         await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(creds.password);
+      110 |         await page.getByRole('button', { name: /Sign In/i }).first().click();
+      111 |
+        at loginAsAdmin (D:\CampusWay\CampusWay\frontend\e2e\helpers.ts:108:123)
+        at D:\CampusWay\CampusWay\frontend\e2e\campaignHub.spec.ts:6:9
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--da8df-ion-Hub-and-load-all-panels-chromium-desktop\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--da8df-ion-Hub-and-load-all-panels-chromium-desktop\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\campaignHub-Communication--da8df-ion-Hub-and-load-all-panels-chromium-desktop\error-context.md
+
+  2) [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:30:5 ÔÇ║ Communication Hub ÔÇ║ should allow interacting with Export Center options 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:108
+
+      106 |         const creds = attempts[i];
+      107 |         await page.goto('/__cw_admin__/login');
+    > 108 |         await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(creds.email);
+          |                                                                                                                           ^
+      109 |         await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(creds.password);
+      110 |         await page.getByRole('button', { name: /Sign In/i }).first().click();
+      111 |
+        at loginAsAdmin (D:\CampusWay\CampusWay\frontend\e2e\helpers.ts:108:123)
+        at D:\CampusWay\CampusWay\frontend\e2e\campaignHub.spec.ts:6:9
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--07025--with-Export-Center-options-chromium-desktop\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--07025--with-Export-Center-options-chromium-desktop\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\campaignHub-Communication--07025--with-Export-Center-options-chromium-desktop\error-context.md
+
+  3) [chromium-mobile] ÔÇ║ e2e\campaignHub.spec.ts:9:5 ÔÇ║ Communication Hub ÔÇ║ should navigate to Communication Hub and load all panels 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:108
+
+      106 |         const creds = attempts[i];
+      107 |         await page.goto('/__cw_admin__/login');
+    > 108 |         await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(creds.email);
+          |                                                                                                                           ^
+      109 |         await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(creds.password);
+      110 |         await page.getByRole('button', { name: /Sign In/i }).first().click();
+      111 |
+        at loginAsAdmin (D:\CampusWay\CampusWay\frontend\e2e\helpers.ts:108:123)
+        at D:\CampusWay\CampusWay\frontend\e2e\campaignHub.spec.ts:6:9
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--da8df-ion-Hub-and-load-all-panels-chromium-mobile\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--da8df-ion-Hub-and-load-all-panels-chromium-mobile\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\campaignHub-Communication--da8df-ion-Hub-and-load-all-panels-chromium-mobile\error-context.md
+
+  4) [chromium-mobile] ÔÇ║ e2e\campaignHub.spec.ts:30:5 ÔÇ║ Communication Hub ÔÇ║ should allow interacting with Export Center options 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:108
+
+      106 |         const creds = attempts[i];
+      107 |         await page.goto('/__cw_admin__/login');
+    > 108 |         await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(creds.email);
+          |                                                                                                                           ^
+      109 |         await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(creds.password);
+      110 |         await page.getByRole('button', { name: /Sign In/i }).first().click();
+      111 |
+        at loginAsAdmin (D:\CampusWay\CampusWay\frontend\e2e\helpers.ts:108:123)
+        at D:\CampusWay\CampusWay\frontend\e2e\campaignHub.spec.ts:6:9
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--07025--with-Export-Center-options-chromium-mobile\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\campaignHub-Communication--07025--with-Export-Center-options-chromium-mobile\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\campaignHub-Communication--07025--with-Export-Center-options-chromium-mobile\error-context.md
+
+  4 failed
+    [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:9:5 ÔÇ║ Communication Hub ÔÇ║ should navigate to Communication Hub and load all panels 
+    [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:30:5 ÔÇ║ Communication Hub ÔÇ║ should allow interacting with Export Center options 
+    [chromium-mobile] ÔÇ║ e2e\campaignHub.spec.ts:9:5 ÔÇ║ Communication Hub ÔÇ║ should navigate to Communication Hub and load all panels 
+    [chromium-mobile] ÔÇ║ e2e\campaignHub.spec.ts:30:5 ÔÇ║ Communication Hub ÔÇ║ should allow interacting with Export Center options 
+
+To open last HTML report run:
+[36m[39m
+[36m  npx playwright show-report ..\qa-artifacts\playwright-report[39m
+[36m[39m

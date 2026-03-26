@@ -1,0 +1,213 @@
+﻿{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CampusWay Exam Console API",
+    "version": "1.0.0",
+    "description": "Unified Students, QBank, Exams, Live Monitor, Alerts, and Banner APIs."
+  },
+  "servers": [
+    { "url": "/api" }
+  ],
+  "paths": {
+    "/admin/students": {
+      "get": {
+        "summary": "List students",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "group", "in": "query", "schema": { "type": "string" } },
+          { "name": "gender", "in": "query", "schema": { "type": "string" } },
+          { "name": "batch", "in": "query", "schema": { "type": "string" } },
+          { "name": "planCode", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Student list" } }
+      }
+    },
+    "/admin/students/bulk-import": {
+      "post": {
+        "summary": "Bulk import students",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Import report" } }
+      }
+    },
+    "/admin/students/export": {
+      "get": {
+        "summary": "Export students",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "group", "in": "query", "schema": { "type": "string" } },
+          { "name": "gender", "in": "query", "schema": { "type": "string" } },
+          { "name": "format", "in": "query", "schema": { "type": "string", "enum": ["csv", "xlsx"] } }
+        ],
+        "responses": { "200": { "description": "Export file" } }
+      }
+    },
+    "/admin/qbank": {
+      "get": {
+        "summary": "List question bank",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Question list" } }
+      },
+      "post": {
+        "summary": "Create question",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Question created" } }
+      }
+    },
+    "/admin/qbank/{id}": {
+      "put": {
+        "summary": "Update question and append revision",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Question updated" } }
+      }
+    },
+    "/admin/qbank/bulk-import": {
+      "post": {
+        "summary": "Bulk import question bank",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Import report" } }
+      }
+    },
+    "/admin/exams/{id}/clone": {
+      "post": {
+        "summary": "Clone exam",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "201": { "description": "Exam cloned" } }
+      }
+    },
+    "/admin/live/attempts": {
+      "get": {
+        "summary": "Get live attempts",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "examId", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Live attempt list" } }
+      }
+    },
+    "/admin/live/attempts/{attemptId}/action": {
+      "post": {
+        "summary": "Apply live monitor action",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "attemptId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Action applied" } }
+      }
+    },
+    "/admin/live/stream": {
+      "get": {
+        "summary": "SSE stream for live monitor",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "SSE stream" } }
+      }
+    },
+    "/admin/alerts": {
+      "get": {
+        "summary": "List alerts with metrics",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Alert list" } }
+      },
+      "post": {
+        "summary": "Create alert",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Alert created" } }
+      }
+    },
+    "/admin/alerts/{id}/publish": {
+      "put": {
+        "summary": "Publish/unpublish alert",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Alert publish state updated" } }
+      }
+    },
+    "/admin/banners": {
+      "get": {
+        "summary": "List slot-aware banners",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Banner list" } }
+      },
+      "post": {
+        "summary": "Create banner",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Banner created" } }
+      }
+    },
+    "/admin/banners/sign-upload": {
+      "post": {
+        "summary": "Create signed banner upload",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Signed upload payload" } }
+      }
+    },
+    "/admin/banners/{id}/publish": {
+      "put": {
+        "summary": "Publish/unpublish banner",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Banner publish state updated" } }
+      }
+    },
+    "/exams/landing": {
+      "get": {
+        "summary": "Student grouped exam cards",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "group", "in": "query", "schema": { "type": "string" } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Exam landing payload" } }
+      }
+    },
+    "/alerts/active": {
+      "get": {
+        "summary": "Get active targeted alerts for student",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Student alerts" } }
+      }
+    },
+    "/alerts/{alertId}/ack": {
+      "post": {
+        "summary": "Acknowledge alert",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "alertId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Alert acknowledged" } }
+      }
+    },
+    "/banners/active": {
+      "get": {
+        "summary": "Get active banners by slot",
+        "parameters": [
+          { "name": "slot", "in": "query", "schema": { "type": "string", "enum": ["top", "middle", "footer"] } }
+        ],
+        "responses": { "200": { "description": "Active banners" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

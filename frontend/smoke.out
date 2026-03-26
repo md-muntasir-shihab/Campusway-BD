@@ -1,0 +1,672 @@
+
+> campusway-frontend@1.0.0 e2e:smoke
+> node ./scripts/run-e2e-smoke.mjs
+
+(node:12040) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> campusway-backend@1.0.0 dev
+> tsx watch src/server.ts
+
+
+> campusway-backend@1.0.0 e2e:prepare
+> tsx src/scripts/e2e_prepare.ts
+
+
+> campusway-frontend@1.0.0 dev
+> vite --host 127.0.0.1 --port 5176
+
+[2m6:44:29 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+✅ MongoDB connected successfully
+[31merror when starting dev server:
+Error: Port 5176 is already in use
+    at Server.onError (file:///f:/CampusWay/frontend/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:25023:18)
+    at Server.emit (node:events:508:28)
+    at emitErrorNT (node:net:1984:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m
+{
+  "ok": true,
+  "message": "E2E environment prepared.",
+  "admin": {
+    "id": "69a1f2d73185ca3487bd2714",
+    "email": "e2e_admin@campusway.local",
+    "password": "E2E_Admin#12345"
+  },
+  "student": {
+    "id": "69a1f2d83185ca3487bd2715",
+    "email": "e2e_student@campusway.local",
+    "password": "E2E_Student#12345"
+  },
+  "backupPath": "f:\\CampusWay\\backend\\.e2e-security-backup.json",
+  "baseUrl": "http://localhost:5175"
+}
+⚠️ MongoDB disconnected
+(node:10704) [MONGOOSE] Warning: Duplicate schema index on {"user_id":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10704) [MONGOOSE] Warning: Duplicate schema index on {"slug":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:10704) [MONGOOSE] Warning: Duplicate schema index on {"slug":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+✅ MongoDB connected successfully
+ℹ️  INITIAL_ACCESS_INFO.txt exists — default setup already completed.
+⏳ Starting Exam Auto-Submit Cron Job (Runs every minute)
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::5004
+    at Server.setupListenHandle [as _listen2] (node:net:1948:16)
+    at listenInCluster (node:net:2005:12)
+    at Server.listen (node:net:2110:7)
+    at app.listen (f:\CampusWay\backend\node_modules\express\lib\application.js:635:24)
+    at start (f:\CampusWay\backend\src\server.ts:113:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1984:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 5004
+}
+
+Node.js v24.14.0
+
+Running 22 tests using 2 workers
+
+  x   1 [chromium-desktop] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session (17.1s)
+  x   2 [chromium-desktop] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs (21.0s)
+  x   3 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage (3.7s)
+  x   4 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage (3.3s)
+  x   5 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage (4.0s)
+  x   6 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage (3.8s)
+  x   7 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage (4.1s)
+  x   8 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage (3.4s)
+  x   9 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage (4.7s)
+  x  10 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage (3.9s)
+  x  11 [chromium-desktop] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile (5.2s)
+  x  12 [chromium-mobile] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs (5.1s)
+  x  13 [chromium-mobile] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session (3.1s)
+  x  14 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage (3.1s)
+  x  15 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage (3.7s)
+  x  16 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage (3.2s)
+  x  17 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage (3.1s)
+  x  18 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage (3.1s)
+  x  19 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage (3.1s)
+  x  20 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage (3.0s)
+  x  21 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage (3.1s)
+  x  22 [chromium-mobile] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile (3.0s)
+
+
+  1) [chromium-desktop] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:62
+
+      60 | export async function loginAsAdmin(page: Page): Promise<void> {
+      61 |     await page.goto('/login');
+    > 62 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.admin.email);
+         |                                                                                                                       ^
+      63 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.admin.password);
+      64 |     await page.getByRole('button', { name: /Sign In/i }).click();
+      65 |     await expect(page).toHaveURL(/\/campusway-secure-admin/);
+        at loginAsAdmin (f:\CampusWay\frontend\e2e\helpers.ts:62:119)
+        at f:\CampusWay\frontend\e2e\admin-smoke.spec.ts:19:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium-desktop] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:70
+
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+      69 |     await page.goto('/student/login');
+    > 70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+         |                                                                                                                       ^
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+      73 |     await expect(page).toHaveURL(/\/student\/dashboard/);
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:70:119)
+        at f:\CampusWay\frontend\e2e\auth-session.spec.ts:10:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\auth-session-Auth-Session--14963-lidates-old-student-session-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/
+    Call log:
+    [2m  - navigating to "http://localhost:5176/", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/services
+    Call log:
+    [2m  - navigating to "http://localhost:5176/services", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/news
+    Call log:
+    [2m  - navigating to "http://localhost:5176/news", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/exams
+    Call log:
+    [2m  - navigating to "http://localhost:5176/exams", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/resources
+    Call log:
+    [2m  - navigating to "http://localhost:5176/resources", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/contact
+    Call log:
+    [2m  - navigating to "http://localhost:5176/contact", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/login", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/student/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/student/login", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [chromium-desktop] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/student/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/student/login", waiting until "load"[22m
+
+
+       at helpers.ts:69
+
+      67 |
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+    > 69 |     await page.goto('/student/login');
+         |                ^
+      70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:69:16)
+        at f:\CampusWay\frontend\e2e\student-smoke.spec.ts:7:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [chromium-mobile] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/login", waiting until "load"[22m
+
+
+       at helpers.ts:61
+
+      59 |
+      60 | export async function loginAsAdmin(page: Page): Promise<void> {
+    > 61 |     await page.goto('/login');
+         |                ^
+      62 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.admin.email);
+      63 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.admin.password);
+      64 |     await page.getByRole('button', { name: /Sign In/i }).click();
+        at loginAsAdmin (f:\CampusWay\frontend\e2e\helpers.ts:61:16)
+        at f:\CampusWay\frontend\e2e\admin-smoke.spec.ts:19:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [chromium-mobile] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/student/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/student/login", waiting until "load"[22m
+
+
+       at helpers.ts:69
+
+      67 |
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+    > 69 |     await page.goto('/student/login');
+         |                ^
+      70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:69:16)
+        at f:\CampusWay\frontend\e2e\auth-session.spec.ts:10:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\auth-session-Auth-Session--14963-lidates-old-student-session-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/
+    Call log:
+    [2m  - navigating to "http://localhost:5176/", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/services
+    Call log:
+    [2m  - navigating to "http://localhost:5176/services", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/news
+    Call log:
+    [2m  - navigating to "http://localhost:5176/news", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/exams
+    Call log:
+    [2m  - navigating to "http://localhost:5176/exams", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/resources
+    Call log:
+    [2m  - navigating to "http://localhost:5176/resources", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/contact
+    Call log:
+    [2m  - navigating to "http://localhost:5176/contact", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/login", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/student/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/student/login", waiting until "load"[22m
+
+
+      17 |         test(`route ${route} renders without critical breakage`, async ({ page }) => {
+      18 |             const tracker = attachHealthTracker(page);
+    > 19 |             await page.goto(route);
+         |                        ^
+      20 |
+      21 |             await expect(page.locator('body')).toBeVisible();
+      22 |
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:19:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [chromium-mobile] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5176/student/login
+    Call log:
+    [2m  - navigating to "http://localhost:5176/student/login", waiting until "load"[22m
+
+
+       at helpers.ts:69
+
+      67 |
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+    > 69 |     await page.goto('/student/login');
+         |                ^
+      70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:69:16)
+        at f:\CampusWay\frontend\e2e\student-smoke.spec.ts:7:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22 failed
+    [chromium-desktop] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+    [chromium-desktop] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+    [chromium-desktop] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+    [chromium-mobile] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+    [chromium-mobile] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+    [chromium-mobile] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+
+> campusway-backend@1.0.0 e2e:restore
+> tsx src/scripts/e2e_restore.ts
+
+✅ MongoDB connected successfully
+{
+  "ok": true,
+  "message": "E2E environment restored.",
+  "securityRestored": true,
+  "deactivatedUsers": 0
+}
+⚠️ MongoDB disconnected

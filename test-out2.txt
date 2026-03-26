@@ -1,0 +1,108 @@
+﻿node.exe : FAIL 
+tests/admin/adminProviderRoutes.test.ts 
+(46.391 s)
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" 
+"C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : 
+NotSpecified:     (FAIL tests/admi...t.ts 
+(46.391 s):Str    ing) [], RemoteException
+    + FullyQualifiedErrorId : 
+NativeCommand    Error
+ 
+  Admin Provider Routes
+    ├ù creates a provider encrypting 
+credentials, and hides credentials on 
+retrieval (56 ms)
+    ├ù toggles provider active state 
+successfully (21 ms)
+
+  ÔùÅ Admin Provider Routes ÔÇ║ creates a 
+provider encrypting credentials, and hides 
+credentials on retrieval
+
+    MongooseError: Can't call `openUri()` 
+on an active connection with different 
+connection strings. Make sure you aren't 
+calling `mongoose.connect()` multiple 
+times. See: https://mongoosejs.com/docs/con
+nections.html#multiple_connections
+
+    [0m [90m 23 |[39m
+     [90m 24 |[39m 
+beforeAll([36masync[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 25 |[39m    
+ [36mawait[39m mongoose[33m.[39mconnect
+([32m'mongodb://127.0.0.1:27017/campusway_
+test_api'[39m)[33m;[39m
+     [90m    |[39m                    
+[31m[1m^[22m[39m
+     [90m 26 |[39m     process[33m.[39m
+env[33m.[39m[33mCREDENTIAL_ENCRYPTION_KE
+Y[39m [33m=[39m [32m'test-key-32-bytes-
+00000000000000'[39m[33m;[39m
+     [90m 27 |[39m })[33m;[39m
+     [90m 28 |[39m[0m
+
+      at NativeConnection.createClient (nod
+e_modules/mongoose/lib/drivers/node-mongodb
+-native/connection.js:251:13)
+      at NativeConnection.openUri (node_mod
+ules/mongoose/lib/connection.js:1075:34)
+      at Mongoose.connect (node_modules/mon
+goose/lib/mongoose.js:450:15)
+      at Object.<anonymous> (tests/admin/ad
+minProviderRoutes.test.ts:25:20)
+
+  ÔùÅ Admin Provider Routes ÔÇ║ toggles 
+provider active state successfully
+
+    MongooseError: Can't call `openUri()` 
+on an active connection with different 
+connection strings. Make sure you aren't 
+calling `mongoose.connect()` multiple 
+times. See: https://mongoosejs.com/docs/con
+nections.html#multiple_connections
+
+    [0m [90m 23 |[39m
+     [90m 24 |[39m 
+beforeAll([36masync[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 25 |[39m    
+ [36mawait[39m mongoose[33m.[39mconnect
+([32m'mongodb://127.0.0.1:27017/campusway_
+test_api'[39m)[33m;[39m
+     [90m    |[39m                    
+[31m[1m^[22m[39m
+     [90m 26 |[39m     process[33m.[39m
+env[33m.[39m[33mCREDENTIAL_ENCRYPTION_KE
+Y[39m [33m=[39m [32m'test-key-32-bytes-
+00000000000000'[39m[33m;[39m
+     [90m 27 |[39m })[33m;[39m
+     [90m 28 |[39m[0m
+
+      at NativeConnection.createClient (nod
+e_modules/mongoose/lib/drivers/node-mongodb
+-native/connection.js:251:13)
+      at NativeConnection.openUri (node_mod
+ules/mongoose/lib/connection.js:1075:34)
+      at Mongoose.connect (node_modules/mon
+goose/lib/mongoose.js:450:15)
+      at Object.<anonymous> (tests/admin/ad
+minProviderRoutes.test.ts:25:20)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 2 total
+Snapshots:   0 total
+Time:        48.217 s, estimated 71 s
+Ran all test suites matching /tests\\admin\
+\adminProviderRoutes.test.ts/i.
+Jest did not exit one second after the 
+test run has completed.
+
+'This usually means that there are 
+asynchronous operations that weren't 
+stopped in your tests. Consider running 
+Jest with `--detectOpenHandles` to 
+troubleshoot this issue.

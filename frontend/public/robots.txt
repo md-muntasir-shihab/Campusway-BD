@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /__cw_admin__/
+Disallow: /admin/

@@ -1,0 +1,191 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CampusWay News System V2 API",
+    "version": "1.0.0",
+    "description": "Additive admin/public contracts for News V2 (RSS + AI drafting + moderation + media + share + audit)."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/admin/news-v2/dashboard": {
+      "get": {
+        "summary": "News V2 dashboard cards and latest fetch jobs"
+      }
+    },
+    "/admin/news-v2/fetch-now": {
+      "post": {
+        "summary": "Trigger manual RSS fetch"
+      }
+    },
+    "/admin/news-v2/items": {
+      "get": {
+        "summary": "List news items with workflow filters"
+      },
+      "post": {
+        "summary": "Create manual news item"
+      }
+    },
+    "/admin/news-v2/items/{id}": {
+      "get": {
+        "summary": "Get single news item"
+      },
+      "put": {
+        "summary": "Update news item"
+      }
+    },
+    "/admin/news-v2/items/{id}/submit-review": {
+      "post": {
+        "summary": "Submit draft for review"
+      }
+    },
+    "/admin/news-v2/items/{id}/approve": {
+      "post": {
+        "summary": "Approve pending item"
+      }
+    },
+    "/admin/news-v2/items/{id}/reject": {
+      "post": {
+        "summary": "Reject item with reason"
+      }
+    },
+    "/admin/news-v2/items/{id}/publish-now": {
+      "post": {
+        "summary": "Publish immediately"
+      }
+    },
+    "/admin/news-v2/items/{id}/schedule": {
+      "post": {
+        "summary": "Schedule publish date-time"
+      }
+    },
+    "/admin/news-v2/items/bulk-approve": {
+      "post": {
+        "summary": "Bulk approve by ids"
+      }
+    },
+    "/admin/news-v2/items/bulk-reject": {
+      "post": {
+        "summary": "Bulk reject by ids"
+      }
+    },
+    "/admin/news-v2/sources": {
+      "get": {
+        "summary": "List RSS sources"
+      },
+      "post": {
+        "summary": "Create RSS source"
+      }
+    },
+    "/admin/news-v2/sources/{id}": {
+      "put": {
+        "summary": "Update RSS source"
+      },
+      "delete": {
+        "summary": "Delete RSS source"
+      }
+    },
+    "/admin/news-v2/sources/{id}/test": {
+      "post": {
+        "summary": "Test RSS source parsing"
+      }
+    },
+    "/admin/news-v2/sources/reorder": {
+      "post": {
+        "summary": "Reorder RSS sources"
+      }
+    },
+    "/admin/news-v2/settings/appearance": {
+      "get": {
+        "summary": "Get public appearance settings"
+      },
+      "put": {
+        "summary": "Update public appearance settings"
+      }
+    },
+    "/admin/news-v2/settings/ai": {
+      "get": {
+        "summary": "Get AI drafting settings"
+      },
+      "put": {
+        "summary": "Update AI drafting settings"
+      }
+    },
+    "/admin/news-v2/settings/share": {
+      "get": {
+        "summary": "Get share template settings"
+      },
+      "put": {
+        "summary": "Update share template settings"
+      }
+    },
+    "/admin/news-v2/media": {
+      "get": {
+        "summary": "List media library items"
+      }
+    },
+    "/admin/news-v2/media/upload": {
+      "post": {
+        "summary": "Upload media file"
+      }
+    },
+    "/admin/news-v2/media/from-url": {
+      "post": {
+        "summary": "Create media item from external URL"
+      }
+    },
+    "/admin/news-v2/media/{id}": {
+      "delete": {
+        "summary": "Delete media item"
+      }
+    },
+    "/admin/news-v2/exports/news": {
+      "get": {
+        "summary": "Export news records (csv/xlsx)"
+      }
+    },
+    "/admin/news-v2/exports/sources": {
+      "get": {
+        "summary": "Export source records (csv/xlsx)"
+      }
+    },
+    "/admin/news-v2/exports/logs": {
+      "get": {
+        "summary": "Export audit logs (csv/xlsx)"
+      }
+    },
+    "/admin/news-v2/audit-logs": {
+      "get": {
+        "summary": "List News V2 audit events"
+      }
+    },
+    "/news-v2/list": {
+      "get": {
+        "summary": "Public published news list"
+      }
+    },
+    "/news-v2/{slug}": {
+      "get": {
+        "summary": "Public news detail by slug"
+      }
+    },
+    "/news-v2/config/appearance": {
+      "get": {
+        "summary": "Public appearance config"
+      }
+    },
+    "/news-v2/widgets": {
+      "get": {
+        "summary": "Public widgets (trending/categories)"
+      }
+    },
+    "/news-v2/share/track": {
+      "post": {
+        "summary": "Track public share action"
+      }
+    }
+  }
+}

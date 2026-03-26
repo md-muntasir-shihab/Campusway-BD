@@ -1,0 +1,105 @@
+═══════════════════════════════════════════════════
+  CAMPUSWAY EXAM MODULE — RUN CHECKLIST
+═══════════════════════════════════════════════════
+
+BACKEND SETUP
+[ ] Start API server: cd backend && npm run dev
+[ ] Verify MongoDB connection in console logs
+[ ] Verify "Modern exam cron started" in logs
+
+SEED DATA
+[ ] Create student user (profileScore >= 70)
+[ ] Create admin user (role: admin)
+[ ] Create live exam with future window
+[ ] Add 3+ questions to exam (correctKey: B)
+
+STUDENT API — ACCESS GATING
+[ ] GET /api/exams — returns exam list with filters
+[ ] GET /api/exams/:examId — returns exam detail + access payload
+[ ] Verify accessStatus: "allowed" for eligible user
+[ ] Verify PROFILE_BELOW_70 when user profileScore < 70
+[ ] Verify EXAM_NOT_IN_WINDOW when outside schedule
+[ ] Verify PAYMENT_PENDING when paymentRequired + no payment
+[ ] Verify SUBSCRIPTION_REQUIRED when needed + none active
+[ ] Verify ATTEMPT_LIMIT_REACHED after max attempts
+
+STUDENT API — SESSION LIFECYCLE
+[ ] POST /sessions/start — returns sessionId, expiresAtUTC
+[ ] GET /sessions/:id/questions — returns ordered questions + empty answers
+[ ] POST /sessions/:id/answers — saves answer, returns updated[]
+[ ] Verify answer changeCount increments on value change
+[ ] Verify answer change limit enforcement (skip when exceeded)
+[ ] POST /sessions/:id/submit — returns submittedAtUTC
+[ ] Verify submit is idempotent (same timestamp on re-submit)
+[ ] Verify ResultModel created with correct counts
+
+STUDENT API — SCORING
+[ ] Verify correctCount, wrongCount, skippedCount
+[ ] Verify obtainedMarks = sum of correct marks
+[ ] Verify negative marking deduction when enabled
+[ ] Verify obtainedMarks can be negative
+
+STUDENT API — RESULT / SOLUTIONS
+[ ] GET /sessions/:id/result — locked before publishAtUTC
+[ ] GET /sessions/:id/result — published after publishAtUTC
+[ ] GET /sessions/:id/solutions — gated by solutionReleaseRule
+
+PDF ENDPOINTS
+[ ] GET /pdf/questions — returns PDF stream
+[ ] GET /pdf/solutions — returns PDF stream
+[ ] GET /sessions/:id/pdf/answers — returns PDF stream
+
+RATE LIMITERS
+[ ] POST /sessions/start — blocked after 5 requests/min
+[ ] POST /sessions/:id/answers — blocked after 30 requests/min
+[ ] POST /sessions/:id/submit — blocked after 3 requests/min
+
+AUTO-SUBMIT CRON
+[ ] Create session, let it expire (past expiresAtUTC)
+[ ] Wait for cron tick (1 min)
+[ ] Verify session.status changed to "submitted"
+[ ] Verify ResultModel created
+
+ADMIN API
+[ ] GET /api/admin/exams — list exams
+[ ] POST /api/admin/exams — create exam
+[ ] PATCH /api/admin/exams/:id — update exam
+[ ] DELETE /api/admin/exams/:id — delete exam
+[ ] GET /api/admin/exams/:id/questions — list questions
+[ ] POST /api/admin/exams/:id/questions — create question
+[ ] PATCH /api/admin/exams/:id/questions/:qid — update question
+[ ] DELETE /api/admin/exams/:id/questions/:qid — delete question
+[ ] POST /import-preview — preview XLSX import
+[ ] POST /import-commit — commit imported questions
+[ ] GET /api/admin/exams/:id/results — list results
+[ ] POST /results/publish — publish results
+[ ] POST /results/reset-attempt — reset student attempt
+[ ] GET /api/admin/payments — list payments
+[ ] POST /payments/:id/verify — verify payment
+
+FRONTEND — STUDENT PAGES
+[ ] /exams — page header, stagger animations, search, filters
+[ ] /exams — status badge overlay on cards, image hover zoom
+[ ] /exam/:id — timer urgency colors (red <60s, yellow <300s)
+[ ] /exam/:id — progress bar gradient below sticky header
+[ ] /exam/:id — circle radio option indicators
+[ ] /exam/:id — submit modal with AnimatePresence
+[ ] /exam/:id/result — ScoreRing SVG donut animation
+[ ] /exam/:id/result — colored stat cards, celebration header
+[ ] /exam/:id/solutions — progress summary bar, count badges
+[ ] /exam/:id/solutions — colored left border stripes, status icons
+
+FRONTEND — ADMIN PANEL
+[ ] /__cw_admin__/exams — list tab with search + exam cards
+[ ] /__cw_admin__/exams — create tab with 3-section form
+[ ] /__cw_admin__/exams — edit tab pre-fills selected exam
+[ ] /__cw_admin__/exams — questions tab with form + list
+[ ] /__cw_admin__/exams — results tab with table + publish
+[ ] /__cw_admin__/exams — payments tab with verify
+
+JEST TESTS
+[ ] cd backend && npx jest tests/exams/exam.contract.test.ts
+[ ] All 11 tests pass
+[ ] Access gating (4 tests)
+[ ] Session lifecycle (4 tests)
+[ ] Submit & results (3 tests)

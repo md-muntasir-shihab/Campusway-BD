@@ -1,0 +1,1 @@
+export const SiteSettingsPage = () => <div><h2 className="text-xl font-semibold">Site Settings</h2><p className="text-sm text-muted">Use API endpoints /api/admin/settings/site for full editor integration.</p></div>;

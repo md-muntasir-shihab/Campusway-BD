@@ -1,0 +1,39 @@
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Local instructions and IDE settings
+AGENTS.md
+.claude/
+
+# Local databases and runtime data
+.local-mongo/
+.mongo-local/
+backend/public/uploads/
+backend/backup-snapshots/
+
+# Build output
+backend/dist/
+frontend/dist/
+frontend-next/.next/
+*.tsbuildinfo
+
+# Logs
+*.log
+*.err.log
+*.out.log
+
+# Test and QA artifacts
+qa-artifacts/
+playwright-report/
+test-results/
+frontend/playwright-*-results.json
+TXT Files/
+
+# Local exports and scratch files
+Documents/Files/

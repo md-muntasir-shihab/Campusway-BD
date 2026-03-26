@@ -1,0 +1,6 @@
+student_phone,score,total_marks,percentage,rank,pass_fail,exam_center
++8801711111111,85,100,85,1,Pass,Dhaka Center
++8801711111112,72,100,72,2,Pass,Chattogram Center
++8801711111113,65,100,65,3,Pass,Sylhet Center
++8801711111114,55,100,55,4,Fail,Dhaka Center
++8801711111115,45,100,45,5,Fail,Chattogram Center

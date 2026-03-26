@@ -1,0 +1,5 @@
+﻿
+Running 4 tests using 1 worker
+
+  Ô£ÿ  1 [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:9:5 ÔÇ║ Communication Hub ÔÇ║ should navigate to Communication Hub and load all panels (49.7s)
+  Ô£ÿ  2 [chromium-desktop] ÔÇ║ e2e\campaignHub.spec.ts:30:5 ÔÇ║ Communication Hub ÔÇ║ should allow interacting with Export Center options (1.0m)

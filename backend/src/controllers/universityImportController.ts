@@ -1,0 +1,767 @@
+import { Request, Response } from 'express';
+import mongoose from 'mongoose';
+import XLSX from 'xlsx';
+import slugify from 'slugify';
+import University from '../models/University';
+import UniversityCategory from '../models/UniversityCategory';
+import UniversityCluster from '../models/UniversityCluster';
+import UniversityImportJob from '../models/UniversityImportJob';
+import { broadcastHomeStreamEvent } from '../realtime/homeStream';
+import {
+    backfillUniversityTaxonomyIfNeeded,
+    ensureUniversityCategoryByName,
+    ensureUniversityClusterByName,
+    normalizeExamCenters,
+    normalizeUniversityImportRow,
+    reconcileUniversityClusterAssignments,
+    syncManualClusterMembership,
+} from '../services/universitySyncService';
+
+const TARGET_FIELDS = [
+    'category',
+    'clusterGroup',
+    'name',
+    'shortForm',
+    'shortDescription',
+    'description',
+    'establishedYear',
+    'address',
+    'contactNumber',
+    'email',
+    'websiteUrl',
+    'admissionUrl',
+    'totalSeats',
+    'seatsScienceEng',
+    'seatsArtsHum',
+    'seatsBusiness',
+    'applicationStartDate',
+    'applicationEndDate',
+    'examDateScience',
+    'examDateArts',
+    'examDateBusiness',
+    'examCenters',
+    'logoUrl',
+    'isActive',
+    'featured',
+    'featuredOrder',
+    'categorySyncLocked',
+    'clusterSyncLocked',
+    'verificationStatus',
+    'remarks',
+    'slug',
+] as const;
+
+const TEMPLATE_HEADERS = [...TARGET_FIELDS];
+type TargetField = typeof TARGET_FIELDS[number];
+
+type ValidationResult = {
+    normalizedRows: Record<string, unknown>[];
+    failedRows: Array<{ rowNumber: number; reason: string; payload?: Record<string, unknown> }>;
+    duplicateRows: number[];
+};
+
+const FIELD_HEADER_ALIASES: Record<TargetField, string[]> = {
+    category: ['category', 'Category'],
+    clusterGroup: ['clusterGroup', 'cluster', 'Cluster'],
+    name: ['name', 'Name', 'university', 'University Name'],
+    shortForm: ['shortForm', 'short form', 'short_name', 'short name', 'Short Form'],
+    shortDescription: ['shortDescription', 'short description', 'Short Description'],
+    description: ['description', 'Description'],
+    establishedYear: ['establishedYear', 'established', 'Established', 'established year'],
+    address: ['address', 'Address'],
+    contactNumber: ['contactNumber', 'contact', 'Contact', 'phone', 'Phone'],
+    email: ['email', 'Email'],
+    websiteUrl: ['websiteUrl', 'website', 'Website'],
+    admissionUrl: ['admissionUrl', 'admissionWebsite', 'admission site', 'Admission Site', 'Admission Website'],
+    totalSeats: ['totalSeats', 'total seats', 'Total Seats'],
+    seatsScienceEng: ['seatsScienceEng', 'scienceSeats', 'science seats', 'Science Seats'],
+    seatsArtsHum: ['seatsArtsHum', 'artsSeats', 'arts seats', 'Arts Seats'],
+    seatsBusiness: ['seatsBusiness', 'businessSeats', 'business seats', 'Business Seats'],
+    applicationStartDate: ['applicationStartDate', 'application start date', 'App Start', 'applicationStart', 'start date'],
+    applicationEndDate: ['applicationEndDate', 'application end date', 'App End', 'applicationEnd', 'deadline'],
+    examDateScience: ['examDateScience', 'scienceExamDate', 'Science Exam', 'science exam'],
+    examDateArts: ['examDateArts', 'artsExamDate', 'Arts Exam', 'arts exam'],
+    examDateBusiness: ['examDateBusiness', 'businessExamDate', 'Business Exam', 'business exam', 'commerceExamDate', 'Commerce Exam'],
+    examCenters: ['examCenters', 'exam centers', 'Exam Centers'],
+    logoUrl: ['logoUrl', 'logo', 'Logo'],
+    isActive: ['isActive', 'active', 'Active', 'status'],
+    featured: ['featured', 'Featured'],
+    featuredOrder: ['featuredOrder', 'featured order', 'Featured Order'],
+    categorySyncLocked: ['categorySyncLocked', 'category sync locked', 'Category Sync Locked'],
+    clusterSyncLocked: ['clusterSyncLocked', 'cluster sync locked', 'Cluster Sync Locked'],
+    verificationStatus: ['verificationStatus', 'verification status', 'Verification Status'],
+    remarks: ['remarks', 'Remarks', 'notes', 'Notes'],
+    slug: ['slug', 'Slug'],
+};
+
+function buildSlug(name: string): string {
+    const normalized = slugify(name || '', { lower: true, strict: true });
+    return normalized || `university-${Date.now()}`;
+}
+
+function normalizeHeaderKey(value: string): string {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+}
+
+function buildSuggestedMapping(headers: string[]): Record<string, string> {
+    const normalizedHeaderMap = new Map<string, string>();
+    headers.forEach((header) => {
+        const normalized = normalizeHeaderKey(header);
+        if (!normalized || normalizedHeaderMap.has(normalized)) return;
+        normalizedHeaderMap.set(normalized, header);
+    });
+
+    return TARGET_FIELDS.reduce<Record<string, string>>((acc, field) => {
+        const candidates = [field, ...(FIELD_HEADER_ALIASES[field] || [])]
+            .map((entry) => normalizeHeaderKey(entry))
+            .filter(Boolean);
+        const match = candidates.find((candidate) => normalizedHeaderMap.has(candidate));
+        if (match) {
+            acc[field] = String(normalizedHeaderMap.get(match));
+        }
+        return acc;
+    }, {});
+}
+
+function escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function csvEscape(value: unknown): string {
+    const text = String(value ?? '');
+    if (text.includes('"') || text.includes(',') || text.includes('\n')) return `"${text.replace(/"/g, '""')}"`;
+    return text;
+}
+
+function normalizeLooseOptionalText(value: unknown): string {
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+    const lowered = text.toLowerCase();
+    if (['n/a', 'na', 'none', 'null', '-', '--'].includes(lowered)) return '';
+    return text;
+}
+
+function looksLikeEmail(value: string): boolean {
+    if (!value) return true;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function looksLikeUrl(value: string): boolean {
+    if (!value) return true;
+    try {
+        const candidate = value.startsWith('http') ? value : `https://${value}`;
+        // eslint-disable-next-line no-new
+        new URL(candidate);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function parseDate(raw: unknown): Date | null {
+    if (raw === undefined || raw === null || raw === '') return null;
+    if (raw instanceof Date) {
+        return Number.isNaN(raw.getTime()) ? null : raw;
+    }
+    const numericValue = typeof raw === 'number' ? raw : Number(String(raw));
+    if (Number.isFinite(numericValue)) {
+        const excelDate = XLSX.SSF.parse_date_code(numericValue);
+        if (excelDate) {
+            return new Date(
+                excelDate.y,
+                Math.max(0, excelDate.m - 1),
+                excelDate.d,
+                excelDate.H || 0,
+                excelDate.M || 0,
+                Math.floor(excelDate.S || 0),
+            );
+        }
+    }
+    const date = new Date(String(raw));
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
+}
+
+function normalizeShortForm(name: string, shortForm: string): string {
+    const candidate = shortForm.trim();
+    if (candidate) return candidate.toUpperCase();
+    return name
+        .split(' ')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 8);
+}
+
+function normalizeValue(rawRow: Record<string, unknown>, mapping: Record<string, string>, defaults: Record<string, unknown>, field: TargetField): unknown {
+    const mappedHeader = mapping[field];
+    if (mappedHeader && rawRow[mappedHeader] !== undefined && rawRow[mappedHeader] !== null && rawRow[mappedHeader] !== '') return rawRow[mappedHeader];
+    if (defaults[field] !== undefined) return defaults[field];
+    return '';
+}
+
+function validateAndNormalizeRows(rows: Record<string, unknown>[], mapping: Record<string, string>, defaults: Record<string, unknown>): ValidationResult {
+    const normalizedRows: Record<string, unknown>[] = [];
+    const failedRows: Array<{ rowNumber: number; reason: string; payload?: Record<string, unknown> }> = [];
+    const duplicateRows: number[] = [];
+
+    const fileKeySeen = new Set<string>();
+    const admissionKeySeen = new Set<string>();
+
+    rows.forEach((row, index) => {
+        const rowNumber = index + 2;
+        const rawNormalized = TARGET_FIELDS.reduce<Record<string, unknown>>((acc, field) => {
+            acc[field] = normalizeValue(row, mapping, defaults, field);
+            return acc;
+        }, {});
+
+        const name = String(rawNormalized.name || '').trim();
+        const shortFormRaw = String(rawNormalized.shortForm || '').trim();
+        const shortForm = normalizeShortForm(name, shortFormRaw);
+        const category = String(rawNormalized.category || '').trim();
+        const clusterGroup = String(rawNormalized.clusterGroup || '').trim();
+        const email = normalizeLooseOptionalText(rawNormalized.email);
+        const websiteUrl = normalizeLooseOptionalText(rawNormalized.websiteUrl);
+        const admissionUrl = normalizeLooseOptionalText(rawNormalized.admissionUrl);
+        const requestedSlug = String(rawNormalized.slug || '').trim();
+        const appStartRaw = rawNormalized.applicationStartDate;
+        const appEndRaw = rawNormalized.applicationEndDate;
+        const appStartDate = parseDate(appStartRaw);
+        const appEndDate = parseDate(appEndRaw);
+
+        if (!name) {
+            failedRows.push({ rowNumber, reason: 'Name is required.', payload: row });
+            return;
+        }
+        if (!category) {
+            failedRows.push({ rowNumber, reason: 'Category is required.', payload: row });
+            return;
+        }
+        if (!looksLikeEmail(email)) {
+            failedRows.push({ rowNumber, reason: 'Invalid email format.', payload: row });
+            return;
+        }
+        if (!looksLikeUrl(websiteUrl)) {
+            failedRows.push({ rowNumber, reason: 'Invalid website URL.', payload: row });
+            return;
+        }
+        if (!looksLikeUrl(admissionUrl)) {
+            failedRows.push({ rowNumber, reason: 'Invalid admission URL.', payload: row });
+            return;
+        }
+        if (appStartRaw && !appStartDate) {
+            failedRows.push({ rowNumber, reason: 'Invalid application start date.', payload: row });
+            return;
+        }
+        if (appEndRaw && !appEndDate) {
+            failedRows.push({ rowNumber, reason: 'Invalid application end date.', payload: row });
+            return;
+        }
+
+        const fileKey = `${name.toLowerCase()}::${shortForm.toLowerCase()}`;
+        if (fileKeySeen.has(fileKey)) duplicateRows.push(rowNumber);
+        fileKeySeen.add(fileKey);
+        if (requestedSlug) {
+            const slugKey = requestedSlug.toLowerCase();
+            if (admissionKeySeen.has(slugKey)) duplicateRows.push(rowNumber);
+            admissionKeySeen.add(slugKey);
+        }
+
+        normalizedRows.push(normalizeUniversityImportRow({
+            ...rawNormalized,
+            rowNumber,
+            category,
+            clusterGroup,
+            name,
+            shortForm,
+            shortDescription: String(rawNormalized.shortDescription || '').trim(),
+            description: String(rawNormalized.description || '').trim(),
+            establishedYear: Number(rawNormalized.establishedYear || 0) || undefined,
+            address: String(rawNormalized.address || '').trim(),
+            contactNumber: String(rawNormalized.contactNumber || '').trim(),
+            email,
+            websiteUrl,
+            admissionUrl,
+            totalSeats: String(rawNormalized.totalSeats || 'N/A').trim() || 'N/A',
+            seatsScienceEng: String(rawNormalized.seatsScienceEng || 'N/A').trim() || 'N/A',
+            seatsArtsHum: String(rawNormalized.seatsArtsHum || 'N/A').trim() || 'N/A',
+            seatsBusiness: String(rawNormalized.seatsBusiness || 'N/A').trim() || 'N/A',
+            applicationStartDate: appStartDate,
+            applicationEndDate: appEndDate,
+            examDateScience: String(rawNormalized.examDateScience || '').trim(),
+            examDateArts: String(rawNormalized.examDateArts || '').trim(),
+            examDateBusiness: String(rawNormalized.examDateBusiness || '').trim(),
+            examCenters: normalizeExamCenters(rawNormalized.examCenters),
+            logoUrl: String(rawNormalized.logoUrl || '').trim(),
+            isActive: rawNormalized.isActive,
+            featured: rawNormalized.featured,
+            featuredOrder: Number(rawNormalized.featuredOrder || 0) || 0,
+            categorySyncLocked: rawNormalized.categorySyncLocked,
+            clusterSyncLocked: rawNormalized.clusterSyncLocked,
+            verificationStatus: String(rawNormalized.verificationStatus || '').trim(),
+            remarks: String(rawNormalized.remarks || '').trim(),
+            slug: requestedSlug,
+        }));
+    });
+
+    return { normalizedRows, failedRows, duplicateRows: Array.from(new Set(duplicateRows)).sort((a, b) => a - b) };
+}
+
+export async function adminInitUniversityImport(req: Request, res: Response): Promise<void> {
+    try {
+        if (!req.file) { res.status(400).json({ message: 'No file uploaded.' }); return; }
+        const filename = String(req.file.originalname || 'import').toLowerCase();
+        if (!filename.endsWith('.csv') && !filename.endsWith('.xlsx') && !filename.endsWith('.xls')) {
+            res.status(400).json({ message: 'Only CSV/XLSX files are supported.' });
+            return;
+        }
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+        if (rows.length === 0) { res.status(400).json({ message: 'Import file is empty.' }); return; }
+
+        const headers = Object.keys(rows[0] || {});
+        const job = await UniversityImportJob.create({
+            status: 'initialized',
+            sourceFileName: req.file.originalname || 'import',
+            mimeType: req.file.mimetype || '',
+            createdBy: (req as Request & { user?: { _id?: string } }).user?._id || null,
+            headers,
+            sampleRows: rows.slice(0, 50),
+            rawRows: rows,
+            normalizedRows: [],
+            mapping: {},
+            defaults: {},
+            failedRows: [],
+        });
+
+        res.status(201).json({
+            importJobId: String(job._id),
+            headers,
+            sampleRows: rows.slice(0, 20),
+            targetFields: TARGET_FIELDS,
+            suggestedMapping: buildSuggestedMapping(headers),
+        });
+    } catch (err) {
+        console.error('adminInitUniversityImport error:', err);
+        res.status(500).json({ message: 'Failed to initialize import.' });
+    }
+}
+
+export async function adminValidateUniversityImport(req: Request, res: Response): Promise<void> {
+    try {
+        await backfillUniversityTaxonomyIfNeeded();
+        const job = await UniversityImportJob.findById(req.params.jobId);
+        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
+
+        const mapping = (req.body?.mapping || {}) as Record<string, string>;
+        const defaults = (req.body?.defaults || {}) as Record<string, unknown>;
+        const { normalizedRows, failedRows, duplicateRows } = validateAndNormalizeRows(
+            (job.rawRows || []) as Record<string, unknown>[],
+            mapping,
+            defaults,
+        );
+
+        const existingUniversities = await University.find({})
+            .select('name shortForm slug')
+            .lean();
+        const existingByNameShort = new Set(
+            existingUniversities.map((item) => `${String(item.name || '').trim().toLowerCase()}::${String(item.shortForm || '').trim().toLowerCase()}`),
+        );
+        const existingBySlug = new Set(
+            existingUniversities
+                .map((item) => String(item.slug || '').trim().toLowerCase())
+                .filter(Boolean),
+        );
+        const dbDuplicates = normalizedRows
+            .filter((row) => {
+                const fileKey = `${String(row.name || '').trim().toLowerCase()}::${String(row.shortForm || '').trim().toLowerCase()}`;
+                const slugKey = String(row.slug || '').trim().toLowerCase();
+                return existingByNameShort.has(fileKey) || Boolean(slugKey && existingBySlug.has(slugKey));
+            })
+            .map((row) => Number(row.rowNumber || 0));
+
+        job.mapping = mapping;
+        job.defaults = defaults;
+        job.normalizedRows = normalizedRows;
+        job.failedRows = failedRows;
+        job.validationSummary = {
+            totalRows: (job.rawRows || []).length,
+            validRows: normalizedRows.length,
+            invalidRows: failedRows.length,
+        };
+        job.status = 'validated';
+        await job.save();
+
+        res.json({
+            importJobId: String(job._id),
+            validationSummary: job.validationSummary,
+            failedRows: failedRows.slice(0, 200),
+            failedRowCount: failedRows.length,
+            warnings: duplicateRows.length > 0 || dbDuplicates.length > 0
+                ? ['Duplicate university rows were detected in the file or existing database records.']
+                : [],
+            duplicates: {
+                inFile: duplicateRows,
+                inDatabase: Array.from(new Set(dbDuplicates)).filter(Boolean).sort((a, b) => a - b),
+            },
+        });
+    } catch (err) {
+        console.error('adminValidateUniversityImport error:', err);
+        res.status(500).json({ message: 'Failed to validate import.' });
+    }
+}
+
+export async function adminCommitUniversityImport(req: Request, res: Response): Promise<void> {
+    try {
+        await backfillUniversityTaxonomyIfNeeded();
+        const job = await UniversityImportJob.findById(req.params.jobId);
+        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
+        if (job.status !== 'validated') { res.status(400).json({ message: 'Run validation before committing import.' }); return; }
+
+        const mode = String(req.body?.mode || 'update-existing').toLowerCase() === 'create-only' ? 'create-only' : 'update-existing';
+        const rows = (job.normalizedRows || []) as Array<Record<string, unknown>>;
+        const actorId = (req as Request & { user?: { _id?: string } }).user?._id || null;
+        let inserted = 0;
+        let updated = 0;
+        const failedRows = [...(job.failedRows || [])];
+        const warnings = new Set<string>();
+
+        const categoryNames = Array.from(new Set(
+            rows.map((row) => String(row.category || '').trim()).filter(Boolean),
+        ));
+        const clusterNames = Array.from(new Set(
+            rows.map((row) => String(row.clusterGroup || '').trim()).filter(Boolean),
+        ));
+
+        const existingCategories = await UniversityCategory.find({ name: { $in: categoryNames } }).select('_id name').lean() as Array<{ _id: mongoose.Types.ObjectId; name: string }>;
+        const existingClusters = await UniversityCluster.find({ name: { $in: clusterNames } }).select('_id name').lean() as Array<{ _id: mongoose.Types.ObjectId; name: string }>;
+        const categoryMap = new Map<string, { _id: mongoose.Types.ObjectId; name: string }>(
+            existingCategories.map((item) => [String(item.name || '').trim(), item]),
+        );
+        const clusterMap = new Map<string, { _id: mongoose.Types.ObjectId; name: string }>(
+            existingClusters.map((item) => [String(item.name || '').trim(), item]),
+        );
+        const createdCategoryNames = new Set<string>();
+        const createdClusterNames = new Set<string>();
+
+        for (const categoryName of categoryNames) {
+            if (categoryMap.has(categoryName)) continue;
+            const created = await ensureUniversityCategoryByName(categoryName);
+            categoryMap.set(categoryName, created);
+            createdCategoryNames.add(categoryName);
+        }
+        for (const clusterName of clusterNames) {
+            if (clusterMap.has(clusterName)) continue;
+            const created = await ensureUniversityClusterByName(clusterName);
+            clusterMap.set(clusterName, created);
+            createdClusterNames.add(clusterName);
+        }
+
+        const existingUniversities = await University.find({})
+            .select('_id name shortForm slug')
+            .lean();
+        const existingByNameShort = new Map<string, { _id: mongoose.Types.ObjectId; slug?: string }>();
+        const existingBySlug = new Map<string, { _id: mongoose.Types.ObjectId; slug?: string }>();
+        const slugOwnerMap = new Map<string, string>();
+
+        existingUniversities.forEach((item) => {
+            const key = `${String(item.name || '').trim().toLowerCase()}::${String(item.shortForm || '').trim().toLowerCase()}`;
+            if (key) existingByNameShort.set(key, { _id: item._id, slug: String(item.slug || '') });
+            const slug = String(item.slug || '').trim().toLowerCase();
+            if (slug) {
+                existingBySlug.set(slug, { _id: item._id, slug: String(item.slug || '') });
+                slugOwnerMap.set(slug, String(item._id));
+            }
+        });
+
+        const bulkOps: Array<Record<string, unknown>> = [];
+        const clusterAssignments = new Map<string, string[]>();
+        const clearClusterAssignments: string[] = [];
+
+        const reserveUniqueSlug = (requested: string, ownerId?: string): string => {
+            const seed = requested || `university-${Date.now()}`;
+            const normalizedSeed = buildSlug(seed);
+            let candidate = normalizedSeed;
+            let suffix = 1;
+            while (true) {
+                const owner = slugOwnerMap.get(candidate.toLowerCase());
+                if (!owner || (ownerId && owner === ownerId)) {
+                    slugOwnerMap.set(candidate.toLowerCase(), ownerId || '__pending__');
+                    return candidate;
+                }
+                candidate = `${normalizedSeed}-${suffix}`;
+                suffix += 1;
+            }
+        };
+
+        for (const row of rows) {
+            try {
+                const normalized = normalizeUniversityImportRow(row as Record<string, unknown>);
+                const name = String(normalized.name || '').trim();
+                const shortForm = String(normalized.shortForm || '').trim();
+                const admissionUrl = normalizeLooseOptionalText(normalized.admissionUrl);
+                const requestedSlugKey = String(normalized.slug || '').trim().toLowerCase();
+                const lookupKey = `${name.toLowerCase()}::${shortForm.toLowerCase()}`;
+                const existing = (requestedSlugKey ? existingBySlug.get(requestedSlugKey) : undefined)
+                    || existingByNameShort.get(lookupKey);
+
+                if (existing && mode === 'create-only') {
+                    failedRows.push({ rowNumber: Number(normalized.rowNumber || 0), reason: 'Duplicate existing row (create-only mode).', payload: row });
+                    continue;
+                }
+
+                const categoryName = String(normalized.category || '').trim();
+                const clusterName = String(normalized.clusterGroup || '').trim();
+                const categoryDoc = categoryName ? categoryMap.get(categoryName) : null;
+                const clusterDoc = clusterName ? clusterMap.get(clusterName) : null;
+                const existingId = existing ? String(existing._id) : '';
+                const requestedSlug = String(normalized.slug || '').trim();
+                const slug = reserveUniqueSlug(requestedSlug || (existing?.slug || buildSlug(name)), existingId || undefined);
+                if (requestedSlug && slug !== requestedSlug) {
+                    warnings.add(`Some imported slugs were adjusted to keep them unique. Example: ${requestedSlug} -> ${slug}`);
+                }
+
+                const payload = {
+                    name,
+                    shortForm,
+                    category: categoryName,
+                    categoryId: categoryDoc ? categoryDoc._id : null,
+                    clusterId: clusterDoc ? clusterDoc._id : null,
+                    clusterName: clusterDoc ? clusterDoc.name : '',
+                    clusterGroup: clusterDoc ? clusterDoc.name : '',
+                    shortDescription: String(normalized.shortDescription || '').trim(),
+                    description: String(normalized.description || '').trim(),
+                    applicationStartDate: normalized.applicationStartDate || null,
+                    applicationEndDate: normalized.applicationEndDate || null,
+                    scienceExamDate: String(normalized.examDateScience || normalized.scienceExamDate || '').trim(),
+                    examDateScience: String(normalized.examDateScience || normalized.scienceExamDate || '').trim(),
+                    artsExamDate: String(normalized.examDateArts || normalized.artsExamDate || '').trim(),
+                    examDateArts: String(normalized.examDateArts || normalized.artsExamDate || '').trim(),
+                    businessExamDate: String(normalized.examDateBusiness || normalized.businessExamDate || '').trim(),
+                    examDateBusiness: String(normalized.examDateBusiness || normalized.businessExamDate || '').trim(),
+                    examCenters: normalizeExamCenters(normalized.examCenters),
+                    contactNumber: String(normalized.contactNumber || '').trim(),
+                    address: String(normalized.address || '').trim(),
+                    email: String(normalized.email || '').trim(),
+                    website: String(normalized.websiteUrl || '').trim(),
+                    websiteUrl: String(normalized.websiteUrl || '').trim(),
+                    admissionWebsite: admissionUrl,
+                    admissionUrl,
+                    established: normalized.establishedYear ? Number(normalized.establishedYear) : undefined,
+                    establishedYear: normalized.establishedYear ? Number(normalized.establishedYear) : undefined,
+                    totalSeats: String(normalized.totalSeats || 'N/A').trim() || 'N/A',
+                    scienceSeats: String(normalized.seatsScienceEng || 'N/A').trim() || 'N/A',
+                    seatsScienceEng: String(normalized.seatsScienceEng || 'N/A').trim() || 'N/A',
+                    artsSeats: String(normalized.seatsArtsHum || 'N/A').trim() || 'N/A',
+                    seatsArtsHum: String(normalized.seatsArtsHum || 'N/A').trim() || 'N/A',
+                    businessSeats: String(normalized.seatsBusiness || 'N/A').trim() || 'N/A',
+                    seatsBusiness: String(normalized.seatsBusiness || 'N/A').trim() || 'N/A',
+                    logoUrl: String(normalized.logoUrl || '').trim(),
+                    isActive: Boolean(normalized.isActive !== false),
+                    featured: Boolean(normalized.featured),
+                    featuredOrder: Number(normalized.featuredOrder || 0) || 0,
+                    categorySyncLocked: Boolean(normalized.categorySyncLocked),
+                    clusterSyncLocked: Boolean(normalized.clusterSyncLocked),
+                    verificationStatus: String(normalized.verificationStatus || 'Pending').trim() || 'Pending',
+                    remarks: String(normalized.remarks || '').trim(),
+                    slug,
+                    isArchived: false,
+                    archivedAt: null,
+                    archivedBy: null,
+                };
+
+                let universityId = existingId;
+                if (existing) {
+                    bulkOps.push({
+                        updateOne: {
+                            filter: { _id: existing._id },
+                            update: { $set: payload },
+                        },
+                    });
+                    updated += 1;
+                } else {
+                    const newId = new mongoose.Types.ObjectId();
+                    universityId = String(newId);
+                    bulkOps.push({
+                        insertOne: {
+                            document: {
+                                _id: newId,
+                                ...payload,
+                            },
+                        },
+                    });
+                    inserted += 1;
+                }
+
+                existingByNameShort.set(lookupKey, { _id: new mongoose.Types.ObjectId(universityId), slug });
+                if (slug) {
+                    existingBySlug.set(slug.toLowerCase(), { _id: new mongoose.Types.ObjectId(universityId), slug });
+                }
+
+                if (clusterDoc) {
+                    const current = clusterAssignments.get(String(clusterDoc._id)) || [];
+                    current.push(universityId);
+                    clusterAssignments.set(String(clusterDoc._id), current);
+                } else {
+                    clearClusterAssignments.push(universityId);
+                }
+            } catch (err: unknown) {
+                const reason = err instanceof Error ? err.message : 'Unknown commit error';
+                failedRows.push({ rowNumber: Number(row.rowNumber || 0), reason, payload: row });
+            }
+        }
+
+        if (bulkOps.length > 0) {
+            await University.bulkWrite(bulkOps as Parameters<typeof University.bulkWrite>[0]);
+        }
+
+        if (clearClusterAssignments.length > 0) {
+            await syncManualClusterMembership(clearClusterAssignments, null);
+        }
+        for (const [clusterId, universityIds] of clusterAssignments.entries()) {
+            await syncManualClusterMembership(Array.from(new Set(universityIds)), clusterId);
+        }
+
+        await reconcileUniversityClusterAssignments(actorId);
+
+        job.failedRows = failedRows;
+        job.commitSummary = {
+            inserted,
+            updated,
+            failed: failedRows.length,
+            createdCategories: createdCategoryNames.size,
+            createdClusters: createdClusterNames.size,
+            failedRowCount: failedRows.length,
+        };
+        job.status = failedRows.length > 0 ? 'failed' : 'committed';
+        await job.save();
+
+        broadcastHomeStreamEvent({
+            type: 'home-updated',
+            meta: { source: 'university_import', inserted, updated, failed: failedRows.length },
+        });
+
+        res.json({
+            importJobId: String(job._id),
+            commitSummary: job.commitSummary,
+            createdCategories: createdCategoryNames.size,
+            createdClusters: createdClusterNames.size,
+            failedRows: failedRows.slice(0, 200),
+            failedRowCount: failedRows.length,
+            warnings: Array.from(warnings),
+            message: `Import completed (${mode}). inserted=${inserted}, updated=${updated}, failed=${failedRows.length}`,
+        });
+    } catch (err) {
+        console.error('adminCommitUniversityImport error:', err);
+        res.status(500).json({ message: 'Failed to commit import.' });
+    }
+}
+
+export async function adminDownloadUniversityImportTemplate(req: Request, res: Response): Promise<void> {
+    try {
+        const format = String(req.query.format || 'xlsx').toLowerCase() === 'csv' ? 'csv' : 'xlsx';
+        const sampleRow: Record<string, string | number> = {
+            category: 'Science & Technology',
+            clusterGroup: 'GST-Science&Tech',
+            name: 'Dhaka Example University',
+            shortForm: 'DEU',
+            shortDescription: 'A sample public university for template preview.',
+            description: 'This row demonstrates the full import/export schema for universities.',
+            establishedYear: 1995,
+            address: 'Dhaka, Bangladesh',
+            contactNumber: '01700000000',
+            email: 'info@exampleuniversity.edu',
+            websiteUrl: 'https://exampleuniversity.edu',
+            admissionUrl: 'https://admission.exampleuniversity.edu',
+            totalSeats: 2500,
+            seatsScienceEng: 1200,
+            seatsArtsHum: 700,
+            seatsBusiness: 600,
+            applicationStartDate: '2026-05-01',
+            applicationEndDate: '2026-06-15',
+            examDateScience: '2026-07-10',
+            examDateArts: '2026-07-11',
+            examDateBusiness: '2026-07-12',
+            examCenters: 'Dhaka - BUET Campus | Chattogram - CUET Campus',
+            logoUrl: 'https://exampleuniversity.edu/logo.png',
+            isActive: 'true',
+            featured: 'false',
+            featuredOrder: 0,
+            categorySyncLocked: 'false',
+            clusterSyncLocked: 'false',
+            verificationStatus: 'Pending',
+            remarks: '',
+            slug: 'dhaka-example-university',
+        };
+        const blankRow: Record<string, string> = TEMPLATE_HEADERS.reduce((acc, key) => ({ ...acc, [key]: '' }), {});
+
+        if (format === 'csv') {
+            const rows = [sampleRow, blankRow];
+            const lines = rows.map((row) => TEMPLATE_HEADERS.map((header) => csvEscape(row[header])).join(','));
+            const csv = `${TEMPLATE_HEADERS.join(',')}\n${lines.join('\n')}`;
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename=university_import_template.csv');
+            res.send(csv);
+            return;
+        }
+
+        const worksheet = XLSX.utils.json_to_sheet([sampleRow, blankRow], { header: TEMPLATE_HEADERS });
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=template.xlsx');
+        res.send(buffer);
+    } catch (err) {
+        console.error('adminDownloadUniversityImportTemplate error:', err);
+        res.status(500).json({ message: 'Failed to download template.' });
+    }
+}
+
+export async function adminGetUniversityImportJob(req: Request, res: Response): Promise<void> {
+    try {
+        const job = await UniversityImportJob.findById(req.params.jobId).lean();
+        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
+        res.json({
+            importJobId: String(job._id),
+            status: job.status,
+            sourceFileName: job.sourceFileName,
+            headers: job.headers,
+            sampleRows: (job.sampleRows || []).slice(0, 20),
+            mapping: job.mapping || {},
+            defaults: job.defaults || {},
+            validationSummary: job.validationSummary || null,
+            commitSummary: job.commitSummary || null,
+            failedRows: (job.failedRows || []).slice(0, 200),
+            failedRowCount: (job.failedRows || []).length,
+            createdAt: job.createdAt,
+            updatedAt: job.updatedAt,
+        });
+    } catch (err) {
+        console.error('adminGetUniversityImportJob error:', err);
+        res.status(500).json({ message: 'Failed to get import status.' });
+    }
+}
+
+export async function adminDownloadUniversityImportErrors(req: Request, res: Response): Promise<void> {
+    try {
+        const job = await UniversityImportJob.findById(req.params.jobId).lean();
+        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
+        const failedRows = job.failedRows || [];
+        const headers = ['rowNumber', 'reason', 'payload'];
+        const lines = failedRows.map((item) => [item.rowNumber, item.reason, JSON.stringify(item.payload || {})].map(csvEscape).join(','));
+        const csv = `${headers.join(',')}\n${lines.join('\n')}`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename=university_import_errors_${String(job._id)}.csv`);
+        res.send(csv);
+    } catch (err) {
+        console.error('adminDownloadUniversityImportErrors error:', err);
+        res.status(500).json({ message: 'Failed to download import errors.' });
+    }
+}

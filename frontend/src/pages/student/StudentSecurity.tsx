@@ -1,0 +1,310 @@
+import { useEffect, useState } from 'react';
+import { AlertTriangle, KeyRound, Laptop2, MailCheck, ShieldCheck, Smartphone, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import {
+    beginTotpSetup,
+    changePassword,
+    confirmTotpSetup,
+    disableTwoFactor,
+    getMySecuritySessions,
+    logoutAllMySessions,
+    regenerateBackupCodes,
+    revokeMySecuritySession,
+    type SecuritySessionItem,
+} from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
+
+export default function StudentSecurity() {
+    const { user, refreshUser, logout } = useAuth();
+    const [sessions, setSessions] = useState<SecuritySessionItem[]>([]);
+    const [loadingSessions, setLoadingSessions] = useState(true);
+    const [passwordSaving, setPasswordSaving] = useState(false);
+    const [setupLoading, setSetupLoading] = useState(false);
+    const [verifyingSetup, setVerifyingSetup] = useState(false);
+    const [backupLoading, setBackupLoading] = useState(false);
+    const [disableLoading, setDisableLoading] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    const [twoFactorPassword, setTwoFactorPassword] = useState('');
+    const [setupCode, setSetupCode] = useState('');
+    const [setupData, setSetupData] = useState<{ secret: string; otpAuthUrl: string; backupCodes: string[] } | null>(null);
+
+    const loadSessions = async () => {
+        try {
+            setLoadingSessions(true);
+            const res = await getMySecuritySessions();
+            setSessions(res.data.sessions || []);
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to load sessions');
+        } finally {
+            setLoadingSessions(false);
+        }
+    };
+
+    useEffect(() => {
+        void loadSessions();
+    }, []);
+
+    const submitPasswordChange = async () => {
+        if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+            toast.error('Current password and new password are required');
+            return;
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            toast.error('Passwords do not match');
+            return;
+        }
+        try {
+            setPasswordSaving(true);
+            await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+            toast.success('Password changed successfully');
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            await logout();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to change password');
+        } finally {
+            setPasswordSaving(false);
+        }
+    };
+
+    const startAuthenticatorSetup = async () => {
+        if (!twoFactorPassword) {
+            toast.error('Enter your current password to start setup');
+            return;
+        }
+        try {
+            setSetupLoading(true);
+            const res = await beginTotpSetup(twoFactorPassword);
+            setSetupData(res.data);
+            toast.success('Authenticator setup started');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to start authenticator setup');
+        } finally {
+            setSetupLoading(false);
+        }
+    };
+
+    const completeAuthenticatorSetup = async () => {
+        if (!setupCode) {
+            toast.error('Enter the code from your authenticator app');
+            return;
+        }
+        try {
+            setVerifyingSetup(true);
+            await confirmTotpSetup(setupCode);
+            await refreshUser();
+            setSetupData(null);
+            setSetupCode('');
+            setTwoFactorPassword('');
+            toast.success('Two-factor authentication enabled');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Invalid authenticator code');
+        } finally {
+            setVerifyingSetup(false);
+        }
+    };
+
+    const regenerateCodes = async () => {
+        if (!twoFactorPassword) {
+            toast.error('Enter your current password to regenerate backup codes');
+            return;
+        }
+        try {
+            setBackupLoading(true);
+            const res = await regenerateBackupCodes(twoFactorPassword);
+            setSetupData((current) => ({
+                secret: current?.secret || '',
+                otpAuthUrl: current?.otpAuthUrl || '',
+                backupCodes: res.data.backupCodes || [],
+            }));
+            toast.success('Backup codes regenerated');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to regenerate backup codes');
+        } finally {
+            setBackupLoading(false);
+        }
+    };
+
+    const disableAuthenticator = async () => {
+        if (!twoFactorPassword) {
+            toast.error('Enter your current password to disable 2FA');
+            return;
+        }
+        try {
+            setDisableLoading(true);
+            await disableTwoFactor(twoFactorPassword);
+            await refreshUser();
+            setSetupData(null);
+            setTwoFactorPassword('');
+            toast.success('Two-factor authentication disabled');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to disable 2FA');
+        } finally {
+            setDisableLoading(false);
+        }
+    };
+
+    const revokeSession = async (sessionId: string) => {
+        try {
+            await revokeMySecuritySession(sessionId);
+            toast.success('Session revoked');
+            await loadSessions();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to revoke session');
+        }
+    };
+
+    const logoutEverywhere = async () => {
+        try {
+            await logoutAllMySessions();
+            toast.success('Logged out from all devices');
+            await logout();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to end all sessions');
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Security Overview</p>
+                        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Security Center</h1>
+                        <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                            Review verification status, manage your sessions, and protect your account with an authenticator app.
+                        </p>
+                    </div>
+                    <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                            <div className="flex items-center gap-2 font-medium text-slate-800"><MailCheck className="h-4 w-4" /> Email</div>
+                            <p className="mt-1">{user?.emailVerified ? 'Verified' : 'Verification pending'}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                            <div className="flex items-center gap-2 font-medium text-slate-800"><ShieldCheck className="h-4 w-4" /> 2FA</div>
+                            <p className="mt-1">{user?.twoFactorEnabled ? `Enabled${user?.twoFactorMethod ? ` (${user.twoFactorMethod})` : ''}` : 'Not enabled'}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                            <div className="flex items-center gap-2 font-medium text-slate-800"><Laptop2 className="h-4 w-4" /> Sessions</div>
+                            <p className="mt-1">{sessions.filter((item) => item.status === 'active').length} active</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <KeyRound className="h-5 w-5 text-slate-700" />
+                        <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">Update your password and revoke older sessions automatically.</p>
+                    <div className="mt-4 grid gap-3">
+                        <input className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400" type="password" placeholder="Current password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm((current) => ({ ...current, currentPassword: e.target.value }))} />
+                        <input className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400" type="password" placeholder="New password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm((current) => ({ ...current, newPassword: e.target.value }))} />
+                        <input className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400" type="password" placeholder="Confirm new password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm((current) => ({ ...current, confirmPassword: e.target.value }))} />
+                        <button onClick={submitPasswordChange} disabled={passwordSaving} className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                            {passwordSaving ? 'Updating...' : 'Update password'}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-slate-700" />
+                        <h2 className="text-lg font-semibold text-slate-900">Authenticator App</h2>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">
+                        Use a time-based authenticator app and keep the backup codes in a safe offline place.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                        <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400" type="password" placeholder="Current password" value={twoFactorPassword} onChange={(e) => setTwoFactorPassword(e.target.value)} />
+                        {!user?.twoFactorEnabled ? (
+                            <button onClick={startAuthenticatorSetup} disabled={setupLoading} className="inline-flex w-full items-center justify-center rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60">
+                                {setupLoading ? 'Preparing...' : 'Start authenticator setup'}
+                            </button>
+                        ) : (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <button onClick={regenerateCodes} disabled={backupLoading} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+                                    {backupLoading ? 'Refreshing...' : 'Regenerate backup codes'}
+                                </button>
+                                <button onClick={disableAuthenticator} disabled={disableLoading} className="rounded-2xl border border-rose-200 px-4 py-3 text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
+                                    {disableLoading ? 'Disabling...' : 'Disable 2FA'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {setupData ? (
+                        <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-sm font-medium text-slate-900">Setup secret</p>
+                            <p className="mt-1 break-all rounded-2xl bg-white px-3 py-2 font-mono text-xs text-slate-700">{setupData.secret}</p>
+                            <p className="mt-3 text-sm font-medium text-slate-900">OTPAuth URL</p>
+                            <p className="mt-1 break-all rounded-2xl bg-white px-3 py-2 font-mono text-[11px] text-slate-700">{setupData.otpAuthUrl}</p>
+                            <p className="mt-3 text-sm font-medium text-slate-900">Backup codes</p>
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                {setupData.backupCodes.map((code) => (
+                                    <div key={code} className="rounded-2xl bg-white px-3 py-2 font-mono text-xs text-slate-700">{code}</div>
+                                ))}
+                            </div>
+                            {!user?.twoFactorEnabled ? (
+                                <div className="mt-4 space-y-3">
+                                    <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400" type="text" inputMode="numeric" placeholder="Enter 6-digit code from app" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} />
+                                    <button onClick={completeAuthenticatorSetup} disabled={verifyingSetup} className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                                        {verifyingSetup ? 'Verifying...' : 'Confirm authenticator'}
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
+                </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="text-lg font-semibold text-slate-900">Sessions & Devices</h2>
+                        <p className="mt-1 text-sm text-slate-600">Review your active sessions and revoke anything you do not recognize.</p>
+                    </div>
+                    <button onClick={logoutEverywhere} className="inline-flex items-center justify-center rounded-2xl border border-rose-200 px-4 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50">
+                        Logout all devices
+                    </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                    {loadingSessions ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Loading sessions...</div>
+                    ) : sessions.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">No active sessions found.</div>
+                    ) : sessions.map((session) => (
+                        <div key={session.sessionId} className="flex flex-col gap-3 rounded-2xl border border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                                    <Laptop2 className="h-4 w-4 text-slate-500" />
+                                    <span className="truncate">{session.deviceInfo || 'Unknown device'}</span>
+                                    {session.current ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Current</span> : null}
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                    <span>{session.ipAddress || 'Unknown IP'}</span>
+                                    <span>{session.locationSummary || 'Location unavailable'}</span>
+                                    <span>Last active: {session.lastActiveAt ? new Date(session.lastActiveAt).toLocaleString() : 'Unknown'}</span>
+                                </div>
+                                {(session.riskScore || 0) > 0 ? (
+                                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-700">
+                                        <AlertTriangle className="h-3.5 w-3.5" />
+                                        Risk score {session.riskScore}
+                                    </div>
+                                ) : null}
+                            </div>
+                            {!session.current ? (
+                                <button onClick={() => revokeSession(session.sessionId)} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                    <Trash2 className="h-4 w-4" />
+                                    Revoke
+                                </button>
+                            ) : null}
+                        </div>
+                    ))}
+                </div>
+            </section>
+        </div>
+    );
+}

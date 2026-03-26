@@ -1,0 +1,171 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CampusWay Question Bank API",
+    "version": "1.0.0",
+    "description": "Question Bank enhancement endpoints (admin + picker + usage)."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/admin/qbank": {
+      "get": {
+        "summary": "List question bank items",
+        "parameters": [
+          { "name": "subject", "in": "query", "schema": { "type": "string" } },
+          { "name": "chapter", "in": "query", "schema": { "type": "string" } },
+          { "name": "difficulty", "in": "query", "schema": { "type": "string", "enum": ["easy", "medium", "hard"] } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["draft", "pending_review", "approved", "rejected", "archived"] } },
+          { "name": "tags", "in": "query", "schema": { "type": "string" } },
+          { "name": "has_image", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "quality_score_min", "in": "query", "schema": { "type": "number" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated response" }
+        }
+      },
+      "post": {
+        "summary": "Create question",
+        "responses": {
+          "201": { "description": "Created" }
+        }
+      }
+    },
+    "/admin/qbank/{id}": {
+      "get": {
+        "summary": "Get single question with revisions",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Question details" }
+        }
+      },
+      "put": {
+        "summary": "Update question and create revision",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Updated" }
+        }
+      },
+      "delete": {
+        "summary": "Archive question (soft delete by default)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "hardDelete", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "description": "Deleted or archived" }
+        }
+      }
+    },
+    "/admin/qbank/{id}/approve": {
+      "post": {
+        "summary": "Approve or reject question",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Moderation updated" }
+        }
+      }
+    },
+    "/admin/qbank/{id}/lock": {
+      "post": {
+        "summary": "Lock/unlock question",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Lock state changed" }
+        }
+      }
+    },
+    "/admin/qbank/{id}/revert/{revisionNo}": {
+      "post": {
+        "summary": "Revert question to revision snapshot",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "revisionNo", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Reverted" }
+        }
+      }
+    },
+    "/admin/qbank/search/similar": {
+      "post": {
+        "summary": "Search likely duplicate questions",
+        "responses": {
+          "200": { "description": "Similarity matches" }
+        }
+      }
+    },
+    "/admin/qbank/bulk-import": {
+      "post": {
+        "summary": "Bulk import question rows",
+        "responses": {
+          "202": { "description": "Import accepted and tracked by job id" }
+        }
+      }
+    },
+    "/admin/qbank/import/{jobId}": {
+      "get": {
+        "summary": "Get import job status and row errors",
+        "parameters": [
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Import status" }
+        }
+      }
+    },
+    "/admin/qbank/export": {
+      "post": {
+        "summary": "Export filtered questions to CSV/XLSX",
+        "responses": {
+          "200": { "description": "Binary export" }
+        }
+      }
+    },
+    "/admin/qbank/media/sign-upload": {
+      "post": {
+        "summary": "Get signed image upload url",
+        "responses": {
+          "200": { "description": "Signed upload payload" }
+        }
+      }
+    },
+    "/admin/qbank/media": {
+      "post": {
+        "summary": "Create media row for uploaded/link image",
+        "responses": {
+          "201": { "description": "Media created" }
+        }
+      }
+    },
+    "/qbank/picker": {
+      "get": {
+        "summary": "Question picker endpoint for exam builder",
+        "responses": {
+          "200": { "description": "Question picker payload" }
+        }
+      }
+    },
+    "/qbank/usage/increment": {
+      "post": {
+        "summary": "Increment question usage and correctness analytics",
+        "responses": {
+          "200": { "description": "Usage updated" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,250 @@
+import { useState, useRef } from 'react';
+import toast from 'react-hot-toast';
+import { Upload, RefreshCw, CheckCircle, AlertCircle, Download } from 'lucide-react';
+import { useImportPreview, useImportCommit } from '../../../hooks/useQuestionBankV2Queries';
+import { downloadImportTemplate } from '../../../api/adminQuestionBankApi';
+import type { ImportPreviewResponse } from '../../../types/questionBank';
+import { downloadFile } from '../../../utils/download';
+import AdminGuideButton, { type AdminGuideButtonProps } from '../AdminGuideButton';
+
+type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
+
+const IMPORT_GUIDES: Record<string, InlineGuide> = {
+    downloadTemplate: {
+        title: 'Download Template',
+        content: 'Downloads the official spreadsheet layout for bulk question import.',
+        actions: [
+            { label: 'Use the template', description: 'Keep the correct column names so preview and validation can map rows without manual cleanup.' },
+        ],
+        affected: 'Question-bank operators preparing XLSX or CSV imports.',
+        bestPractice: 'Always start from this template when a new import sheet is created.',
+    },
+    uploadFile: {
+        title: 'Upload Import File',
+        content: 'Opens the file picker and loads a spreadsheet into the import workspace.',
+        actions: [
+            { label: 'Select a file', description: 'Attach the source sheet before previewing mapping, row validation, and import results.' },
+        ],
+        affected: 'Bulk question import workflows.',
+        bestPractice: 'Re-upload the file after correcting columns so preview uses the latest version.',
+    },
+    previewImport: {
+        title: 'Preview Import',
+        content: 'Validates the uploaded file, detects columns, and prepares the row preview without committing data.',
+        actions: [
+            { label: 'Generate preview', description: 'Check totals, mapping, and row-level validation errors before touching the live bank.' },
+        ],
+        affected: 'Bulk imports and question-bank data quality.',
+        enabledNote: 'You can review mappings and preview rows before import.',
+        disabledNote: 'No validation preview is generated until a file is uploaded.',
+    },
+    mapping: {
+        title: 'Column Mapping',
+        content: 'Matches each spreadsheet column to the canonical question-bank fields.',
+        actions: [
+            { label: 'Adjust field mapping', description: 'Correct mismatched headers so the right values land in the right question fields.' },
+        ],
+        affected: 'Imported question text, answers, metadata, and all downstream exams using those questions.',
+        bestPractice: 'Skip only the columns that are intentionally unused for this import.',
+    },
+    importMode: {
+        title: 'Import Mode',
+        content: 'Controls whether duplicate rows are skipped or used to update matching questions.',
+        affected: 'Existing questions that share matching identifiers or duplicate data.',
+        enabledNote: 'Upsert updates existing matches with the latest file values.',
+        disabledNote: 'Create mode preserves existing matches and only adds new rows.',
+        bestPractice: 'Use create for safe first imports and upsert only when you intend to refresh existing questions.',
+    },
+    commitImport: {
+        title: 'Import Questions',
+        content: 'Commits the validated spreadsheet rows into the live question bank.',
+        actions: [
+            { label: 'Run import', description: 'Persist the previewed rows so they become available to question-bank search, sets, and exam assembly.' },
+        ],
+        impact: 'A bad commit can add duplicates or overwrite intended content when upsert mode is selected.',
+        affected: 'Question bank, question sets, and any exam authoring flow that uses those questions.',
+    },
+    cancelImport: {
+        title: 'Cancel Import',
+        content: 'Clears the current file and preview so you can restart the import flow safely.',
+        actions: [
+            { label: 'Reset workspace', description: 'Discard the current preview without changing the live question bank.' },
+        ],
+        affected: 'Only the current import workspace in this browser session.',
+    },
+};
+
+export default function QuestionBankImportPanel() {
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [file, setFile] = useState<File | null>(null);
+    const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
+    const [mapping, setMapping] = useState<Record<string, string>>({});
+    const [mode, setMode] = useState<'create' | 'upsert'>('create');
+
+    const previewMut = useImportPreview();
+    const commitMut = useImportCommit();
+
+    async function handlePreview() {
+        if (!file) return;
+        try {
+            const data = await previewMut.mutateAsync({ file, mapping: Object.keys(mapping).length > 0 ? mapping : undefined });
+            setPreview(data);
+            setMapping(data.mapping);
+            toast.success(`Preview ready: ${data.totalRows} rows`);
+        } catch { toast.error('Preview failed'); }
+    }
+
+    async function handleCommit() {
+        if (!file || !preview) return;
+        try {
+            const result = await commitMut.mutateAsync({ file, mapping, mode });
+            toast.success(`Imported ${result.imported} of ${result.totalRows} questions`);
+            if (result.failed > 0) {
+                toast.error(`${result.failed} rows failed`);
+            }
+            setFile(null);
+            setPreview(null);
+        } catch { toast.error('Import failed'); }
+    }
+
+    const loading = previewMut.isPending || commitMut.isPending;
+
+    return (
+        <div className="space-y-6 max-w-5xl">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Import Questions</h2>
+                    <AdminGuideButton {...IMPORT_GUIDES.uploadFile} variant="full" tone="indigo" actionLabel="View details" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={async () => {
+                            try {
+                                const blob = await downloadImportTemplate();
+                                downloadFile(blob as Blob, { filename: 'question_import_template.xlsx' });
+                                toast.success('Template downloaded');
+                            } catch { toast.error('Download failed'); }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:border-slate-700/60 dark:text-slate-300 dark:hover:text-white transition"
+                    >
+                        <Download className="w-4 h-4" /> Download Template
+                    </button>
+                    <AdminGuideButton {...IMPORT_GUIDES.downloadTemplate} tone="indigo" />
+                </div>
+            </div>
+
+            {/* Upload zone */}
+            <div
+                onClick={() => fileRef.current?.click()}
+                className="relative border-2 border-dashed border-slate-300 dark:border-slate-700/60 rounded-2xl p-10 text-center cursor-pointer hover:border-indigo-500/40 transition"
+            >
+                <div className="absolute right-4 top-4">
+                    <AdminGuideButton {...IMPORT_GUIDES.uploadFile} tone="indigo" />
+                </div>
+                <Upload className="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
+                <p className="text-slate-600 dark:text-slate-300 text-sm">{file ? file.name : 'Click to upload .xlsx or .csv file'}</p>
+                <input ref={fileRef} type="file" accept=".xlsx,.csv,.xls" className="hidden" onChange={(e) => { setFile(e.target.files?.[0] || null); setPreview(null); }} />
+            </div>
+
+            {file && !preview && (
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handlePreview}
+                        disabled={loading}
+                        className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold flex items-center gap-2 hover:bg-indigo-500 disabled:opacity-60 transition"
+                    >
+                        {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        Preview Import
+                    </button>
+                    <AdminGuideButton {...IMPORT_GUIDES.previewImport} tone="indigo" />
+                </div>
+            )}
+
+            {/* Column mapping */}
+            {preview && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Column Mapping ({preview.headers.length} columns detected)</h3>
+                        <AdminGuideButton {...IMPORT_GUIDES.mapping} tone="indigo" />
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="text-sm w-full">
+                            <thead className="bg-slate-50 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+                                <tr>
+                                    <th className="p-2 text-left font-medium">File Column</th>
+                                    <th className="p-2 text-left font-medium">Maps To</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                {preview.headers.map((header) => (
+                                    <tr key={header} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                                        <td className="p-2 text-slate-600 dark:text-slate-300">{header}</td>
+                                        <td className="p-2">
+                                            <select
+                                                value={mapping[header] || ''}
+                                                onChange={(e) => setMapping({ ...mapping, [header]: e.target.value })}
+                                                className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 text-sm text-slate-600 dark:bg-slate-900 dark:border-slate-700/60 dark:text-slate-300"
+                                            >
+                                                <option value="">(skip)</option>
+                                                {preview.availableColumns.map((col) => (
+                                                    <option key={col} value={col}>{col}</option>
+                                                ))}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Preview rows */}
+                    <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Preview ({preview.preview.length} of {preview.totalRows} rows)</h3>
+                    <div className="space-y-2">
+                        {preview.preview.map((row) => (
+                            <div key={row.rowIndex} className={`p-3 rounded-xl border text-sm ${row.errors.length > 0 ? 'border-rose-300 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-900/10' : 'border-slate-200 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40'}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-slate-600 dark:text-slate-300 font-medium">Row {row.rowIndex}</span>
+                                    {row.errors.length > 0 && (
+                                        <span className="flex items-center gap-1 text-rose-400 text-xs">
+                                            <AlertCircle className="w-3.5 h-3.5" /> {row.errors.length} error(s)
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-slate-900 dark:text-white truncate">{String(row.mapped.question_en || row.mapped.question_bn || '—')}</p>
+                                {row.errors.map((err, i) => (
+                                    <p key={i} className="text-rose-400 text-xs mt-1">{err.field}: {err.message}</p>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Commit */}
+                    <div className="flex items-center gap-4 pt-2">
+                        <div className="flex items-center gap-2">
+                            <select value={mode} onChange={(e) => setMode(e.target.value as 'create' | 'upsert')} className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-600 dark:bg-slate-900/80 dark:border-slate-700/60 dark:text-slate-300">
+                                <option value="create">Create (skip duplicates)</option>
+                                <option value="upsert">Upsert (update duplicates)</option>
+                            </select>
+                            <AdminGuideButton {...IMPORT_GUIDES.importMode} tone="indigo" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleCommit}
+                                disabled={loading}
+                                className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold flex items-center gap-2 hover:bg-emerald-500 disabled:opacity-60 transition"
+                            >
+                                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                Import {preview.totalRows} Questions
+                            </button>
+                            <AdminGuideButton {...IMPORT_GUIDES.commitImport} tone="indigo" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => { setFile(null); setPreview(null); }} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition">Cancel</button>
+                            <AdminGuideButton {...IMPORT_GUIDES.cancelImport} tone="indigo" />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

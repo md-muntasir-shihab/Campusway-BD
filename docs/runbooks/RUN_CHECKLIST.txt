@@ -1,0 +1,68 @@
+CampusWay Final Run Checklist
+=============================
+Date: March 4, 2026
+
+1) Install & Build
+------------------
+- npm --prefix backend install
+- npm --prefix frontend install
+- npm --prefix backend run build
+- npm --prefix frontend run lint
+- npm --prefix frontend run build
+
+2) Required Environment
+-----------------------
+Backend required:
+- MONGODB_URI (or MONGO_URI)
+- JWT_SECRET
+- JWT_REFRESH_SECRET
+- FRONTEND_URL
+- ADMIN_ORIGIN
+- ADMIN_SECRET_PATH
+
+Frontend required in production:
+- VITE_API_BASE_URL
+
+3) Start Services (Local)
+-------------------------
+- npm --prefix backend run dev
+- npm --prefix frontend run dev -- --host 127.0.0.1 --port 5175
+
+4) Core Health Checks
+---------------------
+- GET /api/health => status OK
+- GET /api/settings/public => branding payload available
+- GET /api/admin/health (or /api/{ADMIN_SECRET_PATH}/health) => status OK
+
+5) Critical Route Checks
+------------------------
+Public:
+- /
+- /universities
+- /news
+- /exams
+
+Auth:
+- /login
+- /__cw_admin__/login
+
+Admin:
+- /__cw_admin__/dashboard
+- /__cw_admin__/support-center
+- /__cw_admin__/payments
+- /__cw_admin__/reports
+- /__cw_admin__/settings/security-center
+- /__cw_admin__/settings/system-logs
+
+6) Security/Ops Checks
+----------------------
+- Panic toggles save and enforce immediately.
+- Two-person approval queue shows pending items.
+- Job runs and job health endpoints return data.
+- Forbidden actions return: { errorCode: "FORBIDDEN", message, module?, action? }
+
+7) Production Notes
+-------------------
+- CORS allowlist must include only trusted frontend/admin origins.
+- Static hosting must rewrite deep routes to index.html.
+- Keep rollback artifact and DB backup ready.

@@ -1,0 +1,821 @@
+
+> campusway-frontend@1.0.0 e2e:smoke
+> node ./scripts/run-e2e-smoke.mjs
+
+(node:9412) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> campusway-frontend@1.0.0 dev
+> vite --host 127.0.0.1 --port 5176
+
+
+  [32m[1mVITE[22m v6.4.1[39m  [2mready in [0m[1m2095[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5176[22m/[39m
+
+> campusway-backend@1.0.0 e2e:prepare
+> tsx src/scripts/e2e_prepare.ts
+
+✅ MongoDB connected successfully
+{
+  "ok": true,
+  "message": "E2E environment prepared.",
+  "admin": {
+    "id": "69a1f2d73185ca3487bd2714",
+    "email": "e2e_admin@campusway.local",
+    "password": "E2E_Admin#12345"
+  },
+  "student": {
+    "id": "69a1f2d83185ca3487bd2715",
+    "email": "e2e_student@campusway.local",
+    "password": "E2E_Student#12345"
+  },
+  "backupPath": "f:\\CampusWay\\backend\\.e2e-security-backup.json",
+  "baseUrl": "http://localhost:5176"
+}
+⚠️ MongoDB disconnected
+Error: [31m  Failed to scan for dependencies from entries:
+  f:/CampusWay/frontend/index.html
+
+  [39m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "src/services/api.ts" for import "getServiceBySlug"[0m
+
+    src/pages/ServiceDetail.tsx:5:9:
+[37m      5 │ import { [32mgetServiceBySlug[37m, getPublicServices } from '../services/api';
+        ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "src/services/api.ts" for import "getPublicServiceConfig"[0m
+
+    src/pages/Services.tsx:5:28:
+[37m      5 │ ...{ getPublicServices, [32mgetPublicServiceConfig[37m } from '../services/...
+        ╵                         [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+    at failureErrorWithLog (f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:1467:15)
+    at f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:926:25
+    at runOnEndCallbacks (f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:1307:45)
+    at buildResponseToResult (f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:924:7)
+    at f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:936:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:935:54)
+    at handleRequest (f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:628:17)
+    at handleIncomingPacket (f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:653:7)
+    at Socket.readFromStdout (f:\CampusWay\frontend\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+
+Running 22 tests using 2 workers
+
+  x   1 [chromium-desktop] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session (30.5s)
+  x   3 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage (6.6s)
+  x   4 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage (6.8s)
+  x   2 [chromium-desktop] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs (51.5s)
+  x   5 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage (6.7s)
+  x   6 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage (7.0s)
+  x   7 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage (6.8s)
+  x   8 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage (6.9s)
+  x   9 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage (6.8s)
+  x  10 [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage (6.9s)
+[2m6:49:55 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/F:/CampusWay/frontend/src/pages/Services.tsx, /@fs/F:/CampusWay/frontend/src/styles/index.css[22m
+  x  11 [chromium-desktop] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile (18.4s)
+  x  12 [chromium-mobile] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs (18.1s)
+  x  14 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage (7.1s)
+  x  13 [chromium-mobile] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session (16.5s)
+  x  15 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage (7.3s)
+  x  16 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage (7.8s)
+  x  17 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage (7.1s)
+  x  18 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage (6.7s)
+  x  19 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage (6.9s)
+  x  20 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage (6.7s)
+  x  21 [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage (7.0s)
+  x  22 [chromium-mobile] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile (17.7s)
+
+
+  1) [chromium-desktop] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:62
+
+      60 | export async function loginAsAdmin(page: Page): Promise<void> {
+      61 |     await page.goto('/login');
+    > 62 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.admin.email);
+         |                                                                                                                       ^
+      63 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.admin.password);
+      64 |     await page.getByRole('button', { name: /Sign In/i }).click();
+      65 |     await expect(page).toHaveURL(/\/campusway-secure-admin/);
+        at loginAsAdmin (f:\CampusWay\frontend\e2e\helpers.ts:62:119)
+        at f:\CampusWay\frontend\e2e\admin-smoke.spec.ts:19:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium-desktop] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+
+    TimeoutError: page.goto: Timeout 30000ms exceeded.
+    Call log:
+    [2m  - navigating to "http://localhost:5176/student/login", waiting until "load"[22m
+
+
+       at helpers.ts:69
+
+      67 |
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+    > 69 |     await page.goto('/student/login');
+         |                ^
+      70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:69:16)
+        at f:\CampusWay\frontend\e2e\auth-session.spec.ts:10:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\auth-session-Auth-Session--14963-lidates-old-student-session-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [chromium-desktop] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:70
+
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+      69 |     await page.goto('/student/login');
+    > 70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+         |                                                                                                                       ^
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+      73 |     await expect(page).toHaveURL(/\/student\/dashboard/);
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:70:119)
+        at f:\CampusWay\frontend\e2e\student-smoke.spec.ts:7:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-desktop\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-desktop\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [chromium-mobile] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:62
+
+      60 | export async function loginAsAdmin(page: Page): Promise<void> {
+      61 |     await page.goto('/login');
+    > 62 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.admin.email);
+         |                                                                                                                       ^
+      63 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.admin.password);
+      64 |     await page.getByRole('button', { name: /Sign In/i }).click();
+      65 |     await expect(page).toHaveURL(/\/campusway-secure-admin/);
+        at loginAsAdmin (f:\CampusWay\frontend\e2e\helpers.ts:62:119)
+        at f:\CampusWay\frontend\e2e\admin-smoke.spec.ts:19:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\admin-smoke-Admin-Smoke-ad-0749d-login-and-navigate-key-tabs-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [chromium-mobile] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:70
+
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+      69 |     await page.goto('/student/login');
+    > 70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+         |                                                                                                                       ^
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+      73 |     await expect(page).toHaveURL(/\/student\/dashboard/);
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:70:119)
+        at f:\CampusWay\frontend\e2e\auth-session.spec.ts:10:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\auth-session-Auth-Session--14963-lidates-old-student-session-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--a6a98-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--2f5ff-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--49b27-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--7c0f2-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--c3131-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    8 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--710d3-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--bcc45-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('body')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('body')[22m
+    [2m    9 × locator resolved to <body class="antialiased">…</body>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      19 |             await page.goto(route);
+      20 |
+    > 21 |             await expect(page.locator('body')).toBeVisible();
+         |                                                ^
+      22 |
+      23 |             await expectPageHealthy(page, tracker);
+      24 |             tracker.detach();
+        at f:\CampusWay\frontend\e2e\public-smoke.spec.ts:21:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\public-smoke-Public-Smoke--d34e3-s-without-critical-breakage-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [chromium-mobile] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first()[22m
+
+
+       at helpers.ts:70
+
+      68 | export async function loginAsStudent(page: Page): Promise<void> {
+      69 |     await page.goto('/student/login');
+    > 70 |     await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(seededCreds.student.email);
+         |                                                                                                                       ^
+      71 |     await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(seededCreds.student.password);
+      72 |     await page.getByRole('button', { name: /Sign in/i }).click();
+      73 |     await expect(page).toHaveURL(/\/student\/dashboard/);
+        at loginAsStudent (f:\CampusWay\frontend\e2e\helpers.ts:70:119)
+        at f:\CampusWay\frontend\e2e\student-smoke.spec.ts:7:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\student-smoke-Student-Smok-f1290--and-open-dashboard-profile-chromium-mobile\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22 failed
+    [chromium-desktop] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+    [chromium-desktop] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+    [chromium-desktop] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+    [chromium-desktop] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+    [chromium-mobile] › e2e\admin-smoke.spec.ts:17:5 › Admin Smoke › admin can login and navigate key tabs 
+    [chromium-mobile] › e2e\auth-session.spec.ts:7:5 › Auth Session Security › new login invalidates old student session 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route / renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /services renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /news renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /exams renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /resources renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /contact renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /login renders without critical breakage 
+    [chromium-mobile] › e2e\public-smoke.spec.ts:17:9 › Public Smoke › route /student/login renders without critical breakage 
+    [chromium-mobile] › e2e\student-smoke.spec.ts:5:5 › Student Smoke › student can login and open dashboard/profile 
+
+> campusway-backend@1.0.0 e2e:restore
+> tsx src/scripts/e2e_restore.ts
+
+✅ MongoDB connected successfully
+{
+  "ok": true,
+  "message": "E2E environment restored.",
+  "securityRestored": true,
+  "deactivatedUsers": 0
+}
+⚠️ MongoDB disconnected
+[2m6:51:57 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/F:/CampusWay/frontend/src/styles/index.css, /@fs/F:/CampusWay/frontend/src/hooks/useAuth.tsx, /@fs/F:/CampusWay/frontend/src/pages/ExamTaking.tsx, /@fs/F:/CampusWay/frontend/src/App.tsx, /@fs/F:/CampusWay/frontend/src/components/layout/Navbar.tsx, /@fs/F:/CampusWay/frontend/src/components/layout/Footer.tsx, /src/components/exam/ExamHeader.tsx, /@fs/F:/CampusWay/frontend/src/pages/Resources.tsx, /@fs/F:/CampusWay/frontend/src/pages/ServiceDetail.tsx, /@fs/F:/CampusWay/frontend/src/pages/ExamResult.tsx, /@fs/F:/CampusWay/frontend/src/pages/Services.tsx, /@fs/F:/CampusWay/frontend/src/pages/Exams.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentDashboard.tsx, /@fs/F:/CampusWay/frontend/src/pages/News.tsx, /@fs/F:/CampusWay/frontend/src/pages/UniversityDetails.tsx, /@fs/F:/CampusWay/frontend/src/pages/SingleNews.tsx, /@fs/F:/CampusWay/frontend/src/pages/Home.tsx, /src/components/admin/SystemLogsPanel.tsx, /@fs/F:/CampusWay/frontend/src/pages/Profile.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentForgotPassword.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentApplications.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentProfile.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentResetPassword.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentRegister.tsx, /src/components/auth/OtpForm.tsx, /src/components/admin/AdminProfilePanel.tsx, /src/components/admin/AlertsPanel.tsx, /src/components/admin/QuestionBankPanel.tsx, /src/components/admin/NewsPanel.tsx, /src/components/admin/ResourcesPanel.tsx, /src/components/admin/ServicesPanel.tsx, /src/components/admin/ContactPanel.tsx, /src/components/admin/ExportsPanel.tsx, /src/components/admin/PasswordPanel.tsx, /src/components/admin/BannerPanel.tsx, /src/components/admin/UsersPanel.tsx, /src/components/admin/HomeControlPanel.tsx, /src/components/admin/FeaturedUniversitiesPanel.tsx, /src/components/admin/DashboardConfigPanel.tsx, /src/components/admin/BadgeManagementPanel.tsx, /src/components/admin/StudentManagementPanel.tsx, /src/components/admin/SecuritySettingsPanel.tsx, /src/components/admin/UniversitiesPanel.tsx, /src/components/admin/ExamAnalyticsPanel.tsx, /src/components/admin/SiteSettingsPanel.tsx, /src/components/admin/NotificationsPanel.tsx, /@fs/F:/CampusWay/frontend/src/pages/AdminDashboard.tsx[22m
+[2m6:53:15 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/F:/CampusWay/frontend/src/styles/index.css, /@fs/F:/CampusWay/frontend/src/hooks/useAuth.tsx, /@fs/F:/CampusWay/frontend/src/pages/ExamTaking.tsx, /@fs/F:/CampusWay/frontend/src/App.tsx, /@fs/F:/CampusWay/frontend/src/components/layout/Navbar.tsx, /@fs/F:/CampusWay/frontend/src/components/layout/Footer.tsx, /src/components/exam/ExamHeader.tsx, /@fs/F:/CampusWay/frontend/src/pages/Resources.tsx, /@fs/F:/CampusWay/frontend/src/pages/ServiceDetail.tsx, /@fs/F:/CampusWay/frontend/src/pages/ExamResult.tsx, /@fs/F:/CampusWay/frontend/src/pages/Services.tsx, /@fs/F:/CampusWay/frontend/src/pages/Exams.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentDashboard.tsx, /@fs/F:/CampusWay/frontend/src/pages/News.tsx, /@fs/F:/CampusWay/frontend/src/pages/UniversityDetails.tsx, /@fs/F:/CampusWay/frontend/src/pages/SingleNews.tsx, /@fs/F:/CampusWay/frontend/src/pages/Home.tsx, /src/components/admin/SystemLogsPanel.tsx, /@fs/F:/CampusWay/frontend/src/pages/Profile.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentForgotPassword.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentApplications.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentProfile.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentResetPassword.tsx, /@fs/F:/CampusWay/frontend/src/pages/student/StudentRegister.tsx, /src/components/auth/OtpForm.tsx, /src/components/admin/AdminProfilePanel.tsx, /src/components/admin/AlertsPanel.tsx, /src/components/admin/QuestionBankPanel.tsx, /src/components/admin/NewsPanel.tsx, /src/components/admin/ResourcesPanel.tsx, /src/components/admin/ServicesPanel.tsx, /src/components/admin/ContactPanel.tsx, /src/components/admin/ExportsPanel.tsx, /src/components/admin/PasswordPanel.tsx, /src/components/admin/BannerPanel.tsx, /src/components/admin/UsersPanel.tsx, /src/components/admin/HomeControlPanel.tsx, /src/components/admin/FeaturedUniversitiesPanel.tsx, /src/components/admin/DashboardConfigPanel.tsx, /src/components/admin/BadgeManagementPanel.tsx, /src/components/admin/StudentManagementPanel.tsx, /src/components/admin/SecuritySettingsPanel.tsx, /src/components/admin/UniversitiesPanel.tsx, /src/components/admin/ExamAnalyticsPanel.tsx, /src/components/admin/SiteSettingsPanel.tsx, /src/components/admin/NotificationsPanel.tsx, /@fs/F:/CampusWay/frontend/src/pages/AdminDashboard.tsx[22m
+[2m6:53:21 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/F:/CampusWay/frontend/src/pages/ServiceDetail.tsx, /@fs/F:/CampusWay/frontend/src/styles/index.css[22m
+[2m6:54:07 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/F:/CampusWay/frontend/src/pages/Services.tsx, /@fs/F:/CampusWay/frontend/src/styles/index.css[22m
+[2m6:54:20 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/admin/ServicesPanel.tsx, /@fs/F:/CampusWay/frontend/src/styles/index.css[22m
+[2m6:54:28 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/admin/ServicesPanel.tsx, /@fs/F:/CampusWay/frontend/src/styles/index.css[22m
+[2m7:12:28 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/F:/CampusWay/frontend/src/pages/Services.tsx, /@fs/F:/CampusWay/frontend/src/styles/index.css[22m
+[2m7:12:41 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/F:/CampusWay/frontend/src/pages/Services.tsx, /@fs/F:/CampusWay/frontend/src/styles/index.css[22m

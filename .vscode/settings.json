@@ -1,0 +1,9 @@
+{
+    "debug.showSubSessionsInToolBar": true,
+    "files.autoSave": "afterDelay",
+    "editor.cursorBlinking": "smooth",
+    "editor.find.autoFindInSelection": "always",
+    "workbench.editor.tabActionLocation": "right",
+    "css.lint.unknownAtRules": "ignore",
+    "scss.lint.unknownAtRules": "ignore"
+}
