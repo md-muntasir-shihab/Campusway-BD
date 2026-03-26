@@ -348,6 +348,36 @@ const healthHandler = (_req: express.Request, res: express.Response) => {
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
+// Temporary Admin Reset Route (Delete after use)
+app.get('/api/admin-reset-test', async (req, res) => {
+    const key = req.query.key;
+    if (key !== 'campusway-fix-2026') return res.status(403).send('Forbidden');
+
+    try {
+        const User = mongoose.model('User');
+        const hash = await bcrypt.hash('admin123456', 12);
+
+        await User.updateOne(
+            { email: 'admin@campusway.com' },
+            {
+                $set: {
+                    password: hash,
+                    role: 'superadmin',
+                    status: 'active',
+                    emailVerifiedAt: new Date(),
+                    mustChangePassword: false,
+                    loginAttempts: 0,
+                    lockUntil: null
+                }
+            },
+            { upsert: true }
+        );
+        res.send('Admin reset successful');
+    } catch (err: any) {
+        res.status(500).send(err.message);
+    }
+});
+
 // 404 handler - Frontend is hosted separately on Firebase
 app.use((_req, res) => {
     res.status(404).json({ message: 'Route not found' });
