@@ -24,7 +24,8 @@ export default function Navbar() {
     const navigate = useNavigate();
     const { data: settings } = useWebsiteSettings();
     const brandName = String(settings?.websiteName || 'CampusWay').trim() || 'CampusWay';
-    const brandLogo = String(settings?.logoUrl || settings?.logo || '/logo.png').trim() || '/logo.png';
+    // Use a cache-buster (?v=1.1) to force the browser to reload the new logo.png
+    const brandLogo = '/logo.png?v=1.1';
     const brandMotto = String(settings?.motto || settings?.metaDescription || '').trim();
     const isStudentUser = user?.role === 'student';
     const isAdminUser = Boolean(user && user.role !== 'student' && user.role !== 'chairman');

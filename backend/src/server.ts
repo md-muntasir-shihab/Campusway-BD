@@ -326,6 +326,7 @@ app.use('/api', studentExamRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/payments', webhookRoutes);
 
+
 // Health check
 app.get('/api/health', (_req, res) => {
     const dbStateMap: Record<number, 'down' | 'connected'> = {
@@ -345,22 +346,10 @@ app.get('/api/health', (_req, res) => {
     });
 });
 
-// 404 handler / Frontend Serve
-if (process.env.NODE_ENV === 'production') {
-    const frontendDist = path.join(__dirname, '../../frontend/dist');
-    app.use(express.static(frontendDist));
-    app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) {
-            res.sendFile(path.join(frontendDist, 'index.html'));
-        } else {
-            res.status(404).json({ message: 'API Route not found' });
-        }
-    });
-} else {
-    app.use((_req, res) => {
-        res.status(404).json({ message: 'Route not found' });
-    });
-}
+// 404 handler - Frontend is hosted separately on Firebase
+app.use((_req, res) => {
+    res.status(404).json({ message: 'Route not found' });
+});
 
 // Error handler
 app.use((err: Error & { status?: number }, req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -375,6 +364,7 @@ app.use((err: Error & { status?: number }, req: express.Request, res: express.Re
     });
     res.status(statusCode).json({ message, requestId: (req as any).requestId });
 });
+
 
 // =============
 // Start
