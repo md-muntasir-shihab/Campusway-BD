@@ -76,6 +76,7 @@ Primary working docs live in `docs/`:
 - `KNOWN_ISSUES.md`
 - `RELEASE_CHECKLIST.md`
 - `PHASE_HANDOFF_NOTES.md`
+- `PROJECT_HANDOVER.md`
 
 ## Notes
 
