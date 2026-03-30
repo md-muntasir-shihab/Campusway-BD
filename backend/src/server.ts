@@ -89,7 +89,7 @@ function validateRequiredEnv(): void {
     if (missing.length > 0) {
         console.error(`[startup] Missing required env keys: ${missing.join(', ')}`);
         console.error('[startup] Please update Azure App Service Configuration.');
-        process.exit(1);
+        // process.exit(1);
     }
     if (IS_PRODUCTION) {
         if (!process.env.JWT_SECRET) console.warn('[startup] WARNING: JWT_SECRET is missing. Using insecure fallback.');

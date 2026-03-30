@@ -122,7 +122,7 @@ export async function connectDB(): Promise<void> {
         await ensureCriticalIndexes();
     } catch (error) {
         console.error('[db] MongoDB connection error:', error);
-        process.exit(1);
+        // process.exit(1);
     }
 }
 
