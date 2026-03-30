@@ -8,7 +8,6 @@ import {
   CheckCircle, XCircle, Clock, Lock, Unlock, Send, RefreshCcw,
   Edit, Save, X, Plus, Trash2, Eye,
 } from 'lucide-react';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../../../components/admin/AdminGuideButton';
 import {
   getStudentUnified, updateStudent, suspendStudent, activateStudent,
   assignSubscription, extendSubscription,
@@ -24,7 +23,6 @@ import { adminGetSubscriptionPlans, type AdminSubscriptionPlan } from '../../../
 type Tab = 'overview' | 'profile' | 'guardian' | 'subscription' | 'payments' |
   'finance' | 'exams' | 'results' | 'weak-topics' | 'communication' |
   'crm-timeline' | 'security' | 'support';
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
 const TABS: { key: Tab; label: string; icon: typeof User }[] = [
   { key: 'overview', label: 'Overview', icon: Eye },
@@ -42,23 +40,6 @@ const TABS: { key: Tab; label: string; icon: typeof User }[] = [
   { key: 'support', label: 'Support', icon: Headphones },
 ];
 
-const STUDENT_DETAIL_GUIDES: Record<Tab | 'activate' | 'suspend', InlineGuide> = {
-  overview: { title: 'Overview Tab', content: 'View the student summary and jump to key operational areas.', affected: 'Current admin review only.' },
-  profile: { title: 'Profile Tab', content: 'Review and edit the student profile fields.', affected: 'Student profile data and reflected admin views.' },
-  guardian: { title: 'Guardian Tab', content: 'Review guardian information linked to this student.', affected: 'Student guardian/contact context.' },
-  subscription: { title: 'Subscription Tab', content: 'Manage the student subscription state, assignment, expiry, and renewal.', affected: 'Student plan privileges and gated features.' },
-  payments: { title: 'Payments Tab', content: 'Review payment history tied to this student.', affected: 'Payment review and student finance history.' },
-  finance: { title: 'Finance Tab', content: 'Review finance-related entries and adjustments tied to this student.', affected: 'Student finance statement and adjustments.' },
-  exams: { title: 'Exams Tab', content: 'Review exam participation and eligibility context for this student.', affected: 'Student exam operations.' },
-  results: { title: 'Results Tab', content: 'Review published result data linked to this student.', affected: 'Student results and reporting.' },
-  'weak-topics': { title: 'Weak Topics Tab', content: 'Inspect weak-topic performance signals for this student.', affected: 'Coaching and intervention planning.' },
-  communication: { title: 'Communication Tab', content: 'Review communication-related history and linked activity.', affected: 'Student communication follow-up.' },
-  'crm-timeline': { title: 'CRM Timeline Tab', content: 'Manage CRM notes and communication history for this student.', affected: 'CRM and support follow-up workflows.' },
-  security: { title: 'Security Tab', content: 'Manage student password, session, and security-related operations.', affected: 'Student account protection.' },
-  support: { title: 'Support Tab', content: 'Review support tickets and communication threads related to this student.', affected: 'Student support operations.' },
-  activate: { title: 'Activate Student', content: 'Reactivate a suspended student account so it can use the allowed product surfaces again.', affected: 'Student login and active account access.' },
-  suspend: { title: 'Suspend Student', content: 'Suspend the student account and prevent normal active access until reactivated.', affected: 'Student login and active account access.' },
-};
 
 const STATUS_BADGE: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -220,14 +201,12 @@ export default function StudentManagementDetailPage() {
               <button onClick={() => suspendMut.mutate()} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20">
                 Suspend
               </button>
-              <AdminGuideButton {...STUDENT_DETAIL_GUIDES.suspend} tone="indigo" />
             </div>
           ) : (
             <div className="flex items-center gap-1">
               <button onClick={() => activateMut.mutate()} className="rounded-lg border border-green-200 px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 dark:border-green-800 dark:hover:bg-green-900/20">
                 Activate
               </button>
-              <AdminGuideButton {...STUDENT_DETAIL_GUIDES.activate} tone="indigo" />
             </div>
           )}
         </div>
@@ -246,7 +225,6 @@ export default function StudentManagementDetailPage() {
               <t.icon size={13} />
               {t.label}
             </button>
-            <AdminGuideButton {...STUDENT_DETAIL_GUIDES[t.key]} tone="indigo" />
           </div>
         ))}
       </div>

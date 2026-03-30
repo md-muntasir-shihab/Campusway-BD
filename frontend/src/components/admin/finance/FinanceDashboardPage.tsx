@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useFcDashboard } from '../../../hooks/useFinanceCenterQueries';
 import { fcApi } from '../../../api/adminFinanceApi';
 import {
@@ -11,29 +11,8 @@ import {
     BookOpen, GraduationCap, Briefcase, Activity,
 } from 'lucide-react';
 import type { FcBudgetStatus, FcActivityItem } from '../../../types/finance';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../AdminGuideButton';
 
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
-const DASHBOARD_GUIDES: Record<string, InlineGuide> = {
-    month: {
-        title: 'Reporting Month',
-        content: 'Changes the dashboard period used for finance summaries, charts, and budget health.',
-        actions: [
-            { label: 'Switch reporting window', description: 'Recalculate widgets and charts for the selected month before you export or investigate an issue.' },
-        ],
-        affected: 'Finance staff reading dashboard totals, trends, and budget status.',
-    },
-    report: {
-        title: 'P&L Report',
-        content: 'Downloads the profit and loss report for the currently selected month.',
-        actions: [
-            { label: 'Export report', description: 'Generate a finance snapshot for reconciliation, audit, or offline review.' },
-        ],
-        affected: 'Finance reporting, audit handoff, and reconciliation workflows.',
-        bestPractice: 'Confirm the month selector before exporting so the report matches the intended reporting window.',
-    },
-};
 
 function fmt(n: number | undefined | null) {
     if (n == null || isNaN(n)) return '0';
@@ -91,7 +70,6 @@ export default function FinanceDashboardPage() {
                         >
                             {months.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
-                        <AdminGuideButton {...DASHBOARD_GUIDES.month} tone="indigo" />
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -100,7 +78,6 @@ export default function FinanceDashboardPage() {
                         >
                             <Download size={13} /> P&L Report
                         </button>
-                        <AdminGuideButton {...DASHBOARD_GUIDES.report} tone="indigo" />
                     </div>
                 </div>
             </div>

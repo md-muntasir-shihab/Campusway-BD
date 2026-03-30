@@ -28,36 +28,36 @@ export default function StudentResults() {
 
     return (
         <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <div className="rounded-2xl border border-white/40 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm p-5">
                 <h1 className="text-2xl font-bold">Results & Ranking</h1>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
+                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50 shadow-sm p-3">
                         <p className="text-xs text-slate-500">Total attempts</p>
                         <p className="font-bold text-lg">{progress?.totalExams || 0}</p>
                     </div>
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
+                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50 shadow-sm p-3">
                         <p className="text-xs text-slate-500">Average score</p>
                         <p className="font-bold text-lg">{Number(progress?.avgScore || 0).toFixed(2)}%</p>
                     </div>
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
+                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50 shadow-sm p-3">
                         <p className="text-xs text-slate-500">Best score</p>
                         <p className="font-bold text-lg">{Number(progress?.bestScore || 0).toFixed(2)}%</p>
                     </div>
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
+                    <div className="rounded-xl bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50 shadow-sm p-3">
                         <p className="text-xs text-slate-500 inline-flex items-center gap-1"><Trophy className="w-3.5 h-3.5" /> Leaderboard points</p>
                         <p className="font-bold text-lg">{points.toFixed(0)}</p>
                     </div>
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <div className="rounded-2xl border border-white/40 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm p-5">
                 <h2 className="font-bold text-lg inline-flex items-center gap-2"><BarChart3 className="w-5 h-5" /> Exam Results</h2>
                 <div className="mt-4 space-y-3">
                     {items.length === 0 ? (
                         <p className="text-sm text-slate-500">No results available yet.</p>
                     ) : (
                         items.map((item) => (
-                            <div key={item.resultId} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div key={item.resultId} className="rounded-xl border border-white/40 dark:border-slate-700/50 bg-white/40 dark:bg-slate-800/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-colors">
                                 <div>
                                     <p className="font-semibold">{item.examTitle}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(item.submittedAt).toLocaleString()}</p>

@@ -1,8 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellRing, CalendarClock, Link2, Mail, RefreshCw, Send, Smartphone, Users } from 'lucide-react';
 
-import AdminGuideButton from '../../../components/admin/AdminGuideButton';
 import { queryKeys } from '../../../lib/queryKeys';
 import {
     adminCreateNotice,
@@ -432,17 +431,6 @@ export default function NotificationOperationsPanel({ onNavigate, showToast }: P
                             of bouncing between unrelated screens.
                         </p>
                     </div>
-                    <AdminGuideButton
-                        title="Notifications"
-                        content="Create notices for the student notice feed, then reuse those notices in a targeted SMS/email dispatch without leaving Campaigns Hub."
-                        actions={[
-                            { label: 'Dispatch', description: 'Queue SMS or email sends with the current channels, audience, and schedule.' },
-                            { label: 'Notices', description: 'Manage the in-app notice feed, activation state, and broadcast scope.' },
-                            { label: 'Audit linkage', description: 'Notice-linked sends show up in campaign jobs and delivery history.' },
-                        ]}
-                        affected="Student notice feed, communication queue, and delivery review."
-                        tone="indigo"
-                    />
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3">
                     <button

@@ -5,74 +5,8 @@ import { useImportPreview, useImportCommit } from '../../../hooks/useQuestionBan
 import { downloadImportTemplate } from '../../../api/adminQuestionBankApi';
 import type { ImportPreviewResponse } from '../../../types/questionBank';
 import { downloadFile } from '../../../utils/download';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../AdminGuideButton';
 
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
-const IMPORT_GUIDES: Record<string, InlineGuide> = {
-    downloadTemplate: {
-        title: 'Download Template',
-        content: 'Downloads the official spreadsheet layout for bulk question import.',
-        actions: [
-            { label: 'Use the template', description: 'Keep the correct column names so preview and validation can map rows without manual cleanup.' },
-        ],
-        affected: 'Question-bank operators preparing XLSX or CSV imports.',
-        bestPractice: 'Always start from this template when a new import sheet is created.',
-    },
-    uploadFile: {
-        title: 'Upload Import File',
-        content: 'Opens the file picker and loads a spreadsheet into the import workspace.',
-        actions: [
-            { label: 'Select a file', description: 'Attach the source sheet before previewing mapping, row validation, and import results.' },
-        ],
-        affected: 'Bulk question import workflows.',
-        bestPractice: 'Re-upload the file after correcting columns so preview uses the latest version.',
-    },
-    previewImport: {
-        title: 'Preview Import',
-        content: 'Validates the uploaded file, detects columns, and prepares the row preview without committing data.',
-        actions: [
-            { label: 'Generate preview', description: 'Check totals, mapping, and row-level validation errors before touching the live bank.' },
-        ],
-        affected: 'Bulk imports and question-bank data quality.',
-        enabledNote: 'You can review mappings and preview rows before import.',
-        disabledNote: 'No validation preview is generated until a file is uploaded.',
-    },
-    mapping: {
-        title: 'Column Mapping',
-        content: 'Matches each spreadsheet column to the canonical question-bank fields.',
-        actions: [
-            { label: 'Adjust field mapping', description: 'Correct mismatched headers so the right values land in the right question fields.' },
-        ],
-        affected: 'Imported question text, answers, metadata, and all downstream exams using those questions.',
-        bestPractice: 'Skip only the columns that are intentionally unused for this import.',
-    },
-    importMode: {
-        title: 'Import Mode',
-        content: 'Controls whether duplicate rows are skipped or used to update matching questions.',
-        affected: 'Existing questions that share matching identifiers or duplicate data.',
-        enabledNote: 'Upsert updates existing matches with the latest file values.',
-        disabledNote: 'Create mode preserves existing matches and only adds new rows.',
-        bestPractice: 'Use create for safe first imports and upsert only when you intend to refresh existing questions.',
-    },
-    commitImport: {
-        title: 'Import Questions',
-        content: 'Commits the validated spreadsheet rows into the live question bank.',
-        actions: [
-            { label: 'Run import', description: 'Persist the previewed rows so they become available to question-bank search, sets, and exam assembly.' },
-        ],
-        impact: 'A bad commit can add duplicates or overwrite intended content when upsert mode is selected.',
-        affected: 'Question bank, question sets, and any exam authoring flow that uses those questions.',
-    },
-    cancelImport: {
-        title: 'Cancel Import',
-        content: 'Clears the current file and preview so you can restart the import flow safely.',
-        actions: [
-            { label: 'Reset workspace', description: 'Discard the current preview without changing the live question bank.' },
-        ],
-        affected: 'Only the current import workspace in this browser session.',
-    },
-};
 
 export default function QuestionBankImportPanel() {
     const fileRef = useRef<HTMLInputElement>(null);
@@ -114,7 +48,6 @@ export default function QuestionBankImportPanel() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">Import Questions</h2>
-                    <AdminGuideButton {...IMPORT_GUIDES.uploadFile} variant="full" tone="indigo" actionLabel="View details" />
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -129,7 +62,6 @@ export default function QuestionBankImportPanel() {
                     >
                         <Download className="w-4 h-4" /> Download Template
                     </button>
-                    <AdminGuideButton {...IMPORT_GUIDES.downloadTemplate} tone="indigo" />
                 </div>
             </div>
 
@@ -139,7 +71,6 @@ export default function QuestionBankImportPanel() {
                 className="relative border-2 border-dashed border-slate-300 dark:border-slate-700/60 rounded-2xl p-10 text-center cursor-pointer hover:border-indigo-500/40 transition"
             >
                 <div className="absolute right-4 top-4">
-                    <AdminGuideButton {...IMPORT_GUIDES.uploadFile} tone="indigo" />
                 </div>
                 <Upload className="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
                 <p className="text-slate-600 dark:text-slate-300 text-sm">{file ? file.name : 'Click to upload .xlsx or .csv file'}</p>
@@ -156,7 +87,6 @@ export default function QuestionBankImportPanel() {
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                         Preview Import
                     </button>
-                    <AdminGuideButton {...IMPORT_GUIDES.previewImport} tone="indigo" />
                 </div>
             )}
 
@@ -165,7 +95,6 @@ export default function QuestionBankImportPanel() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Column Mapping ({preview.headers.length} columns detected)</h3>
-                        <AdminGuideButton {...IMPORT_GUIDES.mapping} tone="indigo" />
                     </div>
                     <div className="overflow-x-auto">
                         <table className="text-sm w-full">
@@ -225,7 +154,6 @@ export default function QuestionBankImportPanel() {
                                 <option value="create">Create (skip duplicates)</option>
                                 <option value="upsert">Upsert (update duplicates)</option>
                             </select>
-                            <AdminGuideButton {...IMPORT_GUIDES.importMode} tone="indigo" />
                         </div>
                         <div className="flex items-center gap-2">
                             <button
@@ -236,11 +164,9 @@ export default function QuestionBankImportPanel() {
                                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                                 Import {preview.totalRows} Questions
                             </button>
-                            <AdminGuideButton {...IMPORT_GUIDES.commitImport} tone="indigo" />
                         </div>
                         <div className="flex items-center gap-2">
                             <button onClick={() => { setFile(null); setPreview(null); }} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition">Cancel</button>
-                            <AdminGuideButton {...IMPORT_GUIDES.cancelImport} tone="indigo" />
                         </div>
                     </div>
                 </div>

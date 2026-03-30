@@ -19,7 +19,7 @@ import {
 import { queryKeys } from '../../lib/queryKeys';
 import { useAdminRuntimeFlags } from '../../hooks/useAdminRuntimeFlags';
 import InfoHint from '../ui/InfoHint';
-import AdminGuideButton, { type AdminGuideButtonProps } from './AdminGuideButton';
+
 import {
     RefreshCw, MessageSquare, Bell, Send, User,
     Clock, CheckCircle,
@@ -71,32 +71,7 @@ type NoticeRecipientOption = {
     subtitle: string;
 };
 
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
-const SUPPORT_GUIDES: Record<'ticketsTab' | 'noticesTab' | 'status' | 'reply', InlineGuide> = {
-    ticketsTab: {
-        title: 'Tickets',
-        content: 'Review and reply to subscriber support conversations from the threaded support inbox.',
-        affected: 'Subscribed students, support staff, and unread support state.',
-    },
-    noticesTab: {
-        title: 'Notices',
-        content: 'Create and manage notice broadcasts sent to groups or students.',
-        affected: 'Targeted student recipients and admin communication flows.',
-    },
-    status: {
-        title: 'Ticket Status',
-        content: 'Update the operational state of the selected support ticket.',
-        enabledNote: 'The selected status becomes the live ticket state immediately.',
-        disabledNote: 'This control is not a toggle; choose the correct workflow state instead of leaving the wrong status active.',
-        affected: 'Support workflow, unread review, and admin tracking.',
-    },
-    reply: {
-        title: 'Send Reply',
-        content: 'Send the current admin response into the support thread.',
-        affected: 'The student support thread and unread counts.',
-    },
-};
 
 export default function SupportTicketsPanel() {
     const queryClient = useQueryClient();
@@ -379,8 +354,7 @@ export default function SupportTicketsPanel() {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                            <select
+                        <select
                                 value={selectedTicket.status}
                                 onChange={(e) => updateStatus(selectedTicket._id, e.target.value as AdminSupportTicketItem['status'])}
                                 className={`rounded-xl border px-3 py-1.5 text-xs font-semibold outline-none transition-colors ${getStatusStyle(selectedTicket.status)}`}
@@ -390,8 +364,6 @@ export default function SupportTicketsPanel() {
                                 <option value="resolved">Resolved</option>
                                 <option value="closed">Closed</option>
                             </select>
-                            <AdminGuideButton {...SUPPORT_GUIDES.status} tone="indigo" />
-                        </div>
                     </div>
                 </div>
 
@@ -450,16 +422,13 @@ export default function SupportTicketsPanel() {
                                 }
                             }}
                         />
-                        <div className="flex items-center gap-1">
-                            <button
+                        <button
                                 onClick={() => void handleReply(selectedTicket._id)}
                                 disabled={!replyDraft.trim() || loading}
                                 className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg shadow-indigo-600/20 hover:opacity-90 disabled:opacity-50 transition-all flex-shrink-0"
                             >
                                 <Send className="h-5 w-5" />
                             </button>
-                            <AdminGuideButton {...SUPPORT_GUIDES.reply} tone="indigo" />
-                        </div>
                     </div>
                     <p className="mt-2 text-[10px] text-center text-slate-500">Press Enter to send, Shift + Enter for new line.</p>
                 </div>
@@ -676,8 +645,7 @@ export default function SupportTicketsPanel() {
 
                 {/* Tab Switcher */}
                 <div className="mt-8 flex flex-wrap gap-2 rounded-2xl bg-slate-950/40 p-1.5 w-full sm:w-fit border border-indigo-500/10">
-                    <div className="flex items-center gap-1">
-                        <button
+                    <button
                             onClick={() => { setTab('tickets'); setSelectedTicket(null); }}
                             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${tab === 'tickets' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                         >
@@ -687,10 +655,7 @@ export default function SupportTicketsPanel() {
                                 {tickets.length}
                             </span>
                         </button>
-                        <AdminGuideButton {...SUPPORT_GUIDES.ticketsTab} tone="indigo" />
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <button
+                    <button
                             onClick={() => { setTab('notices'); setSelectedTicket(null); }}
                             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${tab === 'notices' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                         >
@@ -700,8 +665,6 @@ export default function SupportTicketsPanel() {
                                 {notices.length}
                             </span>
                         </button>
-                        <AdminGuideButton {...SUPPORT_GUIDES.noticesTab} tone="indigo" />
-                    </div>
                 </div>
             </div>
 

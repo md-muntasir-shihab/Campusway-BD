@@ -77,7 +77,7 @@ export default function StudentExamsHub() {
 
     return (
         <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <div className="rounded-2xl border border-white/40 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm p-5">
                 <h1 className="text-2xl font-bold">Exam Portal</h1>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     Check eligibility, payment state, and start exams from one place.
@@ -121,12 +121,12 @@ export default function StudentExamsHub() {
             {!examsQuery.isLoading && !examsQuery.isError && activeTab === 'completed' ? (
                 <div className="grid grid-cols-1 gap-3">
                     {(examsQuery.data?.completed || []).length === 0 ? (
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 text-sm text-slate-500">
+                        <div className="rounded-2xl border border-white/40 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm p-5 text-sm text-slate-500">
                             No completed exams found.
                         </div>
                     ) : (
                         (examsQuery.data?.completed || []).map((item) => (
-                            <div key={item.resultId} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div key={item.resultId} className="rounded-2xl border border-white/40 dark:border-slate-700/50 bg-white/40 dark:bg-slate-800/40 shadow-sm p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 transition-colors hover:bg-white/60 dark:hover:bg-slate-800/60">
                                 <div>
                                     <p className="font-semibold">{item.examTitle}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">{item.subject}  -  Attempt {item.attemptNo}</p>
@@ -150,12 +150,12 @@ export default function StudentExamsHub() {
             {!examsQuery.isLoading && !examsQuery.isError && activeTab !== 'completed' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {tabData.length === 0 ? (
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 text-sm text-slate-500">
+                        <div className="rounded-2xl border border-white/40 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm p-5 text-sm text-slate-500">
                             No exams in this tab.
                         </div>
                     ) : (
                         tabData.map((exam) => (
-                            <article key={exam._id} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+                            <article key={exam._id} className="rounded-2xl border border-white/40 dark:border-slate-700/50 bg-white/40 dark:bg-slate-800/40 shadow-sm p-4 space-y-3 transition hover:bg-white/60 dark:hover:bg-slate-800/60">
                                 <div className="flex items-start justify-between gap-2">
                                     <div>
                                         <p className="font-semibold">{exam.title}</p>

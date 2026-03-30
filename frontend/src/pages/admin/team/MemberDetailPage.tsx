@@ -16,10 +16,8 @@ import {
   Fingerprint, KeyRound, UserCheck, UserX, Save,
 } from 'lucide-react';
 import { ADMIN_PATHS } from '../../../routes/adminPaths';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../../../components/admin/AdminGuideButton';
 
 type DetailTab = 'overview' | 'role' | 'activity' | 'security' | 'notes';
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
 function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
@@ -62,17 +60,6 @@ const TABS: { key: DetailTab; label: string; icon: React.ElementType }[] = [
   { key: 'notes', label: 'Notes', icon: Mail },
 ];
 
-const MEMBER_GUIDES: Record<DetailTab | 'activate' | 'suspend' | 'reset' | 'revoke', InlineGuide> = {
-  overview: { title: 'Overview Tab', content: 'Review the member summary and editable account details.', affected: 'Current admin review and member profile data.' },
-  role: { title: 'Role & Permissions Tab', content: 'Review the linked role and permission scope for this member.', affected: 'Team-access visibility and operational permissions.' },
-  activity: { title: 'Activity Log Tab', content: 'Review recent audit activity for this member account.', affected: 'Team audit review only.' },
-  security: { title: 'Login & Security Tab', content: 'Review login and security posture for this member.', affected: 'Member account protection and support operations.' },
-  notes: { title: 'Notes Tab', content: 'Review or manage notes related to this team member.', affected: 'Team member internal notes.' },
-  activate: { title: 'Activate Member', content: 'Restore active access for this team member account.', affected: 'Admin access for the selected member.' },
-  suspend: { title: 'Suspend Member', content: 'Suspend this member account and stop normal access until reactivated.', affected: 'Admin access for the selected member.' },
-  reset: { title: 'Reset Password', content: 'Trigger a password reset flow for this team member.', affected: 'The selected member account and its next login.' },
-  revoke: { title: 'Revoke Sessions', content: 'Invalidate active sessions for this team member account.', affected: 'Current active sessions for the selected member.' },
-};
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -230,10 +217,10 @@ export default function MemberDetailPage() {
                 </div>
                 {canCreateTeam && (
                   <div className="flex flex-wrap gap-2">
-                    <div className="flex items-center gap-1"><button onClick={() => handleAction('activate')} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"><UserCheck className="h-3.5 w-3.5" /> Activate</button><AdminGuideButton {...MEMBER_GUIDES.activate} tone="indigo" /></div>
-                    <div className="flex items-center gap-1"><button onClick={() => handleAction('suspend')} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400"><UserX className="h-3.5 w-3.5" /> Suspend</button><AdminGuideButton {...MEMBER_GUIDES.suspend} tone="indigo" /></div>
-                    <div className="flex items-center gap-1"><button onClick={() => handleAction('reset')} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"><KeyRound className="h-3.5 w-3.5" /> Reset Password</button><AdminGuideButton {...MEMBER_GUIDES.reset} tone="indigo" /></div>
-                    <div className="flex items-center gap-1"><button onClick={() => handleAction('revoke')} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400"><Lock className="h-3.5 w-3.5" /> Revoke Sessions</button><AdminGuideButton {...MEMBER_GUIDES.revoke} tone="indigo" /></div>
+                    <div className="flex items-center gap-1"><button onClick={() => handleAction('activate')} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"><UserCheck className="h-3.5 w-3.5" /> Activate</button></div>
+                    <div className="flex items-center gap-1"><button onClick={() => handleAction('suspend')} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400"><UserX className="h-3.5 w-3.5" /> Suspend</button></div>
+                    <div className="flex items-center gap-1"><button onClick={() => handleAction('reset')} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"><KeyRound className="h-3.5 w-3.5" /> Reset Password</button></div>
+                    <div className="flex items-center gap-1"><button onClick={() => handleAction('revoke')} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400"><Lock className="h-3.5 w-3.5" /> Revoke Sessions</button></div>
                   </div>
                 )}
               </div>
@@ -253,7 +240,6 @@ export default function MemberDetailPage() {
                   >
                     <Icon className="h-3.5 w-3.5" /> {label}
                   </button>
-                  <AdminGuideButton {...MEMBER_GUIDES[key]} tone="indigo" />
                 </div>
               ))}
             </div>

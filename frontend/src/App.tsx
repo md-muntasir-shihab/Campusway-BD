@@ -142,6 +142,7 @@ const STUDENT_STANDALONE_ROUTES = new Set<string>([]);
 
 import { useWebsiteSettings } from './hooks/useWebsiteSettings';
 import useHomeLiveUpdates from './hooks/useHomeLiveUpdates';
+import SEO from './components/common/SEO';
 
 function resolveRouteTitle(pathname: string, siteName: string, defaultTitle: string): string | null {
     const withSite = (label: string) => `${label} | ${siteName}`;
@@ -288,10 +289,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         link.href = favicon;
     }, [path, settings]);
 
-    if (isFullScreen) return <><RouteScrollReset /><ForceLogoutModal />{children}</>;
+    if (isFullScreen) return <><SEO /><RouteScrollReset /><ForceLogoutModal />{children}</>;
     
     return (
         <div className="min-h-screen flex flex-col bg-transparent transition-colors duration-300">
+            <SEO />
             <RouteScrollReset />
             <Navbar />
             <main className="flex-1">{children}</main>

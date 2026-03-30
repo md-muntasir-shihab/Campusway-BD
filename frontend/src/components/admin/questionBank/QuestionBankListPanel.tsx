@@ -13,72 +13,13 @@ import {
 import { exportQuestions } from '../../../api/adminQuestionBankApi';
 import type { BankQuestionFilters, BankQuestion } from '../../../types/questionBank';
 import { downloadFile } from '../../../utils/download';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../AdminGuideButton';
 
 interface Props {
     onEdit: (id: string) => void;
     archiveMode?: boolean;
 }
 
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
-const QUESTION_ACTION_GUIDES: Record<string, InlineGuide> = {
-    refresh: {
-        title: 'Refresh Question List',
-        content: 'Reload the current question list using the active filters and archive mode.',
-        affected: 'Question-bank operators reviewing the current list.',
-    },
-    export: {
-        title: 'Export Questions',
-        content: 'Download the currently filtered question-bank data as an export file.',
-        affected: 'Question-bank reviews, backups, and offline analysis.',
-    },
-    bulkArchive: {
-        title: 'Bulk Archive',
-        content: 'Move the selected active questions into the archive without hard deleting them.',
-        affected: 'Selected questions and any authoring workflow relying on the active bank list.',
-    },
-    bulkDelete: {
-        title: 'Bulk Delete',
-        content: 'Hard delete the selected questions from the question bank after confirmation.',
-        affected: 'Selected questions and any future workflow that would have reused them.',
-    },
-    clearSelection: {
-        title: 'Clear Selection',
-        content: 'Remove the current multi-select state without changing any question data.',
-        affected: 'Only the current admin selection state.',
-    },
-    view: {
-        title: 'View Question',
-        content: 'Open the question detail view without switching to edit mode.',
-        affected: 'Current admin review only.',
-    },
-    edit: {
-        title: 'Edit Question',
-        content: 'Open the selected question in edit mode so its text, answers, and metadata can be changed.',
-        affected: 'The selected question and any exams that later reuse it.',
-    },
-    duplicate: {
-        title: 'Duplicate Question',
-        content: 'Create a copied version of the current question for quick reuse or variation.',
-        affected: 'The question bank grows by one copied item.',
-    },
-    archive: {
-        title: 'Archive Question',
-        content: 'Move this question out of the active bank while keeping it restorable later.',
-        affected: 'The selected question leaves the active authoring pool.',
-    },
-    restore: {
-        title: 'Restore Question',
-        content: 'Return an archived question to the active bank.',
-        affected: 'The selected question becomes available for active use again.',
-    },
-    delete: {
-        title: 'Delete Question',
-        content: 'Permanently remove the selected question after confirmation.',
-        affected: 'The selected question is removed from the question bank.',
-    },
-};
 
 export default function QuestionBankListPanel({ onEdit, archiveMode }: Props) {
     const [page, setPage] = useState(1);
@@ -179,11 +120,9 @@ export default function QuestionBankListPanel({ onEdit, archiveMode }: Props) {
                 <button onClick={() => refetch()} className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:border-slate-700/60 dark:text-slate-300 dark:hover:text-white transition">
                     <RefreshCw className="w-4 h-4" />
                 </button>
-                <AdminGuideButton {...QUESTION_ACTION_GUIDES.refresh} tone="indigo" />
                 <button onClick={handleExport} className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-600 hover:text-slate-900 dark:bg-slate-800 dark:border-slate-700/60 dark:text-slate-300 dark:hover:text-white transition flex items-center gap-2">
                     <Download className="w-4 h-4" /> Export
                 </button>
-                <AdminGuideButton {...QUESTION_ACTION_GUIDES.export} tone="indigo" />
             </div>
 
             {/* Bulk actions */}
@@ -195,18 +134,15 @@ export default function QuestionBankListPanel({ onEdit, archiveMode }: Props) {
                             <button onClick={handleBulkArchive} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 transition">
                                 <Archive className="w-3.5 h-3.5" /> Archive
                             </button>
-                            <AdminGuideButton {...QUESTION_ACTION_GUIDES.bulkArchive} tone="indigo" />
                         </div>
                     )}
                     <div className="flex items-center gap-1">
                         <button onClick={handleBulkDelete} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 transition">
                             <Trash2 className="w-3.5 h-3.5" /> Delete
                         </button>
-                        <AdminGuideButton {...QUESTION_ACTION_GUIDES.bulkDelete} tone="indigo" />
                     </div>
                     <div className="ml-auto flex items-center gap-1">
                         <button onClick={() => setSelectedIds([])} className="text-xs text-slate-400 hover:text-white">Clear</button>
-                        <AdminGuideButton {...QUESTION_ACTION_GUIDES.clearSelection} tone="indigo" />
                     </div>
                 </div>
             )}
@@ -261,40 +197,34 @@ export default function QuestionBankListPanel({ onEdit, archiveMode }: Props) {
                                                         <button onClick={() => setDetailQuestion(q)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-cyan-500 dark:hover:text-cyan-400 transition" title="View">
                                                             <Eye className="w-4 h-4" />
                                                         </button>
-                                                        <AdminGuideButton {...QUESTION_ACTION_GUIDES.view} tone="indigo" />
                                                     </div>
                                                     <div className="flex items-center gap-1">
                                                         <button onClick={() => onEdit(q._id)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition" title="Edit">
                                                             <Edit className="w-4 h-4" />
                                                         </button>
-                                                        <AdminGuideButton {...QUESTION_ACTION_GUIDES.edit} tone="indigo" />
                                                     </div>
                                                     <div className="flex items-center gap-1">
                                                         <button onClick={async () => { await duplicateMut.mutateAsync(q._id); toast.success('Duplicated'); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition" title="Duplicate">
                                                             <Copy className="w-4 h-4" />
                                                         </button>
-                                                        <AdminGuideButton {...QUESTION_ACTION_GUIDES.duplicate} tone="indigo" />
                                                     </div>
                                                     {archiveMode ? (
                                                         <div className="flex items-center gap-1">
                                                             <button onClick={async () => { await restoreMut.mutateAsync(q._id); toast.success('Restored'); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition" title="Restore">
                                                                 <RotateCcw className="w-4 h-4" />
                                                             </button>
-                                                            <AdminGuideButton {...QUESTION_ACTION_GUIDES.restore} tone="indigo" />
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-1">
                                                             <button onClick={async () => { await archiveMut.mutateAsync(q._id); toast.success('Archived'); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition" title="Archive">
                                                                 <Archive className="w-4 h-4" />
                                                             </button>
-                                                            <AdminGuideButton {...QUESTION_ACTION_GUIDES.archive} tone="indigo" />
                                                         </div>
                                                     )}
                                                     <div className="flex items-center gap-1">
                                                         <button onClick={async () => { if (!confirm('Delete?')) return; await deleteMut.mutateAsync(q._id); toast.success('Deleted'); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition" title="Delete">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
-                                                        <AdminGuideButton {...QUESTION_ACTION_GUIDES.delete} tone="indigo" />
                                                     </div>
                                                 </div>
                                             </td>

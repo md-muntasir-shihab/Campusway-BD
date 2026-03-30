@@ -21,6 +21,7 @@ import {
 import { queryKeys } from '../../lib/queryKeys';
 import SecurityHelpButton, { type SecurityHelpButtonProps } from './SecurityHelpButton';
 import { promptForSensitiveActionProof } from '../../utils/sensitiveAction';
+import AdminAuthenticatorSetup from './AdminAuthenticatorSetup';
 
 const DEFAULT_SETTINGS: SecurityCenterSettings = {
     passwordPolicy: {
@@ -996,6 +997,11 @@ export default function SecuritySettingsPanel({ section = 'settings' }: { sectio
                     {SECTION_COPY[section]?.description || SECTION_COPY.settings.description}
                 </p>
             </section>
+
+            {(section === 'settings' || section === 'two-factor') && (
+                <AdminAuthenticatorSetup />
+            )}
+
             <section className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>

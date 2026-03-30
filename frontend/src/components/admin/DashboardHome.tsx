@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { adminGetDashboardSummary, type AdminDashboardSummary } from '../../services/api';
 import { useModuleAccess } from '../../hooks/useModuleAccess';
-import AdminGuideButton from './AdminGuideButton';
 
 interface DashboardHomeProps {
     universities: any[];
@@ -49,8 +48,8 @@ export default function DashboardHome({ universities, exams, users, onTabChange 
     const summaryQuery = useQuery({
         queryKey: ['admin-dashboard-summary'],
         queryFn: async () => (await adminGetDashboardSummary()).data as AdminDashboardSummary,
-        refetchInterval: 60_000,
-        refetchOnWindowFocus: false,
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: true,
     });
 
     const fallbackSummary: AdminDashboardSummary = {
@@ -285,76 +284,98 @@ export default function DashboardHome({ universities, exams, users, onTabChange 
     const visibleCards = useMemo(() => cards.filter((card) => hasAnyAccess(card.module)), [cards, hasAnyAccess]);
 
     return (
-        <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Admin Summary</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Live snapshot of core modules with quick navigation links.</p>
+        <div className="space-y-6">
+            {/* Hero / Header Strip */}
+            <div className="rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 text-white shadow-[0_24px_70px_rgba(6,10,24,0.24)]">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="max-w-3xl">
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-200/85">Admin Control Center</p>
+                        <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Admin Summary</h2>
+                        <p className="mt-3 text-sm leading-7 text-slate-300">
+                            Live snapshot of core modules with quick navigation links. Data refreshes automatically every minute.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => summaryQuery.refetch()}
+                        className="inline-flex items-center gap-2 self-start rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${summaryQuery.isFetching ? 'animate-spin' : ''}`} />
+                        Refresh Summary
+                    </button>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => summaryQuery.refetch()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/30 px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-200 dark:hover:bg-indigo-500/20"
-                >
-                    <RefreshCw className={`h-3.5 w-3.5 ${summaryQuery.isFetching ? 'animate-spin' : ''}`} />
-                    Refresh Summary
-                </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {/* Summary Cards Grid */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {visibleCards.map((card) => (
-                    <article key={card.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-indigo-500/15 dark:bg-slate-900/60">
-                        <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{card.title}</p>
-                                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{card.value}</p>
+                    <article
+                        key={card.key}
+                        className="group relative overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800/80 dark:bg-slate-950/70 dark:hover:border-indigo-500/30"
+                    >
+                        {/* Decorative gradient blob */}
+                        <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:from-indigo-500/15 group-hover:to-cyan-500/15 dark:from-indigo-500/8 dark:to-cyan-500/8" />
+
+                        <div className="relative flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.title}</p>
+                                <p className="mt-2 text-3xl font-black tracking-tight text-slate-900 dark:text-white">{card.value}</p>
                             </div>
-                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-200">
+                            <span className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/15 to-cyan-500/10 text-indigo-600 ring-1 ring-indigo-500/20 transition-transform duration-300 group-hover:scale-110 dark:from-indigo-500/20 dark:to-cyan-500/15 dark:text-indigo-300 dark:ring-indigo-500/25">
                                 <card.icon className="h-5 w-5" />
                             </span>
                         </div>
-                        <p className="mt-2 min-h-[2.2rem] text-xs text-slate-500 dark:text-slate-400">{card.description}</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
+
+                        <p className="mt-3 min-h-[2rem] text-xs leading-5 text-slate-500 dark:text-slate-400">{card.description}</p>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200/70 pt-4 dark:border-slate-800/70">
                             <button
                                 type="button"
                                 onClick={() => onTabChange(card.actionTab)}
-                                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200 dark:hover:text-indigo-200"
+                                className="inline-flex items-center gap-2 rounded-xl border border-slate-300/80 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-400 hover:bg-indigo-500/5 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:border-indigo-500/40 dark:hover:text-indigo-300"
                             >
                                 {card.actionLabel}
                             </button>
-                            <AdminGuideButton
-                                title={card.title}
-                                content={`${card.description}. Use "${card.actionLabel}" from this summary card to move directly into the live admin module.`}
-                                affected="Admins reviewing module status and opening the next workflow from the dashboard."
-                                tone="indigo"
-                            />
+
                         </div>
                     </article>
                 ))}
             </div>
 
+            {/* Fallback Warning */}
             {usingFallbackSummary ? (
-                <div className="rounded-2xl border border-amber-300/60 bg-amber-50 p-4 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
-                    <p className="inline-flex items-center gap-2 font-semibold"><TriangleAlert className="h-4 w-4" /> Live summary unavailable</p>
-                    <p className="mt-1">
+                <div className="rounded-[1.75rem] border border-amber-300/60 bg-gradient-to-r from-amber-50 to-orange-50 p-5 shadow-sm dark:border-amber-900/60 dark:from-amber-950/30 dark:to-orange-950/20">
+                    <p className="inline-flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-100">
+                        <TriangleAlert className="h-4 w-4" />
+                        Live summary unavailable
+                    </p>
+                    <p className="mt-2 text-sm text-amber-800 dark:text-amber-200/80">
                         The dashboard summary API failed, so these cards are showing local fallback values from the current page payload instead of trusted live counts.
                     </p>
                 </div>
             ) : null}
 
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50 p-4 text-xs text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-100">
-                <p className="inline-flex items-center gap-2 font-semibold"><ShieldCheck className="h-4 w-4" /> System check</p>
-                <p className="mt-1">
-                    DB: <span className="font-semibold">{summary.systemStatus.db}</span> - Last check: {new Date(summary.systemStatus.timeUTC).toLocaleString()}
-                </p>
-                <p className="mt-1">
-                    Security alerts: <span className="font-semibold">{valueText(summary.security.unreadAlerts)}</span> unread, <span className="font-semibold">{valueText(summary.security.criticalAlerts)}</span> critical
-                </p>
-                <p className="mt-1">
-                    Source: <span className="font-semibold">{usingFallbackSummary ? 'fallback snapshot' : 'live summary'}</span>
-                </p>
+            {/* System Health Footer */}
+            <div className="rounded-[1.75rem] border border-emerald-500/20 bg-gradient-to-r from-emerald-50 to-cyan-50 p-5 shadow-sm dark:from-emerald-500/5 dark:to-cyan-500/5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="inline-flex items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-100">
+                            <ShieldCheck className="h-4 w-4" />
+                            System Health
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-emerald-700 dark:text-emerald-200/80">
+                            <span>DB: <b className="font-semibold">{summary.systemStatus.db}</b></span>
+                            <span>Security: <b className="font-semibold">{valueText(summary.security.unreadAlerts)}</b> unread, <b className="font-semibold">{valueText(summary.security.criticalAlerts)}</b> critical</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 text-xs text-emerald-600 dark:text-emerald-300/60">
+                        <span>Last check: {new Date(summary.systemStatus.timeUTC).toLocaleString()}</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-white/60 px-3 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-slate-900/40 dark:text-emerald-200">
+                            {usingFallbackSummary ? 'Fallback snapshot' : 'Live summary'}
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
-

@@ -216,24 +216,25 @@ function getQuickLinkLabel(route: RouteState, pathname: string): string {
 
 function ShortcutGrid({ items, compact = false }: { items: NavItem[]; compact?: boolean }) {
     return (
-        <div className={`grid gap-3 ${compact ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-2'}`}>
+        <div className={`grid gap-4 ${compact ? 'sm:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-2'}`}>
             {items.map((item) => {
                 const Icon = item.icon;
                 return (
                     <Link
                         key={item.key}
                         to={item.path}
-                        className="group flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/70 px-4 py-4 transition hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-white dark:border-slate-800/70 dark:bg-slate-950/35 dark:hover:border-cyan-400/40 dark:hover:bg-slate-950/55"
+                        className="group relative flex items-start gap-3.5 overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/90 px-5 py-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:shadow-lg dark:border-slate-800/70 dark:bg-slate-950/50 dark:hover:border-cyan-400/40"
                     >
-                        <span className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-700 dark:text-cyan-200">
-                            <Icon className="h-4 w-4" />
+                        <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:from-cyan-500/15 group-hover:to-indigo-500/15" />
+                        <span className="relative inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/15 to-indigo-500/10 text-cyan-700 ring-1 ring-cyan-500/20 transition-transform duration-300 group-hover:scale-110 dark:from-cyan-500/20 dark:to-indigo-500/15 dark:text-cyan-200 dark:ring-cyan-500/25">
+                            <Icon className="h-4.5 w-4.5" />
                         </span>
-                        <span className="min-w-0 flex-1">
+                        <span className="relative min-w-0 flex-1">
                             <span className="flex items-center justify-between gap-2">
-                                <span className="text-sm font-semibold text-slate-900 dark:text-white">{item.label}</span>
-                                <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:text-cyan-500" />
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">{item.label}</span>
+                                <ArrowRight className="h-4 w-4 text-slate-400 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-cyan-500" />
                             </span>
-                            <span className="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{item.summary}</span>
+                            <span className="mt-1.5 block text-xs leading-5 text-slate-500 dark:text-slate-400">{item.summary}</span>
                         </span>
                     </Link>
                 );
@@ -244,10 +245,10 @@ function ShortcutGrid({ items, compact = false }: { items: NavItem[]; compact?: 
 
 function CompactUtilityBar() {
     return (
-        <div className="card-flat border border-cyan-500/15 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-950/70">
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-200">
+                    <span className="rounded-full border border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-indigo-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-200">
                         News Management
                     </span>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -255,10 +256,10 @@ function CompactUtilityBar() {
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <Link to="/__cw_admin__/news/dashboard" className="btn-outline">Overview</Link>
-                    <Link to="/__cw_admin__/news/sources" className="btn-outline">RSS Sources</Link>
-                    <Link to="/__cw_admin__/news/ai-selected" className="btn-outline">AI Review</Link>
-                    <Link to="/__cw_admin__/settings/news" className="btn-outline">News Settings</Link>
+                    <Link to="/__cw_admin__/news/dashboard" className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:border-cyan-500/40">Overview</Link>
+                    <Link to="/__cw_admin__/news/sources" className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:border-cyan-500/40">RSS Sources</Link>
+                    <Link to="/__cw_admin__/news/ai-selected" className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:border-cyan-500/40">AI Review</Link>
+                    <Link to="/__cw_admin__/settings/news" className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:border-cyan-500/40">News Settings</Link>
                 </div>
             </div>
         </div>
@@ -346,50 +347,55 @@ export default function AdminNewsConsole() {
         <AdminGuardShell title={pageTitle}>
             <div className="space-y-4">
                 {section === 'dashboard' ? (
-                    <div className="space-y-4">
-                        <div className="card-flat border border-cyan-500/15 p-5">
-                            <div className="space-y-4">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div className="space-y-2">
-                                        <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-200">
-                                            News Management
-                                        </span>
-                                        <h2 className="text-xl font-semibold text-slate-950 dark:text-white">Start with the task you need</h2>
-                                        <p className="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-                                            The review queue is primary. Overview, templates, logs, and settings are support tools.
-                                        </p>
-                                    </div>
-                                    <Link to="/__cw_admin__/news/pending" className="btn-primary">
-                                        Open Review Queue
-                                    </Link>
+                    <div className="space-y-6">
+                        {/* News Dashboard Hero */}
+                        <div className="rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-6 text-white shadow-[0_24px_70px_rgba(6,10,24,0.24)]">
+                            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                                <div className="max-w-3xl">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/85">News Management</p>
+                                    <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Start with the task you need</h2>
+                                    <p className="mt-3 text-sm leading-7 text-slate-300">
+                                        The review queue is primary. Overview, templates, logs, and settings are support tools.
+                                    </p>
                                 </div>
-                                <div className="space-y-3">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Primary shortcuts</h3>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">The four places an editor is most likely to need first.</p>
-                                    </div>
-                                    <ShortcutGrid items={PRIMARY_SHORTCUTS} compact />
-                                </div>
-                                <div className="space-y-3">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Supporting tools</h3>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Keep delivery, automation, and settings close without crowding the main workflow.</p>
-                                    </div>
-                                    <ShortcutGrid items={SECONDARY_SHORTCUTS} compact />
-                                </div>
-                                <div className="flex flex-wrap gap-2 text-xs">
-                                    <Link to="/__cw_admin__/news/pending" className="rounded-full border border-slate-300/70 px-3 py-1.5 text-slate-600 transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:text-slate-300 dark:hover:text-cyan-200">
-                                        Items to Review
-                                    </Link>
-                                    <Link to="/__cw_admin__/news/published" className="rounded-full border border-slate-300/70 px-3 py-1.5 text-slate-600 transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:text-slate-300 dark:hover:text-cyan-200">
-                                        Live News
-                                    </Link>
-                                    <Link to="/__cw_admin__/news/sources" className="rounded-full border border-slate-300/70 px-3 py-1.5 text-slate-600 transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:text-slate-300 dark:hover:text-cyan-200">
-                                        RSS Sources
-                                    </Link>
-                                </div>
+                                <Link to="/__cw_admin__/news/pending" className="inline-flex items-center gap-2 self-start rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
+                                    Open Review Queue
+                                </Link>
                             </div>
                         </div>
+
+                        {/* Primary Shortcuts */}
+                        <div className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Primary shortcuts</h3>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">The four places an editor is most likely to need first.</p>
+                            </div>
+                            <ShortcutGrid items={PRIMARY_SHORTCUTS} compact />
+                        </div>
+
+                        {/* Supporting Tools */}
+                        <div className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Supporting tools</h3>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Keep delivery, automation, and settings close without crowding the main workflow.</p>
+                            </div>
+                            <ShortcutGrid items={SECONDARY_SHORTCUTS} compact />
+                        </div>
+
+                        {/* Quick links pills */}
+                        <div className="flex flex-wrap gap-2 text-xs">
+                            <Link to="/__cw_admin__/news/pending" className="rounded-full border border-slate-300/70 bg-white/80 px-3 py-1.5 font-medium text-slate-600 shadow-sm transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300 dark:hover:text-cyan-200">
+                                Items to Review
+                            </Link>
+                            <Link to="/__cw_admin__/news/published" className="rounded-full border border-slate-300/70 bg-white/80 px-3 py-1.5 font-medium text-slate-600 shadow-sm transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300 dark:hover:text-cyan-200">
+                                Live News
+                            </Link>
+                            <Link to="/__cw_admin__/news/sources" className="rounded-full border border-slate-300/70 bg-white/80 px-3 py-1.5 font-medium text-slate-600 shadow-sm transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300 dark:hover:text-cyan-200">
+                                RSS Sources
+                            </Link>
+                        </div>
+
+                        {/* Dashboard content */}
                         <motion.div
                             key="dashboard"
                             initial={{ opacity: 0, y: 8 }}

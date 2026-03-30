@@ -1,7 +1,9 @@
 import { ChangeEvent, FormEvent, useState } from 'react';
+import imageCompression from 'browser-image-compression';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import NewsHelpButton from '../../../components/admin/NewsHelpButton';
+import CompressedImageInput from '../../../components/common/CompressedImageInput';
 import {
     ApiNewsV2Media,
     adminNewsV2DeleteMedia,
@@ -28,7 +30,21 @@ export default function AdminNewsMediaSection() {
     const uploadMutation = useMutation({
         mutationFn: async () => {
             if (!selectedFile) throw new Error('Please select a file');
-            return (await adminNewsV2UploadMedia(selectedFile, { altText, isDefaultBanner })).data;
+            let fileToUpload = selectedFile;
+            try {
+                const compressed = await imageCompression(selectedFile, {
+                    maxSizeMB: 0.15,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true,
+                });
+                fileToUpload = new File([compressed], selectedFile.name, {
+                    type: compressed.type,
+                    lastModified: Date.now(),
+                });
+            } catch (err) {
+                console.warn('Compression failed, using original', err);
+            }
+            return (await adminNewsV2UploadMedia(fileToUpload, { altText, isDefaultBanner })).data;
         },
         onSuccess: () => {
             toast.success('Media uploaded');
@@ -60,8 +76,7 @@ export default function AdminNewsMediaSection() {
         onError: (err: any) => toast.error(err?.response?.data?.message || 'Delete failed'),
     });
 
-    function onSelectFile(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0];
+    function onSelectFile(file: File | null) {
         if (!file) return;
         setSelectedFile(file);
     }
@@ -103,7 +118,7 @@ export default function AdminNewsMediaSection() {
                         />
                     </div>
                     <div className="mt-3 space-y-3">
-                        <input type="file" accept="image/*" onChange={onSelectFile} className="input-field" />
+                        <CompressedImageInput accept="image/*" onChange={onSelectFile} className="input-field" />
                         <input
                             className="input-field"
                             placeholder="Alt text"

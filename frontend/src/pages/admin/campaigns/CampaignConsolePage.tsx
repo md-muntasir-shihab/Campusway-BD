@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../../../components/admin/AdminGuideButton';
 import ProvidersPanel from './ProvidersPanel';
 import NotificationOperationsPanel from './NotificationOperationsPanel';
 import SmartTriggersPanel from './SmartTriggersPanel';
@@ -17,7 +16,6 @@ import {
 import { getStudentGroups } from '../../../api/adminStudentApi';
 
 type Tab = 'dashboard' | 'campaigns' | 'new' | 'audiences' | 'contact' | 'templates' | 'providers' | 'triggers' | 'notifications' | 'logs' | 'settings';
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
 const CAMPAIGN_TAB_TO_PATH: Record<Tab, string> = {
   dashboard: ADMIN_PATHS.campaignsDashboard,
@@ -33,83 +31,6 @@ const CAMPAIGN_TAB_TO_PATH: Record<Tab, string> = {
   settings: ADMIN_PATHS.campaignsSettings,
 };
 
-const CAMPAIGN_GUIDES: Record<string, InlineGuide> = {
-  dashboard: {
-    title: 'Campaign Dashboard',
-    content: 'Review campaign health, counts, and recent activity before drilling into specific operations.',
-    affected: 'Campaign operators and notification delivery oversight.',
-  },
-  campaigns: {
-    title: 'All Campaigns',
-    content: 'Review created campaigns, inspect status, and retry failed sends when needed.',
-    affected: 'Campaign operations and delivery follow-up.',
-  },
-  new: {
-    title: 'New Campaign',
-    content: 'Build and send a new campaign using the current audience, template, and schedule settings.',
-    affected: 'Notification recipients and campaign delivery workflows.',
-  },
-  contact: {
-    title: 'Subscription Contact Center',
-    content: 'Use the canonical subscription-wise copy, export, outreach, and saved-audience workspace.',
-    affected: 'Subscription contacts, outreach operations, and export workflows.',
-  },
-  audiences: {
-    title: 'Audiences',
-    content: 'Open the live audience workspace to filter, review, save, and reuse recipients before launching outreach.',
-    affected: 'Campaign audience selection and saved segment reuse.',
-  },
-  templates: {
-    title: 'Templates',
-    content: 'Manage reusable campaign templates for future sends.',
-    affected: 'Campaign composition and consistency.',
-  },
-  logs: {
-    title: 'Delivery Logs',
-    content: 'Inspect delivery outcomes and cost-related activity for sent campaigns.',
-    affected: 'Campaign debugging, support, and audit review.',
-  },
-  settings: {
-    title: 'Campaign Settings',
-    content: 'Adjust default behaviour used by the campaign platform.',
-    affected: 'Campaign operators and delivery routing.',
-  },
-  providers: {
-    title: 'Providers',
-    content: 'Manage the provider connections that campaigns rely on for delivery.',
-    affected: 'Campaign sending infrastructure and provider routing.',
-  },
-  triggers: {
-    title: 'Smart Triggers',
-    content: 'Manage automatic trigger rules used by the campaign system.',
-    affected: 'Automated campaign delivery.',
-  },
-  notifications: {
-    title: 'Notifications',
-    content: 'Review targeted send rules, recent failures, and notification-only workflows without leaving Campaign Hub.',
-    affected: 'Targeted notification operations and send review.',
-  },
-  createCampaign: {
-    title: 'New Campaign',
-    content: 'Jump into the new-campaign flow and prepare a new send.',
-    affected: 'Campaign operators and targeted recipients.',
-  },
-  viewAll: {
-    title: 'View All Campaigns',
-    content: 'Open the full campaign list to inspect individual sends in more detail.',
-    affected: 'Campaign review workflows.',
-  },
-  view: {
-    title: 'View Campaign',
-    content: 'Open the selected campaign details without changing its delivery data.',
-    affected: 'The current admin review only.',
-  },
-  retry: {
-    title: 'Retry Campaign',
-    content: 'Retry a failed campaign delivery attempt using the existing configuration.',
-    affected: 'Failed delivery targets and campaign logs.',
-  },
-};
 
 const CAMPAIGN_VIEW_BUTTONS: Array<{ tab: Tab; label: string }> = [
   { tab: 'dashboard', label: 'Overview' },
@@ -221,7 +142,6 @@ function DashboardPanel({ onNavigate }: { onNavigate: (t: Tab) => void }) {
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Queue and delivery health</h3>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Current orchestration state across campaigns, schedules, triggers, and provider delivery.</p>
             </div>
-            <AdminGuideButton title="Dashboard Health" content="These cards summarize the live campaign queue, provider stability, and subscription audience readiness from the same communication backend." affected="Campaign operators, provider managers, and trigger owners." tone="indigo" />
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -294,13 +214,11 @@ function DashboardPanel({ onNavigate }: { onNavigate: (t: Tab) => void }) {
           <button onClick={() => onNavigate('new')} className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700">
             + New Campaign
           </button>
-          <AdminGuideButton {...CAMPAIGN_GUIDES.createCampaign} tone="indigo" />
         </div>
         <div className="flex items-center gap-1">
           <button onClick={() => onNavigate('campaigns')} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
             View All
           </button>
-          <AdminGuideButton {...CAMPAIGN_GUIDES.viewAll} tone="indigo" />
         </div>
         <button onClick={() => onNavigate('contact')} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
           Subscription Contact Center
@@ -381,12 +299,10 @@ function CampaignsListPanel({ onView, onRetry }: { onView: (id: string) => void;
                   <div className="flex gap-1">
                     <div className="flex items-center gap-1">
                       <button onClick={() => onView(c._id)} className="rounded-lg px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20">View</button>
-                      <AdminGuideButton {...CAMPAIGN_GUIDES.view} tone="indigo" />
                     </div>
                     {(c.failedCount ?? 0) > 0 && (
                       <div className="flex items-center gap-1">
                         <button onClick={() => onRetry(c._id)} className="rounded-lg px-2 py-1 text-xs text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20">Retry</button>
-                        <AdminGuideButton {...CAMPAIGN_GUIDES.retry} tone="indigo" />
                       </div>
                     )}
                   </div>

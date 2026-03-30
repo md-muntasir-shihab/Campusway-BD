@@ -37,3 +37,53 @@ TXT Files/
 
 # Local exports and scratch files
 Documents/Files/
+
+# Root-level screenshot artifacts (binary page captures — not source code)
+admin-dashboard
+admin-login
+contact-page
+exams-page
+homepage-full
+login-page
+news-page
+resources-page
+subscription-plans
+team-members
+universities-page
+
+# Process ID files (produced by dev run scripts)
+PID
+PID Files/
+
+# Temp/scratch files
+tmp-*.json
+tmp-*.cjs
+tmp_*.md
+*.tmp
+output/
+
+# JSON Files scratch directory
+JSON Files/
+
+# Legacy directories (old alternative implementations, not active)
+client/
+server/
+New folder/
+
+# Snapshot artifacts
+snapshot-*.md
+qa/
+qa-artifacts/
+
+# Playwright test artifacts
+playwright-report/
+frontend/test-results/
+frontend/testsprite_tests/
+frontend/playwright-*-results*.json
+frontend/output/
+
+# Backend runtime log files
+backend/*.log
+backend/*.err.log
+backend/*.out.log
+backend/tmp-*

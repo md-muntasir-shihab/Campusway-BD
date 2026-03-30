@@ -1,8 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import AdminGuardShell from '../AdminGuardShell';
 import { adminUi } from '../../../lib/appRoutes';
-import AdminGuideButton from '../AdminGuideButton';
-import { getAdminPageGuide } from '../adminPageGuides';
 import {
     UserCog, UserPlus, Import, ClipboardList,
     MessageSquare, TrendingDown, Bell, Settings, CheckSquare,
@@ -32,22 +30,17 @@ export default function StudentManagementLayout() {
         <div className="space-y-4">
             {/* Horizontal tab strip */}
             <nav className="hide-scrollbar flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 dark:border-slate-700 dark:bg-slate-900">
-                {TABS.map(({ to, label, icon: Icon }) => {
-                    const guide = getAdminPageGuide(to);
-                    return (
-                        <div key={to} className="flex items-center gap-1">
-                            <NavLink
-                                to={to}
-                                end={label === 'All Students'}
-                                className={({ isActive }) => `${baseCls} ${isActive ? activeCls : ''}`}
-                            >
-                                <Icon size={14} />
-                                {label}
-                            </NavLink>
-                            {guide ? <AdminGuideButton {...guide} tone="indigo" /> : null}
-                        </div>
-                    );
-                })}
+                {TABS.map(({ to, label, icon: Icon }) => (
+                    <NavLink
+                        key={to}
+                        to={to}
+                        end={label === 'All Students'}
+                        className={({ isActive }) => `${baseCls} ${isActive ? activeCls : ''}`}
+                    >
+                        <Icon size={14} />
+                        {label}
+                    </NavLink>
+                ))}
             </nav>
 
             {/* Child route renders here */}

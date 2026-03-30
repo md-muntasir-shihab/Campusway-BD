@@ -13,10 +13,8 @@ import {
   ArrowLeft, Shield, Users, Lock, Save, Copy, Trash2, CheckCircle2,
 } from 'lucide-react';
 import { ADMIN_PATHS } from '../../../routes/adminPaths';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../../../components/admin/AdminGuideButton';
 
 type DetailTab = 'overview' | 'permissions' | 'members';
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
 const TABS: { key: DetailTab; label: string; icon: React.ElementType }[] = [
   { key: 'overview', label: 'Overview', icon: Shield },
@@ -24,15 +22,6 @@ const TABS: { key: DetailTab; label: string; icon: React.ElementType }[] = [
   { key: 'members', label: 'Members', icon: Users },
 ];
 
-const ROLE_GUIDES: Record<DetailTab | 'duplicate' | 'delete' | 'saveOverview' | 'savePermissions', InlineGuide> = {
-  overview: { title: 'Overview Tab', content: 'Review and edit the role identity, description, and base platform role.', affected: 'Role configuration and downstream team assignment.' },
-  permissions: { title: 'Permissions Tab', content: 'Manage per-module action access granted by this role.', affected: 'Admin route and action access for members using this role.' },
-  members: { title: 'Members Tab', content: 'Review the members currently assigned to this role.', affected: 'Team member review only.' },
-  duplicate: { title: 'Duplicate Role', content: 'Create a copied version of this role for faster setup of a similar permission set.', affected: 'Team role catalog.' },
-  delete: { title: 'Delete Role', content: 'Delete this role and unassign members from it after confirmation.', affected: 'This role record and any member currently assigned to it.' },
-  saveOverview: { title: 'Save Role Changes', content: 'Persist the current role name, description, and base role changes.', affected: 'This role configuration.' },
-  savePermissions: { title: 'Save Permissions', content: 'Persist the permission matrix currently configured for this role.', affected: 'Admin access for all members using this role.' },
-};
 
 export default function RoleDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -194,9 +183,9 @@ export default function RoleDetailPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {canCreateTeam && <div className="flex items-center gap-1"><button onClick={handleDuplicate} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"><Copy className="h-3.5 w-3.5" /> Duplicate</button><AdminGuideButton {...ROLE_GUIDES.duplicate} tone="indigo" /></div>}
+                  {canCreateTeam && <div className="flex items-center gap-1"><button onClick={handleDuplicate} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"><Copy className="h-3.5 w-3.5" /> Duplicate</button></div>}
                   {!role.isSystemRole && canDeleteTeam && (
-                    <div className="flex items-center gap-1"><button onClick={handleDelete} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-900/30"><Trash2 className="h-3.5 w-3.5" /> Delete</button><AdminGuideButton {...ROLE_GUIDES.delete} tone="indigo" /></div>
+                    <div className="flex items-center gap-1"><button onClick={handleDelete} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-900/30"><Trash2 className="h-3.5 w-3.5" /> Delete</button></div>
                   )}
                 </div>
               </div>
@@ -216,7 +205,6 @@ export default function RoleDetailPage() {
                   >
                     <Icon className="h-3.5 w-3.5" /> {label}
                   </button>
-                  <AdminGuideButton {...ROLE_GUIDES[key]} tone="indigo" />
                 </div>
               ))}
             </div>
@@ -251,7 +239,6 @@ export default function RoleDetailPage() {
                     <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
                       <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
                     </button>
-                    <AdminGuideButton {...ROLE_GUIDES.saveOverview} tone="indigo" />
                   </div>
                 )}
               </div>
@@ -305,7 +292,6 @@ export default function RoleDetailPage() {
                     <button onClick={handleSavePermissions} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
                       <CheckCircle2 className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Permissions'}
                     </button>
-                    <AdminGuideButton {...ROLE_GUIDES.savePermissions} tone="indigo" />
                   </div>
                 )}
               </div>

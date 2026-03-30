@@ -1,4 +1,6 @@
-﻿import { RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { SEO } from '../../components/common/SEO';
+import { RefreshCw } from 'lucide-react';
 import { useStudentDashboardFull, useDashboardRealtime } from '../../hooks/useStudentDashboard';
 import type { DashboardSectionConfig } from '../../services/api';
 
@@ -20,6 +22,7 @@ import ResourcesForYou from '../../components/student/dashboard/ResourcesForYou'
 import SupportShortcuts from '../../components/student/dashboard/SupportShortcuts';
 import AccountSecurity from '../../components/student/dashboard/AccountSecurity';
 import ImportantDates from '../../components/student/dashboard/ImportantDates';
+import AchievementPopupCard from '../../components/ui/AchievementPopupCard';
 
 function isSectionVisible(sections: Record<string, DashboardSectionConfig> | undefined, key: string): boolean {
     if (!sections || !sections[key]) return true;
@@ -46,8 +49,78 @@ function LoadingSkeleton() {
 
 export default function StudentDashboard() {
     const { data, isLoading, isError, isFetching } = useStudentDashboardFull();
+    const [showCelebration, setShowCelebration] = useState(false);
+    const [celebrationMessage, setCelebrationMessage] = useState('');
+    const [celebrationScore, setCelebrationScore] = useState(0);
+    const [celebrationRank, setCelebrationRank] = useState<number | null>(null);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     useDashboardRealtime(Boolean(data?.config?.enableRealtime));
+
+    useEffect(() => {
+        if (!data?.config?.celebrationRules || !data?.results?.recent) return;
+
+        const rules = data.config.celebrationRules;
+        if (!rules.enabled || data.results.recent.length === 0) return;
+
+        // Get most recent result
+        const latestResult = data.results.recent[0];
+        // Ensure there's a valid ID to track
+        const resultId = (latestResult as any).id || (latestResult as any)._id || latestResult.examId;
+        if (!resultId) return;
+
+        // Check if rules apply based on mode
+        let deservesCelebration = false;
+        if (rules.ruleMode === 'score_or_rank' || rules.ruleMode === 'score_and_rank' || rules.ruleMode === 'custom') {
+            if ((latestResult as any).percentage >= rules.minPercentage) deservesCelebration = true;
+        }
+        if (rules.ruleMode === 'score_or_rank' || rules.ruleMode === 'score_and_rank' || rules.ruleMode === 'custom') {
+            if (latestResult.rank && latestResult.rank <= rules.maxRank) deservesCelebration = true;
+        }
+
+        if (!deservesCelebration) return;
+
+        // Check tracking logic: prevent multiple showings for the same exam result today
+        const todayStr = new Date().toISOString().split('T')[0];
+        const trackingKey = 'dashboard_celebration_tracking';
+        
+        let trackingData: Record<string, unknown> = {};
+        try {
+            trackingData = JSON.parse(localStorage.getItem(trackingKey) || '{}');
+            // Reset if different day
+            if (trackingData.date !== todayStr) {
+                trackingData = { date: todayStr, showsToday: 0, examsCelebrated: [] };
+            }
+        } catch (e) {
+            trackingData = { date: todayStr, showsToday: 0, examsCelebrated: [] };
+            console.error(e);
+        }
+
+        const examsCelebrated = (trackingData.examsCelebrated as string[]) || [];
+
+        // Already celebrated this specific result?
+        if (examsCelebrated.includes(String(resultId))) return;
+        
+        // Exceeded daily limit?
+        const showsToday = (trackingData.showsToday as number) || 0;
+        if (rules.maxShowsPerDay > 0 && showsToday >= rules.maxShowsPerDay) return;
+
+        // Pick random message
+        const messages = rules.messageTemplates?.length ? rules.messageTemplates : ["Great job! You passed the exam!"];
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        
+        // Update tracking
+        trackingData.showsToday = showsToday + 1;
+        examsCelebrated.push(String(resultId));
+        trackingData.examsCelebrated = examsCelebrated;
+        localStorage.setItem(trackingKey, JSON.stringify(trackingData));
+
+        // Show popup
+        setCelebrationMessage(randomMsg);
+        setCelebrationScore((latestResult as any).percentage || 0);
+        setCelebrationRank(latestResult.rank || null);
+        setShowCelebration(true);
+    }, [data?.config?.celebrationRules, data?.results?.recent]);
 
     if (isLoading) return <LoadingSkeleton />;
 
@@ -65,6 +138,7 @@ export default function StudentDashboard() {
 
     return (
         <div className="space-y-5 max-w-7xl mx-auto px-1 sm:px-0 relative">
+            <SEO title="Dashboard" description="Your personalized student dashboard on CampusWay. Track exams, results, progress and more." />
             {isFetching && (
                 <div className="absolute top-2 right-2 z-10">
                     <RefreshCw className="w-4 h-4 animate-spin text-slate-400" />
@@ -76,8 +150,22 @@ export default function StudentDashboard() {
                 header={data.header}
                 dailyFocus={data.dailyFocus}
                 personalizedCtas={data.personalizedCtas}
+                onProfileClick={() => setIsProfileOpen(true)}
             />
-            <StudentEntryProfileCard header={data.header} support={data.support} />
+
+            {/* Profile Popup */}
+            {isProfileOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsProfileOpen(false)} />
+                    <div className="relative w-full max-w-4xl z-10 animate-in fade-in zoom-in-95 duration-200">
+                        <StudentEntryProfileCard 
+                            header={data.header} 
+                            support={data.support} 
+                            onClose={() => setIsProfileOpen(false)} 
+                        />
+                    </div>
+                </div>
+            )}
             {/* 2 — Quick Status Cards */}
             {isSectionVisible(sections, 'quickStatus') && (
                 <QuickStatusCards status={data.quickStatus} />
@@ -190,6 +278,16 @@ export default function StudentDashboard() {
             {isSectionVisible(sections, 'importantDates') && (
                 <ImportantDates dates={data.importantDates} />
             )}
+
+            <AchievementPopupCard
+                open={showCelebration}
+                score={celebrationScore}
+                rank={celebrationRank}
+                message={celebrationMessage}
+                onClose={() => setShowCelebration(false)}
+                showForSec={data.config?.celebrationRules?.showForSec || 5}
+                dismissible={data.config?.celebrationRules?.dismissible !== false}
+            />
         </div>
     );
 }

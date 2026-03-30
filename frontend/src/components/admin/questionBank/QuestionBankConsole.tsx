@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ADMIN_PATHS } from '../../../routes/adminPaths';
-import AdminGuideButton from '../AdminGuideButton';
-import { getAdminPageGuide } from '../adminPageGuides';
 import QuestionBankListPanel from './QuestionBankListPanel';
 import QuestionBankFormPanel from './QuestionBankFormPanel';
 import QuestionBankImportPanel from './QuestionBankImportPanel';
@@ -54,24 +52,19 @@ export default function QuestionBankConsole() {
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Tab bar */}
             <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 border border-slate-200 dark:bg-slate-900 dark:border-indigo-500/10 rounded-2xl">
-                {tabs.map((t) => {
-                    const guide = getAdminPageGuide(t.path);
-                    return (
-                        <div key={t.key} className="flex items-center gap-1">
-                            <button
-                                onClick={() => goTo(t.key)}
-                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                                    currentTab === t.key
-                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5'
-                                }`}
-                            >
-                                {t.label}
-                            </button>
-                            {guide ? <AdminGuideButton {...guide} tone="indigo" /> : null}
-                        </div>
-                    );
-                })}
+                {tabs.map((t) => (
+                    <button
+                        key={t.key}
+                        onClick={() => goTo(t.key)}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                            currentTab === t.key
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5'
+                        }`}
+                    >
+                        {t.label}
+                    </button>
+                ))}
             </div>
 
             {/* Active panel */}

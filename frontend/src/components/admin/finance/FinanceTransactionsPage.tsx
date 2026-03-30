@@ -5,10 +5,8 @@ import {
 } from '../../../hooks/useFinanceCenterQueries';
 import type { FcTransaction, TransactionDirection, TransactionStatus, PaymentMethod, SourceType } from '../../../types/finance';
 import { Plus, Trash2, Pencil, RotateCcw, Search, Filter, ChevronLeft, ChevronRight, Eye, X, Link2 } from 'lucide-react';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../AdminGuideButton';
 
 type Params = Record<string, string | number | boolean | undefined>;
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
 function fmt(n: number) { return new Intl.NumberFormat('en-BD').format(n); }
 
@@ -38,78 +36,6 @@ const DIRECTION_OPTIONS: TransactionDirection[] = ['income', 'expense'];
 const STATUS_OPTIONS: TransactionStatus[] = ['pending', 'approved', 'paid', 'cancelled', 'refunded'];
 const METHOD_OPTIONS: PaymentMethod[] = ['cash', 'bkash', 'nagad', 'bank', 'card', 'manual', 'gateway', 'upay', 'rocket'];
 const SOURCE_OPTIONS: SourceType[] = ['subscription_payment', 'exam_payment', 'service_sale', 'manual_income', 'expense', 'refund', 'sms_cost', 'email_cost', 'hosting_cost', 'staff_payout', 'other'];
-const TRANSACTION_GUIDES: Record<string, InlineGuide> = {
-    newTransaction: {
-        title: 'New Transaction',
-        content: 'Creates a manual finance transaction and writes it into the live ledger.',
-        actions: [
-            { label: 'Create record', description: 'Add a manual income or expense entry when it is not coming from an automated payment flow.' },
-        ],
-        affected: 'Finance balances, reports, and audit trails.',
-    },
-    filters: {
-        title: 'Transaction Filters',
-        content: 'Shows or hides the advanced filter panel for narrowing the transaction list.',
-        actions: [
-            { label: 'Filter results', description: 'Restrict the list by direction, status, method, source, or date range.' },
-        ],
-        affected: 'Finance review and reconciliation workflows.',
-    },
-    showDeleted: {
-        title: 'Show Deleted',
-        content: 'Includes soft-deleted transactions in the list so they can be reviewed or restored.',
-        affected: 'Finance audit and recovery workflows.',
-        enabledNote: 'Deleted entries appear with restore actions.',
-        disabledNote: 'Only active transactions are shown in the current list.',
-    },
-    clearFilters: {
-        title: 'Clear Filters',
-        content: 'Resets the active transaction filters and returns to the default list view.',
-        affected: 'Only the current list filters on this page.',
-    },
-    approve: {
-        title: 'Approve Selected',
-        content: 'Marks the selected pending transactions as approved.',
-        affected: 'Selected transactions and any workflows waiting on approval status.',
-    },
-    markPaid: {
-        title: 'Mark Selected Paid',
-        content: 'Marks the selected transactions as paid once the money movement is confirmed.',
-        affected: 'Selected transactions, finance status, and downstream reports.',
-    },
-    view: {
-        title: 'View Transaction',
-        content: 'Opens the full transaction detail drawer without editing the record.',
-        affected: 'Read-only inspection of the selected transaction.',
-    },
-    edit: {
-        title: 'Edit Transaction',
-        content: 'Opens the selected transaction in edit mode so finance details can be corrected.',
-        impact: 'Editing affects the live transaction record and future reporting.',
-        affected: 'The selected transaction and any reports using its values.',
-    },
-    delete: {
-        title: 'Delete Transaction',
-        content: 'Soft-deletes the selected transaction so it no longer appears in the active ledger view.',
-        impact: 'Deleted records stop appearing in normal list views until restored.',
-        affected: 'The selected transaction, active ledger views, and finance audits.',
-    },
-    restore: {
-        title: 'Restore Transaction',
-        content: 'Returns a soft-deleted transaction to the active ledger view.',
-        affected: 'The selected transaction and any reports that should include it again.',
-    },
-    previousPage: {
-        title: 'Previous Page',
-        content: 'Moves back one page in the transaction list.',
-        affected: 'Only the current paginated transaction view.',
-    },
-    nextPage: {
-        title: 'Next Page',
-        content: 'Moves forward one page in the transaction list.',
-        affected: 'Only the current paginated transaction view.',
-    },
-};
 
 export default function FinanceTransactionsPage() {
     const [page, setPage] = useState(1);
@@ -153,7 +79,6 @@ export default function FinanceTransactionsPage() {
                         <button onClick={() => setShowCreate(true)} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
                             <Plus size={14} /> New
                         </button>
-                        <AdminGuideButton {...TRANSACTION_GUIDES.newTransaction} tone="indigo" />
                     </div>
                 </div>
             </div>
@@ -174,14 +99,12 @@ export default function FinanceTransactionsPage() {
                     <button onClick={() => setShowFilter(!showFilter)} className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-600 dark:text-white">
                         <Filter size={14} /> Filters
                     </button>
-                    <AdminGuideButton {...TRANSACTION_GUIDES.filters} tone="indigo" />
                 </div>
                 <div className="flex items-center gap-2">
                     <label className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
                         <input type="checkbox" checked={showDeleted} onChange={e => { setShowDeleted(e.target.checked); setPage(1); }} />
                         Show deleted
                     </label>
-                    <AdminGuideButton {...TRANSACTION_GUIDES.showDeleted} tone="indigo" />
                 </div>
             </div>
 
@@ -204,7 +127,6 @@ export default function FinanceTransactionsPage() {
                     </div>
                     <div className="self-end flex items-center gap-2">
                         <button onClick={() => { setFilters({}); setPage(1); }} className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Clear</button>
-                        <AdminGuideButton {...TRANSACTION_GUIDES.clearFilters} tone="indigo" />
                     </div>
                 </div>
             )}
@@ -217,13 +139,11 @@ export default function FinanceTransactionsPage() {
                         <button onClick={() => bulkApprove.mutate([...selected], { onSuccess: () => setSelected(new Set()) })} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
                             Approve
                         </button>
-                        <AdminGuideButton {...TRANSACTION_GUIDES.approve} tone="indigo" />
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={() => bulkMarkPaid.mutate([...selected], { onSuccess: () => setSelected(new Set()) })} className="rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700">
                             Mark Paid
                         </button>
-                        <AdminGuideButton {...TRANSACTION_GUIDES.markPaid} tone="indigo" />
                     </div>
                 </div>
             )}
@@ -281,19 +201,16 @@ export default function FinanceTransactionsPage() {
                                                             <button onClick={() => setDetailTxn(t)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="View">
                                                                 <Eye size={13} className="text-slate-500" />
                                                             </button>
-                                                            <AdminGuideButton {...TRANSACTION_GUIDES.view} tone="indigo" />
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <button onClick={() => setEditTxn(t)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Edit">
                                                                 <Pencil size={13} className="text-blue-600" />
                                                             </button>
-                                                            <AdminGuideButton {...TRANSACTION_GUIDES.edit} tone="indigo" />
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <button onClick={() => { if (confirm('Delete this transaction?')) deleteMut.mutate(t._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Delete">
                                                                 <Trash2 size={13} className="text-red-500" />
                                                             </button>
-                                                            <AdminGuideButton {...TRANSACTION_GUIDES.delete} tone="indigo" />
                                                         </div>
                                                     </>
                                                 )}
@@ -302,7 +219,6 @@ export default function FinanceTransactionsPage() {
                                                         <button onClick={() => restoreMut.mutate(t._id)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Restore">
                                                             <RotateCcw size={13} className="text-green-600" />
                                                         </button>
-                                                        <AdminGuideButton {...TRANSACTION_GUIDES.restore} tone="indigo" />
                                                     </div>
                                                 )}
                                             </div>
@@ -343,24 +259,20 @@ export default function FinanceTransactionsPage() {
                                 <div className="mt-2 flex justify-end gap-1">
                                     <div className="flex items-center gap-1">
                                         <button onClick={() => setDetailTxn(t)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Eye size={13} className="text-slate-500" /></button>
-                                        <AdminGuideButton {...TRANSACTION_GUIDES.view} tone="indigo" />
                                     </div>
                                     {!t.isDeleted && (
                                         <>
                                             <div className="flex items-center gap-1">
                                                 <button onClick={() => setEditTxn(t)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Pencil size={13} className="text-blue-600" /></button>
-                                                <AdminGuideButton {...TRANSACTION_GUIDES.edit} tone="indigo" />
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 <button onClick={() => { if (confirm('Delete?')) deleteMut.mutate(t._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} className="text-red-500" /></button>
-                                                <AdminGuideButton {...TRANSACTION_GUIDES.delete} tone="indigo" />
                                             </div>
                                         </>
                                     )}
                                     {t.isDeleted && (
                                         <div className="flex items-center gap-1">
                                             <button onClick={() => restoreMut.mutate(t._id)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><RotateCcw size={13} className="text-green-600" /></button>
-                                            <AdminGuideButton {...TRANSACTION_GUIDES.restore} tone="indigo" />
                                         </div>
                                     )}
                                 </div>
@@ -377,11 +289,9 @@ export default function FinanceTransactionsPage() {
                     <div className="flex gap-1">
                         <div className="flex items-center gap-1">
                             <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded-lg border px-2 py-1 text-xs disabled:opacity-40 dark:border-slate-600 dark:text-white"><ChevronLeft size={14} /></button>
-                            <AdminGuideButton {...TRANSACTION_GUIDES.previousPage} tone="indigo" />
                         </div>
                         <div className="flex items-center gap-1">
                             <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="rounded-lg border px-2 py-1 text-xs disabled:opacity-40 dark:border-slate-600 dark:text-white"><ChevronRight size={14} /></button>
-                            <AdminGuideButton {...TRANSACTION_GUIDES.nextPage} tone="indigo" />
                         </div>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ExternalLink, Image as ImageIcon, ImageUp, Loader2, Trash2 } from 'lucide-react';
 import { adminUploadMedia } from '../../services/api';
+import { compressImage } from '../../utils/imageCompressor';
 
 type UploadCategory = 'profile_photo' | 'admin_upload';
 
@@ -27,16 +28,33 @@ type AdminImageUploadFieldProps = {
 };
 
 async function uploadWithDefaultMediaEndpoint(file: File, category: UploadCategory): Promise<string> {
-    const response = await adminUploadMedia(file, {
-        visibility: 'public',
-        category,
-    });
-    const payload = response.data as { url?: string; absoluteUrl?: string };
-    const nextUrl = String(payload?.url || payload?.absoluteUrl || '').trim();
-    if (!nextUrl) {
-        throw new Error('No image URL returned');
+    try {
+        const processedFile = await compressImage(file, 0.15); // max 150KB
+        
+        const response = await adminUploadMedia(processedFile, {
+            visibility: 'public',
+            category,
+        });
+        const payload = response.data as { url?: string; absoluteUrl?: string };
+        const nextUrl = String(payload?.url || payload?.absoluteUrl || '').trim();
+        if (!nextUrl) {
+            throw new Error('No image URL returned');
+        }
+        return nextUrl;
+    } catch (error) {
+         console.warn("Upload failed, trying original file...", error);
+        // Fallback or re-throw
+         const response = await adminUploadMedia(file, {
+            visibility: 'public',
+            category,
+        });
+        const payload = response.data as { url?: string; absoluteUrl?: string };
+        const nextUrl = String(payload?.url || payload?.absoluteUrl || '').trim();
+        if (!nextUrl) {
+            throw new Error('No image URL returned');
+        }
+        return nextUrl;
     }
-    return nextUrl;
 }
 
 export default function AdminImageUploadField({

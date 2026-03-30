@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import AdminGuideButton from '../../../components/admin/AdminGuideButton';
 import {
   bulkUpdateTriggers,
   getTriggerSettings,
@@ -178,18 +177,6 @@ export default function SmartTriggersPanel({ showToast }: Props) {
               Runtime automation only fires where the current codebase already emits the matching trigger event.
             </p>
           </div>
-          <AdminGuideButton
-            variant="full"
-            tone="indigo"
-            title="How this works"
-            content="Trigger settings are stored centrally and reused by cron jobs and manual trigger routes. Subscription-based audience rules reuse the Contact Center audience resolver instead of a separate trigger-only list."
-            actions={[
-              { label: 'Template override', description: 'Leave blank to use the trigger key as the default template lookup.' },
-              { label: 'Audience rule', description: 'Affected uses the event scope. Subscription modes switch to the live active or renewal-due audience buckets.' },
-              { label: 'Delay & quiet hours', description: 'Delay creates a queued trigger job. Quiet-hours bypass skips quiet-hours deferral for that trigger.' },
-            ]}
-            affected="Notification jobs, delivery logs, subscription reminders, and trigger-driven communication flows."
-          />
         </div>
       </div>
 
@@ -200,7 +187,6 @@ export default function SmartTriggersPanel({ showToast }: Props) {
               <h4 className="text-lg font-semibold text-slate-950 dark:text-white">Shared trigger settings</h4>
               <p className="text-sm text-slate-500">Result publishing and renewal reminder windows feed the shared communication settings.</p>
             </div>
-            <AdminGuideButton title="Shared settings" content="These controls affect trigger families that rely on Notification Settings rather than a single per-trigger row." tone="indigo" />
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -285,7 +271,6 @@ export default function SmartTriggersPanel({ showToast }: Props) {
                   <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{group}</div>
                   <h4 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{group} triggers</h4>
                 </div>
-                <AdminGuideButton title={`${group} triggers`} content="Each trigger row stores channel, audience, template, and queue policy in the shared settings document." tone="indigo" />
               </div>
               <div className="grid gap-4 xl:grid-cols-2">
                 {items.map((item) => {

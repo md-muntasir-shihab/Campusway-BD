@@ -1,9 +1,11 @@
-﻿import { useState, useEffect } from 'react';
-import { User, Upload, Save, Loader2, AlertCircle, Lock, BookOpen, Clock3, FileText, Hash, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { SEO } from '../../components/common/SEO';
+import { User, Upload, Save, Loader2, AlertCircle, Lock, BookOpen, Clock3, FileText, Hash, MapPin, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { changePassword, getStudentProfile, updateStudentProfile, uploadStudentDocument } from '../../services/api';
 import AchievementPopupCard from '../../components/ui/AchievementPopupCard';
 import { useMySubscription } from '../../hooks/useSubscriptionPlans';
+import { compressImage } from '../../utils/imageCompressor';
 
 const normalizeDepartmentValue = (value: string): 'science' | 'arts' | 'commerce' | '' => {
     const normalized = (value || '').trim().toLowerCase();
@@ -172,12 +174,22 @@ export default function StudentProfile() {
             setPhotoUploading(true);
         }
 
-        const toastId = toast.loading(type === 'profile_photo' ? 'Uploading profile photo...' : 'Uploading document...');
+        const toastId = toast.loading(type === 'profile_photo' ? 'Compressing and uploading photo...' : 'Uploading document...');
         try {
+            let fileToUpload = file;
+            if (type === 'profile_photo') {
+                try {
+                    fileToUpload = await compressImage(file, 0.15); // 150KB max
+                } catch (err) {
+                    console.error('Image compression failed:', err);
+                    // fallback to original file if compression fails
+                }
+            }
+
             const formDataUpload = new FormData();
             formDataUpload.append('type', type);
             formDataUpload.append('document_type', type);
-            formDataUpload.append('file', file);
+            formDataUpload.append('file', fileToUpload);
 
             const res = await uploadStudentDocument(formDataUpload);
 
@@ -209,6 +221,7 @@ export default function StudentProfile() {
 
     return (
         <div className="w-full max-w-5xl space-y-6 sm:space-y-8">
+            <SEO title="Profile" description="Manage your CampusWay student profile, personal information, and academic details." />
             <AchievementPopupCard
                 open={showCelebration}
                 onClose={() => setShowCelebration(false)}
@@ -496,41 +509,57 @@ export default function StudentProfile() {
                 {/* Sidebar */}
                 <div className="space-y-6 xl:sticky xl:top-8 h-max">
                     {/* Profile Photo Upload */}
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-                            <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                                <Upload className="w-5 h-5 text-indigo-500" />
+                    <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-cyan-500/5 opacity-50"></div>
+                        
+                        <div className="relative p-6 flex flex-col items-center">
+                            <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-white self-start w-full border-b border-slate-100 dark:border-slate-700/50 pb-4">
+                                <Camera className="w-5 h-5 text-indigo-500" />
                                 Profile Photo
                             </h2>
-                        </div>
-                        <div className="p-6 flex flex-col items-center gap-4">
-                            <div className="relative group overflow-hidden">
-                                <div className="w-32 h-32 rounded-full border-4 border-slate-100 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-900/50">
+
+                            <div className="relative mb-6">
+                                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 to-cyan-400 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                                <div className="relative w-36 h-36 rounded-full border-4 border-white dark:border-slate-800 shadow-xl overflow-hidden bg-slate-50 dark:bg-slate-900/50 ring-1 ring-slate-900/5 dark:ring-white/10">
                                     {formData.profile_photo_url ? (
                                         <img
                                             src={formData.profile_photo_url}
                                             alt="Profile"
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <User className="w-16 h-16 text-slate-300" />
+                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                                            <User className="w-12 h-12 mb-2 opacity-50" />
+                                            <span className="text-[10px] font-medium uppercase tracking-wider">No Photo</span>
                                         </div>
                                     )}
                                 </div>
-                                <label className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity cursor-pointer rounded-full">
-                                    <Upload className="w-6 h-6" />
-                                    <input id="profile-photo-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, 'profile_photo')} />
+                                
+                                <label className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm text-white opacity-0 hover:opacity-100 transition-all duration-300 cursor-pointer rounded-full z-10">
+                                    <div className="transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 flex flex-col items-center">
+                                        <Camera className="w-8 h-8 mb-2 text-white" />
+                                        <span className="text-xs font-semibold uppercase tracking-wider drop-shadow-md">Change Photo</span>
+                                    </div>
+                                    <input id="profile-photo-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, 'profile_photo')} disabled={photoUploading} />
                                 </label>
                             </div>
+
                             <label
                                 htmlFor="profile-photo-upload"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium cursor-pointer transition-colors"
+                                className={`w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 cursor-pointer relative z-20 ${
+                                    photoUploading 
+                                    ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed' 
+                                    : 'bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20'
+                                }`}
                             >
                                 {photoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                                {photoUploading ? 'Uploading...' : 'Upload Photo'}
+                                {photoUploading ? 'Processing...' : 'Upload New Photo'}
                             </label>
-                            <p className="text-[11px] text-slate-500 text-center">JPG/PNG, max 5MB</p>
+                            
+                            <div className="mt-4 flex items-center justify-center gap-2 opacity-70">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest">Auto-compressed to ~150KB</p>
+                            </div>
                         </div>
                     </div>
                 </div>

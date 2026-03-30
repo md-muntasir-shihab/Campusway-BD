@@ -14,11 +14,9 @@ import {
   type StudentSecurityMeta,
 } from '../../../api/adminStudentSecurityApi';
 import ModernToggle from '../../../components/ui/ModernToggle';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../../../components/admin/AdminGuideButton';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
 type Tab = 'profile' | 'subscription' | 'notifications' | 'timeline' | 'security';
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'profile', label: 'Profile' },
@@ -28,13 +26,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'security', label: 'Security' },
 ];
 
-const DETAIL_TAB_GUIDES: Record<Tab, InlineGuide> = {
-  profile: { title: 'Profile Tab', content: 'Review and update the student profile record.', affected: 'Student profile data and reflected admin views.' },
-  subscription: { title: 'Subscription Tab', content: 'Manage subscription state, extension, expiry, and auto-renew for this student.', affected: 'Student plan privileges and gated features.' },
-  notifications: { title: 'Notifications Tab', content: 'Review notification history tied to this student.', affected: 'Student communication history.' },
-  timeline: { title: 'Contact Timeline Tab', content: 'Manage timeline notes and contact history for this student.', affected: 'CRM and support follow-up.' },
-  security: { title: 'Security Tab', content: 'Manage password, reset, and session-related controls for this student.', affected: 'Student account security.' },
-};
 
 const DEPARTMENTS = ['Science', 'Commerce', 'Arts', 'Engineering', 'Medical', 'Other'];
 const GENDERS = ['Male', 'Female', 'Other'];
@@ -304,7 +295,6 @@ export default function StudentDetailPage() {
                 className={`px-4 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap border-b-2 transition-colors ${activeTab === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
                 {t.label}
               </button>
-              <AdminGuideButton {...DETAIL_TAB_GUIDES[t.key]} tone="indigo" />
             </div>
           ))}
         </div>

@@ -23,12 +23,12 @@ import {
 } from '../../services/api';
 import ModernToggle from '../ui/ModernToggle';
 import { invalidateQueryGroup, invalidationGroups, queryKeys } from '../../lib/queryKeys';
-import AdminGuideButton, { type AdminGuideButtonProps } from './AdminGuideButton';
+
 import AdminImageUploadField from './AdminImageUploadField';
 
 type SectionKey = keyof HomeSettingsConfig;
 type QuickClusterState = Pick<AdminUniversityCluster, '_id' | 'name' | 'homeVisible' | 'homeOrder'> & { memberCount: number };
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
+
 
 const sectionHelp: Record<SectionKey, string> = {
     sectionVisibility: 'Show or hide each Home section in strict order.',
@@ -79,106 +79,7 @@ const sectionTitleOverrides: Partial<Record<SectionKey, string>> = {
     adsSection: 'Scrollable Ads',
 };
 
-const sectionGuideOverrides: Partial<Record<SectionKey, Partial<InlineGuide>>> = {
-    sectionVisibility: {
-        content: 'These switches decide which home sections are allowed to render publicly.',
-        enabledNote: 'The linked section can appear on the public home page after save.',
-        disabledNote: 'The linked section stays stored in admin but is hidden from the public home page.',
-        affected: 'Public visitors and student journeys entering from home.',
-    },
-    hero: {
-        content: 'This section controls the hero copy, search, CTA buttons, and the first visual block on the home page.',
-        enabledNote: 'Enabled hero features remain visible in the top fold of the public home page.',
-        disabledNote: 'Disabled hero features are removed from the public first-view experience.',
-    },
-    subscriptionBanner: {
-        content: 'This section controls the home upsell strip for plans, messages, and CTA buttons.',
-        enabledNote: 'The subscription upsell can appear on home after save.',
-        disabledNote: 'The upsell stays configured in admin but no longer renders publicly.',
-    },
-    universityPreview: {
-        content: 'This section controls the featured university block, preview limits, and deadline or exam windows.',
-        enabledNote: 'Curated universities and preview windows can render on home.',
-        disabledNote: 'The preview block is removed from the home page.',
-    },
-    universityDashboard: {
-        content: 'This section controls the home university quick-browse dashboard, filters, and helper text.',
-        enabledNote: 'Visitors keep the quick-browse controls and helper blocks tied to this dashboard.',
-        disabledNote: 'The affected dashboard aids become hidden or simplified for visitors.',
-    },
-    universityCardConfig: {
-        content: 'This section decides which fields remain visible inside public university cards.',
-        enabledNote: 'The linked data field is shown on public university cards when data exists.',
-        disabledNote: 'The linked data field stays stored but is hidden from public cards.',
-    },
-    adsSection: {
-        content: 'This section controls the scrollable ad slot shown on the home page.',
-        enabledNote: 'The scrollable ad slot can render on the public home page.',
-        disabledNote: 'The ad slot stays configured but no longer appears publicly.',
-    },
-    footer: {
-        content: 'This section controls the global footer, footer links, and animation-level behaviour for the public experience.',
-        enabledNote: 'The linked footer or UI behaviour remains active across public pages.',
-        disabledNote: 'The linked footer or UI behaviour is hidden or reduced on public pages.',
-    },
-};
 
-const visibilityGuideMap: Partial<Record<keyof HomeSettingsConfig['sectionVisibility'], SectionKey>> = {
-    hero: 'hero',
-    subscriptionBanner: 'subscriptionBanner',
-    stats: 'stats',
-    timeline: 'timeline',
-    universityDashboard: 'universityDashboard',
-    closingExamWidget: 'closingExamWidget',
-    examsWidget: 'examsWidget',
-    newsPreview: 'newsPreview',
-    resourcesPreview: 'resourcesPreview',
-    socialStrip: 'socialStrip',
-    adsSection: 'adsSection',
-    footer: 'footer',
-};
-
-function getSectionGuide(section: SectionKey): InlineGuide {
-    const title = sectionTitleOverrides[section] || section.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase());
-    const override = sectionGuideOverrides[section];
-
-    return {
-        title,
-        content: override?.content || sectionHelp[section],
-        enabledNote: override?.enabledNote,
-        disabledNote: override?.disabledNote,
-        affected: override?.affected,
-        bestPractice: override?.bestPractice,
-        impact: override?.impact,
-    };
-}
-
-function makeToggleGuide(title: string, content: string, enabledNote: string, disabledNote: string, affected?: string): InlineGuide {
-    return { title, content, enabledNote, disabledNote, affected };
-}
-
-const toggleGuides: Record<string, InlineGuide> = {
-    'Show Search Box': makeToggleGuide('Show Search Box', 'Controls whether the hero shows a search field for quick navigation.', 'Visitors can search directly from the hero.', 'The hero keeps its text and CTAs, but the search shortcut is removed.', 'Public visitors and first-click navigation.'),
-    'Show Next Deadline Card': makeToggleGuide('Show Next Deadline Card', 'Controls whether the hero surfaces a quick deadline highlight card.', 'A deadline card can appear in the hero when matching data exists.', 'The quick deadline card stays hidden from the hero.'),
-    'Banner Enabled': makeToggleGuide('Subscription Banner Enabled', 'Controls whether the home subscription banner can render at all.', 'The upsell banner can appear on the public home page.', 'The banner remains saved in admin but is hidden publicly.'),
-    'Show Plan Cards': makeToggleGuide('Show Plan Cards', 'Controls whether plan cards are visible inside the subscription banner.', 'Visitors can compare selected plans directly inside the home banner.', 'The banner keeps its text and CTA, but plan comparison cards stay hidden.'),
-    'University Preview Enabled': makeToggleGuide('University Preview Enabled', 'Controls whether the curated university preview block is shown on home.', 'Featured universities and preview windows can appear on home.', 'The university preview block is hidden from the public home page.'),
-    'Enable Cluster Filter': makeToggleGuide('Enable Cluster Filter', 'Controls whether cluster-based filtering is available in the home university preview area.', 'Visitors can use cluster filters while browsing home previews.', 'Cluster-based filtering is removed from that preview experience.'),
-    'Show Dashboard Filters': makeToggleGuide('Show Dashboard Filters', 'Controls whether the home university dashboard exposes filter controls.', 'Visitors can refine the dashboard with visible filters.', 'The dashboard becomes simpler and removes those filter controls.'),
-    'Show Placeholder Note': makeToggleGuide('Show Placeholder Note', 'Controls whether helper text appears in the waiting or empty state of the home dashboard.', 'Visitors see guidance when no filter or item is selected yet.', 'No helper note appears in the empty or waiting state.'),
-    'Enable All Universities Tab': makeToggleGuide('Enable All Universities Tab', 'Controls whether visitors can open an all-universities view without choosing a category first.', 'Visitors can browse all universities immediately.', 'Visitors must choose a category before seeing universities.', 'Public university browsing.'),
-    'Ads Section Enabled': makeToggleGuide('Ads Section Enabled', 'Controls whether the scrollable home ads slot can render.', 'The linked ad slot becomes visible on home.', 'The ad slot is hidden even if banners still exist in the slot.'),
-    'Show Exam Centers Preview': makeToggleGuide('Show Exam Centers Preview', 'Controls whether university cards display exam-center preview text.', 'Exam-center preview data can appear in public cards.', 'Exam-center preview text is hidden from public cards.'),
-    'Show Address': makeToggleGuide('Show Address', 'Controls whether university cards show address data.', 'Address information stays visible in public cards.', 'Address information remains stored but is hidden from public cards.'),
-    'Show Email': makeToggleGuide('Show Email', 'Controls whether university cards show contact email data.', 'Public cards can display university email addresses.', 'University email data stays hidden from public cards.'),
-    'Show Seats': makeToggleGuide('Show Seats', 'Controls whether public university cards show seat information.', 'Seat counts remain visible where available.', 'Seat counts are omitted from public cards.'),
-    'Show Application Progress': makeToggleGuide('Show Application Progress', 'Controls whether application progress cues appear in public university cards.', 'Visitors can see progress or stage indicators where data exists.', 'Progress cues stay hidden from public cards.'),
-    'Show Exam Dates': makeToggleGuide('Show Exam Dates', 'Controls whether public university cards show exam-date information.', 'Exam dates can appear in cards when data is available.', 'Exam-date fields are hidden from public cards.'),
-    'Show Exam Centers': makeToggleGuide('Show Exam Centers', 'Controls whether full exam-center information appears in public cards.', 'Exam-center details remain visible where configured.', 'Exam-center details are hidden from public cards.'),
-    'Footer Enabled (Global)': makeToggleGuide('Footer Enabled', 'Controls whether the shared public footer renders globally.', 'Public pages keep the shared footer with links and contact info.', 'The shared footer is removed from public pages even though the content stays saved.', 'All public pages using the global footer.'),
-    'Social Strip Enabled': makeToggleGuide('Social Strip Enabled', 'Controls whether the social or community CTA strip is shown.', 'The social strip remains visible where the home layout expects it.', 'The social strip is hidden from the public layout.'),
-    Enabled: makeToggleGuide('Item Enabled', 'Controls whether the selected featured item remains active in the public home layout.', 'The item stays eligible to appear in its configured slot.', 'The item remains stored in admin but is skipped from public output.'),
-};
 
 const FALLBACK_HOME_SETTINGS: HomeSettingsConfig = {
     sectionVisibility: {
@@ -353,17 +254,11 @@ function SectionHeader({
     onReset: (section: SectionKey) => void;
     resetting: boolean;
 }) {
-    const guide = getSectionGuide(section);
     return (
         <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">{title}</h3>
-                <AdminGuideButton
-                    {...guide}
-                    content={sectionGuideOverrides[section]?.content ? `${sectionHelp[section]} ${guide.content}`.trim() : guide.content}
-                    variant="full"
-                    tone="indigo"
-                />
+                <span className="text-[10px] text-slate-500">{sectionHelp[section]}</span>
             </div>
             <button
                 type="button"
@@ -382,23 +277,18 @@ function Toggle({
     value,
     onChange,
     helper,
-    guide,
 }: {
     label: string;
     value: boolean;
     onChange: (value: boolean) => void;
     helper?: string;
-    guide?: InlineGuide;
 }) {
     return (
         <label className="rounded-xl border border-indigo-500/15 bg-slate-950/60 px-3 py-2 flex items-center justify-between gap-3 cursor-pointer group hover:bg-indigo-500/5 transition-all">
             <div className="flex-1">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-200 group-hover:text-indigo-400 transition-colors">
-                        {label}
-                    </span>
-                    {guide ? <AdminGuideButton {...guide} tone="indigo" /> : null}
-                </div>
+                <span className="text-sm font-medium text-slate-200 group-hover:text-indigo-400 transition-colors">
+                    {label}
+                </span>
                 {helper ? <span className="block text-[11px] text-slate-500 mt-0.5">{helper}</span> : null}
             </div>
             <ModernToggle checked={value} onChange={onChange} />
@@ -1059,25 +949,6 @@ export default function HomeSettingsPanel() {
     };
 
     if (settingsQuery.isLoading || !draft) {
-        const loadingGuides: InlineGuide[] = [
-            getSectionGuide('sectionVisibility'),
-            getSectionGuide('hero'),
-            toggleGuides['Show Search Box'],
-            toggleGuides['Show Next Deadline Card'],
-            getSectionGuide('subscriptionBanner'),
-            getSectionGuide('timeline'),
-            getSectionGuide('universityPreview'),
-            getSectionGuide('universityDashboard'),
-            getSectionGuide('universityCardConfig'),
-            getSectionGuide('examsWidget'),
-            getSectionGuide('newsPreview'),
-            getSectionGuide('resourcesPreview'),
-            getSectionGuide('socialStrip'),
-            getSectionGuide('adsSection'),
-            getSectionGuide('footer'),
-            getSectionGuide('ui'),
-        ];
-
         return (
             <div className="space-y-6">
                 <div className="rounded-2xl border border-indigo-500/15 bg-slate-900/60 p-5">
@@ -1086,26 +957,10 @@ export default function HomeSettingsPanel() {
                         <div>
                             <h2 className="text-lg font-bold text-white">Loading Home Settings</h2>
                             <p className="text-xs text-slate-400">
-                                Controls are loading. Guide actions remain available while live data sync finishes.
+                                Controls are loading. Please wait while live data syncs.
                             </p>
                         </div>
                     </div>
-                </div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {loadingGuides.map((guide) => (
-                        <div
-                            key={guide.title}
-                            className="rounded-2xl border border-indigo-500/15 bg-slate-900/60 p-4"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <p className="text-sm font-semibold text-white">{guide.title}</p>
-                                    <p className="mt-1 text-xs text-slate-400">{guide.content}</p>
-                                </div>
-                                <AdminGuideButton {...guide} tone="indigo" />
-                            </div>
-                        </div>
-                    ))}
                 </div>
             </div>
         );
@@ -1214,7 +1069,6 @@ export default function HomeSettingsPanel() {
                                 label={item.label}
                                 value={draft.sectionVisibility[item.key]}
                                 onChange={(value) => updateDraft((prev) => ({ ...prev, sectionVisibility: { ...prev.sectionVisibility, [item.key]: value } }))}
-                                guide={visibilityGuideMap[item.key] ? getSectionGuide(visibilityGuideMap[item.key]!) : undefined}
                             />
                         ))}
                     </div>
@@ -1246,8 +1100,8 @@ export default function HomeSettingsPanel() {
                             <Input label="Secondary CTA URL" value={draft.hero.secondaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, secondaryCTA: { ...prev.hero.secondaryCTA, url: value } } }))} />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <Toggle label="Show Search Box" value={draft.hero.showSearch} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showSearch: value } }))} guide={toggleGuides['Show Search Box']} />
-                            <Toggle label="Show Next Deadline Card" value={draft.hero.showNextDeadlineCard} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showNextDeadlineCard: value } }))} guide={toggleGuides['Show Next Deadline Card']} />
+                            <Toggle label="Show Search Box" value={draft.hero.showSearch} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showSearch: value } }))} />
+                            <Toggle label="Show Next Deadline Card" value={draft.hero.showNextDeadlineCard} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showNextDeadlineCard: value } }))} />
                         </div>
                     </div>
                 </section>
@@ -1263,8 +1117,8 @@ export default function HomeSettingsPanel() {
                         <Input label="Primary CTA URL" value={draft.subscriptionBanner.primaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, primaryCTA: { ...prev.subscriptionBanner.primaryCTA, url: value } } }))} />
                     </div>
                     <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <Toggle label="Banner Enabled" value={draft.subscriptionBanner.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, enabled: value } }))} guide={toggleGuides['Banner Enabled']} />
-                        <Toggle label="Show Plan Cards" value={draft.subscriptionBanner.showPlanCards} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, showPlanCards: value } }))} guide={toggleGuides['Show Plan Cards']} />
+                        <Toggle label="Banner Enabled" value={draft.subscriptionBanner.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, enabled: value } }))} />
+                        <Toggle label="Show Plan Cards" value={draft.subscriptionBanner.showPlanCards} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, showPlanCards: value } }))} />
                     </div>
                     <div className="mt-3">
                         <p className="text-xs text-slate-400 mb-2">Plans to show on Home banner (recommended 2-3)</p>
@@ -1317,8 +1171,8 @@ export default function HomeSettingsPanel() {
                 <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
                     <SectionHeader title="University Preview Windows" section="universityPreview" onReset={resetSection} resetting={resettingSection === 'universityPreview'} />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Toggle label="University Preview Enabled" value={draft.universityPreview.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enabled: value } }))} guide={toggleGuides['University Preview Enabled']} />
-                        <Toggle label="Enable Cluster Filter" value={draft.universityPreview.enableClusterFilter} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enableClusterFilter: value } }))} guide={toggleGuides['Enable Cluster Filter']} />
+                        <Toggle label="University Preview Enabled" value={draft.universityPreview.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enabled: value } }))} />
+                        <Toggle label="Enable Cluster Filter" value={draft.universityPreview.enableClusterFilter} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enableClusterFilter: value } }))} />
                         <NumberInput label="Featured Max Items" value={draft.universityPreview.maxFeaturedItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxFeaturedItems: value } }))} />
                         <NumberInput label="Deadline Max Items" value={draft.universityPreview.maxDeadlineItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxDeadlineItems: value } }))} />
                         <NumberInput label="Exam Max Items" value={draft.universityPreview.maxExamItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxExamItems: value } }))} />
@@ -1354,20 +1208,20 @@ export default function HomeSettingsPanel() {
                             label="Show Dashboard Filters"
                             value={draft.universityDashboard.showFilters}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showFilters: value } }))}
-                            guide={toggleGuides['Show Dashboard Filters']}
+                           
                         />
                         <Toggle
                             label="Show Placeholder Note"
                             value={draft.universityDashboard.showPlaceholderText}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showPlaceholderText: value } }))}
-                            guide={toggleGuides['Show Placeholder Note']}
+                           
                         />
                         <Toggle
                             label="Enable All Universities Tab"
                             value={Boolean(draft.universityDashboard.showAllCategories)}
                             helper="Default is OFF. When OFF, public universities page requires a selected category."
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showAllCategories: value } }))}
-                            guide={toggleGuides['Enable All Universities Tab']}
+                           
                         />
                     </div>
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1434,7 +1288,7 @@ export default function HomeSettingsPanel() {
                                                     ...prev,
                                                     highlightedCategories: prev.highlightedCategories.map((entry) => entry.category === item.category ? { ...entry, enabled: value } : entry),
                                                 }))}
-                                                guide={toggleGuides.Enabled}
+                                               
                                             />
                                         </div>
                                     </div>
@@ -1499,7 +1353,7 @@ export default function HomeSettingsPanel() {
                                                     ...prev,
                                                     featuredUniversities: prev.featuredUniversities.map((entry) => entry.universityId === item.universityId ? { ...entry, enabled: value } : entry),
                                                 }))}
-                                                guide={toggleGuides.Enabled}
+                                               
                                             />
                                         </div>
                                     </div>
@@ -1517,7 +1371,7 @@ export default function HomeSettingsPanel() {
                                 value={draft.adsSection.enabled}
                                 onChange={(value) => updateDraft((prev) => ({ ...prev, adsSection: { ...prev.adsSection, enabled: value } }))}
                                 helper="Toggle the scrollable ad section on Home page."
-                                guide={toggleGuides['Ads Section Enabled']}
+                               
                             />
                             <Input
                                 label="Section Title (Optional)"
@@ -1575,43 +1429,43 @@ export default function HomeSettingsPanel() {
                             label="Show Exam Centers Preview"
                             value={draft.universityCardConfig.showExamCentersPreview}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamCentersPreview: value } }))}
-                            guide={toggleGuides['Show Exam Centers Preview']}
+                           
                         />
                         <Toggle
                             label="Show Address"
                             value={draft.universityCardConfig.showAddress}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showAddress: value } }))}
-                            guide={toggleGuides['Show Address']}
+                           
                         />
                         <Toggle
                             label="Show Email"
                             value={draft.universityCardConfig.showEmail}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showEmail: value } }))}
-                            guide={toggleGuides['Show Email']}
+                           
                         />
                         <Toggle
                             label="Show Seats"
                             value={draft.universityCardConfig.showSeats}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showSeats: value } }))}
-                            guide={toggleGuides['Show Seats']}
+                           
                         />
                         <Toggle
                             label="Show Application Progress"
                             value={draft.universityCardConfig.showApplicationProgress}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showApplicationProgress: value } }))}
-                            guide={toggleGuides['Show Application Progress']}
+                           
                         />
                         <Toggle
                             label="Show Exam Dates"
                             value={draft.universityCardConfig.showExamDates}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamDates: value } }))}
-                            guide={toggleGuides['Show Exam Dates']}
+                           
                         />
                         <Toggle
                             label="Show Exam Centers"
                             value={draft.universityCardConfig.showExamCenters}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamCenters: value } }))}
-                            guide={toggleGuides['Show Exam Centers']}
+                           
                         />
                     </div>
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1702,8 +1556,8 @@ export default function HomeSettingsPanel() {
                         />
                     </div>
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <Toggle label="Footer Enabled (Global)" value={draft.footer.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, footer: { ...prev.footer, enabled: value } }))} guide={toggleGuides['Footer Enabled (Global)']} />
-                        <Toggle label="Social Strip Enabled" value={draft.socialStrip.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, socialStrip: { ...prev.socialStrip, enabled: value } }))} guide={toggleGuides['Social Strip Enabled']} />
+                        <Toggle label="Footer Enabled (Global)" value={draft.footer.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, footer: { ...prev.footer, enabled: value } }))} />
+                        <Toggle label="Social Strip Enabled" value={draft.socialStrip.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, socialStrip: { ...prev.socialStrip, enabled: value } }))} />
                     </div>
                     <div className="mt-3">
                         <label className="text-xs text-slate-400">Animation Level</label>

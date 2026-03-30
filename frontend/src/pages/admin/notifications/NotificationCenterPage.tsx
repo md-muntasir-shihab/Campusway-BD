@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
-import AdminGuideButton, { type AdminGuideButtonProps } from '../../../components/admin/AdminGuideButton';
 import {
   getTemplates, createTemplate, updateTemplate, deleteTemplate,
   getProviders, createProvider, updateProvider, deleteProvider, testProvider,
@@ -13,7 +12,6 @@ import { promptForSensitiveActionProof } from '../../../utils/sensitiveAction';
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
 type CenterTab = 'send' | 'templates' | 'providers' | 'logs';
 type WizardStep = 1 | 2 | 3;
-type InlineGuide = Omit<AdminGuideButtonProps, 'variant' | 'tone'>;
 
 interface ProviderForm {
   name: string; type: 'sms' | 'email'; provider: string;
@@ -64,28 +62,6 @@ const STATUS_BADGE: Record<string, string> = {
   queued: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
 };
 
-const CENTER_GUIDES: Record<CenterTab, InlineGuide> = {
-  send: {
-    title: 'Send Notifications',
-    content: 'Build and send a manual notification to the selected student target, group, or filter.',
-    affected: 'Notification recipients and delivery logs.',
-  },
-  templates: {
-    title: 'Notification Templates',
-    content: 'Manage reusable notification templates for future sends.',
-    affected: 'Notification composition and consistency.',
-  },
-  providers: {
-    title: 'Notification Providers',
-    content: 'Manage the provider connections used to send SMS or email notifications.',
-    affected: 'Delivery routing and provider operations.',
-  },
-  logs: {
-    title: 'Notification Logs',
-    content: 'Inspect sent, queued, or failed notification deliveries.',
-    affected: 'Notification debugging, support, and audits.',
-  },
-};
 
 function inp(extra = '') {
   return `w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${extra}`;
@@ -289,7 +265,6 @@ export default function NotificationCenterPage({ noShell }: { noShell?: boolean 
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
                 {t.label}
               </button>
-              <AdminGuideButton {...CENTER_GUIDES[t.key]} tone="indigo" />
             </div>
           ))}
         </div>

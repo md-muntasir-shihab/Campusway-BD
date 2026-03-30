@@ -551,7 +551,10 @@ export async function adminGetResourceSettings(_req: Request, res: Response): Pr
 export async function adminUpdateResourceSettings(req: Request, res: Response): Promise<void> {
     try {
         const input = (req.body || {}) as Record<string, unknown>;
-        const allowedKeys = new Set(['pageTitle', 'pageSubtitle', 'defaultThumbnailUrl', 'showFeatured', 'trackingEnabled']);
+        const allowedKeys = new Set([
+            'pageTitle', 'pageSubtitle', 'defaultThumbnailUrl', 'showFeatured', 'trackingEnabled',
+            'allowUserUploads', 'requireAdminApproval', 'maxFileSizeMB', 'allowedCategories'
+        ]);
         const safeUpdate: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(input)) {
             if (allowedKeys.has(k)) safeUpdate[k] = v;

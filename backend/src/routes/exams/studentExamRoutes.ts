@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { AuthRequest } from "../../middlewares/auth";
 import { requireAuth, requireAuthStudent } from "../../middlewares/auth";
-import { examAutoSaveLimit, examSessionStartLimit, examSubmitLimit } from "../../middleware/examRateLimit";
+import { examAutoSaveLimit, examSessionStartLimit, examSubmitLimit } from "../../middlewares/examRateLimit";
 import {
   getExamAttemptResult,
   getExamAttemptSolutions,

@@ -19,10 +19,10 @@ const BASE_LINKS = [
 export default function Navbar() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [logoLoadFailed, setLogoLoadFailed] = useState(false);
-    const { user, logout } = useAuth();
+    const { user, logout, isLoading: authLoading } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
-    const { data: settings } = useWebsiteSettings();
+    const { data: settings, isLoading: isSettingsLoading } = useWebsiteSettings();
     const brandName = String(settings?.websiteName || 'CampusWay').trim() || 'CampusWay';
     // Use a cache-buster (?v=1.1) to force the browser to reload the new logo.png
     const brandLogo = '/logo.png?v=1.1';
@@ -39,7 +39,7 @@ export default function Navbar() {
     const studentNotificationsQuery = useQuery({
         queryKey: ['student-hub', 'notifications', 'all'],
         queryFn: async () => (await getStudentMeNotifications('all')).data,
-        enabled: isStudentUser,
+        enabled: isStudentUser && !authLoading,
         staleTime: 30_000,
     });
     const unreadCount = Number(studentNotificationsQuery.data?.unreadCount || 0);
@@ -129,7 +129,9 @@ export default function Navbar() {
                         </Link>
                     )}
 
-                    {user ? (
+                    {authLoading ? (
+                        <div className="h-8 w-8 sm:h-9 sm:w-20 rounded-full bg-card-border/70 dark:bg-dark-border/70 animate-pulse" />
+                    ) : user ? (
                         <div className="relative group">
                             <div
                                 className="inline-flex cursor-pointer items-center gap-2 rounded-full p-1 pr-1.5 sm:pr-2 hover:bg-primary/5"

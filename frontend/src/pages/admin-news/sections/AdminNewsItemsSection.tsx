@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, CalendarClock, CircleOff, GitMerge, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CircleOff, GitMerge, Sparkles, X, Newspaper, Image as ImageIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SimpleRichTextEditor from '../components/SimpleRichTextEditor';
@@ -1119,79 +1119,118 @@ export default function AdminNewsItemsSection({
                         Select all
                     </label>
                 </div>
-                <div className="grid gap-3">
-                    {items.map((item) => (
-                        <article key={item._id} className="rounded-2xl border border-slate-300/80 bg-slate-100/60 p-4 dark:border-slate-700/80 dark:bg-slate-950/35">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                <label className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 bg-white/90 px-3 py-1.5 text-[11px] font-medium text-slate-700 dark:border-slate-600/80 dark:bg-slate-950/70 dark:text-slate-200">
-                                    <input
-                                        type="checkbox"
-                                        checked={selected.includes(item._id)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) setSelected((prev) => [...prev, item._id]);
-                                            else setSelected((prev) => prev.filter((value) => value !== item._id));
-                                        }}
-                                    />
-                                    Select
-                                </label>
-                                <div className="flex flex-wrap gap-2 text-[11px]">
-                                    <span className="rounded-full border border-slate-300/70 px-2.5 py-1 text-slate-700 dark:border-slate-700/70 dark:text-slate-300">
-                                        {statusToListLabel(item.status)}
-                                    </span>
-                                    <span className="rounded-full border border-slate-300/70 px-2.5 py-1 text-slate-700 dark:border-slate-700/70 dark:text-slate-300">
-                                        {item.sourceName || item.sourceType || 'manual'}
-                                    </span>
-                                    <span className="rounded-full border border-slate-300/70 px-2.5 py-1 text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
-                                        {formatQueueTime(item.createdAt)}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="mt-4 space-y-3">
-                                <div className="space-y-2">
-                                    <h3 className="line-clamp-2 text-base font-semibold text-text dark:text-white">{item.title}</h3>
-                                    <p className="line-clamp-3 text-sm text-slate-500 dark:text-slate-400">{buildListSummary(item)}</p>
-                                </div>
-                                {renderItemActions(item)}
-                                {expandedItemIds.includes(item._id) ? (
-                                    <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-3 text-[11px] text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/40 dark:text-slate-300">
-                                        <span className="rounded-full border border-slate-300/70 px-2.5 py-1 dark:border-slate-700/70">
-                                            {item.category || 'General'}
-                                        </span>
-                                        <span className={`rounded-full border px-2.5 py-1 ${item.fetchedFullText ? 'border-emerald-500/40 text-emerald-200' : 'border-amber-500/40 text-amber-200'}`}>
-                                            {item.fetchedFullText ? 'Full text ready' : 'Excerpt only'}
-                                        </span>
-                                        {item.publishOutcome?.type ? (
-                                            <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 text-cyan-200">
-                                                {item.publishOutcome.type}
-                                            </span>
-                                        ) : null}
-                                        {item.deliveryMeta?.lastChannel ? (
-                                            <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-violet-200">
-                                                {item.deliveryMeta.lastChannel}
-                                            </span>
-                                        ) : null}
-                                        {item.aiUsed ? (
-                                            <span
-                                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
-                                                    item.aiMeta?.noHallucinationPassed
-                                                        ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                                                        : 'border border-amber-500/40 bg-amber-500/10 text-amber-200'
-                                                }`}
-                                            >
-                                                <Sparkles className="h-3 w-3" />
-                                                {item.aiMeta?.noHallucinationPassed ? 'AI verified' : 'AI review'}
-                                            </span>
-                                        ) : null}
-                                        {buildSecondaryMeta(item).map((meta) => (
-                                            <span key={meta} className="rounded-full border border-slate-300/70 px-2.5 py-1 dark:border-slate-700/70">
-                                                {meta}
-                                            </span>
-                                        ))}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {items.map((item) => {
+                        const coverImg = item.coverImageUrl || item.coverImage || item.featuredImage;
+                        return (
+                            <article key={item._id} className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/50 shadow-sm transition-all hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-md dark:border-slate-800/80 dark:bg-slate-900/40">
+                                {/* Image / Cover */}
+                                <div className="relative aspect-video w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                                    {coverImg ? (
+                                        <img 
+                                            src={coverImg} 
+                                            alt={item.title} 
+                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center');
+                                                const icon = document.createElement('div');
+                                                icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400/50 dark:text-slate-600/50"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>';
+                                                e.currentTarget.parentElement?.appendChild(icon);
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-slate-200/50 dark:bg-slate-800/50">
+                                            <Newspaper className="h-8 w-8 text-slate-400/50 dark:text-slate-600/50" />
+                                        </div>
+                                    )}
+                                    
+                                    {/* Selection overlay */}
+                                    <div className="absolute left-3 top-3 z-10">
+                                        <label className="inline-flex cursor-pointer items-center justify-center rounded-full bg-white/90 p-1.5 shadow-sm backdrop-blur-md transition-colors hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 rounded border-slate-300 text-cyan-500 transition-all focus:ring-cyan-500 focus:ring-offset-0 dark:border-slate-600 dark:bg-slate-800"
+                                                checked={selected.includes(item._id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setSelected((prev) => [...prev, item._id]);
+                                                    else setSelected((prev) => prev.filter((value) => value !== item._id));
+                                                }}
+                                            />
+                                        </label>
                                     </div>
-                                ) : null}
-                            </div>
-                        </article>
-                    ))}
+                                    
+                                    {/* Status Badge */}
+                                    <div className="absolute right-3 top-3 z-10 flex flex-col gap-2">
+                                        <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider shadow-sm backdrop-blur-md ${
+                                            item.status === 'published' ? 'bg-emerald-500/90 text-white' : 
+                                            item.status === 'rejected' ? 'bg-rose-500/90 text-white' : 
+                                            item.status === 'draft' ? 'bg-slate-800/90 text-white dark:bg-slate-200/90 dark:text-slate-900' :
+                                            'bg-amber-500/90 text-white'
+                                        }`}>
+                                            {statusToListLabel(item.status)}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex flex-1 flex-col p-4">
+                                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        <span className="truncate max-w-[100px]">{item.category || 'General'}</span>
+                                        <span>•</span>
+                                        <span className="truncate max-w-[100px]">{item.sourceName || item.sourceType || 'Manual'}</span>
+                                        <span>•</span>
+                                        <span className="shrink-0">{formatQueueTime(item.createdAt)}</span>
+                                    </div>
+                                    
+                                    <h3 className="mb-2 line-clamp-2 text-sm font-semibold leading-tight text-slate-900 dark:text-white" title={item.title}>
+                                        {item.title}
+                                    </h3>
+                                    
+                                    <p className="mb-4 line-clamp-2 text-xs text-slate-600 dark:text-slate-400">
+                                        {buildListSummary(item)}
+                                    </p>
+                                    
+                                    <div className="mt-auto space-y-3">
+                                        {/* Actions */}
+                                        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800/60">
+                                            <div className="flex-1">
+                                                {renderItemActions(item)}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Expanded details */}
+                                        {expandedItemIds.includes(item._id) ? (
+                                            <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200/50 bg-slate-50 p-2.5 text-[10px] text-slate-600 dark:border-slate-800/50 dark:bg-slate-900/30 dark:text-slate-400">
+                                                <span className={`rounded border px-1.5 py-0.5 ${item.fetchedFullText ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' : 'border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400'}`}>
+                                                    {item.fetchedFullText ? 'Full text' : 'Excerpt'}
+                                                </span>
+                                                {item.publishOutcome?.type ? (
+                                                    <span className="rounded border border-cyan-500/30 bg-cyan-500/5 px-1.5 py-0.5 text-cyan-600 dark:text-cyan-400">
+                                                        {item.publishOutcome.type}
+                                                    </span>
+                                                ) : null}
+                                                {item.deliveryMeta?.lastChannel ? (
+                                                    <span className="rounded border border-violet-500/30 bg-violet-500/5 px-1.5 py-0.5 text-violet-600 dark:text-violet-400">
+                                                        {item.deliveryMeta.lastChannel}
+                                                    </span>
+                                                ) : null}
+                                                {item.aiUsed ? (
+                                                    <span className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${item.aiMeta?.noHallucinationPassed ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' : 'border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400'}`}>
+                                                        <Sparkles className="h-2.5 w-2.5" />
+                                                        {item.aiMeta?.noHallucinationPassed ? 'AI ver' : 'AI rev'}
+                                                    </span>
+                                                ) : null}
+                                                {buildSecondaryMeta(item).map((meta) => (
+                                                    <span key={meta} className="rounded border border-slate-200 px-1.5 py-0.5 dark:border-slate-700">{meta}</span>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            </article>
+                        );
+                    })}
                     {!items.length ? (
                         <p className="rounded-xl border border-dashed border-slate-300 px-3 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
                             No items found.

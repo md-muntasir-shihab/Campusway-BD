@@ -1,5 +1,5 @@
-import { createContext, useContext, type ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { createContext, useContext, type ReactNode } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useModuleAccess } from '../../hooks/useModuleAccess';
 import AdminShell from './AdminShell';
@@ -55,6 +55,7 @@ export default function AdminGuardShell({
     const { user, isLoading } = useAuth();
     const { hasAccess } = useModuleAccess();
     const isNestedInsideAdminShell = useContext(AdminShellNestingContext);
+    const location = useLocation();
 
     if (isLoading) {
         return <div className="section-container py-16 text-sm text-text-muted dark:text-dark-text/70">Checking admin access...</div>;
@@ -81,8 +82,8 @@ export default function AdminGuardShell({
     }
 
     return (
-        <AdminShellNestingContext.Provider value>
-            <AdminShell title={title} description={description}>
+        <AdminShellNestingContext.Provider value={true}>
+            <AdminShell key={location.pathname} title={title} description={description}>
                 {children}
             </AdminShell>
         </AdminShellNestingContext.Provider>

@@ -16,11 +16,28 @@ const parser = new Parser({
 });
 
 const scrapeReadableContent = async (url: string) => {
-  const response = await fetch(url);
-  const html = await response.text();
-  const dom = new JSDOM(html, { url });
-  const article = new Readability(dom.window.document).parse();
-  return article?.content ?? "";
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      }
+    });
+
+    if (!response.ok) {
+        console.warn(`[RSS Scrape] Failed to fetch ${url} (status: ${response.status})`);
+        return "";
+    }
+
+    const html = await response.text();
+    const dom = new JSDOM(html, { url });
+    const article = new Readability(dom.window.document).parse();
+    return article?.content ?? "";
+  } catch (err) {
+    console.error(`[RSS Scrape Error] ${url}:`, err);
+    return "";
+  }
 };
 
 const getFullContent = async (
@@ -51,6 +68,14 @@ function extractRssImage(item: Record<string, unknown>): string | null {
     const img = item['itunes:image'] as Record<string, unknown>;
     if (img?.href) return String(img.href);
   }
+
+  // Try extracting first image from content (fallback)
+  const contentStr = String(item['content:encoded'] || item.content || item.description || "");
+  const imgMatch = contentStr.match(/<img[^>]+src=["']([^"']+)["']/i);
+  if (imgMatch && imgMatch[1]) {
+      return imgMatch[1];
+  }
+
   return null;
 }
 

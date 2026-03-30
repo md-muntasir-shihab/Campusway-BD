@@ -4,7 +4,6 @@ import { Check, ChevronDown, Copy, Download, ExternalLink, Eye, History, Mail, M
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
-import AdminGuideButton from '../../../components/admin/AdminGuideButton';
 import {
   createSubscriptionContactCenterPreset,
   deleteSubscriptionContactCenterPreset,
@@ -655,16 +654,6 @@ export default function SubscriptionContactCenterPage() {
               Has guardian
             </label>
           )}
-          <AdminGuideButton
-            title="Audience filters"
-            content="These filters use live subscription records as the source of truth. Active, expired, renewal due, and paused movement is automatic whenever the subscription status or expiry changes."
-            actions={[
-              { label: 'Plan filter', description: 'Select one, many, or all plans. Multiple chosen plans use OR logic.' },
-              { label: 'Bucket filter', description: 'Expired and Cancelled / Paused are separate folders driven by live subscription state.' },
-              { label: 'Institution filter', description: 'Only institutions already present in live student profiles appear here. No fake filter options are injected.' },
-            ]}
-            tone="indigo"
-          />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {BUCKET_OPTIONS.map((option) => (
@@ -712,7 +701,6 @@ export default function SubscriptionContactCenterPage() {
               Show guardian columns
             </label>
           )}
-          <AdminGuideButton title="Bulk actions" content="Bulk manage only uses selected rows. Copy and export use selected rows first, otherwise the full filtered audience." tone="indigo" />
         </div>
       </div>
 
@@ -889,18 +877,6 @@ export default function SubscriptionContactCenterPage() {
               <h2 className="mt-3 text-3xl font-semibold text-slate-950 dark:text-white">Subscription Contact Center</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">Use real subscription status as the single audience source for copy, export, guardian-aware handoff, saved audiences, campaign outreach, and direct subscription operations.</p>
             </div>
-            <AdminGuideButton
-              variant="full"
-              tone="indigo"
-              title="How this works"
-              content="Every view here is powered by the latest subscription record per student. Active, expired, renewal-due, and paused buckets move automatically when plan assignment, expiry, or suspension changes."
-              actions={[
-                { label: 'Overview', description: 'See plan-wise counts and jump into members, outreach, or export with the same filters.' },
-                { label: 'Members', description: 'Filter by one or many plans, then reuse the same audience for copy, export, personal outreach, campaign handoff, and subscription actions.' },
-                { label: 'Presets', description: 'Save copy/export formatting once and reuse it across clipboard and file exports.' },
-              ]}
-              affected="Admins, moderators, support operations, and subscription-based communication workflows."
-            />
           </div>
           <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
             {CENTER_TABS.map((item) => (
@@ -938,7 +914,6 @@ export default function SubscriptionContactCenterPage() {
                   <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Audience Overview</h3>
                   <p className="text-sm text-slate-500">Quick actions always jump to the same canonical filters. No duplicate contact pages, no manual bucket maintenance.</p>
                 </div>
-                <AdminGuideButton title="Smart folders" content="Active, Renewal Due, Expired, and Cancelled / Paused are computed automatically from the latest subscription record and reminder threshold." tone="indigo" />
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -995,7 +970,6 @@ export default function SubscriptionContactCenterPage() {
                   <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Personal Outreach Mode</h3>
                   <p className="text-sm text-slate-500">Use the currently selected audience or the first visible members from the filtered table. Guardian access stays role-protected.</p>
                 </div>
-                <AdminGuideButton title="Personal outreach" content="Manual outreach reuses the same filtered audience as export and copy center. No separate manual contact folder is maintained." tone="indigo" />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button onClick={() => { setScope('phones'); previewMutation.mutate('personal_outreach'); }} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-700">Preview phones</button>
@@ -1043,7 +1017,6 @@ export default function SubscriptionContactCenterPage() {
                   <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Export / Copy Center</h3>
                   <p className="text-sm text-slate-500">The same filtered audience powers clipboard copy, plain-text handoff, CSV/XLSX export, and guardian-inclusive output.</p>
                 </div>
-                <AdminGuideButton title="Format presets" content="Presets change prefix, suffix, separator, and optional labels. The same preset applies to clipboard output and file export." tone="indigo" />
               </div>
               <div className="mt-5 grid gap-4 lg:grid-cols-3">
                 <div>
@@ -1101,15 +1074,6 @@ export default function SubscriptionContactCenterPage() {
                   <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Saved Format Presets</h3>
                   <p className="text-sm text-slate-500">One preset can drive clipboard output, TXT, CSV, XLSX, and JSON export labels.</p>
                 </div>
-                <AdminGuideButton
-                  title="Preset behavior"
-                  content="Presets define formatting only. Audience membership still comes from live subscription filters and saved audience rules."
-                  actions={[
-                    { label: 'Default preset', description: 'Used automatically when no explicit preset is selected in Export / Copy.' },
-                    { label: 'Guardian fields', description: 'Guardian formatting only appears for roles that are allowed to view guardian contacts.' },
-                  ]}
-                  tone="indigo"
-                />
               </div>
               <div className="divide-y divide-slate-100 dark:divide-slate-900">
                 {(presetsQuery.data || []).map((preset) => (

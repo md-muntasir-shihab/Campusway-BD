@@ -7,9 +7,10 @@ interface Props {
     header: StudentDashboardFullResponse['header'];
     dailyFocus: StudentDashboardFullResponse['dailyFocus'];
     personalizedCtas: StudentDashboardFullResponse['personalizedCtas'];
+    onProfileClick?: () => void;
 }
 
-export default function WelcomeHeader({ header, dailyFocus, personalizedCtas }: Props) {
+export default function WelcomeHeader({ header, dailyFocus, personalizedCtas, onProfileClick }: Props) {
     const isPremium = header.subscription?.isActive;
     const progressPct = Math.min(100, Math.max(0, header.profileCompletionPercentage));
 
@@ -18,7 +19,10 @@ export default function WelcomeHeader({ header, dailyFocus, personalizedCtas }: 
             <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-indigo-50 via-white to-sky-50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 p-5 md:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full shrink-0 ${isPremium ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : 'ring-1 ring-slate-200 dark:ring-slate-700'}`}>
+                        <button 
+                            onClick={onProfileClick}
+                            className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full shrink-0 group transition-transform hover:scale-105 active:scale-95 cursor-pointer ${isPremium ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-[0_0_20px_rgba(251,191,36,0.3)]' : 'ring-2 ring-indigo-500/20 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 dark:ring-indigo-400/20 hover:ring-indigo-500/50 transition-all shadow-sm'}`}
+                        >
                             {header.profilePicture ? (
                                 <img src={header.profilePicture} alt={header.name} className="w-full h-full rounded-full object-cover" />
                             ) : (
@@ -26,12 +30,16 @@ export default function WelcomeHeader({ header, dailyFocus, personalizedCtas }: 
                                     <UserCircle className="w-8 h-8 text-slate-400" />
                                 </div>
                             )}
+                            {/* Hover overlay */}
+                            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="text-[10px] font-bold text-white uppercase tracking-wider hidden sm:block">View</span>
+                            </div>
                             {isPremium && (
-                                <div className="absolute -top-1 -right-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full p-1 shadow-lg border-2 border-white dark:border-slate-900">
+                                <div className="absolute -top-1 -right-1 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full p-1 shadow-lg border-2 border-white dark:border-slate-900 z-10">
                                     <Crown className="w-3 h-3 text-white" />
                                 </div>
                             )}
-                        </div>
+                        </button>
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">{header.name}</h1>
@@ -58,12 +66,12 @@ export default function WelcomeHeader({ header, dailyFocus, personalizedCtas }: 
                         </div>
                     </div>
                     <div className="sm:text-right shrink-0">
-                        {!header.isProfileEligible ? (
-                            <Link to="/profile" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 text-sm font-semibold transition">
+                        {(!header.isProfileEligible) ? (
+                            <button onClick={onProfileClick} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-5 py-2.5 text-sm font-bold tracking-wide shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 border border-white/20">
                                 Complete Profile
-                            </Link>
+                            </button>
                         ) : (
-                            <Link to="/exams" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-sm font-semibold transition">
+                            <Link to="/student/exams-hub" className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white px-5 py-2.5 text-sm font-bold tracking-wide shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5 border border-white/20">
                                 Go to Exams
                             </Link>
                         )}

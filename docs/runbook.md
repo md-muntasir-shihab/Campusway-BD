@@ -1,59 +1,231 @@
-# Question Bank Operations Runbook
+# CampusWay — Runbook
 
-## 1) Bulk Import Rollback
+Operational runbook for running, maintaining, and troubleshooting CampusWay.
+Last updated: Phase 0 Bootstrap.
 
-1. Export the import job report: `GET /api/admin/qbank/import/:jobId`.
-2. Identify inserted rows by `created_by` + `createdAt` window from the job.
-3. Soft rollback (recommended): set `status=archived` for impacted rows.
-4. Hard rollback (manual approval required): delete matched rows after DB backup.
-5. Regenerate indexes if large rollback volume is applied.
+---
 
-## 2) Reprocess Failed Rows
+## 1. Starting the Stack (Local)
 
-1. Download `failed_rows.csv` from importer report.
-2. Fix row-level errors shown in the `reason` column.
-3. Re-upload using Question Importer with corrected mapping.
-4. Validate with `/api/admin/qbank/import/:jobId` until status is `completed`.
+### Full Stack Start
 
-## 3) Media Pending Approval
+```bash
+# Terminal 1 — MongoDB
+"C:\Program Files\MongoDB\Server\8.2\bin\mongod.exe" --dbpath D:\CampusWay\CampusWay\.local-mongo\data
 
-1. Find pending media in `question_media` where `status='pending'`.
-2. Verify image URL/file integrity and Bengali `alt_text_bn`.
-3. Approve media by updating `status='approved'`, `approvedBy`, `approvedAt`.
-4. Re-run question moderation for affected questions if blocked by policy.
+# Terminal 2 — Backend
+cd D:\CampusWay\CampusWay\backend
+npm run dev
+# Expected: "Server running on port 5003" (or configured PORT)
 
-## 4) Duplicate Detection Threshold
+# Terminal 3 — Frontend
+cd D:\CampusWay\CampusWay\frontend
+npm run dev
+# Expected: Vite server at http://localhost:5175
+```
 
-1. Current threshold is `QBANK_DUPLICATE_THRESHOLD` (default `0.84`).
-2. Increase threshold to reduce false positives; lower to catch more duplicates.
-3. Restart backend after env change and re-run similarity checks.
+### Quick Run Scripts (Windows)
+```powershell
+# From project root:
+.\run_project.ps1
+```
 
-## 5) Revision Audit and Revert
+---
 
-1. Open question detail (`GET /api/admin/qbank/:id`) to inspect revisions.
-2. Revert with `POST /api/admin/qbank/:id/revert/:revisionNo`.
-3. Confirm `revision_no` increments and a new audit log entry exists.
-4. Validate business-critical questions in Exam Builder picker after revert.
+## 2. Health Checks
 
-## 6) RBAC Validation Checklist
+```bash
+# Backend health
+curl http://localhost:5003/api/health
 
-1. Moderator/Admin can approve/reject/lock/export.
-2. Editor can create/edit/search (no approve/delete unless explicitly granted).
-3. Student role has no access to `/api/admin/qbank/*`.
+# Public API check
+curl http://localhost:5003/api/public/home-settings
 
-## 7) Safety Notes
+# Admin API check (requires auth)
+curl -H "Authorization: Bearer <token>" http://localhost:5003/api/admin/dashboard
+```
 
-1. All destructive changes require manual approval and a backup snapshot.
-2. Keep import batches under operational limits to avoid lock contention.
-3. Validate image links before mass import to prevent broken media rows.
+---
 
-## 8) Hybrid Admin/Student Migration (Next.js)
+## 3. Database Operations
 
-1. See detailed rollout guide: `docs/runbooks/next-hybrid-rollout.md`.
-2. New Next app lives under `frontend-next/`.
-3. Keep legacy routes active while gradually proxying:
-   - `/admin-dashboard*`
-   - `/student*`
-4. Ensure runtime feature flags are explicitly managed during rollout:
-   - `nextAdminEnabled`
-   - `nextStudentEnabled`
+### Check DB Status
+```bash
+cd backend
+node check-home.js       # Check home settings
+node list-collections.js # List all collections
+```
+
+### Run Migrations (in safe order)
+```bash
+cd backend
+npm run migrate:university-management-v2
+npm run migrate:university-categories-v1
+npm run migrate:subscription-plans-v3
+npm run migrate:student-dashboard-v2
+npm run migrate:ops-indexes-v1
+npm run migrate:communication-center-v1
+npm run migrate:security-hardening
+```
+
+### E2E Database Management
+```bash
+npm run e2e:prepare          # Seed E2E test data
+npm run e2e:restore          # Restore to baseline
+npm run e2e:db-snapshot      # Take snapshot
+npm run e2e:db-snapshot:restore  # Restore from snapshot
+```
+
+---
+
+## 4. Admin Password Reset
+
+If admin password is lost:
+
+```bash
+cd backend
+tsx src/reset-admin.ts
+# Or:
+tsx src/reset-password-final.ts
+```
+
+Check `backend/INITIAL_ACCESS_INFO.txt` for seeded admin credentials.
+
+---
+
+## 5. Seed Operations
+
+```bash
+cd backend
+
+# Full bootstrap seed
+npm run seed
+
+# Seed content pipeline (news, universities, etc.)
+npm run seed:content
+
+# Seed default users only
+npm run seed:default-users
+```
+
+---
+
+## 6. Build Operations
+
+```bash
+# Build backend for production
+cd backend
+npm run build
+# Output: backend/dist/
+
+# Build frontend for production
+cd frontend
+npm run build
+# Output: frontend/dist/
+
+# Preview frontend production build
+cd frontend
+npm run preview
+```
+
+---
+
+## 7. Deploying to Production
+
+### Automatic (GitHub Actions)
+- Push to `main` branch triggers `azure-deploy.yml`
+- Docker image is built and pushed to Azure Container Registry
+- Azure App Service is updated with new image
+
+### Manual Docker Build
+```bash
+cd backend
+docker build -t campusway-backend:latest .
+docker push <registry>/campusway-backend:latest
+```
+
+### Frontend Deployment (Firebase Hosting)
+```bash
+cd frontend
+npm run build
+firebase deploy --only hosting
+```
+
+---
+
+## 8. Log Access
+
+### Backend Logs (Local)
+```bash
+# Backend process logs
+cat backend/backend-run.log
+cat backend/backend-dev-agent.log
+```
+
+### Azure Logs (Production)
+- Access via Azure Portal → App Service → Monitoring → Log Stream
+- Or via Azure CLI: `az webapp log tail --name <app-name> --resource-group <rg>`
+
+---
+
+## 9. Security Operations
+
+### Enable Testing Access Mode (Dev Only)
+```bash
+cd backend
+npm run security:enable-testing-access-mode
+```
+
+### Security Payload Smoke Test
+```bash
+cd backend
+npm run security:payload-smoke
+```
+
+### Force Logout a User
+Via Admin Panel: Security Center → Active Sessions → Force Logout
+
+---
+
+## 10. Communication System Operations
+
+### Test Send (from Admin Panel)
+Admin → Communication Hub → Campaigns → New Campaign → Test Send
+
+### Check Delivery Logs
+Admin → Communication Hub → Logs
+
+### Check Trigger Status
+Admin → Communication Hub → Smart Triggers
+
+---
+
+## 11. Known Operational Issues
+
+| Issue | Workaround |
+|-------|-----------|
+| Backend won't start — port in use | Change `PORT` in `.env`, run `netstat -ano | findstr :5003` to find PID |
+| MongoDB won't start — data dir missing | `mkdir D:\CampusWay\CampusWay\.local-mongo\data` |
+| Frontend 404 on refresh | Normal SPA behavior in dev — production uses `firebase.json` rewrites |
+| Admin login blank page | Check browser console, verify backend is running |
+| OTP verification failing | In dev: set `ALLOW_TEST_OTP=true`, `TEST_OTP_CODE=123456` |
+
+See `docs/TROUBLESHOOTING.md` for extended issue list.
+
+---
+
+## 12. Release Checklist
+
+Before any production release:
+
+- [ ] `npm run build` succeeds (backend + frontend)
+- [ ] `npm run test:home` passes
+- [ ] `npm run test:team` passes  
+- [ ] `npm run e2e:smoke` passes
+- [ ] `ALLOW_TEST_OTP=false` confirmed in production env
+- [ ] `NODE_ENV=production` confirmed
+- [ ] `CORS_ORIGIN` confirmed for production domain only
+- [ ] No test secrets in `.env.production`
+- [ ] Azure App Service configuration updated
+- [ ] Firebase Hosting deployed
+- [ ] Health check passes on production URL

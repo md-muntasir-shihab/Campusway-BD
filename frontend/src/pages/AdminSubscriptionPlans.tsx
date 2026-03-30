@@ -512,9 +512,10 @@ function inputClass(multiline = false): string {
 
 function statCard(label: string, value: string, accent = false) {
     return (
-        <div className={`rounded-[1.5rem] border px-4 py-4 ${accent ? 'border-cyan-200 bg-cyan-50 dark:border-cyan-900/70 dark:bg-cyan-950/30' : 'border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/70'}`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</p>
-            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">{value}</p>
+        <div className={`group relative overflow-hidden rounded-[1.5rem] border px-5 py-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${accent ? 'border-cyan-300/60 bg-cyan-50/90 dark:border-cyan-800/60 dark:bg-cyan-950/40' : 'border-slate-200/80 bg-white/90 dark:border-slate-800/80 dark:bg-slate-950/70'}`}>
+            <div className={`absolute -right-4 -top-4 h-16 w-16 rounded-full blur-2xl transition-all duration-500 group-hover:scale-150 ${accent ? 'bg-gradient-to-br from-cyan-400/15 to-indigo-400/10' : 'bg-gradient-to-br from-slate-300/10 to-cyan-300/10 dark:from-slate-600/10 dark:to-cyan-600/10'}`} />
+            <p className="relative text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</p>
+            <p className="relative mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">{value}</p>
         </div>
     );
 }

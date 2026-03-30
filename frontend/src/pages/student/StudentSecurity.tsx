@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, KeyRound, Laptop2, MailCheck, ShieldCheck, Smartphone, Trash2 } from 'lucide-react';
+import { SEO } from '../../components/common/SEO';
+import { AlertTriangle, KeyRound, Laptop2, MailCheck, ShieldCheck, Smartphone, Trash2, Copy, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { QRCodeSVG } from 'qrcode.react';
 import {
     beginTotpSetup,
     changePassword,
@@ -165,6 +167,7 @@ export default function StudentSecurity() {
 
     return (
         <div className="space-y-6">
+            <SEO title="Security" description="Manage your CampusWay account security. Enable 2FA, review sessions, and change your password." />
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -235,22 +238,60 @@ export default function StudentSecurity() {
                     </div>
 
                     {setupData ? (
-                        <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-sm font-medium text-slate-900">Setup secret</p>
-                            <p className="mt-1 break-all rounded-2xl bg-white px-3 py-2 font-mono text-xs text-slate-700">{setupData.secret}</p>
-                            <p className="mt-3 text-sm font-medium text-slate-900">OTPAuth URL</p>
-                            <p className="mt-1 break-all rounded-2xl bg-white px-3 py-2 font-mono text-[11px] text-slate-700">{setupData.otpAuthUrl}</p>
-                            <p className="mt-3 text-sm font-medium text-slate-900">Backup codes</p>
-                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                {setupData.backupCodes.map((code) => (
-                                    <div key={code} className="rounded-2xl bg-white px-3 py-2 font-mono text-xs text-slate-700">{code}</div>
-                                ))}
+                        <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 space-y-5">
+                            {/* QR Code */}
+                            <div className="flex flex-col items-center gap-3">
+                                <p className="text-sm font-semibold text-slate-900">Scan with your Authenticator App</p>
+                                <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
+                                    <QRCodeSVG
+                                        value={setupData.otpAuthUrl}
+                                        size={180}
+                                        level="M"
+                                        includeMargin={false}
+                                    />
+                                </div>
+                                <p className="text-[11px] text-slate-400 text-center max-w-xs">
+                                    Open Google Authenticator, Authy, or any TOTP app and scan this code.
+                                </p>
                             </div>
+
+                            {/* Manual secret */}
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Manual Entry Key</p>
+                                <div className="flex items-center gap-2">
+                                    <code className="flex-1 break-all rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700 border border-slate-200">{setupData.secret}</code>
+                                    <button
+                                        type="button"
+                                        onClick={() => { navigator.clipboard.writeText(setupData.secret); toast.success('Secret copied!'); }}
+                                        className="shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition"
+                                        title="Copy secret"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Backup codes */}
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Backup Codes</p>
+                                <p className="text-[11px] text-slate-400 mb-2">Save these codes in a safe place. Each can be used once if you lose access to your authenticator.</p>
+                                <div className="grid gap-1.5 sm:grid-cols-2">
+                                    {setupData.backupCodes.map((code) => (
+                                        <div key={code} className="rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700 border border-slate-200 flex items-center gap-2">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                            {code}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Verify code input */}
                             {!user?.twoFactorEnabled ? (
-                                <div className="mt-4 space-y-3">
-                                    <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400" type="text" inputMode="numeric" placeholder="Enter 6-digit code from app" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} />
+                                <div className="space-y-3 pt-3 border-t border-slate-200">
+                                    <p className="text-sm font-medium text-slate-900">Verify Setup</p>
+                                    <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400 text-center tracking-[0.3em] font-mono" type="text" inputMode="numeric" maxLength={6} placeholder="Enter 6-digit code" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} />
                                     <button onClick={completeAuthenticatorSetup} disabled={verifyingSetup} className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
-                                        {verifyingSetup ? 'Verifying...' : 'Confirm authenticator'}
+                                        {verifyingSetup ? 'Verifying...' : 'Confirm & Enable 2FA'}
                                     </button>
                                 </div>
                             ) : null}

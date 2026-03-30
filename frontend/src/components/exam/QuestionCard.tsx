@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import CompressedImageInput from '../common/CompressedImageInput';
 
 interface Props {
     question: ApiQuestion;
@@ -34,9 +35,9 @@ export default function QuestionCard({
         { id: 'D', text: question.optionD },
     ];
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0] && onWrittenUpload) {
-            onWrittenUpload(e.target.files[0]);
+    const handleFileChange = (file: File | null) => {
+        if (file && onWrittenUpload) {
+            onWrittenUpload(file);
         }
     };
 
@@ -98,7 +99,7 @@ export default function QuestionCard({
                             <img src={writtenUploadUrl} alt="Uploaded Answer" className="h-40 w-auto rounded-lg border border-slate-300 shadow-sm" />
                             <label className="absolute -bottom-3 -right-3 bg-white border border-slate-200 shadow-sm p-2 rounded-full cursor-pointer hover:bg-slate-50 text-indigo-600">
                                 <Upload className="w-4 h-4" />
-                                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
+                                <CompressedImageInput accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
                             </label>
                         </div>
                     ) : (
@@ -106,7 +107,7 @@ export default function QuestionCard({
                             <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-500 mb-2" />
                             <span className="text-sm font-medium text-slate-600 group-hover:text-indigo-600">Click to upload photo or PDF</span>
                             <span className="text-xs text-slate-400 mt-1">JPG, PNG, PDF up to 5MB</span>
-                            <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
+                            <CompressedImageInput accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
                         </label>
                     )}
                 </div>

@@ -10,6 +10,10 @@ interface ResourceSettings {
     defaultThumbnailUrl: string;
     showFeatured: boolean;
     trackingEnabled: boolean;
+    allowUserUploads: boolean;
+    requireAdminApproval: boolean;
+    maxFileSizeMB: number;
+    allowedCategories: string[];
 }
 
 function ResourceSettingsPanel() {
@@ -21,6 +25,10 @@ function ResourceSettingsPanel() {
         defaultThumbnailUrl: '',
         showFeatured: true,
         trackingEnabled: true,
+        allowUserUploads: false,
+        requireAdminApproval: true,
+        maxFileSizeMB: 50,
+        allowedCategories: ['PDF', 'Video', 'Note', 'Link', 'Archive', 'Code'],
     });
 
     useEffect(() => {
@@ -33,6 +41,10 @@ function ResourceSettingsPanel() {
                     defaultThumbnailUrl: s.defaultThumbnailUrl ?? '',
                     showFeatured: s.showFeatured ?? true,
                     trackingEnabled: s.trackingEnabled ?? true,
+                    allowUserUploads: s.allowUserUploads ?? false,
+                    requireAdminApproval: s.requireAdminApproval ?? true,
+                    maxFileSizeMB: s.maxFileSizeMB ?? 50,
+                    allowedCategories: s.allowedCategories && s.allowedCategories.length > 0 ? s.allowedCategories : ['PDF', 'Video', 'Note', 'Link', 'Archive', 'Code'],
                 });
             })
             .catch(() => toast.error('Failed to load settings'))
@@ -135,6 +147,69 @@ function ResourceSettingsPanel() {
                         <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${form.trackingEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
                 </label>
+            </div>
+
+            {/* Upload Policies */}
+            <div className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-white mb-2">Upload Policies</h3>
+
+                <label className="flex items-center justify-between cursor-pointer group">
+                    <div>
+                        <p className="text-sm text-slate-200 group-hover:text-white transition-colors">Allow Standard User Uploads</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Let students directly upload and share study materials.</p>
+                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={form.allowUserUploads}
+                        onClick={() => setForm(f => ({ ...f, allowUserUploads: !f.allowUserUploads }))}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors focus:outline-none ${form.allowUserUploads ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                    >
+                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${form.allowUserUploads ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer group">
+                    <div>
+                        <p className="text-sm text-slate-200 group-hover:text-white transition-colors">Require Admin Approval</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Student uploads must be approved before becoming visible.</p>
+                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={form.requireAdminApproval}
+                        onClick={() => setForm(f => ({ ...f, requireAdminApproval: !f.requireAdminApproval }))}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors focus:outline-none ${form.requireAdminApproval ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                        disabled={!form.allowUserUploads}
+                    >
+                        <span className={`inline-block h-5 w-5 transform rounded-full shadow transition-transform mt-0.5 ${!form.allowUserUploads ? 'bg-slate-400' : 'bg-white'} ${form.requireAdminApproval ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                </label>
+
+                <div className="pt-2">
+                    <label className="text-xs text-slate-400 block mb-1.5">Max File Size (MB)</label>
+                    <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={form.maxFileSizeMB}
+                        onChange={e => setForm(f => ({ ...f, maxFileSizeMB: parseInt(e.target.value) || 50 }))}
+                        className="w-full bg-slate-950/65 border border-indigo-500/10 rounded-xl px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-indigo-500/30 outline-none"
+                    />
+                </div>
+
+                <div className="pt-2">
+                    <label className="text-xs text-slate-400 block mb-1.5">Allowed Categories (comma separated)</label>
+                    <input
+                        value={form.allowedCategories.join(', ')}
+                        onChange={e => {
+                            const cats = e.target.value.split(',').map(c => c.trim()).filter(Boolean);
+                            setForm(f => ({ ...f, allowedCategories: cats }));
+                        }}
+                        placeholder="PDF, Video, Note"
+                        className="w-full bg-slate-950/65 border border-indigo-500/10 rounded-xl px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-indigo-500/30 outline-none"
+                    />
+                </div>
             </div>
 
             <div className="flex justify-end">
