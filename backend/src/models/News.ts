@@ -14,11 +14,13 @@ export interface INews extends Document {
     coverImage?: string;
     category: string;
     tags: string[];
+    publicTags?: string[];
     isPublished: boolean;
     status:
     | 'published'
     | 'draft'
     | 'archived'
+    | 'trash'
     | 'pending_review'
     | 'duplicate_review'
     | 'approved'
@@ -81,6 +83,13 @@ export interface INews extends Document {
         reviewedAt?: Date;
         rejectReason?: string;
     };
+    deletedAt?: Date;
+    deletedBy?: mongoose.Types.ObjectId;
+    deletedFromStatus?: string;
+    purgeAt?: Date;
+    archivedAt?: Date;
+    archivedBy?: mongoose.Types.ObjectId;
+    archivedFromStatus?: string;
     classification?: {
         primaryCategory?: string;
         tags?: string[];
@@ -154,10 +163,11 @@ const NewsSchema = new Schema<INews>({
     coverImage: { type: String },
     category: { type: String, required: true },
     tags: [{ type: String }],
+    publicTags: [{ type: String }],
     isPublished: { type: Boolean, default: false },
     status: {
         type: String,
-        enum: ['published', 'draft', 'archived', 'pending_review', 'duplicate_review', 'approved', 'rejected', 'scheduled', 'fetch_failed'],
+        enum: ['published', 'draft', 'archived', 'trash', 'pending_review', 'duplicate_review', 'approved', 'rejected', 'scheduled', 'fetch_failed'],
         default: 'draft'
     },
     sourceType: {
@@ -220,6 +230,13 @@ const NewsSchema = new Schema<INews>({
         reviewedAt: { type: Date },
         rejectReason: { type: String, default: '' },
     },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    deletedFromStatus: { type: String, default: '' },
+    purgeAt: { type: Date, default: null },
+    archivedAt: { type: Date, default: null },
+    archivedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    archivedFromStatus: { type: String, default: '' },
     classification: {
         primaryCategory: { type: String, default: '' },
         tags: [{ type: String }],
@@ -341,6 +358,9 @@ NewsSchema.pre('validate', function syncSpecCompat(next) {
     doc.classification.primaryCategory = String(doc.classification.primaryCategory || doc.category || '').trim();
     if (!Array.isArray(doc.classification.tags) || doc.classification.tags.length === 0) {
         doc.classification.tags = Array.isArray(doc.tags) ? [...doc.tags] : [];
+    }
+    if (!Array.isArray(doc.publicTags)) {
+        doc.publicTags = doc.sourceType === 'manual' ? [...(Array.isArray(doc.tags) ? doc.tags : [])] : [];
     }
     doc.priority = doc.priority === 'breaking' || doc.priority === 'priority' ? doc.priority : 'normal';
     if (!doc.publishOutcome) {

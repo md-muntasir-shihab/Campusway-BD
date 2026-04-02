@@ -15,6 +15,7 @@ import {
     type SecuritySessionItem,
 } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
+import { showConfirmDialog } from '../../lib/appDialog';
 
 export default function StudentSecurity() {
     const { user, refreshUser, logout } = useAuth();
@@ -73,6 +74,16 @@ export default function StudentSecurity() {
             toast.error('Enter your current password to start setup');
             return;
         }
+        if (setupData && !user?.twoFactorEnabled) {
+            const confirmed = await showConfirmDialog({
+                title: 'Replace current setup secret?',
+                message: 'A setup secret is already generated. Generate a new secret and invalidate the current QR code and manual key?',
+                confirmLabel: 'Generate new secret',
+                cancelLabel: 'Keep current secret',
+                tone: 'danger',
+            });
+            if (!confirmed) return;
+        }
         try {
             setSetupLoading(true);
             const res = await beginTotpSetup(twoFactorPassword);
@@ -86,8 +97,8 @@ export default function StudentSecurity() {
     };
 
     const completeAuthenticatorSetup = async () => {
-        if (!setupCode) {
-            toast.error('Enter the code from your authenticator app');
+        if (setupCode.length !== 6) {
+            toast.error('Enter a valid 6-digit code from your authenticator app');
             return;
         }
         try {
@@ -129,6 +140,17 @@ export default function StudentSecurity() {
     const disableAuthenticator = async () => {
         if (!twoFactorPassword) {
             toast.error('Enter your current password to disable 2FA');
+            return;
+        }
+        const confirmed = await showConfirmDialog({
+            title: 'Disable two-factor authentication?',
+            message: 'This removes authenticator-based login protection from your student account.',
+            description: 'You can turn it on again later, but the account will be less secure until then.',
+            confirmLabel: 'Disable 2FA',
+            cancelLabel: 'Keep enabled',
+            tone: 'danger',
+        });
+        if (!confirmed) {
             return;
         }
         try {
@@ -247,7 +269,7 @@ export default function StudentSecurity() {
                                         value={setupData.otpAuthUrl}
                                         size={180}
                                         level="M"
-                                        includeMargin={false}
+                                        includeMargin
                                     />
                                 </div>
                                 <p className="text-[11px] text-slate-400 text-center max-w-xs">
@@ -269,6 +291,7 @@ export default function StudentSecurity() {
                                         <Copy className="w-4 h-4" />
                                     </button>
                                 </div>
+                                <p className="mt-1 text-[11px] text-slate-400">If scan fails, add this key manually and keep your phone time on automatic sync.</p>
                             </div>
 
                             {/* Backup codes */}
@@ -289,8 +312,8 @@ export default function StudentSecurity() {
                             {!user?.twoFactorEnabled ? (
                                 <div className="space-y-3 pt-3 border-t border-slate-200">
                                     <p className="text-sm font-medium text-slate-900">Verify Setup</p>
-                                    <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400 text-center tracking-[0.3em] font-mono" type="text" inputMode="numeric" maxLength={6} placeholder="Enter 6-digit code" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} />
-                                    <button onClick={completeAuthenticatorSetup} disabled={verifyingSetup} className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                                    <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400 text-center tracking-[0.3em] font-mono" type="text" inputMode="numeric" maxLength={6} placeholder="Enter 6-digit code" value={setupCode} onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, ''))} />
+                                    <button onClick={completeAuthenticatorSetup} disabled={verifyingSetup || setupCode.length < 6} className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
                                         {verifyingSetup ? 'Verifying...' : 'Confirm & Enable 2FA'}
                                     </button>
                                 </div>

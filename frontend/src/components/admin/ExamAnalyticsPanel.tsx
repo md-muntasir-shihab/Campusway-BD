@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { adminGetExamAnalytics, adminEvaluateResult, adminForceSubmitSession } from '../../services/api';
 import toast from 'react-hot-toast';
 import { Activity, X, AlertTriangle, CheckCircle, FileImage, ShieldAlert, StopCircle } from 'lucide-react';
+import { showConfirmDialog } from '../../lib/appDialog';
 
 type WrittenUploadItem = { url: string; type: 'image' | 'pdf' | 'file' };
 
@@ -65,7 +66,13 @@ export default function ExamAnalyticsPanel({ examId, onClose }: { examId: string
     useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
     const handleForceSubmit = async (studentId: string) => {
-        if (!confirm('Force submit this student?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Force submit student',
+            message: 'Force submit this student?',
+            confirmLabel: 'Force submit',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminForceSubmitSession(examId, studentId);
             toast.success('Session force-closed');

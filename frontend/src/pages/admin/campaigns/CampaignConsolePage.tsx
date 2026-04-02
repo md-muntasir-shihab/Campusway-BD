@@ -22,7 +22,7 @@ const CAMPAIGN_TAB_TO_PATH: Record<Tab, string> = {
   campaigns: ADMIN_PATHS.campaignsList,
   new: ADMIN_PATHS.campaignsNew,
   audiences: ADMIN_PATHS.campaignsAudiences,
-  contact: ADMIN_PATHS.campaignsContactCenter,
+  contact: ADMIN_PATHS.subscriptionContactCenter,
   templates: ADMIN_PATHS.campaignsTemplates,
   providers: ADMIN_PATHS.campaignsProviders,
   triggers: ADMIN_PATHS.campaignsTriggers,
@@ -36,7 +36,6 @@ const CAMPAIGN_VIEW_BUTTONS: Array<{ tab: Tab; label: string }> = [
   { tab: 'dashboard', label: 'Overview' },
   { tab: 'campaigns', label: 'Campaigns' },
   { tab: 'new', label: 'New Campaign' },
-  { tab: 'contact', label: 'Subscription Contact Center' },
   { tab: 'providers', label: 'Providers' },
   { tab: 'triggers', label: 'Smart Triggers' },
   { tab: 'notifications', label: 'Notifications' },
@@ -55,7 +54,7 @@ function getTabFromPath(pathname: string, search?: string, hash?: string): Tab {
   if (h === 'providers') return 'providers';
   if (h === 'triggers' || h === 'smart_triggers') return 'triggers';
   if (h === 'export' || h === 'export_copy') return 'contact';
-  if (normalized === ADMIN_PATHS.campaignsContactCenter) return 'contact';
+  if (normalized === ADMIN_PATHS.campaignsContactCenter || normalized === ADMIN_PATHS.subscriptionContactCenter) return 'contact';
   const match = (Object.entries(CAMPAIGN_TAB_TO_PATH) as Array<[Tab, string]>)
     .find(([, p]) => normalized === p.split('?')[0].split('#')[0] && !p.includes('?') && !p.includes('#'));
   return match?.[0] ?? 'dashboard';
@@ -97,8 +96,8 @@ export default function CampaignConsolePage() {
       {tab === 'dashboard' && <DashboardPanel onNavigate={navigateToTab} />}
       {tab === 'campaigns' && <CampaignsListPanel onView={id => { setSelectedCampaignId(id); }} onRetry={id => retryCampaign(id).then(() => { showToast('Retry initiated'); qc.invalidateQueries({ queryKey: ['campaigns'] }); }).catch(() => showToast('Retry failed', 'error'))} />}
       {tab === 'new' && <NewCampaignPanel showToast={showToast} onSent={() => { navigateToTab('campaigns'); qc.invalidateQueries({ queryKey: ['campaigns'] }); }} />}
-      {tab === 'audiences' && <Navigate to={`${ADMIN_PATHS.campaignsContactCenter}?tab=members`} replace />}
-      {tab === 'contact' && <Navigate to={`${ADMIN_PATHS.campaignsContactCenter}?tab=${(location.hash === '#export' || location.hash === '#export_copy') ? 'export' : 'overview'}`} replace />}
+      {tab === 'audiences' && <Navigate to={`${ADMIN_PATHS.subscriptionContactCenter}?tab=members`} replace />}
+      {tab === 'contact' && <Navigate to={`${ADMIN_PATHS.subscriptionContactCenter}?tab=${(location.hash === '#export' || location.hash === '#export_copy') ? 'export' : 'overview'}`} replace />}
       {tab === 'templates' && <TemplatesPanel showToast={showToast} />}
       {tab === 'providers' && <ProvidersPanel showToast={showToast} />}
       {tab === 'triggers' && <SmartTriggersPanel showToast={showToast} />}

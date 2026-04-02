@@ -8,6 +8,7 @@ import {
     adminPublishAlert,
     adminUpdateAlert,
 } from '../../services/api';
+import { showConfirmDialog } from '../../lib/appDialog';
 
 interface HomeAlert {
     _id: string;
@@ -145,7 +146,13 @@ export default function AlertsPanel() {
     };
 
     const deleteAlert = async (id: string) => {
-        if (!confirm('Delete this alert?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete alert',
+            message: 'Delete this alert?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteAlert(id);
             toast.success('Alert deleted');

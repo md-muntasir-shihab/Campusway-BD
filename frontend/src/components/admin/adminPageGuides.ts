@@ -565,7 +565,7 @@ const PAGE_GUIDES: AdminPageGuideEntry[] = [
         },
     },
     {
-        prefixes: [adminUi('student-management'), ADMIN_PATHS.notificationCenter, ADMIN_PATHS.studentSettings],
+        prefixes: [adminUi('student-management'), ADMIN_PATHS.studentMgmtNotifications, ADMIN_PATHS.studentSettings],
         guide: {
             title: 'Student Management',
             content: 'This area manages students, groups, audiences, profile requests, CRM actions, and student-side operational settings.',

@@ -48,6 +48,7 @@ import {
 import { getAggregatedHomeData } from '../controllers/homeAggregateController';
 import { getPublicHomeSettings } from '../controllers/homeSettingsAdminController';
 import { getUniversityCategories as getUniversityCategoriesWithClusters } from '../controllers/universityCategoriesPublicController';
+import { getPublicUniversityBrowseSettings } from '../controllers/universitySettingsController';
 import {
     getPublicExamList,
     getExamLanding,
@@ -199,6 +200,7 @@ router.get('/subscription-plans/public', getPublicSubscriptionPlans);
 router.get('/subscription-plans/:slug', getPublicSubscriptionPlanById);
 router.get('/home/subscription-plans', optionalAuthenticate, getHomeSubscriptionPlans);
 router.get('/home-settings/public', getPublicHomeSettings);
+router.get('/universities/settings/public', getPublicUniversityBrowseSettings);
 router.get('/social-links/public', getPublicSocialLinks);
 
 /* ── Public — Dynamic Home System ── */

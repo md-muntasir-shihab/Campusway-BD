@@ -31,7 +31,7 @@ function buildApp() {
 }
 
 describe('university import flow', () => {
-    it('auto-creates category/cluster and persists exam centers on commit', async () => {
+    it('auto-creates category/cluster and persists exam centers on commit (legacy extended headers still supported)', async () => {
         const app = buildApp();
         const csv = [
             'category,clusterGroup,name,shortForm,shortDescription,description,applicationStartDate,applicationEndDate,examDateScience,examCenters,websiteUrl,admissionUrl,isActive,featured,slug',
@@ -101,6 +101,87 @@ describe('university import flow', () => {
             { city: 'Chattogram', address: 'CUET Campus' },
         ]);
         expect(cluster?.memberUniversityIds.map((item) => String(item))).toContain(String(university?._id));
+    });
+
+    it('imports canonical 22-column data with Bangla content', async () => {
+        const app = buildApp();
+        const csv = [
+            'category,clusterGroup,name,shortForm,shortDescription,description,establishedYear,address,contactNumber,email,websiteUrl,admissionUrl,totalSeats,seatsScienceEng,seatsArtsHum,seatsBusiness,applicationStartDate,applicationEndDate,examDateScience,examDateArts,examDateBusiness,examCenters',
+            'Individual Admission,Individual,National University,NU,বাংলায় সংক্ষিপ্ত বিবরণ,বাংলায় বিস্তারিত বিবরণ ১২৩,1992,Board Bazar Gazipur,01734790892,registrar@nu.ac.bd,https://www.nu.ac.bd,https://www.nu.ac.bd/admissions,400000,100000,200000,100000,2025-12-15,2026-01-15,,,,"Gazipur - National University Campus"',
+        ].join('\n');
+
+        const initRes = await request(app)
+            .post('/api/universities/import/init')
+            .attach('file', Buffer.from(csv, 'utf8'), 'universities-canonical.csv')
+            .expect(201);
+
+        const jobId = String(initRes.body.importJobId || '');
+        expect(jobId).toBeTruthy();
+        expect(initRes.body.targetFields).toHaveLength(22);
+
+        await request(app)
+            .post(`/api/universities/import/${jobId}/validate`)
+            .send({ mapping: initRes.body.suggestedMapping || {}, defaults: {} })
+            .expect(200);
+
+        const commitRes = await request(app)
+            .post(`/api/universities/import/${jobId}/commit`)
+            .send({ mode: 'update-existing' })
+            .expect(200);
+
+        expect(commitRes.body.commitSummary).toMatchObject({
+            inserted: 1,
+            updated: 0,
+            failed: 0,
+        });
+
+        const university = await University.findOne({ name: 'National University' }).lean();
+        expect(university).toBeTruthy();
+        expect(university?.shortDescription).toBe('বাংলায় সংক্ষিপ্ত বিবরণ');
+        expect(university?.description).toBe('বাংলায় বিস্তারিত বিবরণ ১২৩');
+        expect(String(university?.contactNumber || '').replace(/\D/g, '')).toContain('1734790892');
+    });
+
+    it('accepts TSV uploads with the same import pipeline', async () => {
+        const app = buildApp();
+        const tsv = [
+            'category\tclusterGroup\tname\tshortForm\twebsiteUrl\tadmissionUrl',
+            'Science & Technology\tGST Unified\tTSV University\tTSVU\thttps://tsv.example.edu\thttps://admission.tsv.example.edu',
+        ].join('\n');
+
+        const initRes = await request(app)
+            .post('/api/universities/import/init')
+            .attach('file', Buffer.from(tsv, 'utf8'), 'universities.tsv')
+            .expect(201);
+
+        const jobId = String(initRes.body.importJobId || '');
+        expect(jobId).toBeTruthy();
+        expect(Array.isArray(initRes.body.headers)).toBe(true);
+        expect(initRes.body.headers).toContain('category');
+        expect(initRes.body.headers).toContain('name');
+
+        await request(app)
+            .post(`/api/universities/import/${jobId}/validate`)
+            .send({
+                mapping: initRes.body.suggestedMapping || {},
+                defaults: {},
+            })
+            .expect(200);
+
+        const commitRes = await request(app)
+            .post(`/api/universities/import/${jobId}/commit`)
+            .send({ mode: 'update-existing' })
+            .expect(200);
+
+        expect(commitRes.body.commitSummary).toMatchObject({
+            inserted: 1,
+            updated: 0,
+            failed: 0,
+        });
+
+        const university = await University.findOne({ name: 'TSV University' }).lean();
+        expect(university).toBeTruthy();
+        expect(university?.category).toBe('Science & Technology');
     });
 
     it('imports only explicitly mapped fields and ignores unmapped columns', async () => {

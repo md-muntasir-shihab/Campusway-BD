@@ -166,7 +166,7 @@ export default function AdminShell({ title, description, children }: AdminShellP
         if (!canReadActionableAlerts) return;
         await markReadMutation.mutateAsync([id]);
         setNotifOpen(false);
-        navigate(linkUrl || ADMIN_PATHS.notificationCenter);
+        navigate(linkUrl || ADMIN_PATHS.campaignsNotifications);
     };
 
     const renderSidebarItem = (item: AdminMenuItem) => {
@@ -425,7 +425,7 @@ export default function AdminShell({ title, description, children }: AdminShellP
                                                     <span>Admin Alerts</span>
                                                     <button
                                                         type="button"
-                                                        onClick={() => navigate(ADMIN_PATHS.notificationCenter)}
+                                                        onClick={() => navigate(ADMIN_PATHS.campaignsNotifications)}
                                                         className="text-xs text-indigo-600 dark:text-indigo-300"
                                                     >
                                                         Open center

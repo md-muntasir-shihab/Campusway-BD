@@ -80,7 +80,7 @@ export interface IUniversity extends Document {
 
 const ExamCenterSchema = new Schema<IExamCenter>({
     city: { type: String, required: true },
-    address: { type: String, required: true },
+    address: { type: String, default: '' },
 }, { _id: false });
 
 const UnitSchema = new Schema<IUnit>({

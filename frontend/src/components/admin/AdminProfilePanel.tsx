@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Activity, Lock, Mail, Save, Shield, User, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,7 +14,8 @@ const formatTime = (value?: string | Date) => {
 };
 
 const AdminProfilePanel: React.FC = () => {
-    const { user, refreshUser } = useAuth();
+    const navigate = useNavigate();
+    const { user, refreshUser, logout } = useAuth();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [profileData, setProfileData] = useState<any>(null);
@@ -64,15 +66,25 @@ const AdminProfilePanel: React.FC = () => {
 
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+            toast.error('Fill in all password fields');
+            return;
+        }
         if (passwordData.newPassword !== passwordData.confirmPassword) {
             toast.error('Passwords do not match');
+            return;
+        }
+        if (passwordData.currentPassword === passwordData.newPassword) {
+            toast.error('Use a different new password');
             return;
         }
         setSaving(true);
         try {
             await changePassword(passwordData.currentPassword, passwordData.newPassword);
-            toast.success('Password changed successfully');
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            toast.success('Password updated. Sign in again with your new password.');
+            await logout();
+            navigate('/__cw_admin__/login', { replace: true });
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to change password');
         } finally {
@@ -200,6 +212,7 @@ const AdminProfilePanel: React.FC = () => {
                         <div>
                             <label className="mb-1.5 block text-xs font-medium text-slate-400">Current Password</label>
                             <input
+                                data-testid="admin-password-current"
                                 type="password"
                                 value={passwordData.currentPassword}
                                 onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
@@ -210,6 +223,7 @@ const AdminProfilePanel: React.FC = () => {
                             <div>
                                 <label className="mb-1.5 block text-xs font-medium text-slate-400">New Password</label>
                                 <input
+                                    data-testid="admin-password-new"
                                     type="password"
                                     value={passwordData.newPassword}
                                     onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
@@ -219,6 +233,7 @@ const AdminProfilePanel: React.FC = () => {
                             <div>
                                 <label className="mb-1.5 block text-xs font-medium text-slate-400">Confirm Password</label>
                                 <input
+                                    data-testid="admin-password-confirm"
                                     type="password"
                                     value={passwordData.confirmPassword}
                                     onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
@@ -227,10 +242,11 @@ const AdminProfilePanel: React.FC = () => {
                             </div>
                         </div>
                         <div className="rounded-2xl border border-amber-500/10 bg-amber-500/5 px-4 py-3 text-xs text-amber-100/85">
-                            Password change applies immediately after successful save and preserves existing role permissions.
+                            Password change applies immediately after successful save. For security, your current admin session will be signed out and you will need to log in again.
                         </div>
                         <div className="flex justify-end border-t border-indigo-500/10 pt-4">
                             <button
+                                data-testid="admin-password-submit"
                                 type="submit"
                                 disabled={saving}
                                 className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/75 px-6 py-2.5 text-sm font-semibold text-white transition hover:border-indigo-400/30 hover:bg-slate-950 disabled:opacity-50"

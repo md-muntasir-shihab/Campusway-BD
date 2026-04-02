@@ -61,6 +61,7 @@ import {
 import {
     adminCreateUniversityCluster,
     adminDeleteUniversityCluster,
+    adminPermanentDeleteUniversityCluster,
     adminGetUniversityClusterById,
     adminGetUniversityClusters,
     adminResolveUniversityClusterMembers,
@@ -155,6 +156,8 @@ import {
     adminNewsV2PublishSend,
     adminNewsV2ConvertToNotice,
     adminNewsV2Archive,
+    adminNewsV2RestoreItem,
+    adminNewsV2PurgeItem,
     adminNewsV2MergeDuplicate,
     adminNewsV2BulkApprove,
     adminNewsV2BulkReject,
@@ -946,6 +949,7 @@ router.put('/university-clusters/:id', authorize('superadmin', 'admin', 'moderat
 router.post('/university-clusters/:id/members/resolve', authorize('superadmin', 'admin', 'moderator'), adminResolveUniversityClusterMembers);
 router.patch('/university-clusters/:id/sync-dates', authorize('superadmin', 'admin', 'moderator'), adminSyncUniversityClusterDates);
 router.delete('/university-clusters/:id', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'cluster_delete'), adminDeleteUniversityCluster);
+router.delete('/university-clusters/:id/permanent', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'cluster_delete'), adminPermanentDeleteUniversityCluster);
 
 /* ── Legacy News CRUD ── */
 
@@ -991,6 +995,7 @@ router.post('/news/:id/publish-now', authorize('superadmin', 'admin', 'moderator
 router.post('/news/:id/publish-send', authorize('superadmin', 'admin', 'moderator'), requireSensitiveAction({ actionKey: 'news.publish_breaking', moduleName: 'news', actionName: 'publish_send' }), adminNewsV2PublishSend);
 router.post('/news/:id/move-to-draft', authorize('superadmin', 'admin', 'moderator', 'editor'), adminNewsV2MoveToDraft);
 router.post('/news/:id/archive', authorize('superadmin', 'admin', 'moderator', 'editor'), adminNewsV2Archive);
+router.post('/news/:id/restore', authorize('superadmin', 'admin', 'moderator', 'editor'), adminNewsV2RestoreItem);
 router.post('/news/:id/convert-to-notice', authorize('superadmin', 'admin', 'moderator', 'editor', 'support_agent'), canManageTickets, adminNewsV2ConvertToNotice);
 router.post('/news/:id/publish-anyway', authorize('superadmin', 'admin', 'moderator'), adminNewsV2PublishAnyway);
 router.post('/news/:id/merge', authorize('superadmin', 'admin', 'moderator', 'editor'), adminNewsV2MergeDuplicate);
@@ -998,6 +1003,7 @@ router.post('/news/:id/submit-review', authorize('superadmin', 'admin', 'moderat
 router.get('/news/:id', authorize('superadmin', 'admin', 'moderator', 'editor'), adminNewsV2GetItemById);
 router.put('/news/:id', authorize('superadmin', 'admin', 'moderator', 'editor'), adminNewsV2UpdateItem);
 router.delete('/news/:id', authorize('superadmin', 'admin', 'moderator'), canDeleteData, requireDestructiveStepUp('news', 'news_delete'), requireTwoPersonForNewsDelete, adminNewsV2DeleteItem);
+router.delete('/news/:id/purge', authorize('superadmin', 'admin', 'moderator'), canDeleteData, requireDestructiveStepUp('news', 'news_delete'), requireTwoPersonForNewsDelete, adminNewsV2PurgeItem);
 
 /* ── News Categories ── */
 router.get('/news-category', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetNewsCategories);

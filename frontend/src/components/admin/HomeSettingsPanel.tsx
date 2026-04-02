@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { AlertTriangle, Eye, GripVertical, RefreshCw, RotateCcw, Save } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
     adminGetHomeSettings,
     adminGetHomeSettingsDefaults,
@@ -28,6 +29,10 @@ import AdminImageUploadField from './AdminImageUploadField';
 
 type SectionKey = keyof HomeSettingsConfig;
 type QuickClusterState = Pick<AdminUniversityCluster, '_id' | 'name' | 'homeVisible' | 'homeOrder'> & { memberCount: number };
+
+const UNIVERSITY_SETTINGS_ROUTE = '/__cw_admin__/settings/university-settings';
+const SHOW_LEGACY_UNIVERSITY_HOME_CONTROLS = false;
+const HOME_UNIVERSITY_SECTION_IDS = new Set(['featured', 'category_filter', 'deadlines', 'upcoming_exams']);
 
 
 const sectionHelp: Record<SectionKey, string> = {
@@ -60,7 +65,6 @@ const visibilityToggles: Array<{ key: keyof HomeSettingsConfig['sectionVisibilit
     { key: 'subscriptionBanner', label: 'Subscription Banner' },
     { key: 'stats', label: 'Stats Strip' },
     { key: 'timeline', label: "What's Happening Now" },
-    { key: 'universityDashboard', label: 'University Dashboard' },
     { key: 'closingExamWidget', label: 'Closing + Week Widget' },
     { key: 'examsWidget', label: 'Live/Upcoming Exams' },
     { key: 'newsPreview', label: 'News Preview' },
@@ -183,11 +187,8 @@ const FALLBACK_HOME_SETTINGS: HomeSettingsConfig = {
         closingSoonDays: 7,
         showAddress: true,
         showEmail: true,
-        showSeats: true,
         showApplicationProgress: true,
         showExamDates: true,
-        showExamCenters: true,
-        cardDensity: 'comfortable',
         defaultSort: 'alphabetical',
     },
     highlightedCategories: [],
@@ -459,9 +460,16 @@ function SectionReorderPanel() {
         queryFn: async () => (await adminGetHomeConfig()).data,
     });
 
+    const allSections = useMemo(
+        () => [...(configQuery.data?.sections || [])].sort((a, b) => a.order - b.order),
+        [configQuery.data?.sections],
+    );
+
     useEffect(() => {
         if (configQuery.data?.sections?.length) {
-            const normalized = [...configQuery.data.sections].sort((a, b) => a.order - b.order);
+            const normalized = [...configQuery.data.sections]
+                .sort((a, b) => a.order - b.order)
+                .filter((section) => !HOME_UNIVERSITY_SECTION_IDS.has(section.id));
             setSections(normalized);
             setSavedSections(normalized);
         }
@@ -469,7 +477,26 @@ function SectionReorderPanel() {
 
     const saveMut = useMutation({
         mutationFn: async (updated: HomeConfigSection[]) => {
-            const reordered = updated.map((s, i) => ({ ...s, order: i }));
+            const reorderedVisible = updated.map((section) => ({ ...section }));
+            const merged = allSections.map((section) => ({ ...section }));
+            const visiblePositions = merged.reduce<number[]>((acc, section, index) => {
+                if (!HOME_UNIVERSITY_SECTION_IDS.has(section.id)) acc.push(index);
+                return acc;
+            }, []);
+
+            visiblePositions.forEach((position, index) => {
+                const replacement = reorderedVisible[index];
+                if (!replacement) return;
+                merged[position] = {
+                    ...merged[position],
+                    ...replacement,
+                    id: replacement.id,
+                    title: replacement.title,
+                    isActive: replacement.isActive,
+                };
+            });
+
+            const reordered = merged.map((section, index) => ({ ...section, order: index }));
             return (await adminUpdateHomeConfig({ sections: reordered })).data;
         },
         onSuccess: (_data, updated) => {
@@ -996,6 +1023,25 @@ export default function HomeSettingsPanel() {
 
                 <SectionReorderPanel />
 
+                <section className="bg-slate-900/60 rounded-2xl border border-cyan-500/15 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-bold text-white">University Controls Moved</h3>
+                            <p className="mt-1 text-xs text-slate-400">
+                                Home featured universities, category highlights, cluster feed switches, university section visibility, and card defaults are now managed from University Settings.
+                            </p>
+                        </div>
+                        <Link
+                            to={UNIVERSITY_SETTINGS_ROUTE}
+                            className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/10"
+                        >
+                            Open University Settings
+                        </Link>
+                    </div>
+                </section>
+
+                {SHOW_LEGACY_UNIVERSITY_HOME_CONTROLS ? (
+                    <>
                 <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -1172,15 +1218,17 @@ export default function HomeSettingsPanel() {
                     <SectionHeader title="University Preview Windows" section="universityPreview" onReset={resetSection} resetting={resettingSection === 'universityPreview'} />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <Toggle label="University Preview Enabled" value={draft.universityPreview.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enabled: value } }))} />
-                        <Toggle label="Enable Cluster Filter" value={draft.universityPreview.enableClusterFilter} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enableClusterFilter: value } }))} />
                         <NumberInput label="Featured Max Items" value={draft.universityPreview.maxFeaturedItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxFeaturedItems: value } }))} />
                         <NumberInput label="Deadline Max Items" value={draft.universityPreview.maxDeadlineItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxDeadlineItems: value } }))} />
                         <NumberInput label="Exam Max Items" value={draft.universityPreview.maxExamItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxExamItems: value } }))} />
                         <NumberInput label="Deadline Within Days" value={draft.universityPreview.deadlineWithinDays} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, deadlineWithinDays: value } }))} />
                         <NumberInput label="Exam Within Days" value={draft.universityPreview.examWithinDays} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, examWithinDays: value } }))} />
                     </div>
+                    <div className="mt-3 rounded-xl border border-indigo-500/15 bg-indigo-500/5 px-4 py-3 text-xs leading-6 text-indigo-200/80">
+                        Default category and cluster-filter visibility are now managed from <strong>University Settings</strong> to avoid duplicate controls.
+                        This section only controls home preview windows and item limits.
+                    </div>
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Input label="Default Active Category" value={draft.universityPreview.defaultActiveCategory} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, defaultActiveCategory: value } }))} />
                         <div>
                             <label className="text-xs text-slate-400 mb-1 block">Featured Mode</label>
                             <select
@@ -1444,12 +1492,6 @@ export default function HomeSettingsPanel() {
                            
                         />
                         <Toggle
-                            label="Show Seats"
-                            value={draft.universityCardConfig.showSeats}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showSeats: value } }))}
-                           
-                        />
-                        <Toggle
                             label="Show Application Progress"
                             value={draft.universityCardConfig.showApplicationProgress}
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showApplicationProgress: value } }))}
@@ -1461,31 +1503,8 @@ export default function HomeSettingsPanel() {
                             onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamDates: value } }))}
                            
                         />
-                        <Toggle
-                            label="Show Exam Centers"
-                            value={draft.universityCardConfig.showExamCenters}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamCenters: value } }))}
-                           
-                        />
                     </div>
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs text-slate-400">Card Density</label>
-                            <select
-                                value={draft.universityCardConfig.cardDensity}
-                                onChange={(event) => updateDraft((prev) => ({
-                                    ...prev,
-                                    universityCardConfig: {
-                                        ...prev.universityCardConfig,
-                                        cardDensity: event.target.value as HomeSettingsConfig['universityCardConfig']['cardDensity'],
-                                    },
-                                }))}
-                                className="mt-1 w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
-                            >
-                                <option value="compact">Compact</option>
-                                <option value="comfortable">Comfortable</option>
-                            </select>
-                        </div>
                         <div>
                             <label className="text-xs text-slate-400">Default Sort</label>
                             <select
@@ -1505,6 +1524,8 @@ export default function HomeSettingsPanel() {
                         </div>
                     </div>
                 </section>
+                    </>
+                ) : null}
 
                 <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
                     <SectionHeader title="Exams + News + Resources" section="examsWidget" onReset={resetSection} resetting={resettingSection === 'examsWidget'} />

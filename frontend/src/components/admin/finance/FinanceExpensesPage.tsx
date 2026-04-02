@@ -8,6 +8,7 @@ import {
     Plus, Search, Filter, Trash2, Eye, ChevronLeft, ChevronRight,
     Receipt, Clock, AlertCircle, CreditCard, X,
 } from 'lucide-react';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Params = Record<string, string | number | boolean | undefined>;
 
@@ -179,7 +180,15 @@ export default function FinanceExpensesPage() {
                                                 <button onClick={() => setEditTxn(t)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Edit">
                                                     <Receipt size={13} className="text-blue-600" />
                                                 </button>
-                                                <button onClick={() => { if (confirm('Delete this expense?')) deleteMut.mutate(t._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Delete">
+                                                <button onClick={async () => {
+                                                    const confirmed = await showConfirmDialog({
+                                                        title: 'Delete expense',
+                                                        message: 'Delete this expense?',
+                                                        confirmLabel: 'Delete',
+                                                        tone: 'danger',
+                                                    });
+                                                    if (confirmed) deleteMut.mutate(t._id);
+                                                }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Delete">
                                                     <Trash2 size={13} className="text-red-500" />
                                                 </button>
                                             </div>

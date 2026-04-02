@@ -6,13 +6,10 @@ import DOMPurify from 'dompurify';
 import {
     ArrowLeft,
     CalendarDays,
-    Copy,
     ExternalLink,
-    Facebook,
     Globe2,
     Link as LinkIcon,
-    MessageCircle,
-    Send,
+    Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -59,7 +56,7 @@ const DEFAULT_SETTINGS: ApiNewsPublicSettings = {
         messenger: true,
         telegram: true,
         copyLink: true,
-        copyText: true,
+        copyText: false,
     },
     workflow: {
         allowScheduling: true,
@@ -92,7 +89,100 @@ function renderDate(value?: string): string {
     return date.toLocaleString();
 }
 
-type ShareChannel = 'whatsapp' | 'facebook' | 'messenger' | 'telegram' | 'copy_link' | 'copy_text';
+function normalizeComparableText(value: string): string {
+    return String(value || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[^a-z0-9\u0980-\u09ff\s]/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function stripNewsAttributionText(value: string): string {
+    return String(value || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r/g, '')
+        .replace(/\n?\s*source\s*:\s*[^\n]+/gim, '')
+        .replace(/\n?\s*source\s+link\s*:\s*[^\n]+/gim, '')
+        .replace(/\n?\s*original\s+(?:link|source|url)\s*:\s*[^\n]+/gim, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function isDuplicateIntro(candidate: string, summary: string): boolean {
+    const candidateNorm = normalizeComparableText(candidate);
+    const summaryNorm = normalizeComparableText(summary);
+    if (!candidateNorm || !summaryNorm) return false;
+    if (candidateNorm === summaryNorm) return true;
+    if (candidateNorm.length < 40 || summaryNorm.length < 40) return false;
+    return candidateNorm.startsWith(summaryNorm) || summaryNorm.startsWith(candidateNorm);
+}
+
+function extractNewsBodyParagraphs(rawHtml: string, shortSummary: string): string[] {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = DOMPurify.sanitize(String(rawHtml || ''));
+    const rawText = stripNewsAttributionText(wrapper.innerText || wrapper.textContent || '');
+    const summary = stripNewsAttributionText(shortSummary || '');
+    const summaryNorm = normalizeComparableText(summary);
+    const paragraphs = rawText
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean);
+
+    while (paragraphs.length > 0 && isDuplicateIntro(paragraphs[0], summary)) {
+        paragraphs.shift();
+    }
+    if (paragraphs.length > 1 && normalizeComparableText(paragraphs[0]) === normalizeComparableText(paragraphs[1])) {
+        paragraphs.shift();
+    }
+    if (paragraphs.length === 1 && isDuplicateIntro(paragraphs[0], summary)) {
+        return [];
+    }
+
+    const compactBodyNorm = normalizeComparableText(paragraphs.join(' '));
+    if (summaryNorm && compactBodyNorm) {
+        if (compactBodyNorm === summaryNorm) return [];
+        if (
+            compactBodyNorm.startsWith(summaryNorm)
+            && compactBodyNorm.length <= Math.max(summaryNorm.length + 48, Math.floor(summaryNorm.length * 1.2))
+        ) {
+            return [];
+        }
+    }
+
+    return paragraphs.filter((paragraph) => !isDuplicateIntro(paragraph, summary));
+}
+
+function isShareCancelledError(error: unknown): boolean {
+    const name = String((error as { name?: string })?.name || '');
+    return name === 'AbortError';
+}
+
+async function copyTextToClipboard(value: string): Promise<boolean> {
+    try {
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+            return true;
+        }
+    } catch {
+        // Fallback below.
+    }
+    try {
+        const textArea = document.createElement('textarea');
+        textArea.value = value;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const copied = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        return copied;
+    } catch {
+        return false;
+    }
+}
 
 export default function SingleNewsPage() {
     const { slug = '' } = useParams<{ slug: string }>();
@@ -127,36 +217,10 @@ export default function SingleNewsPage() {
         }).catch(() => undefined);
     }, [newsItem, slug]);
 
-    async function handleShare(channel: ShareChannel) {
+    async function trackShareAsCopy() {
         if (!newsItem) return;
         try {
-            const newsTarget = newsItem.slug || newsItem._id;
-            const shareUrl = newsItem.shareUrl || `${window.location.origin}/news/${newsTarget}`;
-            const channelKey = channel.replace('copy_', '') as 'whatsapp' | 'facebook' | 'messenger' | 'telegram';
-            const shareText = newsItem.shareText?.[channelKey] || `${newsItem.title}\n${shareUrl}`;
-            const links = {
-                whatsapp: newsItem.shareLinks?.whatsapp || `https://wa.me/?text=${encodeURIComponent(shareText)}`,
-                facebook: newsItem.shareLinks?.facebook || `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-                messenger: newsItem.shareLinks?.messenger || `https://www.facebook.com/dialog/send?link=${encodeURIComponent(shareUrl)}`,
-                telegram: newsItem.shareLinks?.telegram || `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`,
-            };
-
-            if (channel === 'copy_link') {
-                await navigator.clipboard.writeText(shareUrl);
-                toast.success('Link copied');
-            } else if (channel === 'copy_text') {
-                await navigator.clipboard.writeText(shareText);
-                toast.success('Share text copied');
-            } else {
-                window.open(links[channel], '_blank', 'noopener,noreferrer');
-            }
-        } catch {
-            toast.error('Share failed');
-            return;
-        }
-
-        try {
-            const trackChannel = channel === 'copy_link' || channel === 'copy_text' ? 'copy' : channel;
+            const trackChannel = 'copy';
             if (newsItem.slug) {
                 await trackPublicNewsV2Share(newsItem.slug, trackChannel);
             }
@@ -169,6 +233,35 @@ export default function SingleNewsPage() {
         } catch {
             // Share tracking failures should not block user-facing share action.
         }
+    }
+
+    async function handleNativeShare() {
+        if (!newsItem) return;
+        const newsTarget = newsItem.slug || newsItem._id;
+        const shareUrl = newsItem.shareUrl || `${window.location.origin}/news/${newsTarget}`;
+        const shareText = newsItem.shortSummary || newsItem.shortDescription || newsItem.title;
+
+        if (typeof navigator.share === 'function') {
+            try {
+                await navigator.share({
+                    title: newsItem.title,
+                    text: shareText,
+                    url: shareUrl,
+                });
+                await trackShareAsCopy();
+                return;
+            } catch (error) {
+                if (isShareCancelledError(error)) return;
+            }
+        }
+
+        const copied = await copyTextToClipboard(shareUrl);
+        if (!copied) {
+            toast.error('Share failed');
+            return;
+        }
+        toast.success('Link copied');
+        await trackShareAsCopy();
     }
 
     if (itemQuery.isLoading || settingsQuery.isLoading) {
@@ -206,6 +299,19 @@ export default function SingleNewsPage() {
     const sourceName = newsItem.sourceName || 'CampusWay';
     const sourceUrl = newsItem.sourceUrl || '#';
     const originalUrl = newsItem.originalArticleUrl || newsItem.originalLink || '';
+    const cleanedArticleParagraphs = extractNewsBodyParagraphs(
+        String(newsItem.fullContent || newsItem.content || ''),
+        String(newsItem.shortSummary || newsItem.shortDescription || ''),
+    );
+    const hasBodyContent = cleanedArticleParagraphs.length > 0;
+    const showShareAction = Boolean(settings.appearance.showShareButtons)
+        && Boolean(
+            shareButtons.copyLink
+            || shareButtons.whatsapp
+            || shareButtons.facebook
+            || shareButtons.messenger
+            || shareButtons.telegram
+        );
 
     return (
         <div className="min-h-screen bg-slate-50 pb-14 dark:bg-[#060f23]">
@@ -281,6 +387,16 @@ export default function SingleNewsPage() {
                                     Original Source Unavailable
                                 </span>
                             )}
+                            {showShareAction ? (
+                                <button
+                                    type="button"
+                                    onClick={handleNativeShare}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-2.5 py-1.5 transition hover:border-cyan-500 hover:text-cyan-600 dark:border-white/20"
+                                >
+                                    <Share2 className="h-4 w-4" />
+                                    Share
+                                </button>
+                            ) : null}
                             {newsItem.aiUsed ? (
                                 <InfoHint
                                     title={newsItem.aiMeta?.noHallucinationPassed ? 'AI Verified Draft' : 'AI Draft'}
@@ -290,6 +406,13 @@ export default function SingleNewsPage() {
                                 />
                             ) : null}
                         </div>
+                        {hasBodyContent ? (
+                            <div className="space-y-4 border-t border-slate-200 pt-5 text-[15px] leading-8 text-slate-700 dark:border-white/10 dark:text-slate-200 sm:text-base">
+                                {cleanedArticleParagraphs.map((paragraph, index) => (
+                                    <p key={`${newsItem._id}-paragraph-${index}`}>{paragraph}</p>
+                                ))}
+                            </div>
+                        ) : null}
                         {newsItem.aiEnrichment?.studentFriendlyExplanation ? (
                             <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/8 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
                                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-600 dark:text-cyan-200">
@@ -300,126 +423,6 @@ export default function SingleNewsPage() {
                         ) : null}
                     </div>
                 </motion.header>
-
-                <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
-                    <article className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/60 sm:p-7">
-                        {newsItem.fetchedFullText === false && originalUrl ? (
-                            <div className="mb-4 rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
-                                Full article content could not be extracted.{' '}
-                                <a href={originalUrl} target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-2">
-                                    Open original source
-                                </a>
-                                .
-                            </div>
-                        ) : null}
-                        {newsItem.aiEnrichment?.keyPoints?.length ? (
-                            <div className="mb-5 rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-slate-900/50">
-                                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">
-                                    Key Points
-                                </p>
-                                <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
-                                    {newsItem.aiEnrichment.keyPoints.slice(0, 6).map((point) => (
-                                        <li key={`${newsItem._id}-${point}`} className="flex gap-2">
-                                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-cyan-500" />
-                                            <span>{point}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        ) : null}
-                        <div
-                            className="prose prose-slate max-w-none dark:prose-invert prose-headings:font-bold prose-img:rounded-xl"
-                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(newsItem.fullContent || newsItem.content || '') }}
-                        />
-
-                        {newsItem.tags?.length ? (
-                            <div className="mt-8 flex flex-wrap gap-2 border-t border-slate-200 pt-5 dark:border-white/10">
-                                {newsItem.tags.map((item) => (
-                                    <span
-                                        key={`${newsItem._id}-${item}`}
-                                        className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-200"
-                                    >
-                                        #{item}
-                                    </span>
-                                ))}
-                            </div>
-                        ) : null}
-                    </article>
-
-                    <aside className="space-y-4">
-                        <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/60">
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Share</h2>
-                                <InfoHint
-                                    title="Share Options"
-                                    description="Use quick share actions for WhatsApp, Facebook, Messenger, Telegram, or copy."
-                                />
-                            </div>
-                            <div className="mt-3 grid grid-cols-2 gap-2">
-                                {shareButtons.whatsapp ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleShare('whatsapp')}
-                                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-300 px-2 py-2 text-xs font-semibold transition hover:border-cyan-500 hover:text-cyan-600 dark:border-white/20"
-                                    >
-                                        <MessageCircle className="h-3.5 w-3.5" />
-                                        WhatsApp
-                                    </button>
-                                ) : null}
-                                {shareButtons.facebook ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleShare('facebook')}
-                                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-300 px-2 py-2 text-xs font-semibold transition hover:border-cyan-500 hover:text-cyan-600 dark:border-white/20"
-                                    >
-                                        <Facebook className="h-3.5 w-3.5" />
-                                        Facebook
-                                    </button>
-                                ) : null}
-                                {shareButtons.messenger ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleShare('messenger')}
-                                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-300 px-2 py-2 text-xs font-semibold transition hover:border-cyan-500 hover:text-cyan-600 dark:border-white/20"
-                                    >
-                                        <MessageCircle className="h-3.5 w-3.5" />
-                                        Messenger
-                                    </button>
-                                ) : null}
-                                {shareButtons.telegram ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleShare('telegram')}
-                                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-300 px-2 py-2 text-xs font-semibold transition hover:border-cyan-500 hover:text-cyan-600 dark:border-white/20"
-                                    >
-                                        <Send className="h-3.5 w-3.5" />
-                                        Telegram
-                                    </button>
-                                ) : null}
-                                {shareButtons.copyLink ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleShare('copy_link')}
-                                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-300 px-2 py-2 text-xs font-semibold transition hover:border-cyan-500 hover:text-cyan-600 dark:border-white/20"
-                                    >
-                                        <LinkIcon className="h-3.5 w-3.5" />
-                                        Copy Link
-                                    </button>
-                                ) : null}
-                                {shareButtons.copyText ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleShare('copy_text')}
-                                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-300 px-2 py-2 text-xs font-semibold transition hover:border-cyan-500 hover:text-cyan-600 dark:border-white/20"
-                                    >
-                                        <Copy className="h-3.5 w-3.5" />
-                                        Copy Text
-                                    </button>
-                                ) : null}
-                            </div>
-                        </div>
-                    </aside>
-                </div>
 
                 {relatedNews.length > 0 ? (
                     <section className="mt-7 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/60">

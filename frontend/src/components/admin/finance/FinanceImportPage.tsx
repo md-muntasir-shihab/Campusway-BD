@@ -25,7 +25,7 @@ export default function FinanceImportPage() {
 
     const handleCommit = () => {
         if (!preview.data?.rows?.length) return;
-        commit.mutate(preview.data.rows);
+        commit.mutate({ rows: preview.data.rows });
     };
 
     const handleClear = () => {
@@ -51,7 +51,7 @@ export default function FinanceImportPage() {
                 </div>
                 <p className="mb-3 text-xs text-slate-500">Upload a CSV or Excel file using the import template format.</p>
                 <div className="flex flex-wrap items-center gap-3">
-                    <input ref={fileRef} type="file" accept=".csv,.xlsx" onChange={handleFile} className="text-sm text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-600 dark:text-slate-300 dark:file:bg-indigo-900/30 dark:file:text-indigo-400" />
+                    <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFile} className="text-sm text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-600 dark:text-slate-300 dark:file:bg-indigo-900/30 dark:file:text-indigo-400" />
                     {file && !previewed && (
                         <button onClick={handlePreview} disabled={preview.isPending} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
                             <FileUp size={14} /> {preview.isPending ? 'Parsing...' : 'Preview'}
@@ -108,7 +108,7 @@ export default function FinanceImportPage() {
                                     <tr key={i}>
                                         <td className="px-3 py-2 text-slate-500">{i + 1}</td>
                                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{String(r.direction ?? '')}</td>
-                                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">৳{Number(r.amount ?? 0).toLocaleString()}</td>
+                                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">BDT {Number(r.amount ?? 0).toLocaleString('en-BD')}</td>
                                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{String(r.accountCode ?? '')}</td>
                                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{String(r.categoryLabel ?? '')}</td>
                                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-[200px] truncate">{String(r.description ?? '')}</td>
@@ -127,10 +127,11 @@ export default function FinanceImportPage() {
                 <div className="flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-3 dark:border-green-700 dark:bg-green-900/20">
                     <CheckCircle size={16} className="text-green-600" />
                     <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                        {(commit.data as { inserted?: number })?.inserted ?? rows.length} transactions imported successfully.
+                        {(commit.data as { created?: number })?.created ?? rows.length} transactions imported successfully.
                     </span>
                 </div>
             )}
         </div>
     );
 }
+

@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import type { AuthRequest } from '../middlewares/auth';
-import UniversitySettingsModel, { ensureUniversitySettings, ALLOWED_CATEGORIES } from '../models/UniversitySettings';
+import UniversitySettingsModel, { getUniversitySettingsDefaults } from '../models/UniversitySettings';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 
 function pickString(value: unknown, fallback = ''): string {
@@ -12,26 +12,37 @@ export const getUniversitySettings = async (_req: AuthRequest, res: Response): P
     try {
         const doc = await UniversitySettingsModel.findOne().lean();
         if (!doc) {
-            // Return defaults if not yet initialized
             res.json({
                 ok: true,
-                data: {
-                    categoryOrder: [...ALLOWED_CATEGORIES],
-                    highlightedCategories: [],
-                    defaultCategory: 'Individual Admission',
-                    featuredUniversitySlugs: [],
-                    maxFeaturedItems: 12,
-                    enableClusterFilterOnHome: true,
-                    enableClusterFilterOnUniversities: true,
-                    defaultUniversityLogoUrl: null,
-                    allowCustomCategories: false,
-                },
+                data: getUniversitySettingsDefaults(),
             });
             return;
         }
         res.json({ ok: true, data: doc });
     } catch (error) {
         console.error('getUniversitySettings error:', error);
+        res.status(500).json({ ok: false, message: 'Internal Server Error' });
+    }
+};
+
+export const getPublicUniversityBrowseSettings = async (_req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const defaults = getUniversitySettingsDefaults();
+        const doc = await UniversitySettingsModel.findOne()
+            .select('defaultCategory enableClusterFilterOnUniversities enableClusterFilterOnHome allowCustomCategories')
+            .lean();
+
+        res.json({
+            ok: true,
+            settings: {
+                defaultCategory: pickString(doc?.defaultCategory, defaults.defaultCategory),
+                enableClusterFilterOnUniversities: doc?.enableClusterFilterOnUniversities ?? defaults.enableClusterFilterOnUniversities,
+                enableClusterFilterOnHome: doc?.enableClusterFilterOnHome ?? defaults.enableClusterFilterOnHome,
+                allowCustomCategories: doc?.allowCustomCategories ?? defaults.allowCustomCategories,
+            },
+        });
+    } catch (error) {
+        console.error('getPublicUniversityBrowseSettings error:', error);
         res.status(500).json({ ok: false, message: 'Internal Server Error' });
     }
 };

@@ -86,6 +86,7 @@ import {
     type AdminExamCard,
 } from '../../../services/api';
 import ModernToggle from '../../../components/ui/ModernToggle';
+import { showConfirmDialog } from '../../../lib/appDialog';
 import { downloadFile } from '../../../utils/download';
 import { promptForSensitiveActionProof } from '../../../utils/sensitiveAction';
 
@@ -1512,7 +1513,15 @@ export function AdminExamsPage() {
                                                     recordOnlyFields: template.recordOnlyFields,
                                                     isActive: template.isActive,
                                                 })} className="btn-ghost" title="Copy template"><BookCopy className="h-4 w-4" /></button>
-                                                <button type="button" onClick={() => { if (window.confirm('Delete this template?')) deleteTemplateMutation.mutate(template._id); }} className="btn-ghost text-danger" title="Delete template"><Trash2 className="h-4 w-4" /></button>
+                                                <button type="button" onClick={async () => {
+                                                    const confirmed = await showConfirmDialog({
+                                                        title: 'Delete template',
+                                                        message: 'Delete this template?',
+                                                        confirmLabel: 'Delete',
+                                                        tone: 'danger',
+                                                    });
+                                                    if (confirmed) deleteTemplateMutation.mutate(template._id);
+                                                }} className="btn-ghost text-danger" title="Delete template"><Trash2 className="h-4 w-4" /></button>
                                             </div>
                                         </div>
                                     </div>
@@ -1579,7 +1588,15 @@ export function AdminExamsPage() {
                                                         isActive: profile.isActive,
                                                     });
                                                 }} className="btn-ghost" title="Edit mapping profile"><Edit3 className="h-4 w-4" /></button>
-                                                <button type="button" onClick={() => { if (window.confirm('Delete this mapping profile?')) deleteMappingProfileMutation.mutate(profile._id); }} className="btn-ghost text-danger" title="Delete mapping profile"><Trash2 className="h-4 w-4" /></button>
+                                                <button type="button" onClick={async () => {
+                                                    const confirmed = await showConfirmDialog({
+                                                        title: 'Delete mapping profile',
+                                                        message: 'Delete this mapping profile?',
+                                                        confirmLabel: 'Delete',
+                                                        tone: 'danger',
+                                                    });
+                                                    if (confirmed) deleteMappingProfileMutation.mutate(profile._id);
+                                                }} className="btn-ghost text-danger" title="Delete mapping profile"><Trash2 className="h-4 w-4" /></button>
                                             </div>
                                         </div>
                                     </div>
@@ -1655,7 +1672,15 @@ export function AdminExamsPage() {
                                                     isActive: center.isActive,
                                                 });
                                             }} className="btn-ghost" title="Edit exam center"><Edit3 className="h-4 w-4" /></button>
-                                            <button type="button" onClick={() => { if (window.confirm('Delete this exam center?')) deleteExamCenterMutation.mutate(center._id); }} className="btn-ghost text-danger" title="Delete exam center"><Trash2 className="h-4 w-4" /></button>
+                                            <button type="button" onClick={async () => {
+                                                const confirmed = await showConfirmDialog({
+                                                    title: 'Delete exam center',
+                                                    message: 'Delete this exam center?',
+                                                    confirmLabel: 'Delete',
+                                                    tone: 'danger',
+                                                });
+                                                if (confirmed) deleteExamCenterMutation.mutate(center._id);
+                                            }} className="btn-ghost text-danger" title="Delete exam center"><Trash2 className="h-4 w-4" /></button>
                                         </div>
                                     </div>
                                 </div>
@@ -1898,7 +1923,15 @@ export function AdminExamsPage() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => { if (window.confirm('Delete this exam?')) deleteMutation.mutate(String(exam._id)); }}
+                                    onClick={async () => {
+                                        const confirmed = await showConfirmDialog({
+                                            title: 'Delete exam',
+                                            message: 'Delete this exam?',
+                                            confirmLabel: 'Delete',
+                                            tone: 'danger',
+                                        });
+                                        if (confirmed) deleteMutation.mutate(String(exam._id));
+                                    }}
                                     className="btn-ghost text-danger"
                                     title="Delete"
                                 >
@@ -2237,7 +2270,15 @@ export function AdminExamsPage() {
                                         orderIndex: q.orderIndex ?? q.order ?? 0,
                                     });
                                 }} className="btn-ghost" title="Edit question"><Edit3 className="h-4 w-4" /></button>
-                                <button type="button" onClick={() => { if (window.confirm('Delete?')) deleteQuestionMutation.mutate(String(q._id)); }} className="btn-ghost text-danger" title="Delete question"><Trash2 className="h-4 w-4" /></button>
+                                <button type="button" onClick={async () => {
+                                    const confirmed = await showConfirmDialog({
+                                        title: 'Delete question',
+                                        message: 'Delete this question?',
+                                        confirmLabel: 'Delete',
+                                        tone: 'danger',
+                                    });
+                                    if (confirmed) deleteQuestionMutation.mutate(String(q._id));
+                                }} className="btn-ghost text-danger" title="Delete question"><Trash2 className="h-4 w-4" /></button>
                             </div>
                         </div>
                     ))}

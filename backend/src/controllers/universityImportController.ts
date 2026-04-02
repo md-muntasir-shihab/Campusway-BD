@@ -17,7 +17,7 @@ import {
     syncManualClusterMembership,
 } from '../services/universitySyncService';
 
-const TARGET_FIELDS = [
+const CANONICAL_TARGET_FIELDS = [
     'category',
     'clusterGroup',
     'name',
@@ -40,6 +40,9 @@ const TARGET_FIELDS = [
     'examDateArts',
     'examDateBusiness',
     'examCenters',
+];
+
+const OPTIONAL_TARGET_FIELDS = [
     'logoUrl',
     'isActive',
     'featured',
@@ -51,7 +54,8 @@ const TARGET_FIELDS = [
     'slug',
 ] as const;
 
-const TEMPLATE_HEADERS = [...TARGET_FIELDS];
+const TARGET_FIELDS = [...CANONICAL_TARGET_FIELDS, ...OPTIONAL_TARGET_FIELDS] as const;
+const TEMPLATE_HEADERS = [...CANONICAL_TARGET_FIELDS];
 type TargetField = typeof TARGET_FIELDS[number];
 
 type ValidationResult = {
@@ -185,6 +189,35 @@ function parseDate(raw: unknown): Date | null {
     return date;
 }
 
+function readImportRows(fileBuffer: Buffer, filename: string): Record<string, unknown>[] {
+    const lowerFileName = String(filename || '').toLowerCase();
+    const textPayload = fileBuffer.toString('utf8').replace(/^\uFEFF/, '');
+    let workbook: XLSX.WorkBook;
+
+    if (lowerFileName.endsWith('.csv')) {
+        workbook = XLSX.read(textPayload, { type: 'string', FS: ',' });
+    } else if (lowerFileName.endsWith('.tsv')) {
+        workbook = XLSX.read(textPayload, { type: 'string', FS: '\t' });
+    } else if (lowerFileName.endsWith('.txt')) {
+        const detectedDelimiter = textPayload.includes('\t') ? '\t' : ',';
+        workbook = XLSX.read(textPayload, { type: 'string', FS: detectedDelimiter });
+    } else {
+        workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    }
+
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) return [];
+    const sheet = workbook.Sheets[firstSheetName];
+    if (!sheet) return [];
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+}
+
+function resolveActiveTargetFields(mapping: Record<string, string>, defaults: Record<string, unknown>): Set<TargetField> {
+    return new Set(
+        TARGET_FIELDS.filter((field) => Boolean(mapping[field]) || defaults[field] !== undefined),
+    );
+}
+
 function normalizeShortForm(name: string, shortForm: string): string {
     const candidate = shortForm.trim();
     if (candidate) return candidate.toUpperCase();
@@ -316,13 +349,11 @@ export async function adminInitUniversityImport(req: Request, res: Response): Pr
     try {
         if (!req.file) { res.status(400).json({ message: 'No file uploaded.' }); return; }
         const filename = String(req.file.originalname || 'import').toLowerCase();
-        if (!filename.endsWith('.csv') && !filename.endsWith('.xlsx') && !filename.endsWith('.xls')) {
-            res.status(400).json({ message: 'Only CSV/XLSX files are supported.' });
+        if (!filename.endsWith('.csv') && !filename.endsWith('.xlsx') && !filename.endsWith('.xls') && !filename.endsWith('.tsv') && !filename.endsWith('.txt')) {
+            res.status(400).json({ message: 'Only CSV/XLSX/XLS/TSV/TXT files are supported.' });
             return;
         }
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+        const rows = readImportRows(req.file.buffer, filename);
         if (rows.length === 0) { res.status(400).json({ message: 'Import file is empty.' }); return; }
 
         const headers = Object.keys(rows[0] || {});
@@ -344,7 +375,7 @@ export async function adminInitUniversityImport(req: Request, res: Response): Pr
             importJobId: String(job._id),
             headers,
             sampleRows: rows.slice(0, 20),
-            targetFields: TARGET_FIELDS,
+            targetFields: CANONICAL_TARGET_FIELDS,
             suggestedMapping: buildSuggestedMapping(headers),
         });
     } catch (err) {
@@ -426,6 +457,9 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
 
         const mode = String(req.body?.mode || 'update-existing').toLowerCase() === 'create-only' ? 'create-only' : 'update-existing';
         const rows = (job.normalizedRows || []) as Array<Record<string, unknown>>;
+        const importMapping = (job.mapping || {}) as Record<string, string>;
+        const importDefaults = (job.defaults || {}) as Record<string, unknown>;
+        const activeTargetFields = resolveActiveTargetFields(importMapping, importDefaults);
         const actorId = (req as Request & { user?: { _id?: string } }).user?._id || null;
         let inserted = 0;
         let updated = 0;
@@ -480,7 +514,6 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
             }
         });
 
-        const bulkOps: Array<Record<string, unknown>> = [];
         const clusterAssignments = new Map<string, string[]>();
         const clearClusterAssignments: string[] = [];
 
@@ -503,6 +536,7 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
         for (const row of rows) {
             try {
                 const normalized = normalizeUniversityImportRow(row as Record<string, unknown>);
+                const shouldApply = (...fields: TargetField[]): boolean => fields.some((field) => activeTargetFields.has(field));
                 const name = String(normalized.name || '').trim();
                 const shortForm = String(normalized.shortForm || '').trim();
                 const admissionUrl = normalizeLooseOptionalText(normalized.admissionUrl);
@@ -522,7 +556,11 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
                 const clusterDoc = clusterName ? clusterMap.get(clusterName) : null;
                 const existingId = existing ? String(existing._id) : '';
                 const requestedSlug = String(normalized.slug || '').trim();
-                const slug = reserveUniqueSlug(requestedSlug || (existing?.slug || buildSlug(name)), existingId || undefined);
+                const shouldApplySlug = shouldApply('slug');
+                const slug = reserveUniqueSlug(
+                    shouldApplySlug ? (requestedSlug || (existing?.slug || buildSlug(name))) : (existing?.slug || buildSlug(name)),
+                    existingId || undefined,
+                );
                 if (requestedSlug && slug !== requestedSlug) {
                     warnings.add(`Some imported slugs were adjusted to keep them unique. Example: ${requestedSlug} -> ${slug}`);
                 }
@@ -578,23 +616,95 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
 
                 let universityId = existingId;
                 if (existing) {
-                    bulkOps.push({
-                        updateOne: {
-                            filter: { _id: existing._id },
-                            update: { $set: payload },
-                        },
-                    });
+                    const updateSet: Record<string, unknown> = {};
+                    if (shouldApply('name')) updateSet.name = payload.name;
+                    if (shouldApply('shortForm')) updateSet.shortForm = payload.shortForm;
+                    if (shouldApply('category')) {
+                        updateSet.category = payload.category;
+                        updateSet.categoryId = payload.categoryId;
+                    }
+                    if (shouldApply('clusterGroup')) {
+                        updateSet.clusterId = payload.clusterId;
+                        updateSet.clusterName = payload.clusterName;
+                        updateSet.clusterGroup = payload.clusterGroup;
+                    }
+                    if (shouldApply('shortDescription')) updateSet.shortDescription = payload.shortDescription;
+                    if (shouldApply('description')) updateSet.description = payload.description;
+                    if (shouldApply('applicationStartDate')) updateSet.applicationStartDate = payload.applicationStartDate;
+                    if (shouldApply('applicationEndDate')) updateSet.applicationEndDate = payload.applicationEndDate;
+                    if (shouldApply('examDateScience')) {
+                        updateSet.scienceExamDate = payload.scienceExamDate;
+                        updateSet.examDateScience = payload.examDateScience;
+                    }
+                    if (shouldApply('examDateArts')) {
+                        updateSet.artsExamDate = payload.artsExamDate;
+                        updateSet.examDateArts = payload.examDateArts;
+                    }
+                    if (shouldApply('examDateBusiness')) {
+                        updateSet.businessExamDate = payload.businessExamDate;
+                        updateSet.examDateBusiness = payload.examDateBusiness;
+                    }
+                    if (shouldApply('examCenters')) updateSet.examCenters = payload.examCenters;
+                    if (shouldApply('contactNumber')) updateSet.contactNumber = payload.contactNumber;
+                    if (shouldApply('address')) updateSet.address = payload.address;
+                    if (shouldApply('email')) updateSet.email = payload.email;
+                    if (shouldApply('websiteUrl')) {
+                        updateSet.website = payload.website;
+                        updateSet.websiteUrl = payload.websiteUrl;
+                    }
+                    if (shouldApply('admissionUrl')) {
+                        updateSet.admissionWebsite = payload.admissionWebsite;
+                        updateSet.admissionUrl = payload.admissionUrl;
+                    }
+                    if (shouldApply('establishedYear')) {
+                        updateSet.established = payload.established;
+                        updateSet.establishedYear = payload.establishedYear;
+                    }
+                    if (shouldApply('totalSeats')) updateSet.totalSeats = payload.totalSeats;
+                    if (shouldApply('seatsScienceEng')) {
+                        updateSet.scienceSeats = payload.scienceSeats;
+                        updateSet.seatsScienceEng = payload.seatsScienceEng;
+                    }
+                    if (shouldApply('seatsArtsHum')) {
+                        updateSet.artsSeats = payload.artsSeats;
+                        updateSet.seatsArtsHum = payload.seatsArtsHum;
+                    }
+                    if (shouldApply('seatsBusiness')) {
+                        updateSet.businessSeats = payload.businessSeats;
+                        updateSet.seatsBusiness = payload.seatsBusiness;
+                    }
+                    if (shouldApply('logoUrl')) updateSet.logoUrl = payload.logoUrl;
+                    if (shouldApply('isActive')) updateSet.isActive = payload.isActive;
+                    if (shouldApply('featured')) updateSet.featured = payload.featured;
+                    if (shouldApply('featuredOrder')) updateSet.featuredOrder = payload.featuredOrder;
+                    if (shouldApply('categorySyncLocked')) updateSet.categorySyncLocked = payload.categorySyncLocked;
+                    if (shouldApply('clusterSyncLocked')) updateSet.clusterSyncLocked = payload.clusterSyncLocked;
+                    if (shouldApply('verificationStatus')) updateSet.verificationStatus = payload.verificationStatus;
+                    if (shouldApply('remarks')) updateSet.remarks = payload.remarks;
+                    if (shouldApplySlug) updateSet.slug = payload.slug;
+
+                    if (Object.keys(updateSet).length > 0) {
+                        const updateResult = await University.updateOne(
+                            { _id: existing._id },
+                            { $set: updateSet },
+                            { runValidators: true },
+                        );
+                        if (!updateResult.matchedCount) {
+                            failedRows.push({
+                                rowNumber: Number(normalized.rowNumber || 0),
+                                reason: 'University not found while updating.',
+                                payload: row,
+                            });
+                            continue;
+                        }
+                    }
                     updated += 1;
                 } else {
                     const newId = new mongoose.Types.ObjectId();
                     universityId = String(newId);
-                    bulkOps.push({
-                        insertOne: {
-                            document: {
-                                _id: newId,
-                                ...payload,
-                            },
-                        },
+                    await University.create({
+                        _id: newId,
+                        ...payload,
                     });
                     inserted += 1;
                 }
@@ -604,12 +714,14 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
                     existingBySlug.set(slug.toLowerCase(), { _id: new mongoose.Types.ObjectId(universityId), slug });
                 }
 
-                if (clusterDoc) {
-                    const current = clusterAssignments.get(String(clusterDoc._id)) || [];
-                    current.push(universityId);
-                    clusterAssignments.set(String(clusterDoc._id), current);
-                } else {
-                    clearClusterAssignments.push(universityId);
+                if (shouldApply('clusterGroup')) {
+                    if (clusterDoc) {
+                        const current = clusterAssignments.get(String(clusterDoc._id)) || [];
+                        current.push(universityId);
+                        clusterAssignments.set(String(clusterDoc._id), current);
+                    } else {
+                        clearClusterAssignments.push(universityId);
+                    }
                 }
             } catch (err: unknown) {
                 const reason = err instanceof Error ? err.message : 'Unknown commit error';
@@ -617,18 +729,18 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
             }
         }
 
-        if (bulkOps.length > 0) {
-            await University.bulkWrite(bulkOps as Parameters<typeof University.bulkWrite>[0]);
+        try {
+            if (clearClusterAssignments.length > 0) {
+                await syncManualClusterMembership(clearClusterAssignments, null);
+            }
+            for (const [clusterId, universityIds] of clusterAssignments.entries()) {
+                await syncManualClusterMembership(Array.from(new Set(universityIds)), clusterId);
+            }
+            await reconcileUniversityClusterAssignments(actorId);
+        } catch (clusterSyncError: unknown) {
+            const message = clusterSyncError instanceof Error ? clusterSyncError.message : 'Unknown cluster sync error';
+            warnings.add(`Cluster sync warning: ${message}`);
         }
-
-        if (clearClusterAssignments.length > 0) {
-            await syncManualClusterMembership(clearClusterAssignments, null);
-        }
-        for (const [clusterId, universityIds] of clusterAssignments.entries()) {
-            await syncManualClusterMembership(Array.from(new Set(universityIds)), clusterId);
-        }
-
-        await reconcileUniversityClusterAssignments(actorId);
 
         job.failedRows = failedRows;
         job.commitSummary = {
@@ -659,7 +771,8 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
         });
     } catch (err) {
         console.error('adminCommitUniversityImport error:', err);
-        res.status(500).json({ message: 'Failed to commit import.' });
+        const detail = err instanceof Error ? err.message : 'Unknown error';
+        res.status(500).json({ message: `Failed to commit import. ${detail}` });
     }
 }
 
@@ -689,15 +802,6 @@ export async function adminDownloadUniversityImportTemplate(req: Request, res: R
             examDateArts: '2026-07-11',
             examDateBusiness: '2026-07-12',
             examCenters: 'Dhaka - BUET Campus | Chattogram - CUET Campus',
-            logoUrl: 'https://exampleuniversity.edu/logo.png',
-            isActive: 'true',
-            featured: 'false',
-            featuredOrder: 0,
-            categorySyncLocked: 'false',
-            clusterSyncLocked: 'false',
-            verificationStatus: 'Pending',
-            remarks: '',
-            slug: 'dhaka-example-university',
         };
         const blankRow: Record<string, string> = TEMPLATE_HEADERS.reduce((acc, key) => ({ ...acc, [key]: '' }), {});
 

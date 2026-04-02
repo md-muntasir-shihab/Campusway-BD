@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     ShieldCheck as ShieldCheckIcon,
     BarChart3 as ChartBarIcon,
-    Clock as ClockIcon,
     BellRing as BellAlertIcon,
     FileText as DocumentTextIcon,
     Settings as Cog6ToothIcon,
@@ -15,7 +14,6 @@ import {
     Server as ServerIcon,
     Eye as EyeIcon,
     RotateCcw as ArrowPathIcon,
-    Info as InformationCircleIcon,
 } from 'lucide-react';
 import {
     adminGetSecurityDashboard,
@@ -645,82 +643,14 @@ function SecurityAlertsTab() {
    SECURITY CENTER LAYOUT — Tabbed Navigation Shell
    ═══════════════════════════════════════════════════════════════ */
 
-type SecurityTab =
-    | 'dashboard'
-    | 'authentication'
-    | 'password-policies'
-    | 'two-factor'
-    | 'sessions'
-    | 'access-control'
-    | 'api-route'
-    | 'verification'
-    | 'uploads'
-    | 'alerts'
-    | 'audit-logs'
-    | 'backup'
-    | 'settings'
-    | 'help';
+type SecurityTab = 'dashboard' | 'settings' | 'alerts' | 'audit-logs';
 
 const TABS: { id: SecurityTab; label: string; icon: React.ElementType }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: ChartBarIcon },
-    { id: 'authentication', label: 'Authentication', icon: LockClosedIcon },
-    { id: 'password-policies', label: 'Password Policies', icon: ShieldCheckIcon },
-    { id: 'two-factor', label: 'Two-Factor', icon: UserGroupIcon },
-    { id: 'sessions', label: 'Sessions & Devices', icon: ClockIcon },
-    { id: 'access-control', label: 'Access Control', icon: ShieldCheckIcon },
-    { id: 'api-route', label: 'API & Routes', icon: ServerIcon },
-    { id: 'verification', label: 'Verification', icon: CheckCircleIcon },
-    { id: 'uploads', label: 'Uploads', icon: EyeIcon },
-    { id: 'audit-logs', label: 'Audit Logs', icon: DocumentTextIcon },
+    { id: 'settings', label: 'Security Settings', icon: Cog6ToothIcon },
     { id: 'alerts', label: 'Alerts', icon: BellAlertIcon },
-    { id: 'backup', label: 'Backup Safety', icon: ServerIcon },
-    { id: 'settings', label: 'All Settings', icon: Cog6ToothIcon },
-    { id: 'help', label: 'Help', icon: InformationCircleIcon },
+    { id: 'audit-logs', label: 'Audit Logs', icon: DocumentTextIcon },
 ];
-
-function SecurityHelpDocs() {
-    const items = [
-        ['Authentication & Login', 'Controls login attempts, generic errors, verification requirements, and suspicious login handling.'],
-        ['Password Policies', 'Sets password rules, expiry, forced reset, and role-specific strength expectations.'],
-        ['Two-Factor Authentication', 'Requires authenticator, email, or SMS verification for selected roles and sensitive actions.'],
-        ['Sessions & Devices', 'Lets admins and users review active sessions, last activity, and revoke compromised devices.'],
-        ['Access Control & Role Security', 'Backs UI restrictions with route and action-level backend permissions and optional approvals.'],
-        ['Upload & File Security', 'Defines which file types are accepted, how large they can be, and whether protected delivery is enforced.'],
-        ['Audit Logs & Alerts', 'Records who changed what, when it happened, and which events require immediate review.'],
-    ];
-
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Security Help</h3>
-                <SecurityHelpButton
-                    title="Security Help"
-                    content="This section explains what each security area controls and how to use the admin settings safely."
-                    impact="It reduces accidental misconfiguration by keeping the controls explainable."
-                    affected="Admins configuring security, approval, uploads, alerts, and session controls."
-                    enabledNote="Help is available inline next to the controls and in the section cards below."
-                    disabledNote="Without help, the same settings are easier to misuse or overlook."
-                    bestPractice="Use this section before changing high-risk security settings."
-                    variant="full"
-                />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-            {items.map(([title, description]) => (
-                <div key={title} className="rounded-2xl border border-white/8 bg-slate-950/65 p-5 shadow-[0_16px_30px_rgba(2,6,23,0.16)]">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                        <InformationCircleIcon className="h-4 w-4 text-blue-500" />
-                        {title}
-                    </div>
-                    <p className="mt-2 text-sm text-slate-300">{description}</p>
-                    <p className="mt-3 text-xs text-slate-400">
-                        Use the info buttons inside each card to understand who is affected, what risk is reduced, and what changes after enabling a control.
-                    </p>
-                </div>
-            ))}
-            </div>
-        </div>
-    );
-}
 
 export default function SecurityCenterLayout() {
     const [activeTab, setActiveTab] = useState<SecurityTab>('dashboard');
@@ -729,23 +659,12 @@ export default function SecurityCenterLayout() {
         switch (activeTab) {
             case 'dashboard':
                 return <SecurityDashboard />;
+            case 'settings':
+                return <SecuritySettingsPanel />;
             case 'audit-logs':
                 return <SecurityAuditLogs />;
             case 'alerts':
                 return <SecurityAlertsTab />;
-            case 'help':
-                return <SecurityHelpDocs />;
-            case 'authentication':
-            case 'password-policies':
-            case 'two-factor':
-            case 'sessions':
-            case 'access-control':
-            case 'api-route':
-            case 'verification':
-            case 'uploads':
-            case 'backup':
-            case 'settings':
-                return <SecuritySettingsPanel section={activeTab} />;
             default:
                 return null;
         }
@@ -762,6 +681,7 @@ export default function SecurityCenterLayout() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
+                            data-testid={`security-tab-${tab.id}`}
                             className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                                 isActive
                                     ? 'bg-white/10 text-white shadow-sm'

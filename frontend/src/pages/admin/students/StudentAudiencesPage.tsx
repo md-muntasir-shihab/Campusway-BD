@@ -5,6 +5,7 @@ import {
   getAudienceSegments, createAudienceSegment,
   previewAudienceSegment, deleteAudienceSegment,
 } from '../../../api/adminStudentApi';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Segment = {
   _id: string; name: string; type: string;
@@ -87,7 +88,15 @@ export default function StudentAudiencesPage() {
                 <h4 className="font-medium text-slate-800 dark:text-white">{seg.name}</h4>
                 <p className="mt-1 text-xs text-slate-500">{new Date(seg.createdAt).toLocaleDateString()}</p>
               </div>
-              <button onClick={() => { if (confirm('Delete this segment?')) deleteMut.mutate(seg._id); }}
+              <button onClick={async () => {
+                const confirmed = await showConfirmDialog({
+                  title: 'Delete segment',
+                  message: 'Delete this segment?',
+                  confirmLabel: 'Delete',
+                  tone: 'danger',
+                });
+                if (confirmed) deleteMut.mutate(seg._id);
+              }}
                 className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20">
                 <Trash2 size={14} />
               </button>

@@ -569,8 +569,22 @@ export default function TeamAccessConsolePage() {
                   </div>
                   <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
                     <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {role.totalUsers ?? 0} users</span>
+                    <span>
+                      {Object.values(role.modulePermissions || {}).filter((moduleActions) => Object.values(moduleActions || {}).some(Boolean)).length} modules
+                    </span>
+                    <span>
+                      {Object.values(role.modulePermissions || {}).reduce((total, moduleActions) => (
+                        total + Object.values(moduleActions || {}).filter(Boolean).length
+                      ), 0)} perms
+                    </span>
                   </div>
                   <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-2.5 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/20"
+                      onClick={() => navigate(`${ADMIN_PATHS.teamRoles}/${role._id}`)}
+                    >
+                      View Permissions
+                    </button>
                     {canCreateTeam && <button className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800" onClick={async () => { await teamApi.duplicateRole(role._id); toast.success('Role duplicated'); await loadRoles(); }}><Copy className="h-3 w-3" /> Duplicate</button>}
                     {!role.isSystemRole && canDeleteTeam && <button className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/20" onClick={async () => { await teamApi.deleteRole(role._id); toast.success('Role archived'); await loadRoles(); }}><Trash2 className="h-3 w-3" /> Archive</button>}
                   </div>

@@ -12,6 +12,7 @@ import {
 } from '../../services/api';
 import { invalidateQueryGroup, invalidationGroups, queryKeys } from '../../lib/queryKeys';
 import { useAdminRuntimeFlags } from '../../hooks/useAdminRuntimeFlags';
+import { showConfirmDialog, showPromptDialog } from '../../lib/appDialog';
 import InfoHint from '../ui/InfoHint';
 
 type Placement = 'header' | 'footer' | 'home' | 'news' | 'contact';
@@ -303,15 +304,26 @@ export default function SocialLinksManager() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={async () => {
                                         if (runtimeFlags.requireDeleteKeywordConfirm) {
-                                            const typed = window.prompt('Type DELETE to remove this social link');
+                                            const typed = await showPromptDialog({
+                                                title: 'Delete social link',
+                                                message: 'Type DELETE to remove this social link.',
+                                                expectedValue: 'DELETE',
+                                                confirmLabel: 'Delete',
+                                                tone: 'danger',
+                                            });
                                             if (typed !== 'DELETE') {
                                                 toast.error('Delete cancelled');
                                                 return;
                                             }
                                         } else {
-                                            const okay = window.confirm('Delete this social link?');
+                                            const okay = await showConfirmDialog({
+                                                title: 'Delete social link',
+                                                message: 'Delete this social link?',
+                                                confirmLabel: 'Delete',
+                                                tone: 'danger',
+                                            });
                                             if (!okay) return;
                                         }
                                         deleteMutation.mutate(item.id);

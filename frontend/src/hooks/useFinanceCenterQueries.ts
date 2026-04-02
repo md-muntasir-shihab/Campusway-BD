@@ -299,7 +299,7 @@ export function useFcImportPreview() {
 export function useFcImportCommit() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (rows: unknown[]) => fcApi.importCommit(rows),
+        mutationFn: (payload: { rows: unknown[]; mapping?: Record<string, string> }) => fcApi.importCommit(payload),
         onSuccess: () => { qc.invalidateQueries({ queryKey: ['fc'] }); },
     });
 }

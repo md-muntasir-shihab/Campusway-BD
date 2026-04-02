@@ -29,6 +29,11 @@ import { markExternalExamAttemptImported } from '../services/externalExamAttempt
 import { syncExamResultToStudentProfile } from '../services/examProfileSyncEngine';
 import { getCanonicalSubscriptionSnapshot } from '../services/subscriptionAccessService';
 import { getClientIp, getDeviceInfo } from '../utils/requestMeta';
+import {
+    adminCommitUniversityImport,
+    adminInitUniversityImport,
+    adminValidateUniversityImport,
+} from './universityImportController';
 
 interface PopulatedStudent { username: string; fullName: string; email: string; }
 function asStudent(s: unknown): PopulatedStudent { return s as PopulatedStudent; }
@@ -2743,111 +2748,137 @@ export async function adminBulkImportUniversities(req: AuthRequest, res: Respons
             return;
         }
 
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: '' });
+        const legacyBody = asRecordObject(req.body) || {};
+        const requestedMapping = Object.entries(asRecordObject(legacyBody.mapping) || {}).reduce<Record<string, string>>((acc, [key, value]) => {
+            const normalizedKey = String(key || '').trim();
+            const normalizedValue = String(value || '').trim();
+            if (!normalizedKey || !normalizedValue) return acc;
+            acc[normalizedKey] = normalizedValue;
+            return acc;
+        }, {});
+        const requestedDefaults = asRecordObject(legacyBody.defaults) || {};
+        const modeRaw = String(legacyBody.mode || 'update-existing').trim().toLowerCase();
+        const mode = modeRaw === 'insert-only' ? 'insert-only' : 'update-existing';
 
-        if (rows.length === 0) {
-            res.status(400).json({ message: 'File is empty.' });
+        const initResult: { statusCode: number; body: unknown } = { statusCode: 200, body: null };
+        const initRes = {
+            status(code: number) {
+                initResult.statusCode = code;
+                return this;
+            },
+            json(payload: unknown) {
+                initResult.body = payload;
+                return this;
+            },
+            send(payload: unknown) {
+                initResult.body = payload;
+                return this;
+            },
+        } as unknown as Response;
+        await adminInitUniversityImport(req, initRes);
+        if (initResult.statusCode >= 400) {
+            const payload = asRecordObject(initResult.body) || { message: 'Failed to initialize import.' };
+            res.status(initResult.statusCode || 500).json(payload);
             return;
         }
 
-        const headers = Object.keys(rows[0]);
-        function findKey(candidates: string[]): string {
-            for (const c of candidates) {
-                const found = headers.find(h => h.trim().toLowerCase() === c.toLowerCase());
-                if (found) return found;
-            }
-            return '';
-        }
-
-        // Mapping Keys explicitly matching user request
-        const catKey = findKey(['category', 'categorie']);
-        const nameKey = findKey(['name', 'university name']);
-        const phoneKey = findKey(['contact number', 'contact_number', 'phone']);
-        const shortKey = findKey(['short form', 'short_form']);
-        const estKey = findKey(['established', 'est']);
-        const addrKey = findKey(['address', 'location']);
-        const emailKey = findKey(['email address', 'email']);
-        const webKey = findKey(['corrected website', 'website']);
-        const admWebKey = findKey(['corrected admission link', 'admission_link', 'admission url']);
-        const totalSeatsKey = findKey(['total seats', 'total_seats']);
-        const sciSeatsKey = findKey(['science / eng. seats', 'science_seats', 'science seats']);
-        const artSeatsKey = findKey(['arts / hum. seats', 'arts_seats', 'arts seats']);
-        const comSeatsKey = findKey(['business seats', 'commerce seats', 'business_seats']);
-        const sciExamKey = findKey(['science exam', 'science_exam_date']);
-        const artExamKey = findKey(['arts exam', 'arts_exam_date']);
-        const comExamKey = findKey(['commerce exam', 'commerce_exam_date']);
-        const featuredKey = findKey(['featured (yes/no)', 'featured_status', 'featured']);
-        const statusKey = findKey(['status (active/hidden)', 'status']);
-        const remarksKey = findKey(['remarks']);
-
-        if (!nameKey) {
-            res.status(400).json({
-                message: 'Required column "NAME" not found.',
-                detectedHeaders: headers,
-            });
+        const initBody = asRecordObject(initResult.body) || {};
+        const jobId = String(initBody.importJobId || '').trim();
+        if (!jobId) {
+            res.status(500).json({ message: 'Legacy import failed to initialize an import job.' });
             return;
         }
 
-        const University = (await import('../models/University')).default;
-        const errors: { row: number; reason: string }[] = [];
-        let imported = 0;
-        let updated = 0;
+        const suggestedMapping = Object.entries(asRecordObject(initBody.suggestedMapping) || {}).reduce<Record<string, string>>((acc, [key, value]) => {
+            const normalizedKey = String(key || '').trim();
+            const normalizedValue = String(value || '').trim();
+            if (!normalizedKey || !normalizedValue) return acc;
+            acc[normalizedKey] = normalizedValue;
+            return acc;
+        }, {});
+        const mapping = Object.keys(requestedMapping).length > 0 ? requestedMapping : suggestedMapping;
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const rowNum = i + 2;
-            const name = String(row[nameKey] || '').trim();
-            if (!name) { errors.push({ row: rowNum, reason: 'Empty name' }); continue; }
-
-            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            const shortForm = shortKey ? String(row[shortKey] || '').trim().toUpperCase() : name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5);
-
-            const isFeatured = featuredKey ? (String(row[featuredKey]).toLowerCase().includes('yes') || String(row[featuredKey]).toLowerCase() === 'true') : false;
-            const isActive = statusKey ? !String(row[statusKey]).toLowerCase().includes('hidden') : true;
-
-            const updateData = {
-                name,
-                shortForm,
-                category: catKey ? String(row[catKey] || 'Public').trim() : 'Public',
-                contactNumber: phoneKey ? String(row[phoneKey] || '').trim() : '',
-                established: estKey ? (parseInt(String(row[estKey])) || undefined) : undefined,
-                address: addrKey ? String(row[addrKey] || '').trim() : '',
-                email: emailKey ? String(row[emailKey] || '').trim() : '',
-                website: webKey ? String(row[webKey] || '').trim() : '',
-                admissionWebsite: admWebKey ? String(row[admWebKey] || '').trim() : '',
-                totalSeats: totalSeatsKey && row[totalSeatsKey] ? String(row[totalSeatsKey]).trim() : 'N/A',
-                scienceSeats: sciSeatsKey && row[sciSeatsKey] ? String(row[sciSeatsKey]).trim() : 'N/A',
-                artsSeats: artSeatsKey && row[artSeatsKey] ? String(row[artSeatsKey]).trim() : 'N/A',
-                businessSeats: comSeatsKey && row[comSeatsKey] ? String(row[comSeatsKey]).trim() : 'N/A',
-                scienceExamDate: sciExamKey && row[sciExamKey] ? String(row[sciExamKey]).trim() : 'N/A',
-                artsExamDate: artExamKey && row[artExamKey] ? String(row[artExamKey]).trim() : 'N/A',
-                businessExamDate: comExamKey && row[comExamKey] ? String(row[comExamKey]).trim() : 'N/A',
-                featured: isFeatured,
-                isActive,
-                remarks: remarksKey ? String(row[remarksKey] || '').trim() : '',
-            };
-
-            const existing = await University.findOne({
-                name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
-            });
-
-            if (existing) {
-                await University.updateOne({ _id: existing._id }, { $set: updateData });
-                updated++;
-            } else {
-                await University.create({ ...updateData, slug });
-                imported++;
-            }
+        const validateResult: { statusCode: number; body: unknown } = { statusCode: 200, body: null };
+        const validateRes = {
+            status(code: number) {
+                validateResult.statusCode = code;
+                return this;
+            },
+            json(payload: unknown) {
+                validateResult.body = payload;
+                return this;
+            },
+            send(payload: unknown) {
+                validateResult.body = payload;
+                return this;
+            },
+        } as unknown as Response;
+        const validateReq = {
+            ...req,
+            params: { ...(req.params || {}), jobId },
+            body: { mapping, defaults: requestedDefaults },
+        } as unknown as AuthRequest;
+        await adminValidateUniversityImport(validateReq, validateRes);
+        if (validateResult.statusCode >= 400) {
+            const payload = asRecordObject(validateResult.body) || { message: 'Failed to validate import data.' };
+            res.status(validateResult.statusCode || 500).json(payload);
+            return;
         }
+        const validateBody = asRecordObject(validateResult.body) || {};
+
+        const commitResult: { statusCode: number; body: unknown } = { statusCode: 200, body: null };
+        const commitRes = {
+            status(code: number) {
+                commitResult.statusCode = code;
+                return this;
+            },
+            json(payload: unknown) {
+                commitResult.body = payload;
+                return this;
+            },
+            send(payload: unknown) {
+                commitResult.body = payload;
+                return this;
+            },
+        } as unknown as Response;
+        const commitReq = {
+            ...req,
+            params: { ...(req.params || {}), jobId },
+            body: { mode },
+        } as unknown as AuthRequest;
+        await adminCommitUniversityImport(commitReq, commitRes);
+        if (commitResult.statusCode >= 400) {
+            const payload = asRecordObject(commitResult.body) || { message: 'Failed to commit import.' };
+            res.status(commitResult.statusCode || 500).json(payload);
+            return;
+        }
+
+        const commitBody = asRecordObject(commitResult.body) || {};
+        const commitSummary = asRecordObject(commitBody.commitSummary) || {};
+        const legacyImported = Number(commitSummary.inserted || 0);
+        const legacyUpdated = Number(commitSummary.updated || 0);
+        const failedRows = Array.isArray(commitBody.failedRows) ? commitBody.failedRows : [];
+        const legacyErrors = failedRows
+            .map((item) => {
+                const normalized = asRecordObject(item) || {};
+                return {
+                    row: Number(normalized.rowNumber || 0),
+                    reason: String(normalized.reason || 'Validation failed'),
+                };
+            })
+            .filter((item) => item.row > 0);
 
         res.json({
-            message: `Import complete. ${imported} added, ${updated} updated.`,
-            imported,
-            updated,
-            errors,
+            message: `Import complete. ${legacyImported} added, ${legacyUpdated} updated.`,
+            imported: legacyImported,
+            updated: legacyUpdated,
+            errors: legacyErrors,
+            importJobId: jobId,
+            validationSummary: validateBody.validationSummary || null,
+            commitSummary,
+            warnings: Array.isArray(commitBody.warnings) ? commitBody.warnings : [],
         });
+        return;
     } catch (err) {
         console.error('[adminBulkImportUniversities]', err);
         res.status(500).json({ message: 'Server error during import.' });

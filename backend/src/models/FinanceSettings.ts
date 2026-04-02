@@ -3,6 +3,16 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IFinanceSettings extends Document {
     key: 'default'; // singleton
     defaultCurrency: string;
+    invoicePrefix: string;
+    invoiceNumberPadding: number;
+    defaultPaymentMethod: string;
+    taxRatePercent: number;
+    exportLocale: string;
+    exportDateFormat: string;
+    autoPostSubscriptionRevenue: boolean;
+    autoPostCampaignExpenses: boolean;
+    autoPostInvoicePayments: boolean;
+    reportCurrencyLabel: string;
     requireApprovalForExpense: boolean;
     requireApprovalForIncome: boolean;
     enableBudgets: boolean;
@@ -20,6 +30,16 @@ const FinanceSettingsSchema = new Schema<IFinanceSettings>(
     {
         key: { type: String, default: 'default', unique: true },
         defaultCurrency: { type: String, default: 'BDT', trim: true },
+        invoicePrefix: { type: String, default: 'CW-INV', trim: true },
+        invoiceNumberPadding: { type: Number, default: 6, min: 3, max: 12 },
+        defaultPaymentMethod: { type: String, default: 'manual', trim: true },
+        taxRatePercent: { type: Number, default: 0, min: 0, max: 100 },
+        exportLocale: { type: String, default: 'en-BD', trim: true },
+        exportDateFormat: { type: String, default: 'YYYY-MM-DD', trim: true },
+        autoPostSubscriptionRevenue: { type: Boolean, default: true },
+        autoPostCampaignExpenses: { type: Boolean, default: true },
+        autoPostInvoicePayments: { type: Boolean, default: true },
+        reportCurrencyLabel: { type: String, default: 'BDT', trim: true },
         requireApprovalForExpense: { type: Boolean, default: true },
         requireApprovalForIncome: { type: Boolean, default: false },
         enableBudgets: { type: Boolean, default: true },

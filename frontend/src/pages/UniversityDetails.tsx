@@ -421,7 +421,9 @@ export default function UniversityDetailsPage() {
                                     />
                                 </div>
                                 {durationDays !== null && (
-                                    <p className="mt-2 text-right text-[11px] font-medium text-slate-400">Total duration: {durationDays} days ({appProgress}% elapsed)</p>
+                                    <p className="mt-2 text-right text-[11px] font-medium text-slate-400">
+                                        Total duration: {durationDays} days | {appDaysLeft !== null ? countdownLabel(appDaysLeft) : 'Dates N/A'}
+                                    </p>
                                 )}
                             </div>
                         )}

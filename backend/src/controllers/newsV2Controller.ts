@@ -26,6 +26,7 @@ type NewsStatus =
     | 'published'
     | 'draft'
     | 'archived'
+    | 'trash'
     | 'pending_review'
     | 'duplicate_review'
     | 'approved'
@@ -157,6 +158,7 @@ interface NewsV2SettingsConfig {
         archiveAfterPublishDays: number | null;
         removeUnusedMediaAfterDays: number | null;
         disableSourceAfterFailureCount: number | null;
+        newsTrashRetentionDays: number | null;
     };
     help: {
         enabled: boolean;
@@ -249,14 +251,14 @@ const DEFAULT_NEWS_V2_SETTINGS: NewsV2SettingsConfig = {
         thumbnailFallbackUrl: '',
     },
     share: {
-        enabledChannels: ['whatsapp', 'facebook', 'messenger', 'telegram', 'copy_link', 'copy_text'],
+        enabledChannels: ['whatsapp', 'facebook', 'messenger', 'telegram', 'copy_link'],
         shareButtons: {
             whatsapp: true,
             facebook: true,
             messenger: true,
             telegram: true,
             copyLink: true,
-            copyText: true,
+            copyText: false,
         },
         templates: {
             default: '{title} - {public_url}',
@@ -298,6 +300,7 @@ const DEFAULT_NEWS_V2_SETTINGS: NewsV2SettingsConfig = {
         archiveAfterPublishDays: null,
         removeUnusedMediaAfterDays: 60,
         disableSourceAfterFailureCount: null,
+        newsTrashRetentionDays: 30,
     },
     help: {
         enabled: true,
@@ -463,12 +466,19 @@ function normalizeSettingsCompatibility(settings: NewsV2SettingsConfig): NewsV2S
         messenger: normalized.share.enabledChannels.includes('messenger'),
         telegram: normalized.share.enabledChannels.includes('telegram'),
         copyLink: normalized.share.enabledChannels.includes('copy_link'),
-        copyText: normalized.share.enabledChannels.includes('copy_text'),
+        copyText: false,
     };
 
     if (!Array.isArray(normalized.share.enabledChannels) || normalized.share.enabledChannels.length === 0) {
-        normalized.share.enabledChannels = ['whatsapp', 'facebook', 'messenger', 'telegram', 'copy_link', 'copy_text'];
+        normalized.share.enabledChannels = ['whatsapp', 'facebook', 'messenger', 'telegram', 'copy_link'];
     }
+    const allowedShareChannels = ['facebook', 'whatsapp', 'messenger', 'telegram', 'copy_link'] as const;
+    normalized.share.enabledChannels = normalized.share.enabledChannels
+        .map((channel) => String(channel || '').trim().toLowerCase())
+        .filter((channel): channel is typeof allowedShareChannels[number] => (
+            allowedShareChannels.includes(channel as typeof allowedShareChannels[number])
+        ));
+    normalized.share.shareButtons.copyText = false;
 
     normalized.workflow.defaultIncomingStatus = 'pending_review';
     normalized.rss.autoCreateAs = normalized.workflow.defaultIncomingStatus;
@@ -520,7 +530,11 @@ function normalizeSettingsCompatibility(settings: NewsV2SettingsConfig): NewsV2S
         archiveAfterPublishDays: null,
         removeUnusedMediaAfterDays: 60,
         disableSourceAfterFailureCount: null,
+        newsTrashRetentionDays: 30,
     };
+    normalized.cleanup.newsTrashRetentionDays = Number.isFinite(Number(normalized.cleanup.newsTrashRetentionDays))
+        ? Math.max(1, Number(normalized.cleanup.newsTrashRetentionDays))
+        : 30;
     normalized.help = normalized.help || { enabled: true, mode: 'drawer', version: 'v2' };
     normalized.help.enabled = normalized.help.enabled !== false;
     normalized.help.mode = normalized.help.mode === 'popover' ? 'popover' : 'drawer';
@@ -619,7 +633,7 @@ function buildUniqueSlug(baseTitle: string): string {
 }
 
 function ensureStatus(status: unknown, fallback: NewsStatus = 'draft'): NewsStatus {
-    const allowed: NewsStatus[] = ['published', 'draft', 'archived', 'pending_review', 'duplicate_review', 'approved', 'rejected', 'scheduled', 'fetch_failed'];
+    const allowed: NewsStatus[] = ['published', 'draft', 'archived', 'trash', 'pending_review', 'duplicate_review', 'approved', 'rejected', 'scheduled', 'fetch_failed'];
     const normalized = String(status || '').trim() as NewsStatus;
     return allowed.includes(normalized) ? normalized : fallback;
 }
@@ -939,6 +953,113 @@ function ensureAiAttribution(content: string, sourceName: string, originalArticl
     if (!hasSource) chunks.push(sourceLine);
     if (!hasOriginal) chunks.push(originalLine);
     return chunks.filter(Boolean).join('\n\n').trim();
+}
+
+function normalizeComparableText(value: string): string {
+    return String(value || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[^a-z0-9\u0980-\u09ff\s]/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function isAttributionLineText(value: string): boolean {
+    const text = String(value || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^["'“”‘’`]+/, '')
+        .toLowerCase();
+    if (!text) return false;
+    return text.startsWith('source:')
+        || text.startsWith('original link:')
+        || text.startsWith('original source:')
+        || text.startsWith('original url:')
+        || text.startsWith('source link:');
+}
+
+function stripAttributionLinesFromPlainText(content: string): string {
+    const withoutAttributionLines = String(content || '')
+        .split(/\r?\n/)
+        .filter((line) => !isAttributionLineText(line))
+        .join('\n')
+        .trim();
+    return withoutAttributionLines
+        .replace(/\n?\s*source\s*:\s*[^\n]+$/gim, '')
+        .replace(/\n?\s*original\s+(?:link|source|url)\s*:\s*[^\n]+$/gim, '')
+        .trim();
+}
+
+function shouldDropAsDuplicateIntro(candidate: string, summary: string): boolean {
+    const candidateNorm = normalizeComparableText(candidate);
+    const summaryNorm = normalizeComparableText(summary);
+    if (!candidateNorm || !summaryNorm) return false;
+    if (candidateNorm === summaryNorm) return true;
+    if (candidateNorm.length < 40 || summaryNorm.length < 40) return false;
+    return candidateNorm.startsWith(summaryNorm) || summaryNorm.startsWith(candidateNorm);
+}
+
+function sanitizePublicArticleBody(rawBody: string, shortSummary: string): string {
+    const content = String(rawBody || '').trim();
+    if (!content) return '';
+
+    const summary = stripAttributionLinesFromPlainText(String(shortSummary || ''));
+    const hasHtmlMarkup = /<\/?[a-z][\s\S]*>/i.test(content);
+    if (!hasHtmlMarkup) {
+        const plainText = stripAttributionLinesFromPlainText(content);
+        const lines = plainText
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+        if (lines.length > 1 && shouldDropAsDuplicateIntro(lines[0], summary)) {
+            lines.shift();
+        }
+        const blocks = lines.join('\n')
+            .split(/\n{2,}/)
+            .map((block) => block.trim())
+            .filter(Boolean);
+        if (blocks.length > 1 && shouldDropAsDuplicateIntro(blocks[0], summary)) {
+            blocks.shift();
+        }
+        if (blocks.length > 1 && normalizeComparableText(blocks[0]) === normalizeComparableText(blocks[1])) {
+            blocks.shift();
+        }
+        return blocks.join('\n\n').trim();
+    }
+
+    const dom = new JSDOM(`<body>${content}</body>`);
+    const body = dom.window.document.body;
+    const attributionCandidates = Array.from(body.querySelectorAll('p,li,blockquote,figcaption,small,div'));
+    attributionCandidates.forEach((node) => {
+        const text = String(node.textContent || '').trim();
+        if (!text) return;
+        const strippedText = stripAttributionLinesFromPlainText(text);
+        if (!strippedText) {
+            node.remove();
+            return;
+        }
+        if (text.length <= 2000 && shouldDropAsDuplicateIntro(strippedText, summary)) {
+            node.remove();
+            return;
+        }
+        if (text.length <= 500 && isAttributionLineText(text)) {
+            node.remove();
+        }
+    });
+
+    const leadParagraph = Array.from(body.querySelectorAll('p,li,blockquote,div'))
+        .find((node) => normalizeComparableText(String(node.textContent || '')));
+    if (leadParagraph) {
+        const leadText = stripAttributionLinesFromPlainText(String(leadParagraph.textContent || ''));
+        if (shouldDropAsDuplicateIntro(leadText, summary)) {
+            leadParagraph.remove();
+        }
+    }
+
+    return String(body.innerHTML || '').trim();
 }
 
 function buildRssOnlyInputForAi(item: Record<string, unknown>): string {
@@ -1827,6 +1948,19 @@ export async function runScheduledNewsPublish(): Promise<number> {
     return docs.length;
 }
 
+export async function purgeExpiredTrashNews(): Promise<number> {
+    const now = new Date();
+    const expired = await News.find({
+        status: 'trash',
+        purgeAt: { $lte: now },
+    }).select('_id').lean();
+    if (expired.length === 0) return 0;
+
+    await News.deleteMany({ _id: { $in: expired.map((item) => item._id) } });
+    broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'trash_purged', count: expired.length } });
+    return expired.length;
+}
+
 export async function adminNewsV2Dashboard(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const unhealthySourceFilter = {
@@ -1837,17 +1971,18 @@ export async function adminNewsV2Dashboard(_req: AuthRequest, res: Response): Pr
             ],
         };
         const recentFailureWindow = new Date(Date.now() - (24 * 60 * 60 * 1000));
-        const [pending, duplicate, published, scheduled, fetchFailedItems, activeSources, unhealthySources, recentFailedJobs, latestJobs, latestRssItems, settings] = await Promise.all([
+        const [pending, duplicate, published, scheduled, trash, fetchFailedItems, activeSources, unhealthySources, recentFailedJobs, latestJobs, latestRssItems, settings] = await Promise.all([
             News.countDocuments({ status: 'pending_review' }),
             News.countDocuments({ status: 'duplicate_review' }),
             News.countDocuments({ status: 'published' }),
             News.countDocuments({ status: 'scheduled' }),
+            News.countDocuments({ status: 'trash' }),
             News.countDocuments({ status: 'fetch_failed' }),
             NewsSource.countDocuments({ isActive: true }),
             NewsSource.countDocuments(unhealthySourceFilter),
             NewsFetchJob.countDocuments({ status: 'failed', createdAt: { $gte: recentFailureWindow } }),
             NewsFetchJob.find().sort({ createdAt: -1 }).limit(8).lean(),
-            News.find({ sourceType: { $in: ['rss', 'ai_assisted'] } })
+            News.find({ sourceType: { $in: ['rss', 'ai_assisted'] }, status: { $ne: 'trash' } })
                 .sort({ createdAt: -1 })
                 .limit(8)
                 .select('title slug status sourceName publishDate createdAt coverImageUrl coverImage featuredImage coverImageSource thumbnailImage aiSelected aiUsed aiMeta')
@@ -1861,6 +1996,7 @@ export async function adminNewsV2Dashboard(_req: AuthRequest, res: Response): Pr
                 duplicate,
                 published,
                 scheduled,
+                trash,
                 fetchFailed: recentFailedJobs,
                 activeSources,
                 unhealthySources,
@@ -1900,6 +2036,7 @@ export async function adminNewsV2GetItems(req: AuthRequest, res: Response): Prom
         const page = Math.max(1, Number(req.query.page || 1));
         const limit = Math.min(250, Math.max(1, Number(req.query.limit || 20)));
         const filter: Record<string, unknown> = {};
+        const requestedStatus = String(req.query.status || '').trim().toLowerCase();
         if (req.query.status && String(req.query.status).toLowerCase() !== 'all') {
             filter.status = ensureStatus(req.query.status, 'draft');
         }
@@ -1919,9 +2056,14 @@ export async function adminNewsV2GetItems(req: AuthRequest, res: Response): Prom
                 },
             ];
         }
+        const sort: Record<string, 1 | -1> = requestedStatus === 'trash'
+            ? { deletedAt: -1, updatedAt: -1, createdAt: -1 }
+            : requestedStatus === 'archived'
+                ? { archivedAt: -1, updatedAt: -1, createdAt: -1 }
+                : { createdAt: -1 };
         const [total, items, settings] = await Promise.all([
             News.countDocuments(filter),
-            News.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).populate('createdBy', 'fullName email').populate('reviewMeta.reviewerId', 'fullName email').lean(),
+            News.find(filter).sort(sort).skip((page - 1) * limit).limit(limit).populate('createdBy', 'fullName email').populate('reviewMeta.reviewerId', 'fullName email').lean(),
             getOrCreateNewsSettings(),
         ]);
         const fallbackBanner = resolveDefaultNewsBanner(settings);
@@ -2188,6 +2330,9 @@ function normalizeNewsPayload(payload: Record<string, unknown>): Record<string, 
     const content = sanitizeRichHtml(payload.fullContent || payload.content || '');
     const status = ensureStatus(payload.status, 'draft');
     const tags = Array.isArray(payload.tags) ? payload.tags.map((item) => String(item).trim()).filter(Boolean) : [];
+    const publicTagsRaw = Array.isArray(payload.publicTags)
+        ? payload.publicTags
+        : [];
     const classificationPayload = payload.classification && typeof payload.classification === 'object'
         ? payload.classification as Record<string, unknown>
         : {};
@@ -2221,6 +2366,9 @@ function normalizeNewsPayload(payload: Record<string, unknown>): Record<string, 
         : {};
     const priority = String(payload.priority || 'normal').trim().toLowerCase();
     const displayType = String(payload.displayType || 'news').trim().toLowerCase() === 'update' ? 'update' : 'news';
+    const publicTags = (publicTagsRaw.length > 0 ? publicTagsRaw : (sourceType === 'manual' ? tags : []))
+        .map((item) => String(item).trim())
+        .filter(Boolean);
 
     return {
         title,
@@ -2231,6 +2379,7 @@ function normalizeNewsPayload(payload: Record<string, unknown>): Record<string, 
         content,
         category,
         tags,
+        publicTags,
         displayType,
         classification,
         aiEnrichment,
@@ -2365,6 +2514,21 @@ function applyContractAliases<T extends Record<string, unknown>>(item: T): T & {
     };
 }
 
+function resolvePublicNewsTags(item: Record<string, unknown>): string[] {
+    const direct = Array.isArray(item.publicTags)
+        ? item.publicTags
+        : [];
+    if (direct.length > 0) {
+        return direct.map((tag) => String(tag).trim()).filter(Boolean);
+    }
+    if (String(item.sourceType || '').trim().toLowerCase() === 'manual') {
+        return Array.isArray(item.tags)
+            ? item.tags.map((tag) => String(tag).trim()).filter(Boolean)
+            : [];
+    }
+    return [];
+}
+
 function buildNewsOutput(item: Record<string, unknown>, fallbackBanner: string): Record<string, unknown> & { coverSource: string; isAiSelected: boolean } {
     const resolved = resolveCoverAndThumbForOutput(item, fallbackBanner);
     const classification = item.classification && typeof item.classification === 'object'
@@ -2373,13 +2537,15 @@ function buildNewsOutput(item: Record<string, unknown>, fallbackBanner: string):
     const aiEnrichment = item.aiEnrichment && typeof item.aiEnrichment === 'object'
         ? item.aiEnrichment as Record<string, unknown>
         : {};
+    const publicTags = resolvePublicNewsTags(item);
     return applyContractAliases({
         ...item,
+        publicTags,
         displayType: String(item.displayType || 'news') === 'update' ? 'update' : 'news',
         priority: ['priority', 'breaking'].includes(String(item.priority || '')) ? String(item.priority) : 'normal',
         classification: {
             primaryCategory: String(classification.primaryCategory || item.category || 'General'),
-            tags: Array.isArray(classification.tags) && classification.tags.length > 0 ? classification.tags : (item.tags || []),
+            tags: Array.isArray(classification.tags) && classification.tags.length > 0 ? classification.tags : publicTags,
             universityIds: Array.isArray(classification.universityIds) ? classification.universityIds : [],
             clusterIds: Array.isArray(classification.clusterIds) ? classification.clusterIds : [],
             groupIds: Array.isArray(classification.groupIds) ? classification.groupIds : [],
@@ -2390,7 +2556,7 @@ function buildNewsOutput(item: Record<string, unknown>, fallbackBanner: string):
             studentFriendlyExplanation: String(aiEnrichment.studentFriendlyExplanation || ''),
             keyPoints: Array.isArray(aiEnrichment.keyPoints) ? aiEnrichment.keyPoints : [],
             suggestedCategory: String(aiEnrichment.suggestedCategory || item.category || 'General'),
-            suggestedTags: Array.isArray(aiEnrichment.suggestedTags) ? aiEnrichment.suggestedTags : (item.tags || []),
+            suggestedTags: Array.isArray(aiEnrichment.suggestedTags) ? aiEnrichment.suggestedTags : publicTags,
             importanceHint: String(aiEnrichment.importanceHint || ''),
             suggestedAudience: String(aiEnrichment.suggestedAudience || ''),
             smsText: String(aiEnrichment.smsText || ''),
@@ -2421,6 +2587,15 @@ function buildPublicNewsOutput(
         ...buildNewsOutput(item, fallbackBanner),
         ...buildSharePayload(item as Record<string, any>, host, settings),
     } as Record<string, any>;
+    const publicTags = resolvePublicNewsTags(output);
+    output.publicTags = publicTags;
+    output.tags = publicTags;
+    if (output.classification && typeof output.classification === 'object') {
+        output.classification = {
+            ...(output.classification as Record<string, unknown>),
+            tags: publicTags,
+        };
+    }
     if (!settings.communication.exposeStudentFriendlyExplanation && output.aiEnrichment) {
         output.aiEnrichment = {
             ...output.aiEnrichment,
@@ -2434,7 +2609,49 @@ function buildPublicNewsOutput(
             importantDates: [],
         };
     }
+    const cleanedBody = sanitizePublicArticleBody(
+        String(output.fullContent || output.content || ''),
+        String(output.shortSummary || output.shortDescription || '')
+    );
+    output.fullContent = cleanedBody;
+    output.content = cleanedBody;
     return output;
+}
+
+function buildNonTrashLifecycleResetPatch(): Record<string, unknown> {
+    return {
+        deletedAt: null,
+        deletedBy: null,
+        deletedFromStatus: '',
+        purgeAt: null,
+        archivedAt: null,
+        archivedBy: null,
+        archivedFromStatus: '',
+    };
+}
+
+function buildArchiveLifecyclePatch(req: AuthRequest, before: Record<string, unknown>): Record<string, unknown> {
+    return {
+        archivedAt: before.archivedAt || new Date(),
+        archivedBy: req.user?._id || before.archivedBy || undefined,
+        archivedFromStatus: before.archivedFromStatus || ensureStatus(before.status, 'draft'),
+    };
+}
+
+function buildTrashLifecyclePatch(req: AuthRequest, before: Record<string, unknown>, retentionDays: number): Record<string, unknown> {
+    const now = new Date();
+    const deletedFromStatus = before.deletedFromStatus || ensureStatus(before.status, 'draft');
+    return {
+        ...buildNonTrashLifecycleResetPatch(),
+        archivedAt: null,
+        archivedBy: null,
+        archivedFromStatus: null,
+        isPublished: false,
+        deletedAt: now,
+        deletedBy: req.user?._id || undefined,
+        deletedFromStatus,
+        purgeAt: before.purgeAt || new Date(now.getTime() + Math.max(1, retentionDays) * 24 * 60 * 60 * 1000),
+    };
 }
 
 export async function adminNewsV2CreateItem(req: AuthRequest, res: Response): Promise<void> {
@@ -2493,22 +2710,107 @@ export async function adminNewsV2UpdateItem(req: AuthRequest, res: Response): Pr
 
 export async function adminNewsV2DeleteItem(req: AuthRequest, res: Response): Promise<void> {
     try {
-        const before = await News.findByIdAndDelete(req.params.id).lean();
+        const before = await News.findById(req.params.id).lean();
         if (!before) {
             res.status(404).json({ message: 'News item not found' });
             return;
         }
+        const settings = await getOrCreateNewsSettings();
+        const retentionDays = Number(settings.cleanup?.newsTrashRetentionDays || 30);
+        const patch = buildTrashLifecyclePatch(req, before as Record<string, unknown>, retentionDays);
+        const updated = await News.findByIdAndUpdate(
+            req.params.id,
+            {
+                ...patch,
+                status: 'trash',
+                isPublished: false,
+                publishOutcome: before.publishOutcome || {},
+                auditVersion: Number(before.auditVersion || 1) + 1,
+            },
+            { new: true, runValidators: true },
+        ).lean();
         const entityId = String(req.params.id || '');
         await writeNewsAuditEvent(req, {
-            action: 'news.delete',
+            action: 'news.trash',
+            entityType: 'news',
+            entityId,
+            before: { title: before.title, status: before.status, category: before.category },
+            after: updated ? { title: updated.title, status: updated.status, category: updated.category } : undefined,
+        });
+        broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'trash', newsId: entityId } });
+        res.json({ item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, resolveDefaultNewsBanner(settings)) : undefined, message: 'News moved to trash' });
+    } catch (error) {
+        console.error('adminNewsV2DeleteItem error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+export async function adminNewsV2RestoreItem(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const before = await News.findById(req.params.id).lean();
+        if (!before) {
+            res.status(404).json({ message: 'News item not found' });
+            return;
+        }
+        if (!['trash', 'archived'].includes(String(before.status || '').toLowerCase())) {
+            res.status(400).json({ message: 'Only archived or trashed items can be restored.' });
+            return;
+        }
+        const settings = await getOrCreateNewsSettings();
+        const restoredStatus = ensureStatus(before.deletedFromStatus || before.archivedFromStatus || before.status, 'draft');
+        const patch = {
+            ...buildNonTrashLifecycleResetPatch(),
+            status: restoredStatus,
+            isPublished: restoredStatus === 'published',
+            deletedAt: null,
+            deletedBy: null,
+            deletedFromStatus: '',
+            purgeAt: null,
+            archivedAt: null,
+            archivedBy: null,
+            archivedFromStatus: '',
+            auditVersion: Number(before.auditVersion || 1) + 1,
+        };
+        const updated = await News.findByIdAndUpdate(req.params.id, patch, { new: true, runValidators: true }).lean();
+        const entityId = String(req.params.id || '');
+        await writeNewsAuditEvent(req, {
+            action: 'news.restore',
+            entityType: 'news',
+            entityId,
+            before: { title: before.title, status: before.status, category: before.category },
+            after: updated ? { title: updated.title, status: updated.status, category: updated.category } : undefined,
+        });
+        broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'restore', newsId: entityId } });
+        res.json({ item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, resolveDefaultNewsBanner(settings)) : undefined, message: 'News restored' });
+    } catch (error) {
+        console.error('adminNewsV2RestoreItem error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+export async function adminNewsV2PurgeItem(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const before = await News.findById(req.params.id).lean();
+        if (!before) {
+            res.status(404).json({ message: 'News item not found' });
+            return;
+        }
+        if (String(before.status || '').toLowerCase() !== 'trash') {
+            res.status(400).json({ message: 'Only trashed items can be permanently deleted.' });
+            return;
+        }
+        await News.findByIdAndDelete(req.params.id);
+        const entityId = String(req.params.id || '');
+        await writeNewsAuditEvent(req, {
+            action: 'news.purge',
             entityType: 'news',
             entityId,
             before: { title: before.title, status: before.status, category: before.category },
         });
-        broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'delete', newsId: entityId } });
-        res.json({ message: 'News deleted' });
+        broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'purge', newsId: entityId } });
+        res.json({ message: 'News permanently deleted' });
     } catch (error) {
-        console.error('adminNewsV2DeleteItem error:', error);
+        console.error('adminNewsV2PurgeItem error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 }
@@ -2656,8 +2958,14 @@ async function upsertNoticeFromNews(
 }
 
 function buildPublishTransitionPatch(req: AuthRequest, before: Record<string, any>, status: NewsStatus, extra: Record<string, unknown>): Record<string, unknown> {
-    const patch: Record<string, unknown> = { status, ...extra };
+    const patch: Record<string, unknown> = {
+        status,
+        ...buildNonTrashLifecycleResetPatch(),
+        ...extra,
+    };
     if (status === 'published') {
+        patch.archivedAt = null;
+        patch.archivedBy = null;
         patch.publishOutcome = {
             type: String(before.publishOutcome?.type || before.displayType || 'news') === 'update' ? 'update' : (String(before.publishOutcome?.type || '') === 'notice' ? 'notice' : 'news'),
             targetId: before.publishOutcome?.targetId || undefined,
@@ -2671,8 +2979,25 @@ function buildPublishTransitionPatch(req: AuthRequest, before: Record<string, an
             publishedAt: before.publishOutcome?.publishedAt || undefined,
             publishedBy: before.publishOutcome?.publishedBy || req.user?._id,
         };
-    } else if (status === 'archived' || status === 'draft' || status === 'rejected') {
+    } else if (status === 'archived') {
         patch.isPublished = false;
+        patch.publishOutcome = before.publishOutcome || {};
+        Object.assign(patch, buildArchiveLifecyclePatch(req, before));
+    } else if (status === 'trash') {
+        patch.isPublished = false;
+        patch.publishOutcome = before.publishOutcome || {};
+        patch.archivedAt = null;
+        patch.archivedBy = null;
+        patch.archivedFromStatus = null;
+        patch.deletedAt = before.deletedAt || new Date();
+        patch.deletedBy = before.deletedBy || req.user?._id || undefined;
+        patch.deletedFromStatus = before.deletedFromStatus || ensureStatus(before.status, 'draft');
+        patch.purgeAt = before.purgeAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    } else if (status === 'draft' || status === 'rejected' || status === 'pending_review' || status === 'duplicate_review' || status === 'approved' || status === 'fetch_failed') {
+        patch.isPublished = false;
+        patch.archivedAt = null;
+        patch.archivedBy = null;
+        patch.archivedFromStatus = null;
     }
     return patch;
 }
@@ -3542,15 +3867,15 @@ export async function adminNewsV2UpdateShareSettings(req: AuthRequest, res: Resp
             messenger: incomingButtons.messenger !== undefined ? Boolean(incomingButtons.messenger) : true,
             telegram: incomingButtons.telegram !== undefined ? Boolean(incomingButtons.telegram) : true,
             copyLink: incomingButtons.copyLink !== undefined ? Boolean(incomingButtons.copyLink) : true,
-            copyText: incomingButtons.copyText !== undefined ? Boolean(incomingButtons.copyText) : true,
+            // Legacy compatibility: accept payload shape, but keep copyText disabled on public detail.
+            copyText: false,
         };
         const computedChannels = enabledChannels.length > 0
-            ? enabledChannels
+            ? enabledChannels.filter((channel) => String(channel || '').trim().toLowerCase() !== 'copy_text')
             : Object.entries(shareButtons)
                 .filter(([, value]) => Boolean(value))
                 .map(([key]) => {
                     if (key === 'copyLink') return 'copy_link';
-                    if (key === 'copyText') return 'copy_text';
                     return key;
                 });
         const shareTemplates = {
@@ -3911,7 +4236,7 @@ function buildPublicPublishedFilter(): Record<string, unknown> {
             {
                 isPublished: true,
                 status: {
-                    $nin: ['draft', 'archived', 'pending_review', 'duplicate_review', 'approved', 'rejected', 'scheduled', 'fetch_failed'],
+                    $nin: ['draft', 'archived', 'trash', 'pending_review', 'duplicate_review', 'approved', 'rejected', 'scheduled', 'fetch_failed'],
                 },
             },
         ],
@@ -4323,7 +4648,10 @@ export async function getPublicNewsV2Settings(_req: Request, res: Response): Pro
                 thumbnailFallbackUrl: settings.appearance.thumbnailFallbackUrl || fallbackBanner,
             },
             shareTemplates: settings.shareTemplates || {},
-            shareButtons: settings.share.shareButtons || {},
+            shareButtons: {
+                ...(settings.share.shareButtons || {}),
+                copyText: false,
+            },
             workflow: {
                 allowScheduling: settings.workflow.allowScheduling,
                 openOriginalWhenExtractionIncomplete: settings.workflow.openOriginalWhenExtractionIncomplete !== false,

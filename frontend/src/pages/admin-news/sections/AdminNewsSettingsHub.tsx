@@ -35,6 +35,7 @@ interface CoreFormState {
     workflowAllowScheduling: boolean;
     workflowOpenOriginalWhenExtractionIncomplete: boolean;
     workflowAutoExpireDays: string;
+    newsTrashRetentionDays: string;
     aiEnabled: boolean;
     aiLanguage: 'bn' | 'en' | 'mixed';
     aiStylePreset: 'short' | 'standard' | 'detailed';
@@ -53,7 +54,6 @@ interface CoreFormState {
     btnMessenger: boolean;
     btnTelegram: boolean;
     btnCopyLink: boolean;
-    btnCopyText: boolean;
 }
 
 const EMPTY_CORE_FORM: CoreFormState = {
@@ -70,6 +70,7 @@ const EMPTY_CORE_FORM: CoreFormState = {
     workflowAllowScheduling: true,
     workflowOpenOriginalWhenExtractionIncomplete: true,
     workflowAutoExpireDays: '',
+    newsTrashRetentionDays: '30',
     aiEnabled: false,
     aiLanguage: 'en',
     aiStylePreset: 'standard',
@@ -88,7 +89,6 @@ const EMPTY_CORE_FORM: CoreFormState = {
     btnMessenger: true,
     btnTelegram: true,
     btnCopyLink: true,
-    btnCopyText: true,
 };
 
 function mapSettingsToCoreForm(settings: ApiNewsV2Settings | undefined): CoreFormState {
@@ -110,6 +110,9 @@ function mapSettingsToCoreForm(settings: ApiNewsV2Settings | undefined): CoreFor
         workflowAllowScheduling: settings.workflow?.allowScheduling !== false,
         workflowOpenOriginalWhenExtractionIncomplete: settings.workflow?.openOriginalWhenExtractionIncomplete !== false,
         workflowAutoExpireDays: autoExpireDays === null || autoExpireDays === undefined ? '' : String(autoExpireDays),
+        newsTrashRetentionDays: settings.cleanup?.newsTrashRetentionDays === null || settings.cleanup?.newsTrashRetentionDays === undefined
+            ? '30'
+            : String(settings.cleanup.newsTrashRetentionDays),
         aiEnabled: settings.aiSettings?.enabled ?? false,
         aiLanguage: String(settings.aiSettings?.language || 'en').toLowerCase() as 'bn' | 'en' | 'mixed',
         aiStylePreset: (settings.aiSettings?.stylePreset === 'very_short' ? 'short' : (settings.aiSettings?.stylePreset || 'standard')) as 'short' | 'standard' | 'detailed',
@@ -128,7 +131,6 @@ function mapSettingsToCoreForm(settings: ApiNewsV2Settings | undefined): CoreFor
         btnMessenger: settings.share?.shareButtons?.messenger ?? true,
         btnTelegram: settings.share?.shareButtons?.telegram ?? true,
         btnCopyLink: settings.share?.shareButtons?.copyLink ?? true,
-        btnCopyText: settings.share?.shareButtons?.copyText ?? true,
     };
 }
 
@@ -156,6 +158,15 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
             const current = settingsQuery.data?.settings;
             const autoExpireValue = coreForm.workflowAutoExpireDays.trim();
             const autoExpireDays = autoExpireValue === '' ? null : Number(autoExpireValue);
+            const newsTrashValue = coreForm.newsTrashRetentionDays.trim();
+            const newsTrashRetentionDays = newsTrashValue === '' ? 30 : Number(newsTrashValue);
+            const normalizedEnabledChannels = Array.from(
+                new Set(
+                    (Array.isArray(current?.share?.enabledChannels) ? current.share.enabledChannels : ['whatsapp', 'facebook', 'messenger', 'telegram', 'copy_link'])
+                        .map((channel) => String(channel || '').trim())
+                        .filter((channel) => channel && channel !== 'copy_text')
+                )
+            ) as NonNullable<ApiNewsV2Settings['share']>['enabledChannels'];
 
             const payload: Partial<ApiNewsV2Settings> = {
                 pageTitle: coreForm.pageTitle,
@@ -188,6 +199,10 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
                     maxLength: Number.isFinite(coreForm.aiMaxLength) ? coreForm.aiMaxLength : 1200,
                     customPrompt: coreForm.aiPromptTemplate.trim(),
                 },
+                cleanup: {
+                    ...(current?.cleanup || {}),
+                    newsTrashRetentionDays: Number.isFinite(newsTrashRetentionDays) ? Math.max(1, newsTrashRetentionDays) : 30,
+                },
                 shareTemplates: {
                     whatsapp: coreForm.shareWhatsapp,
                     facebook: coreForm.shareFacebook,
@@ -196,7 +211,7 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
                 },
                 share: {
                     ...(current?.share || {
-                        enabledChannels: ['whatsapp', 'facebook', 'messenger', 'telegram', 'copy_link', 'copy_text'],
+                        enabledChannels: ['whatsapp', 'facebook', 'messenger', 'telegram', 'copy_link'],
                         templates: {},
                         utm: {
                             enabled: true,
@@ -205,13 +220,14 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
                             campaign: 'news_share',
                         },
                     }),
+                    enabledChannels: normalizedEnabledChannels,
                     shareButtons: {
                         whatsapp: coreForm.btnWhatsapp,
                         facebook: coreForm.btnFacebook,
                         messenger: coreForm.btnMessenger,
                         telegram: coreForm.btnTelegram,
                         copyLink: coreForm.btnCopyLink,
-                        copyText: coreForm.btnCopyText,
+                        copyText: false,
                     },
                 },
             };
@@ -365,6 +381,10 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
                         <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Auto Expire Days (optional)</span>
                         <input className="input-field" type="number" min={0} placeholder="Leave empty to disable" value={coreForm.workflowAutoExpireDays} onChange={(e) => setCoreForm((prev) => ({ ...prev, workflowAutoExpireDays: e.target.value }))} />
                     </label>
+                    <label className="space-y-1">
+                        <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Trash Retention Days</span>
+                        <input className="input-field" type="number" min={1} placeholder="30" value={coreForm.newsTrashRetentionDays} onChange={(e) => setCoreForm((prev) => ({ ...prev, newsTrashRetentionDays: e.target.value }))} />
+                    </label>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
@@ -445,7 +465,6 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
                     <ToggleField label="Messenger Button" checked={coreForm.btnMessenger} onChange={(next) => setCoreForm((prev) => ({ ...prev, btnMessenger: next }))} />
                     <ToggleField label="Telegram Button" checked={coreForm.btnTelegram} onChange={(next) => setCoreForm((prev) => ({ ...prev, btnTelegram: next }))} />
                     <ToggleField label="Copy Link Button" checked={coreForm.btnCopyLink} onChange={(next) => setCoreForm((prev) => ({ ...prev, btnCopyLink: next }))} />
-                    <ToggleField label="Copy Text Button" checked={coreForm.btnCopyText} onChange={(next) => setCoreForm((prev) => ({ ...prev, btnCopyText: next }))} />
                 </div>
 
                 <div className="flex flex-wrap gap-2">

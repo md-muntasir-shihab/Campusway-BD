@@ -86,6 +86,8 @@ type UniversityCardPreviewItem = {
     examCentersPreview: string[];
     shortDescription: string;
     logoUrl: string;
+    isHistorical?: boolean;
+    endedAt?: string;
 };
 
 type HomeClusterCardItem = {
@@ -106,6 +108,8 @@ type HomeClusterCardItem = {
     examCentersPreview: string[];
     homeVisible: boolean;
     homeOrder: number;
+    isHistorical?: boolean;
+    endedAt?: string;
 };
 
 type HomeCategoryCardItem = {
@@ -483,6 +487,17 @@ function sortUniversityPreviewItems(
     return sorted;
 }
 
+function getUniversityExamDates(item: UniversityCardPreviewItem): string[] {
+    return [
+        item.scienceExamDate,
+        item.artsExamDate,
+        item.businessExamDate,
+        item.examDateScience,
+        item.examDateArts,
+        item.examDateBusiness,
+    ].filter(Boolean);
+}
+
 function getNearestFutureDateIso(values: string[], now: Date): string {
     const nowTime = startOfDay(now).getTime();
     const timestamps = values
@@ -493,6 +508,22 @@ function getNearestFutureDateIso(values: string[], now: Date): string {
         .sort((a, b) => a - b);
     if (timestamps.length === 0) return '';
     return new Date(timestamps[0]).toISOString();
+}
+
+function getLatestPastDateIso(values: string[], now: Date): string {
+    const nowTime = startOfDay(now).getTime();
+    const timestamps = values
+        .map((value) => parseDate(value))
+        .filter((value): value is Date => Boolean(value))
+        .map((value) => startOfDay(value).getTime())
+        .filter((value) => value < nowTime)
+        .sort((a, b) => b - a);
+    if (timestamps.length === 0) return '';
+    return new Date(timestamps[0]).toISOString();
+}
+
+function getPreferredTimelineDateIso(values: string[], now: Date): string {
+    return getNearestFutureDateIso(values, now) || getLatestPastDateIso(values, now);
 }
 
 function getEarliestKnownDateIso(values: string[]): string {
@@ -532,11 +563,11 @@ function buildHomeClusterCards(
             const sharedArtsExamDate = toIsoDateString(clusterDates.artsExamDate);
             const sharedBusinessExamDate = toIsoDateString(clusterDates.commerceExamDate || clusterDates.businessExamDate);
 
-            const nearestDeadline = getNearestFutureDateIso(
+            const nearestDeadline = getPreferredTimelineDateIso(
                 members.map((item) => item.applicationEndDate).filter(Boolean),
                 now,
             );
-            const nearestExam = getNearestFutureDateIso(
+            const nearestExam = getPreferredTimelineDateIso(
                 members.flatMap((item) => [
                     item.scienceExamDate,
                     item.artsExamDate,
@@ -551,15 +582,15 @@ function buildHomeClusterCards(
                 members.map((item) => item.applicationStartDate).filter(Boolean),
             );
             const applicationEndDate = sharedApplicationEndDate || nearestDeadline;
-            const scienceExamDate = sharedScienceExamDate || getNearestFutureDateIso(
+            const scienceExamDate = sharedScienceExamDate || getPreferredTimelineDateIso(
                 members.flatMap((item) => [item.scienceExamDate, item.examDateScience].filter(Boolean)),
                 now,
             );
-            const artsExamDate = sharedArtsExamDate || getNearestFutureDateIso(
+            const artsExamDate = sharedArtsExamDate || getPreferredTimelineDateIso(
                 members.flatMap((item) => [item.artsExamDate, item.examDateArts].filter(Boolean)),
                 now,
             );
-            const businessExamDate = sharedBusinessExamDate || getNearestFutureDateIso(
+            const businessExamDate = sharedBusinessExamDate || getPreferredTimelineDateIso(
                 members.flatMap((item) => [item.businessExamDate, item.examDateBusiness].filter(Boolean)),
                 now,
             );
@@ -605,11 +636,11 @@ function buildHomeCategoryCards(
         const members = previewItems.filter((item) => item.category === category.name);
         if (members.length === 0) return;
 
-        const nearestDeadline = getNearestFutureDateIso(
+        const nearestDeadline = getPreferredTimelineDateIso(
             members.map((item) => item.applicationEndDate).filter(Boolean),
             now,
         );
-        const nearestExam = getNearestFutureDateIso(
+        const nearestExam = getPreferredTimelineDateIso(
             members.flatMap((item) => [
                 item.scienceExamDate,
                 item.artsExamDate,
@@ -1060,54 +1091,159 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             return !item.clusterGroup && !highlightedCategorySet.has(item.category);
         });
 
-        const deadlineUniversities = filteredIndividualPreviewItems
-            .filter(item => {
-                const deadline = parseDate(item.applicationEndDate);
-                if (!deadline) return false;
-                const dTime = startOfDay(deadline).getTime();
-                return dTime >= nowStartTime && dTime <= maxDeadlineTime;
-            })
-            .sort((a, b) => {
-                const aDate = parseDate(a.applicationEndDate);
-                const bDate = parseDate(b.applicationEndDate);
-                const aTime = aDate ? startOfDay(aDate).getTime() : 0;
-                const bTime = bDate ? startOfDay(bDate).getTime() : 0;
-                return aTime - bTime;
-            })
-            .slice(0, maxDeadlineCards);
-        const deadlineClusters = filteredClusterCards
-            .filter((cluster) => {
-                const deadline = parseDate(cluster.nearestDeadline);
+        const deadlineFallbackCount = Math.max(maxDeadlineCards, 10);
+        const deadlineUniversitiesUpcoming = filteredIndividualPreviewItems
+            .filter((item) => {
+                const deadline = parseDate(item.applicationEndDate || item.applicationEnd);
                 if (!deadline) return false;
                 const deadlineTime = startOfDay(deadline).getTime();
                 return deadlineTime >= nowStartTime && deadlineTime <= maxDeadlineTime;
             })
+            .sort((a, b) => {
+                const aDate = parseDate(a.applicationEndDate || a.applicationEnd);
+                const bDate = parseDate(b.applicationEndDate || b.applicationEnd);
+                const aTime = aDate ? startOfDay(aDate).getTime() : Number.POSITIVE_INFINITY;
+                const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
+                return aTime - bTime;
+            })
             .slice(0, maxDeadlineCards);
+        const deadlineUniversitiesHistorical = filteredIndividualPreviewItems
+            .filter((item) => {
+                const deadline = parseDate(item.applicationEndDate || item.applicationEnd);
+                if (!deadline) return false;
+                return startOfDay(deadline).getTime() < nowStartTime;
+            })
+            .sort((a, b) => {
+                const aDate = parseDate(a.applicationEndDate || a.applicationEnd);
+                const bDate = parseDate(b.applicationEndDate || b.applicationEnd);
+                const aTime = aDate ? startOfDay(aDate).getTime() : 0;
+                const bTime = bDate ? startOfDay(bDate).getTime() : 0;
+                return bTime - aTime;
+            })
+            .slice(0, deadlineFallbackCount)
+            .map((item) => ({
+                ...item,
+                isHistorical: true,
+                endedAt: item.applicationEndDate || item.applicationEnd,
+            }));
+        const deadlineUniversities = deadlineUniversitiesUpcoming.length > 0
+            ? deadlineUniversitiesUpcoming
+            : deadlineUniversitiesHistorical;
+        const deadlineClustersUpcoming = filteredClusterCards
+            .filter((cluster) => {
+                const deadline = parseDate(cluster.nearestDeadline || cluster.applicationEndDate);
+                if (!deadline) return false;
+                const deadlineTime = startOfDay(deadline).getTime();
+                return deadlineTime >= nowStartTime && deadlineTime <= maxDeadlineTime;
+            })
+            .sort((a, b) => {
+                const aDate = parseDate(a.nearestDeadline || a.applicationEndDate);
+                const bDate = parseDate(b.nearestDeadline || b.applicationEndDate);
+                const aTime = aDate ? startOfDay(aDate).getTime() : Number.POSITIVE_INFINITY;
+                const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
+                return aTime - bTime;
+            })
+            .slice(0, maxDeadlineCards);
+        const deadlineClustersHistorical = filteredClusterCards
+            .filter((cluster) => {
+                const deadline = parseDate(cluster.nearestDeadline || cluster.applicationEndDate);
+                if (!deadline) return false;
+                return startOfDay(deadline).getTime() < nowStartTime;
+            })
+            .sort((a, b) => {
+                const aDate = parseDate(a.nearestDeadline || a.applicationEndDate);
+                const bDate = parseDate(b.nearestDeadline || b.applicationEndDate);
+                const aTime = aDate ? startOfDay(aDate).getTime() : 0;
+                const bTime = bDate ? startOfDay(bDate).getTime() : 0;
+                return bTime - aTime;
+            })
+            .slice(0, deadlineFallbackCount)
+            .map((cluster) => ({
+                ...cluster,
+                isHistorical: true,
+                endedAt: cluster.nearestDeadline || cluster.applicationEndDate,
+            }));
+        const deadlineClusters = deadlineClustersUpcoming.length > 0
+            ? deadlineClustersUpcoming
+            : deadlineClustersHistorical;
         const deadlineCategories: HomeCategoryCardItem[] = [];
 
-        const upcomingExamUniversities = filteredIndividualPreviewItems
-            .filter(item => {
-                const dates = [
-                    item.scienceExamDate, item.artsExamDate, item.businessExamDate,
-                    item.examDateScience, item.examDateArts, item.examDateBusiness
-                ].filter(Boolean);
-                if (dates.length === 0) return false;
-                return dates.some(d => {
-                    const parsed = parseDate(d);
-                    if (!parsed) return false;
-                    const pTime = startOfDay(parsed).getTime();
-                return pTime >= nowStartTime && pTime <= maxExamTime;
-            });
-        })
+        const examFallbackCount = Math.max(maxExamCards, 10);
+        const upcomingExamUniversitiesUpcoming = filteredIndividualPreviewItems
+            .filter((item) => {
+                const nearestUpcomingExam = getNearestFutureDateIso(getUniversityExamDates(item), now);
+                const parsed = parseDate(nearestUpcomingExam);
+                if (!parsed) return false;
+                const examTime = startOfDay(parsed).getTime();
+                return examTime >= nowStartTime && examTime <= maxExamTime;
+            })
+            .sort((a, b) => {
+                const aDate = parseDate(getNearestFutureDateIso(getUniversityExamDates(a), now));
+                const bDate = parseDate(getNearestFutureDateIso(getUniversityExamDates(b), now));
+                const aTime = aDate ? startOfDay(aDate).getTime() : Number.POSITIVE_INFINITY;
+                const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
+                return aTime - bTime;
+            })
             .slice(0, maxExamCards);
-        const upcomingExamClusters = filteredClusterCards
+        const upcomingExamUniversitiesHistorical = filteredIndividualPreviewItems
+            .map((item) => ({
+                item,
+                latestPastExam: getLatestPastDateIso(getUniversityExamDates(item), now),
+            }))
+            .filter((entry) => Boolean(entry.latestPastExam))
+            .sort((a, b) => {
+                const aDate = parseDate(a.latestPastExam);
+                const bDate = parseDate(b.latestPastExam);
+                const aTime = aDate ? startOfDay(aDate).getTime() : 0;
+                const bTime = bDate ? startOfDay(bDate).getTime() : 0;
+                return bTime - aTime;
+            })
+            .slice(0, examFallbackCount)
+            .map(({ item, latestPastExam }) => ({
+                ...item,
+                isHistorical: true,
+                endedAt: latestPastExam,
+            }));
+        const upcomingExamUniversities = upcomingExamUniversitiesUpcoming.length > 0
+            ? upcomingExamUniversitiesUpcoming
+            : upcomingExamUniversitiesHistorical;
+        const upcomingExamClustersUpcoming = filteredClusterCards
             .filter((cluster) => {
                 const examDate = parseDate(cluster.nearestExam);
                 if (!examDate) return false;
                 const examTime = startOfDay(examDate).getTime();
                 return examTime >= nowStartTime && examTime <= maxExamTime;
             })
+            .sort((a, b) => {
+                const aDate = parseDate(a.nearestExam);
+                const bDate = parseDate(b.nearestExam);
+                const aTime = aDate ? startOfDay(aDate).getTime() : Number.POSITIVE_INFINITY;
+                const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
+                return aTime - bTime;
+            })
             .slice(0, maxExamCards);
+        const upcomingExamClustersHistorical = filteredClusterCards
+            .filter((cluster) => {
+                const examDate = parseDate(cluster.nearestExam);
+                if (!examDate) return false;
+                return startOfDay(examDate).getTime() < nowStartTime;
+            })
+            .sort((a, b) => {
+                const aDate = parseDate(a.nearestExam);
+                const bDate = parseDate(b.nearestExam);
+                const aTime = aDate ? startOfDay(aDate).getTime() : 0;
+                const bTime = bDate ? startOfDay(bDate).getTime() : 0;
+                return bTime - aTime;
+            })
+            .slice(0, examFallbackCount)
+            .map((cluster) => ({
+                ...cluster,
+                isHistorical: true,
+                endedAt: cluster.nearestExam,
+            }));
+        const upcomingExamClusters = upcomingExamClustersUpcoming.length > 0
+            ? upcomingExamClustersUpcoming
+            : upcomingExamClustersHistorical;
         const upcomingExamCategories: HomeCategoryCardItem[] = [];
         const preferredFeaturedClusters = filteredClusterCards.filter((cluster) => cluster.homeVisible);
         const featuredClusters = (
@@ -1134,7 +1270,7 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
                     uniSettingsDoc?.defaultCategory,
                     homeSettings.universityPreview?.defaultActiveCategory || pickString(homeSettings.universityDashboard.defaultCategory, 'all'),
                 ),
-                showFilters: homeSettings.universityDashboard.showFilters,
+                showFilters: true,
                 defaultSort: homeSettings.universityCardConfig.defaultSort,
                 clusterGroups,
             },

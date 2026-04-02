@@ -10,6 +10,7 @@ import {
     adminRevokeBadge,
     adminUpdateBadge,
 } from '../../services/api';
+import { showConfirmDialog } from '../../lib/appDialog';
 
 type BadgeForm = {
     code: string;
@@ -109,7 +110,13 @@ export default function BadgeManagementPanel() {
     };
 
     const removeBadge = async (id: string) => {
-        if (!window.confirm('Delete this badge?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete badge',
+            message: 'Delete this badge?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteBadge(id);
             toast.success('Badge deleted');

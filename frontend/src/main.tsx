@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
+import AppDialogHost from './components/ui/AppDialogHost';
 import './styles/index.css';
 import { initFirebaseAppCheck, initFirebaseClient } from './lib/firebase';
 import { registerAllMocks } from './mocks/registerMocks';
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <HelmetProvider>
             <App />
         </HelmetProvider>
+        <AppDialogHost />
         <Toaster
             position="top-right"
             toastOptions={{

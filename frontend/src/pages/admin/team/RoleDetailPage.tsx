@@ -13,6 +13,7 @@ import {
   ArrowLeft, Shield, Users, Lock, Save, Copy, Trash2, CheckCircle2,
 } from 'lucide-react';
 import { ADMIN_PATHS } from '../../../routes/adminPaths';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type DetailTab = 'overview' | 'permissions' | 'members';
 
@@ -126,7 +127,15 @@ export default function RoleDetailPage() {
 
   async function handleDelete() {
     if (!id) return;
-    if (!window.confirm('Delete this role? Members with this role will become unassigned.')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete role?',
+      message: 'Members using this role will become unassigned.',
+      description: 'This removes the role definition itself and cannot be undone from this screen.',
+      confirmLabel: 'Delete role',
+      cancelLabel: 'Keep role',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await teamApi.deleteRole(id);
       toast.success('Role deleted');

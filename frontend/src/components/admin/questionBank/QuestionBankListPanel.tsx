@@ -12,6 +12,7 @@ import {
 } from '../../../hooks/useQuestionBankV2Queries';
 import { exportQuestions } from '../../../api/adminQuestionBankApi';
 import type { BankQuestionFilters, BankQuestion } from '../../../types/questionBank';
+import { showConfirmDialog } from '../../../lib/appDialog';
 import { downloadFile } from '../../../utils/download';
 
 interface Props {
@@ -70,7 +71,13 @@ export default function QuestionBankListPanel({ onEdit, archiveMode }: Props) {
     }
     async function handleBulkDelete() {
         if (selectedIds.length === 0) return;
-        if (!confirm(`Delete ${selectedIds.length} questions?`)) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete questions',
+            message: `Delete ${selectedIds.length} questions?`,
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await bulkDeleteMut.mutateAsync(selectedIds);
             toast.success(`${selectedIds.length} questions deleted`);
@@ -222,7 +229,17 @@ export default function QuestionBankListPanel({ onEdit, archiveMode }: Props) {
                                                         </div>
                                                     )}
                                                     <div className="flex items-center gap-1">
-                                                        <button onClick={async () => { if (!confirm('Delete?')) return; await deleteMut.mutateAsync(q._id); toast.success('Deleted'); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition" title="Delete">
+                                                        <button onClick={async () => {
+                                                            const confirmed = await showConfirmDialog({
+                                                                title: 'Delete question',
+                                                                message: 'Delete this question?',
+                                                                confirmLabel: 'Delete',
+                                                                tone: 'danger',
+                                                            });
+                                                            if (!confirmed) return;
+                                                            await deleteMut.mutateAsync(q._id);
+                                                            toast.success('Deleted');
+                                                        }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition" title="Delete">
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>

@@ -8,6 +8,7 @@ import {
     getAdminBackupDownloadUrl,
 } from '../../services/api';
 import { Database, Download, RefreshCw } from 'lucide-react';
+import { showPromptDialog } from '../../lib/appDialog';
 import { downloadFile } from '../../utils/download';
 import { promptForSensitiveActionProof } from '../../utils/sensitiveAction';
 
@@ -47,7 +48,13 @@ export default function BackupsPanel() {
     };
 
     const restore = async (id: string) => {
-        const confirmation = window.prompt(`Type exactly: RESTORE ${id}`);
+        const confirmation = await showPromptDialog({
+            title: 'Restore backup',
+            message: 'Type the restore phrase to continue.',
+            expectedValue: `RESTORE ${id}`,
+            confirmLabel: 'Continue',
+            tone: 'danger',
+        });
         if (!confirmation) return;
         const proof = await promptForSensitiveActionProof({
             actionLabel: 'restore backup',

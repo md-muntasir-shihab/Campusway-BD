@@ -11,6 +11,7 @@ import {
     adminRejectPendingAction,
     type AdminActionApproval,
 } from '../../../services/api';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
 
@@ -212,8 +213,13 @@ export default function ActionApprovalsPage() {
         setMobileDrawerOpen(true);
     };
 
-    const handleApprove = (item: AdminActionApproval) => {
-        if (!window.confirm('Approve and execute this action?')) return;
+    const handleApprove = async (item: AdminActionApproval) => {
+        const confirmed = await showConfirmDialog({
+            title: 'Approve action',
+            message: 'Approve and execute this action?',
+            confirmLabel: 'Approve',
+        });
+        if (!confirmed) return;
         approveMutation.mutate(item._id);
     };
 

@@ -11,6 +11,7 @@ interface FilterBottomSheetProps {
     sort: UniversityCardSort;
     setSort: (v: UniversityCardSort) => void;
     clusters: string[];
+    showClusterFilter?: boolean;
     selectedCluster: string;
     setSelectedCluster: (v: string) => void;
 }
@@ -23,6 +24,7 @@ export default function FilterBottomSheet({
     sort,
     setSort,
     clusters,
+    showClusterFilter = true,
     selectedCluster,
     setSelectedCluster,
 }: FilterBottomSheetProps) {
@@ -78,7 +80,7 @@ export default function FilterBottomSheet({
                                 </div>
                             </div>
 
-                            {clusters.length > 0 && (
+                            {showClusterFilter && clusters.length > 0 && (
                                 <div>
                                     <label className="text-xs font-bold uppercase tracking-wider text-text-muted dark:text-dark-text/50 mb-1.5 block">
                                         Cluster Group

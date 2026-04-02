@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
+import XLSX from 'xlsx';
 import FinanceTransaction from '../models/FinanceTransaction';
 import FinanceInvoice from '../models/FinanceInvoice';
 import FinanceBudget from '../models/FinanceBudget';
@@ -46,12 +47,14 @@ function paginate(query: Record<string, unknown>) {
 
 function dateRange(query: Record<string, unknown>) {
     const matcher: Record<string, unknown> = {};
-    if (query.dateFrom) {
-        const d = new Date(String(query.dateFrom));
+    const rawFrom = query.dateFrom ?? query.from;
+    const rawTo = query.dateTo ?? query.to;
+    if (rawFrom) {
+        const d = new Date(String(rawFrom));
         if (!isNaN(d.getTime())) matcher.$gte = d;
     }
-    if (query.dateTo) {
-        const d = new Date(String(query.dateTo));
+    if (rawTo) {
+        const d = new Date(String(rawTo));
         if (!isNaN(d.getTime())) matcher.$lte = d;
     }
     return Object.keys(matcher).length > 0 ? matcher : null;
@@ -59,6 +62,91 @@ function dateRange(query: Record<string, unknown>) {
 
 function sanitize(s: unknown): string {
     return String(s || '').trim().slice(0, 1000);
+}
+
+const FINANCE_IMPORT_HEADER_ALIASES: Record<string, string> = {
+    direction: 'direction',
+    type: 'direction',
+    amount: 'amount',
+    currency: 'currency',
+    date: 'dateUTC',
+    'date utc': 'dateUTC',
+    'date (yyyy mm dd)': 'dateUTC',
+    'date yyyy mm dd': 'dateUTC',
+    'date yyyy-mm-dd': 'dateUTC',
+    'transaction date': 'dateUTC',
+    account: 'accountCode',
+    'account code': 'accountCode',
+    accountcode: 'accountCode',
+    category: 'categoryLabel',
+    'category label': 'categoryLabel',
+    categorylabel: 'categoryLabel',
+    description: 'description',
+    note: 'description',
+    notes: 'description',
+    method: 'method',
+    'payment method': 'method',
+    paymentmethod: 'method',
+    tags: 'tags',
+};
+
+function normalizeImportHeader(header: unknown): string {
+    return String(header || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function normalizeImportTags(value: unknown): string[] {
+    return String(value || '')
+        .split(/[|,]/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .slice(0, 20);
+}
+
+function normalizeFinanceImportRow(
+    row: Record<string, unknown>,
+    mapping?: Record<string, string>,
+): {
+    direction: 'income' | 'expense';
+    amount: number;
+    currency: string;
+    dateUTC: string;
+    accountCode: string;
+    categoryLabel: string;
+    description: string;
+    method: string;
+    tags: string[];
+} {
+    const normalized: Record<string, unknown> = {};
+
+    Object.entries(row || {}).forEach(([key, value]) => {
+        const canonicalKey = FINANCE_IMPORT_HEADER_ALIASES[normalizeImportHeader(key)] || key;
+        if (normalized[canonicalKey] === undefined) normalized[canonicalKey] = value;
+    });
+
+    if (mapping) {
+        Object.entries(mapping).forEach(([canonicalKey, sourceKey]) => {
+            if (!sourceKey) return;
+            if (row[sourceKey] !== undefined) normalized[canonicalKey] = row[sourceKey];
+        });
+    }
+
+    const parsedDate = normalized.dateUTC ? new Date(String(normalized.dateUTC)) : null;
+
+    return {
+        direction: String(normalized.direction || 'income').trim().toLowerCase() === 'expense' ? 'expense' : 'income',
+        amount: num(normalized.amount),
+        currency: String(normalized.currency || 'BDT').trim().toUpperCase() || 'BDT',
+        dateUTC: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : '',
+        accountCode: String(normalized.accountCode || '').trim().toUpperCase(),
+        categoryLabel: String(normalized.categoryLabel || '').trim(),
+        description: sanitize(normalized.description),
+        method: String(normalized.method || 'manual').trim().toLowerCase() || 'manual',
+        tags: normalizeImportTags(normalized.tags),
+    };
 }
 
 // ══════════════════════════════════════════════════════════
@@ -493,6 +581,7 @@ export async function fcMarkInvoicePaid(req: AuthRequest, res: Response): Promis
         if (!inv) { res.status(404).json({ message: 'Not found' }); return; }
 
         const adminId = String(req.user?._id || '');
+        const settings = await getOrCreateFinanceSettings();
         inv.paidAmountBDT = inv.amountBDT;
         inv.status = 'paid';
         inv.paidAtUTC = new Date();
@@ -505,7 +594,7 @@ export async function fcMarkInvoicePaid(req: AuthRequest, res: Response): Promis
             isDeleted: false,
         }).lean();
 
-        if (!existingTxn) {
+        if (!existingTxn && settings.autoPostInvoicePayments !== false) {
             const accountMap: Record<string, string> = {
                 subscription: 'REV_SUBSCRIPTION',
                 exam: 'REV_EXAM',
@@ -523,7 +612,7 @@ export async function fcMarkInvoicePaid(req: AuthRequest, res: Response): Promis
                 categoryLabel: inv.purpose === 'subscription' ? 'Subscription' : inv.purpose === 'exam' ? 'Exam Fee' : inv.purpose === 'service' ? 'Service' : 'Other',
                 description: `Invoice ${inv.invoiceNo} payment`,
                 status: 'paid',
-                method: 'manual',
+                method: settings.defaultPaymentMethod || 'manual',
                 sourceType: inv.purpose === 'subscription' ? 'subscription_payment' : inv.purpose === 'exam' ? 'exam_payment' : 'manual_income',
                 sourceId: String(inv._id),
                 studentId: inv.studentId,
@@ -859,6 +948,16 @@ export async function fcUpdateSettings(req: AuthRequest, res: Response): Promise
         const settings = await getOrCreateFinanceSettings();
 
         if (b.defaultCurrency !== undefined) settings.defaultCurrency = sanitize(b.defaultCurrency) || 'BDT';
+        if (b.invoicePrefix !== undefined) settings.invoicePrefix = sanitize(b.invoicePrefix).replace(/[^a-z0-9_-]/gi, '') || 'CW-INV';
+        if (b.invoiceNumberPadding !== undefined) settings.invoiceNumberPadding = clamp(Math.floor(num(b.invoiceNumberPadding, 6)), 3, 12);
+        if (b.defaultPaymentMethod !== undefined) settings.defaultPaymentMethod = sanitize(b.defaultPaymentMethod) || 'manual';
+        if (b.taxRatePercent !== undefined) settings.taxRatePercent = clamp(num(b.taxRatePercent, 0), 0, 100);
+        if (b.exportLocale !== undefined) settings.exportLocale = sanitize(b.exportLocale) || 'en-BD';
+        if (b.exportDateFormat !== undefined) settings.exportDateFormat = sanitize(b.exportDateFormat) || 'YYYY-MM-DD';
+        if (b.autoPostSubscriptionRevenue !== undefined) settings.autoPostSubscriptionRevenue = Boolean(b.autoPostSubscriptionRevenue);
+        if (b.autoPostCampaignExpenses !== undefined) settings.autoPostCampaignExpenses = Boolean(b.autoPostCampaignExpenses);
+        if (b.autoPostInvoicePayments !== undefined) settings.autoPostInvoicePayments = Boolean(b.autoPostInvoicePayments);
+        if (b.reportCurrencyLabel !== undefined) settings.reportCurrencyLabel = sanitize(b.reportCurrencyLabel) || 'BDT';
         if (b.requireApprovalForExpense !== undefined) settings.requireApprovalForExpense = Boolean(b.requireApprovalForExpense);
         if (b.requireApprovalForIncome !== undefined) settings.requireApprovalForIncome = Boolean(b.requireApprovalForIncome);
         if (b.enableBudgets !== undefined) settings.enableBudgets = Boolean(b.enableBudgets);
@@ -969,9 +1068,9 @@ export async function fcExportTransactions(req: AuthRequest, res: Response): Pro
                     ].join(',')
                 );
             }
-            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename=finance-transactions.csv');
-            res.send(lines.join('\n'));
+            res.send(`\uFEFF${lines.join('\n')}`);
             return;
         }
 
@@ -1022,25 +1121,29 @@ export async function fcImportPreview(req: AuthRequest, res: Response): Promise<
     try {
         if (!req.file) { res.status(400).json({ message: 'File required' }); return; }
 
-        const wb = new ExcelJS.Workbook();
-        await wb.xlsx.load(req.file.buffer);
-        const ws = wb.worksheets[0];
-        if (!ws) { res.status(400).json({ message: 'No worksheet found' }); return; }
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer', raw: false });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = sheetName ? workbook.Sheets[sheetName] : null;
+        if (!worksheet) { res.status(400).json({ message: 'No worksheet found' }); return; }
 
-        const headers: string[] = [];
-        ws.getRow(1).eachCell((cell) => { headers.push(String(cell.value || '').trim()); });
-
-        const rows: Record<string, string>[] = [];
-        ws.eachRow((row, idx) => {
-            if (idx === 1) return;
-            const obj: Record<string, string> = {};
-            row.eachCell((cell, colNumber) => {
-                obj[headers[colNumber - 1] || `col${colNumber}`] = String(cell.value || '');
-            });
-            rows.push(obj);
+        const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+        const headers = rawRows[0] ? Object.keys(rawRows[0]) : [];
+        const errors: Array<{ row: number; message: string }> = [];
+        const rows = rawRows.map((row, index) => {
+            const normalizedRow = normalizeFinanceImportRow(row);
+            if (normalizedRow.amount <= 0) {
+                errors.push({ row: index + 2, message: 'Amount must be greater than zero.' });
+            }
+            if (!normalizedRow.accountCode) {
+                errors.push({ row: index + 2, message: 'Account code is required.' });
+            }
+            if (!normalizedRow.categoryLabel) {
+                errors.push({ row: index + 2, message: 'Category label is required.' });
+            }
+            return normalizedRow;
         });
 
-        res.json({ ok: true, headers, rows: rows.slice(0, 200), totalRows: rows.length });
+        res.json({ ok: true, headers, rows: rows.slice(0, 200), totalRows: rows.length, errors });
     } catch (err) {
         console.error('fcImportPreview error:', err);
         res.status(500).json({ message: 'Server error' });
@@ -1050,35 +1153,45 @@ export async function fcImportPreview(req: AuthRequest, res: Response): Promise<
 export async function fcImportCommit(req: AuthRequest, res: Response): Promise<void> {
     try {
         const { rows, mapping } = req.body;
-        if (!Array.isArray(rows) || !mapping) {
-            res.status(400).json({ message: 'rows and mapping required' });
+        if (!Array.isArray(rows) || rows.length === 0) {
+            res.status(400).json({ message: 'rows required' });
             return;
         }
         const adminId = String(req.user?._id || '');
+        const settings = await getOrCreateFinanceSettings();
         let created = 0;
         let errors = 0;
+        const failedRows: Array<{ row: number; message: string }> = [];
 
-        for (const row of rows) {
+        for (const [index, row] of rows.entries()) {
             try {
+                const normalizedRow = normalizeFinanceImportRow(row as Record<string, unknown>, mapping);
+                if (normalizedRow.amount <= 0 || !normalizedRow.accountCode || !normalizedRow.categoryLabel) {
+                    errors++;
+                    failedRows.push({ row: index + 1, message: 'Amount, account code, and category label are required.' });
+                    continue;
+                }
                 const txnCode = await nextTxnCode();
                 await FinanceTransaction.create({
                     txnCode,
-                    direction: String(row[mapping.direction] || 'income').toLowerCase() === 'expense' ? 'expense' : 'income',
-                    amount: num(row[mapping.amount]),
-                    currency: String(row[mapping.currency] || 'BDT'),
-                    dateUTC: row[mapping.date] ? new Date(row[mapping.date]) : new Date(),
-                    accountCode: String(row[mapping.accountCode] || 'REV_OTHER').toUpperCase(),
-                    categoryLabel: String(row[mapping.categoryLabel] || 'Imported'),
-                    description: String(row[mapping.description] || ''),
+                    direction: normalizedRow.direction,
+                    amount: normalizedRow.amount,
+                    currency: normalizedRow.currency || 'BDT',
+                    dateUTC: normalizedRow.dateUTC ? new Date(normalizedRow.dateUTC) : new Date(),
+                    accountCode: normalizedRow.accountCode,
+                    categoryLabel: normalizedRow.categoryLabel,
+                    description: normalizedRow.description,
                     status: 'paid',
-                    method: String(row[mapping.method] || 'manual'),
-                    sourceType: 'manual_income',
+                    method: normalizedRow.method || settings.defaultPaymentMethod || 'manual',
+                    sourceType: normalizedRow.direction === 'expense' ? 'expense' : 'manual_income',
+                    tags: normalizedRow.tags,
                     createdByAdminId: new mongoose.Types.ObjectId(adminId),
                     paidAtUTC: new Date(),
                 });
                 created++;
             } catch {
                 errors++;
+                failedRows.push({ row: index + 1, message: 'Failed to create transaction.' });
             }
         }
 
@@ -1090,7 +1203,7 @@ export async function fcImportCommit(req: AuthRequest, res: Response): Promise<v
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, created, errors });
+        res.json({ ok: true, created, errors, failedRows: failedRows.slice(0, 100) });
     } catch (err) {
         console.error('fcImportCommit error:', err);
         res.status(500).json({ message: 'Server error' });

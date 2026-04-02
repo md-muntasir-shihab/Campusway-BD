@@ -21,6 +21,7 @@
         "migrate:communication-center-v1": "tsx src/scripts/migrate-communication-center-v1.ts",
         "migrate:security-hardening": "tsx src/scripts/migrate-security-hardening.ts",
         "security:enable-testing-access-mode": "tsx src/scripts/enable-testing-access-mode.ts",
+        "security:disable-testing-access-mode": "tsx src/scripts/disable-testing-access-mode.ts",
         "test:qbank:unit": "tsx src/scripts/qbank-unit-tests.ts",
         "test:qbank:integration": "tsx src/scripts/qbank-integration-smoke.ts",
         "e2e:prepare": "tsx src/scripts/e2e_prepare.ts",

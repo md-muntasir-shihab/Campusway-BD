@@ -2,17 +2,19 @@ import { useParams } from 'react-router-dom';
 import { useMemo } from 'react';
 import UniversityBrowseShell from '../components/university/UniversityBrowseShell';
 import { useUniversityCategories } from '../hooks/useUniversityQueries';
+import { toSlug } from '../lib/apiClient';
 
 export default function UniversityCategoryBrowsePage() {
     const { categorySlug } = useParams<{ categorySlug: string }>();
     const { data: categories, isLoading } = useUniversityCategories();
 
     const match = useMemo(
-        () => categories?.find((c) => c.categorySlug === categorySlug) ?? null,
+        () => categories?.find((c) => c.categorySlug === categorySlug || c.categoryName === categorySlug || c.categorySlug === toSlug(String(categorySlug || ''))) ?? null,
         [categories, categorySlug],
     );
 
     const categoryName = match?.categoryName ?? '';
+    const canonicalCategorySlug = match?.categorySlug || toSlug(categoryName || String(categorySlug || ''));
 
     if (isLoading) {
         return (
@@ -35,10 +37,11 @@ export default function UniversityCategoryBrowsePage() {
 
     return (
         <UniversityBrowseShell
-            fixedCategory={categoryName}
+            fixedCategory={canonicalCategorySlug}
             title={categoryName || 'Category'}
             subtitle={`Showing all universities in ${categoryName || 'this category'}.`}
             hideCategoryTabs
+            cardVariant="modern"
         />
     );
 }

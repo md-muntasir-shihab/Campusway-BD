@@ -14,6 +14,7 @@ import {
 import { ADMIN_PATHS } from '../../../routes/adminPaths';
 import { downloadFile } from '../../../utils/download';
 import ModernToggle from '../../../components/ui/ModernToggle';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
 type GroupType = 'manual' | 'dynamic';
@@ -319,7 +320,13 @@ export default function StudentGroupsPage() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.length} selected groups? Unsafe groups will be skipped.`)) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete groups',
+      message: `Delete ${selectedIds.length} selected groups? Unsafe groups will be skipped.`,
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       const result = await bulkDeleteStudentGroups(selectedIds) as { skipped?: Array<{ blockers?: string[] }> };
       setSelectedIds([]);

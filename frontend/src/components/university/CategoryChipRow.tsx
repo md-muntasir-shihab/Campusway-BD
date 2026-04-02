@@ -5,7 +5,7 @@ import type { UniversityCategoryDetail } from '../../lib/apiClient';
 interface CategoryChipRowProps {
     categories: UniversityCategoryDetail[];
     activeCategory: string;
-    onCategoryChange: (categoryName: string) => void;
+    onCategoryChange: (categorySlug: string) => void;
 }
 
 export default function CategoryChipRow({ categories, activeCategory, onCategoryChange }: CategoryChipRowProps) {
@@ -90,11 +90,11 @@ export default function CategoryChipRow({ categories, activeCategory, onCategory
                         key={`${item.categorySlug || item.categoryName}-${index}`}
                         type="button"
                         role="tab"
-                        aria-selected={activeCategory === item.categoryName}
-                        onClick={() => onCategoryChange(item.categoryName)}
-                        className={`tab-pill whitespace-nowrap flex-shrink-0 text-xs sm:text-sm ${activeCategory === item.categoryName ? 'tab-pill-active' : 'tab-pill-inactive'}`}
+                        aria-selected={activeCategory === item.categorySlug || activeCategory === item.categoryName}
+                        onClick={() => onCategoryChange(item.categorySlug || item.categoryName)}
+                        className={`tab-pill whitespace-nowrap flex-shrink-0 text-xs sm:text-sm ${(activeCategory === item.categorySlug || activeCategory === item.categoryName) ? 'tab-pill-active' : 'tab-pill-inactive'}`}
                         data-testid="university-category-tab"
-                        data-category={item.categoryName}
+                        data-category={item.categorySlug || item.categoryName}
                     >
                         {item.categoryName}
                         <span className="ml-1 text-xs opacity-70">({item.count})</span>

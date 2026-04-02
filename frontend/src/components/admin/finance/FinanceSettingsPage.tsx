@@ -11,7 +11,7 @@ export default function FinanceSettingsPage() {
     const [newCenter, setNewCenter] = useState('');
 
     useEffect(() => {
-        if (settings) setForm({ ...(settings as { data?: FcSettings }).data ?? settings as unknown as FcSettings });
+        if (settings) setForm(settings);
     }, [settings]);
 
     const set = <K extends keyof FcSettings>(key: K, value: FcSettings[K]) =>
@@ -56,11 +56,33 @@ export default function FinanceSettingsPage() {
                     <Field label="Default Currency">
                         <input value={form.defaultCurrency ?? 'BDT'} onChange={e => set('defaultCurrency', e.target.value)} className={inputCls} />
                     </Field>
+                    <Field label="Report Currency Label">
+                        <input value={form.reportCurrencyLabel ?? 'BDT'} onChange={e => set('reportCurrencyLabel', e.target.value)} className={inputCls} />
+                    </Field>
                     <Field label="Receipt Required Above (BDT)">
                         <input type="number" min={0} value={form.receiptRequiredAboveAmount ?? 0} onChange={e => set('receiptRequiredAboveAmount', +e.target.value)} className={inputCls} />
                     </Field>
                     <Field label="Export Footer Note">
                         <input value={form.exportFooterNote ?? ''} onChange={e => set('exportFooterNote', e.target.value)} className={inputCls} />
+                    </Field>
+                    <Field label="Export Locale">
+                        <input value={form.exportLocale ?? 'en-BD'} onChange={e => set('exportLocale', e.target.value)} className={inputCls} />
+                    </Field>
+                    <Field label="Export Date Format">
+                        <input value={form.exportDateFormat ?? 'YYYY-MM-DD'} onChange={e => set('exportDateFormat', e.target.value)} className={inputCls} />
+                    </Field>
+                    <Field label="Default Payment Method">
+                        <select value={form.defaultPaymentMethod ?? 'manual'} onChange={e => set('defaultPaymentMethod', e.target.value as FcSettings['defaultPaymentMethod'])} className={inputCls}>
+                            <option value="manual">Manual</option>
+                            <option value="cash">Cash</option>
+                            <option value="bkash">bKash</option>
+                            <option value="nagad">Nagad</option>
+                            <option value="bank">Bank</option>
+                            <option value="card">Card</option>
+                            <option value="gateway">Gateway</option>
+                            <option value="upay">Upay</option>
+                            <option value="rocket">Rocket</option>
+                        </select>
                     </Field>
                 </Section>
 
@@ -70,6 +92,21 @@ export default function FinanceSettingsPage() {
                     <Toggle label="Require Approval for Income" checked={form.requireApprovalForIncome ?? false} onChange={v => set('requireApprovalForIncome', v)} />
                     <Toggle label="Enable Budget Module" checked={form.enableBudgets ?? false} onChange={v => set('enableBudgets', v)} />
                     <Toggle label="Enable Recurring Engine" checked={form.enableRecurringEngine ?? false} onChange={v => set('enableRecurringEngine', v)} />
+                    <Toggle label="Auto-post Subscription Revenue" checked={form.autoPostSubscriptionRevenue ?? true} onChange={v => set('autoPostSubscriptionRevenue', v)} />
+                    <Toggle label="Auto-post Campaign Expense" checked={form.autoPostCampaignExpenses ?? true} onChange={v => set('autoPostCampaignExpenses', v)} />
+                    <Toggle label="Auto-post Invoice Payments" checked={form.autoPostInvoicePayments ?? true} onChange={v => set('autoPostInvoicePayments', v)} />
+                </Section>
+
+                <Section title="Invoice Policy">
+                    <Field label="Invoice Prefix">
+                        <input value={form.invoicePrefix ?? 'CW-INV'} onChange={e => set('invoicePrefix', e.target.value)} className={inputCls} />
+                    </Field>
+                    <Field label="Invoice Number Padding">
+                        <input type="number" min={3} max={12} value={form.invoiceNumberPadding ?? 6} onChange={e => set('invoiceNumberPadding', +e.target.value)} className={inputCls} />
+                    </Field>
+                    <Field label="Default VAT / Tax (%)">
+                        <input type="number" min={0} max={100} step={0.01} value={form.taxRatePercent ?? 0} onChange={e => set('taxRatePercent', +e.target.value)} className={inputCls} />
+                    </Field>
                 </Section>
 
                 {/* Communication Costs */}

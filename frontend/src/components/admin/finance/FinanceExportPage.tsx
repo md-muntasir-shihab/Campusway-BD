@@ -8,6 +8,7 @@ export default function FinanceExportPage() {
     const [format, setFormat] = useState<'csv' | 'xlsx'>('xlsx');
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
+    const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [downloading, setDownloading] = useState(false);
 
     const handleExport = async () => {
@@ -25,7 +26,7 @@ export default function FinanceExportPage() {
 
     const handlePLReport = async () => {
         try {
-            await fcApi.downloadPLReport(from || undefined);
+            await fcApi.downloadPLReport(reportMonth || undefined);
         } catch {
             toast.error('Failed to download P&L report');
         }
@@ -80,9 +81,15 @@ export default function FinanceExportPage() {
                     <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">P&L Report (PDF)</h3>
                 </div>
                 <p className="mb-3 text-xs text-slate-500">Download a Profit & Loss statement as PDF.</p>
-                <button onClick={handlePLReport} className="flex items-center gap-1 rounded-lg bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700">
-                    <Download size={14} /> Download P&L
-                </button>
+                <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-medium text-slate-500">Month</label>
+                        <input type="month" value={reportMonth} onChange={e => setReportMonth(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+                    </div>
+                    <button onClick={handlePLReport} className="flex items-center gap-1 rounded-lg bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700">
+                        <Download size={14} /> Download P&L
+                    </button>
+                </div>
             </div>
 
             {/* Import template */}

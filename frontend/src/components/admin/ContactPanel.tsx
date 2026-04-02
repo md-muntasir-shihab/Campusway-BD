@@ -7,6 +7,7 @@ import {
     adminGetContactMessages,
     adminUpdateContactMessage,
 } from '../../services/api';
+import { showConfirmDialog } from '../../lib/appDialog';
 
 type Msg = {
     _id: string;
@@ -77,7 +78,13 @@ export default function ContactPanel() {
     };
 
     const onDelete = async (id: string) => {
-        if (!confirm('Delete this message?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete message',
+            message: 'Delete this message?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteContactMessage(id);
             setMessages((prev) => prev.filter((item) => item._id !== id));

@@ -7,6 +7,7 @@ import {
     AdminLiveExamSession,
     getAdminLiveStreamUrl,
 } from '../../services/api';
+import { showPromptDialog } from '../../lib/appDialog';
 
 const LIVE_EVENTS = [
     'attempt-connected',
@@ -123,12 +124,24 @@ export default function LiveExamMonitorPanel() {
     };
 
     const handleWarn = async (attemptId: string) => {
-        const message = window.prompt('Warning message', 'Security warning from proctor.') || 'Security warning from proctor.';
+        const message = await showPromptDialog({
+            title: 'Warning message',
+            message: 'Send a warning to the student.',
+            defaultValue: 'Security warning from proctor.',
+            confirmLabel: 'Send warning',
+            allowEmpty: true,
+        }) || 'Security warning from proctor.';
         await runAction(attemptId, 'warn', message);
     };
 
     const handleMessage = async (attemptId: string) => {
-        const message = window.prompt('Message to student', 'Please return to fullscreen mode.') || '';
+        const message = await showPromptDialog({
+            title: 'Message to student',
+            message: 'Send a direct message to the student.',
+            defaultValue: 'Please return to fullscreen mode.',
+            confirmLabel: 'Send message',
+            allowEmpty: true,
+        }) || '';
         if (!message.trim()) return;
         await runAction(attemptId, 'message', message.trim());
     };

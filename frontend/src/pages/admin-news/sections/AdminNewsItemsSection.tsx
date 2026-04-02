@@ -15,6 +15,7 @@ import {
     adminNewsV2BulkReject,
     adminNewsV2ConvertToNotice,
     adminNewsV2CreateItem,
+    adminNewsV2DeleteItem,
     adminNewsV2GetItemById,
     adminNewsV2GetItems,
     adminNewsV2MergeDuplicate,
@@ -28,6 +29,8 @@ import {
     adminNewsV2SubmitReview,
     adminNewsV2UpdateItem,
     adminNewsV2GetSources,
+    adminNewsV2RestoreItem,
+    adminNewsV2PurgeItem,
     adminNewsV2UploadMedia,
     SensitiveActionProof,
 } from '../../../services/api';
@@ -60,6 +63,7 @@ const EMPTY_ARTICLE: Partial<ApiNews> = {
     content: '',
     category: 'General',
     tags: [],
+    publicTags: [],
     status: 'draft',
     isPublished: false,
     featuredImage: '',
@@ -79,6 +83,8 @@ const EMPTY_ARTICLE: Partial<ApiNews> = {
         emailSubject: '',
         emailBody: '',
     },
+    seoTitle: '',
+    seoDescription: '',
     classification: {
         primaryCategory: 'General',
         tags: [],
@@ -92,9 +98,11 @@ const LIST_STATUS_OPTIONS: Array<{ status: ApiNews['status'] | 'all'; label: str
     { status: 'pending_review', label: 'Items to Review' },
     { status: 'duplicate_review', label: 'Possible Duplicates' },
     { status: 'draft', label: 'Saved Drafts' },
-    { status: 'published', label: 'Live News' },
+    { status: 'published', label: 'Published News' },
     { status: 'scheduled', label: 'Scheduled' },
     { status: 'rejected', label: 'Rejected' },
+    { status: 'archived', label: 'Archived' },
+    { status: 'trash', label: 'Trash' },
 ];
 
 export default function AdminNewsItemsSection({
@@ -260,6 +268,9 @@ export default function AdminNewsItemsSection({
             if (payload.type === 'publish-anyway' && payload.id) return (await adminNewsV2PublishAnyway(payload.id)).data;
             if (payload.type === 'move-draft' && payload.id) return (await adminNewsV2MoveToDraft(payload.id)).data;
             if (payload.type === 'archive' && payload.id) return (await adminNewsV2Archive(payload.id)).data;
+            if (payload.type === 'trash' && payload.id) return (await adminNewsV2DeleteItem(payload.id)).data;
+            if (payload.type === 'restore' && payload.id) return (await adminNewsV2RestoreItem(payload.id)).data;
+            if (payload.type === 'purge' && payload.id) return (await adminNewsV2PurgeItem(payload.id)).data;
             if (payload.type === 'convert-notice' && payload.id) {
                 return (await adminNewsV2ConvertToNotice(payload.id, {
                     target: payload.target,
@@ -294,11 +305,11 @@ export default function AdminNewsItemsSection({
             }
             if (payload?.type === 'ai-check' && editing?._id && response?.item?._id === editing._id) {
                 setEditing(response.item);
-                setTagInput((response.item?.tags || []).join(', '));
+                setTagInput((response.item?.publicTags || response.item?.tags || []).join(', '));
             }
             if (response?.item?._id && editing?._id === response.item._id) {
                 setEditing(response.item);
-                setTagInput((response.item?.tags || []).join(', '));
+                setTagInput((response.item?.publicTags || response.item?.tags || []).join(', '));
             }
             setSelected([]);
             invalidateAll(queryClient);
@@ -348,7 +359,7 @@ export default function AdminNewsItemsSection({
     useEffect(() => {
         if (!initialEditId || !editItemQuery.data) return;
         setEditing(editItemQuery.data);
-        setTagInput((editItemQuery.data.tags || []).join(', '));
+        setTagInput((editItemQuery.data.publicTags || editItemQuery.data.tags || []).join(', '));
     }, [initialEditId, editItemQuery.data]);
 
     useEffect(() => {
@@ -377,12 +388,12 @@ export default function AdminNewsItemsSection({
 
     function onEdit(item?: ApiNews) {
         if (!item) {
-            setEditing({ ...EMPTY_ARTICLE, status: status === 'all' ? 'draft' : status });
+            setEditing({ ...EMPTY_ARTICLE, status: 'draft' });
             setTagInput('');
             return;
         }
         setEditing(item);
-        setTagInput((item.tags || []).join(', '));
+        setTagInput((item.publicTags || item.tags || []).join(', '));
     }
 
     function updateAiEnrichmentField<K extends keyof NonNullable<ApiNews['aiEnrichment']>>(key: K, value: NonNullable<ApiNews['aiEnrichment']>[K]) {
@@ -435,11 +446,14 @@ export default function AdminNewsItemsSection({
         const payload: Partial<ApiNews> = {
             ...editing,
             tags: parseCommaList(tagInput),
+            publicTags: parseCommaList(tagInput),
             shortSummary: String(editing.shortSummary || editing.shortDescription || '').trim() || String(editing.shortDescription || '').trim(),
             coverImageUrl: coverImage,
             coverImage,
             featuredImage: coverImage,
             coverImageSource,
+            seoTitle: String(editing.seoTitle || '').trim(),
+            seoDescription: String(editing.seoDescription || '').trim(),
             aiEnrichment: {
                 ...(editing.aiEnrichment || {}),
                 shortSummary: String(editing.aiEnrichment?.shortSummary || editing.shortSummary || editing.shortDescription || '').trim(),
@@ -690,6 +704,8 @@ export default function AdminNewsItemsSection({
     function renderItemActions(item: ApiNews) {
         const isPendingQueue = item.status === 'pending_review';
         const isDuplicateQueue = item.status === 'duplicate_review';
+        const isArchivedQueue = item.status === 'archived';
+        const isTrashQueue = item.status === 'trash';
         const isExpanded = expandedItemIds.includes(item._id);
 
         function handlePublishSend() {
@@ -789,7 +805,7 @@ export default function AdminNewsItemsSection({
             );
         }
 
-        if (item.status !== 'published') {
+        if (!['published', 'archived', 'trash'].includes(item.status)) {
             secondaryActions.push(
                 renderActionButton(
                     'Publish + Send',
@@ -804,20 +820,57 @@ export default function AdminNewsItemsSection({
             );
         }
 
-        secondaryActions.push(
-            renderActionButton(
-                'Convert to Notice',
-                'rounded-xl border border-violet-500/60 px-3 py-1.5 text-xs font-medium text-violet-200 transition hover:bg-violet-500/10',
-                handleConvertNotice,
-            ),
-        );
+        if (!isArchivedQueue && !isTrashQueue) {
+            secondaryActions.push(
+                renderActionButton(
+                    'Convert to Notice',
+                    'rounded-xl border border-violet-500/60 px-3 py-1.5 text-xs font-medium text-violet-200 transition hover:bg-violet-500/10',
+                    handleConvertNotice,
+                ),
+            );
+        }
 
-        if (item.status === 'published' || item.status === 'rejected' || item.status === 'scheduled') {
+        if (!isArchivedQueue && !isTrashQueue) {
             secondaryActions.push(
                 renderActionButton(
                     'Archive',
                     'rounded-xl border border-slate-500/60 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-500/10',
                     () => actionMutation.mutate({ type: 'archive', id: item._id }),
+                ),
+                renderActionButton(
+                    'Delete',
+                    'rounded-xl border border-rose-500/60 px-3 py-1.5 text-xs font-medium text-rose-200 transition hover:bg-rose-500/10',
+                    () => actionMutation.mutate({ type: 'trash', id: item._id }),
+                ),
+            );
+        }
+
+        if (isArchivedQueue) {
+            secondaryActions.push(
+                renderActionButton(
+                    'Delete',
+                    'rounded-xl border border-rose-500/60 px-3 py-1.5 text-xs font-medium text-rose-200 transition hover:bg-rose-500/10',
+                    () => actionMutation.mutate({ type: 'trash', id: item._id }),
+                ),
+            );
+        }
+
+        if (isArchivedQueue || isTrashQueue) {
+            secondaryActions.push(
+                renderActionButton(
+                    'Restore',
+                    'rounded-xl border border-emerald-500/60 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/10',
+                    () => actionMutation.mutate({ type: 'restore', id: item._id }),
+                ),
+            );
+        }
+
+        if (isTrashQueue) {
+            secondaryActions.push(
+                renderActionButton(
+                    'Purge',
+                    'rounded-xl border border-rose-600/70 px-3 py-1.5 text-xs font-medium text-rose-100 transition hover:bg-rose-600/10',
+                    () => actionMutation.mutate({ type: 'purge', id: item._id }),
                 ),
             );
         }
@@ -863,7 +916,7 @@ export default function AdminNewsItemsSection({
                             <button type="button" className="btn-outline" onClick={() => setMoreFiltersOpen((prev) => !prev)}>
                                 {moreFiltersOpen ? 'Hide more filters' : 'More filters'}
                             </button>
-                            <button className="btn-primary" onClick={() => onEdit()}>Create Manual</button>
+                            <button className="btn-primary" onClick={() => onEdit()}>Create Custom News</button>
                         </div>
                     </div>
 
@@ -927,6 +980,8 @@ export default function AdminNewsItemsSection({
                         <input className="input-field md:col-span-2" placeholder="Title" value={editing.title || ''} onChange={(e) => setEditing((prev) => ({ ...(prev || {}), title: e.target.value }))} />
                         <input className="input-field" placeholder="Category" value={editing.category || ''} onChange={(e) => setEditing((prev) => ({ ...(prev || {}), category: e.target.value }))} />
                         <input className="input-field" placeholder="Original Source Link" value={editing.originalLink || ''} onChange={(e) => setEditing((prev) => ({ ...(prev || {}), originalLink: e.target.value }))} />
+                        <input className="input-field" placeholder="SEO Title" value={editing.seoTitle || ''} onChange={(e) => setEditing((prev) => ({ ...(prev || {}), seoTitle: e.target.value }))} />
+                        <textarea className="input-field min-h-[96px] md:col-span-2" placeholder="SEO Description" value={editing.seoDescription || ''} onChange={(e) => setEditing((prev) => ({ ...(prev || {}), seoDescription: e.target.value }))} />
                         <div className="md:col-span-2 space-y-2 rounded-xl border border-slate-300/70 bg-slate-100/60 p-3 dark:border-slate-700/70 dark:bg-slate-950/30">
                             <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Cover Banner (URL + Upload)</p>
@@ -1000,7 +1055,7 @@ export default function AdminNewsItemsSection({
                             </div>
                         </div>
                         <input className="input-field md:col-span-2" placeholder="Short Summary" value={editing.shortDescription || ''} onChange={(e) => setEditing((prev) => ({ ...(prev || {}), shortDescription: e.target.value }))} />
-                        <input className="input-field md:col-span-2" placeholder="Tags (comma separated)" value={tagInput} onChange={(e) => setTagInput(e.target.value)} />
+                        <input className="input-field md:col-span-2" placeholder="Public Tags (comma separated)" value={tagInput} onChange={(e) => setTagInput(e.target.value)} />
                         <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
                             <label className="space-y-1">
                                 <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Display Type</span>
@@ -1830,6 +1885,8 @@ function statusToListPath(status: ApiNews['status'] | 'all'): string {
     if (status === 'rejected') return '/__cw_admin__/news/rejected';
     if (status === 'duplicate_review') return '/__cw_admin__/news/duplicates';
     if (status === 'draft') return '/__cw_admin__/news/drafts';
+    if (status === 'archived') return '/__cw_admin__/news/archived';
+    if (status === 'trash') return '/__cw_admin__/news/trash';
     return '/__cw_admin__/news/pending';
 }
 

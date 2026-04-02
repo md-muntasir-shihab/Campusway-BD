@@ -6,6 +6,7 @@ import { TwoFactorMethod } from './securityConfigService';
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const TOTP_STEP_SECONDS = 30;
 const TOTP_DIGITS = 6;
+const TOTP_ALLOWED_DRIFT_STEPS = 2;
 
 export function generateOtpCode(): string {
     return String(Math.floor(100000 + Math.random() * 900000));
@@ -56,7 +57,7 @@ function base32Encode(buffer: Buffer): string {
 }
 
 function base32Decode(input: string): Buffer {
-    const sanitized = String(input || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
+    const sanitized = normalizeTotpSecret(input);
     let bits = 0;
     let value = 0;
     const bytes: number[] = [];
@@ -88,7 +89,14 @@ function hotp(secret: string, counter: number): string {
 }
 
 export function generateTotpSecret(length = 20): string {
-    return base32Encode(crypto.randomBytes(Math.max(10, length))).replace(/=+$/g, '');
+    return normalizeTotpSecret(base32Encode(crypto.randomBytes(Math.max(10, length))).replace(/=+$/g, ''));
+}
+
+export function normalizeTotpSecret(secret: unknown): string {
+    return String(secret || '')
+        .toUpperCase()
+        .replace(/[\s-]+/g, '')
+        .replace(/[^A-Z2-7]/g, '');
 }
 
 export function buildTotpOtpAuthUrl(params: {
@@ -96,18 +104,27 @@ export function buildTotpOtpAuthUrl(params: {
     accountName: string;
     secret: string;
 }): string {
-    const issuer = encodeURIComponent(params.issuer || 'CampusWay');
-    const account = encodeURIComponent(params.accountName);
-    const secret = encodeURIComponent(params.secret);
-    return `otpauth://totp/${issuer}:${account}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=${TOTP_DIGITS}&period=${TOTP_STEP_SECONDS}`;
+    const issuer = String(params.issuer || 'CampusWay').trim() || 'CampusWay';
+    const accountName = String(params.accountName || '').trim() || 'user';
+    const secret = normalizeTotpSecret(params.secret);
+    const label = encodeURIComponent(`${issuer}:${accountName}`);
+    const query = new URLSearchParams({
+        secret,
+        issuer,
+        algorithm: 'SHA1',
+        digits: String(TOTP_DIGITS),
+        period: String(TOTP_STEP_SECONDS),
+    });
+    return `otpauth://totp/${label}?${query.toString()}`;
 }
 
-export function verifyTotpCode(secret: string, code: string, window = 1): boolean {
+export function verifyTotpCode(secret: string, code: string, window = TOTP_ALLOWED_DRIFT_STEPS): boolean {
     const normalized = String(code || '').replace(/\D/g, '');
-    if (!secret || normalized.length !== TOTP_DIGITS) return false;
+    const normalizedSecret = normalizeTotpSecret(secret);
+    if (!normalizedSecret || normalized.length !== TOTP_DIGITS) return false;
     const counter = Math.floor(Date.now() / 1000 / TOTP_STEP_SECONDS);
     for (let offset = -Math.max(0, window); offset <= Math.max(0, window); offset += 1) {
-        if (hotp(secret, counter + offset) === normalized) {
+        if (hotp(normalizedSecret, counter + offset) === normalized) {
             return true;
         }
     }

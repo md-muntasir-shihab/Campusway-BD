@@ -162,6 +162,16 @@ export const createVendorSchema = z.object({
 // ── Settings ────────────────────────────────────────────
 export const updateSettingsSchema = z.object({
     defaultCurrency: z.string().max(10).optional(),
+    invoicePrefix: z.string().trim().max(30).optional(),
+    invoiceNumberPadding: z.coerce.number().int().min(3).max(12).optional(),
+    defaultPaymentMethod: method.optional(),
+    taxRatePercent: z.coerce.number().min(0).max(100).optional(),
+    exportLocale: z.string().trim().max(40).optional(),
+    exportDateFormat: z.string().trim().max(40).optional(),
+    autoPostSubscriptionRevenue: z.boolean().optional(),
+    autoPostCampaignExpenses: z.boolean().optional(),
+    autoPostInvoicePayments: z.boolean().optional(),
+    reportCurrencyLabel: z.string().trim().max(20).optional(),
     requireApprovalForExpense: z.boolean().optional(),
     requireApprovalForIncome: z.boolean().optional(),
     enableBudgets: z.boolean().optional(),
@@ -189,14 +199,6 @@ export const processRefundSchema = z.object({
 
 // ── Import ──────────────────────────────────────────────
 export const importCommitSchema = z.object({
-    rows: z.array(z.object({
-        direction: direction.optional(),
-        amount: z.coerce.number().positive(),
-        accountCode: safeStr.min(1),
-        categoryLabel: safeStr.min(1),
-        description: safeStr.optional(),
-        method: method.optional(),
-        dateUTC: z.string().optional(),
-        tags: z.array(z.string()).optional(),
-    })).min(1).max(5000),
+    rows: z.array(z.record(z.string(), z.any())).min(1).max(5000),
+    mapping: z.record(z.string(), z.string()).optional(),
 });

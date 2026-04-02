@@ -215,7 +215,7 @@ function ResourceSettingsPanel() {
                 <SectionCard
                     icon={Type}
                     title="Branding & Hero"
-                    description="Control public/student resource headings, hero copy, badge text, and fallback thumbnail behaviour."
+                    description="Control public and student resource headings, hero copy, badge text, and search messaging."
                 >
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="md:col-span-2">
@@ -253,15 +253,6 @@ function ResourceSettingsPanel() {
                                 onChange={(event) => setField('searchPlaceholder', event.target.value)}
                                 className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                                 placeholder="Search resources..."
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <FieldLabel>Default Thumbnail URL</FieldLabel>
-                            <input
-                                value={form.defaultThumbnailUrl}
-                                onChange={(event) => setField('defaultThumbnailUrl', event.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
-                                placeholder="https://example.com/resource-default.jpg"
                             />
                         </div>
                     </div>
@@ -408,7 +399,7 @@ function ResourceSettingsPanel() {
                 <SectionCard
                     icon={Shield}
                     title="Access & Policy"
-                    description="Define tracking, upload rules, link behaviour, and the categories/types the CMS should expose."
+                    description="Define tracking, link behaviour, and the categories/types the CMS should expose to public and student pages."
                 >
                     <div className="grid gap-3">
                         <ToggleRow
@@ -418,19 +409,6 @@ function ResourceSettingsPanel() {
                             onChange={() => setField('trackingEnabled', !form.trackingEnabled)}
                         />
                         <ToggleRow
-                            title="Allow User Uploads"
-                            description="Allow standard users to contribute study materials into the resource pipeline."
-                            checked={form.allowUserUploads}
-                            onChange={() => setField('allowUserUploads', !form.allowUserUploads)}
-                        />
-                        <ToggleRow
-                            title="Require Admin Approval"
-                            description="Keep user-uploaded resources hidden until a moderator/admin approves them."
-                            checked={form.requireAdminApproval}
-                            onChange={() => setField('requireAdminApproval', !form.requireAdminApproval)}
-                            disabled={!form.allowUserUploads}
-                        />
-                        <ToggleRow
                             title="Open Links In New Tab"
                             description="Use a separate browser tab for external links and downloadable resources."
                             checked={form.openLinksInNewTab}
@@ -438,17 +416,6 @@ function ResourceSettingsPanel() {
                         />
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <FieldLabel>Max File Size (MB)</FieldLabel>
-                            <input
-                                type="number"
-                                min={1}
-                                max={500}
-                                value={form.maxFileSizeMB}
-                                onChange={(event) => setField('maxFileSizeMB', Number(event.target.value) || DEFAULT_RESOURCE_SETTINGS.maxFileSizeMB)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
-                            />
-                        </div>
                         <div>
                             <FieldLabel>Allowed Categories</FieldLabel>
                             <input

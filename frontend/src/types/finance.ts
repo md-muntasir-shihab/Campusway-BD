@@ -144,6 +144,16 @@ export interface FcSettings {
     _id: string;
     key: string;
     defaultCurrency: string;
+    invoicePrefix: string;
+    invoiceNumberPadding: number;
+    defaultPaymentMethod: PaymentMethod;
+    taxRatePercent: number;
+    exportLocale: string;
+    exportDateFormat: string;
+    autoPostSubscriptionRevenue: boolean;
+    autoPostCampaignExpenses: boolean;
+    autoPostInvoicePayments: boolean;
+    reportCurrencyLabel: string;
     requireApprovalForExpense: boolean;
     requireApprovalForIncome: boolean;
     enableBudgets: boolean;

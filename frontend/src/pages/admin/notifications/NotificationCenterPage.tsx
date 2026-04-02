@@ -7,6 +7,7 @@ import {
   getNotificationLogs, sendNotification,
   getStudentGroups,
 } from '../../../api/adminStudentApi';
+import { showConfirmDialog } from '../../../lib/appDialog';
 import { promptForSensitiveActionProof } from '../../../utils/sensitiveAction';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
@@ -176,7 +177,13 @@ export default function NotificationCenterPage({ noShell }: { noShell?: boolean 
     } catch { showToast('Failed to save template', 'error'); }
   };
   const handleTplDelete = async (id: string) => {
-    if (!confirm('Delete this template?')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete template',
+      message: 'Delete this template?',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try { await deleteTemplate(id); qc.invalidateQueries({ queryKey: ['admin-templates'] }); showToast('Template deleted'); }
     catch { showToast('Failed', 'error'); }
   };
@@ -203,7 +210,13 @@ export default function NotificationCenterPage({ noShell }: { noShell?: boolean 
     } catch { showToast('Failed to save provider', 'error'); }
   };
   const handlePvDelete = async (id: string) => {
-    if (!confirm('Delete this provider?')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete provider',
+      message: 'Delete this provider?',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       const proof = await promptForSensitiveActionProof({
         actionLabel: 'delete notification provider',

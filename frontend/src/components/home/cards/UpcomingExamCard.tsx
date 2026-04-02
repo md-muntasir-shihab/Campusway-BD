@@ -47,8 +47,10 @@ function ExamChip({ label, value }: { label: string; value: string }) {
 
 export default function UpcomingExamCard({ university: uni }: UpcomingExamCardProps) {
     const nearestExam = pickNearestExam(uni);
-    const days = daysUntil(nearestExam);
-    const tone = urgencyTone(days);
+    const resolvedExamDate = uni.endedAt || nearestExam;
+    const isHistorical = Boolean(uni.isHistorical && resolvedExamDate);
+    const days = isHistorical ? 999 : daysUntil(resolvedExamDate);
+    const tone = isHistorical ? 'muted' : urgencyTone(days);
     const officialUrl = pickText(uni.website);
     const applyUrl = pickText(uni.admissionWebsite);
     const detailsUrl = `/universities/${uni.slug}`;
@@ -96,10 +98,12 @@ export default function UpcomingExamCard({ university: uni }: UpcomingExamCardPr
                 <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
                         <CalendarDays className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-300" />
-                        Next exam {formatUniversityDate(nearestExam, 'en-GB', { day: '2-digit', month: 'short' })}
+                        {isHistorical
+                            ? `Last exam ${formatUniversityDate(resolvedExamDate, 'en-GB', { day: '2-digit', month: 'short' })}`
+                            : `Next exam ${formatUniversityDate(resolvedExamDate, 'en-GB', { day: '2-digit', month: 'short' })}`}
                     </span>
-                    <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-700 dark:text-cyan-200">
-                        {days === null ? 'TBD' : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`}
+                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${isHistorical ? 'border border-slate-300/80 bg-slate-100/90 text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300' : 'border border-cyan-500/20 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200'}`}>
+                        {isHistorical ? 'Recently ended' : days === null ? 'TBD' : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`}
                     </span>
                 </div>
                 <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700/80 dark:bg-slate-950/55">

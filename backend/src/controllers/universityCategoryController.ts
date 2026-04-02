@@ -99,10 +99,11 @@ export async function adminCreateUniversityCategory(req: Request, res: Response)
             return;
         }
 
-        let slug = normalizeSlug(name, String(payload.slug || ''));
+        const slug = normalizeSlug(name, String(payload.slug || ''));
         const exists = await UniversityCategory.findOne({ $or: [{ name }, { slug }] }).lean();
         if (exists) {
-            slug = `${slug}-${Date.now()}`;
+            res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+            return;
         }
 
         const category = await UniversityCategory.create({
@@ -127,6 +128,10 @@ export async function adminCreateUniversityCategory(req: Request, res: Response)
 
         res.status(201).json({ category, message: 'University category created.' });
     } catch (err) {
+        if ((err as { code?: number }).code === 11000) {
+            res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+            return;
+        }
         console.error('adminCreateUniversityCategory error:', err);
         res.status(500).json({ message: 'Failed to create university category.' });
     }
@@ -154,6 +159,16 @@ export async function adminUpdateUniversityCategory(req: Request, res: Response)
         if (payload.slug !== undefined) {
             category.slug = normalizeSlug(category.name, String(payload.slug || ''));
         }
+        if (payload.name !== undefined || payload.slug !== undefined) {
+            const duplicate = await UniversityCategory.findOne({
+                _id: { $ne: category._id },
+                $or: [{ name: category.name }, { slug: category.slug }],
+            }).select('_id').lean();
+            if (duplicate) {
+                res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+                return;
+            }
+        }
         if (payload.labelBn !== undefined) category.labelBn = String(payload.labelBn || '');
         if (payload.labelEn !== undefined) category.labelEn = String(payload.labelEn || '');
         if (payload.colorToken !== undefined) category.colorToken = String(payload.colorToken || '');
@@ -176,6 +191,10 @@ export async function adminUpdateUniversityCategory(req: Request, res: Response)
 
         res.json({ category, message: 'University category updated.' });
     } catch (err) {
+        if ((err as { code?: number }).code === 11000) {
+            res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+            return;
+        }
         console.error('adminUpdateUniversityCategory error:', err);
         res.status(500).json({ message: 'Failed to update university category.' });
     }

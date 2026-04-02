@@ -27,15 +27,26 @@ export async function nextTxnCode(): Promise<string> {
 let _invCounter: number | null = null;
 
 export async function nextInvoiceNo(): Promise<string> {
+    const settings = await getOrCreateFinanceSettings();
+    const prefix = String(settings.invoicePrefix || 'CW-INV')
+        .trim()
+        .replace(/[^a-z0-9_-]/gi, '')
+        || 'CW-INV';
+    const padding = Math.max(3, Math.min(12, Number(settings.invoiceNumberPadding || 6)));
+    const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     if (_invCounter === null) {
-        const last = await FinanceInvoice.findOne({}, { invoiceNo: 1 })
+        const last = await FinanceInvoice.findOne(
+            { invoiceNo: { $regex: `^${escapedPrefix}-` } },
+            { invoiceNo: 1 },
+        )
             .sort({ createdAt: -1 })
             .lean();
-        const match = last?.invoiceNo?.match(/CW-INV-(\d+)/);
+        const match = last?.invoiceNo?.match(new RegExp(`^${escapedPrefix}-(\\d+)$`));
         _invCounter = match ? parseInt(match[1], 10) : 0;
     }
     _invCounter++;
-    return `CW-INV-${String(_invCounter).padStart(6, '0')}`;
+    return `${prefix}-${String(_invCounter).padStart(padding, '0')}`;
 }
 
 // ── Auto-link: payment → income transaction ─────────────
@@ -450,7 +461,27 @@ export async function getOrCreateFinanceSettings() {
     let settings = await FinanceSettings.findOne({ key: 'default' });
     if (!settings) {
         settings = await FinanceSettings.create({ key: 'default' });
+        return settings;
     }
+    let touched = false;
+    const patchDefault = (field: string, value: unknown) => {
+        const current = (settings as unknown as Record<string, unknown>)[field];
+        if (current === undefined || current === null || current === '') {
+            (settings as unknown as Record<string, unknown>)[field] = value;
+            touched = true;
+        }
+    };
+    patchDefault('invoicePrefix', 'CW-INV');
+    patchDefault('invoiceNumberPadding', 6);
+    patchDefault('defaultPaymentMethod', 'manual');
+    patchDefault('taxRatePercent', 0);
+    patchDefault('exportLocale', 'en-BD');
+    patchDefault('exportDateFormat', 'YYYY-MM-DD');
+    patchDefault('autoPostSubscriptionRevenue', true);
+    patchDefault('autoPostCampaignExpenses', true);
+    patchDefault('autoPostInvoicePayments', true);
+    patchDefault('reportCurrencyLabel', 'BDT');
+    if (touched) await settings.save();
     return settings;
 }
 
@@ -471,7 +502,12 @@ export async function nextRefundCode(): Promise<string> {
 
 // ── P&L PDF Report ──────────────────────────────────────
 export async function generatePLReportPDF(month: string): Promise<Buffer> {
-    const summary = await getFinanceSummary(month);
+    const [summary, settings] = await Promise.all([
+        getFinanceSummary(month),
+        getOrCreateFinanceSettings(),
+    ]);
+    const currencyLabel = String(settings.reportCurrencyLabel || settings.defaultCurrency || 'BDT').trim() || 'BDT';
+    const formatMoney = (value: number) => `${currencyLabel} ${Number(value || 0).toLocaleString('en-BD')}`;
 
     return new Promise((resolve, reject) => {
         const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -480,24 +516,21 @@ export async function generatePLReportPDF(month: string): Promise<Buffer> {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
 
-        // Header
-        doc.fontSize(20).text('CampusWay — Profit & Loss Report', { align: 'center' });
+        doc.fontSize(20).text('CampusWay - Profit & Loss Report', { align: 'center' });
         doc.moveDown(0.3);
         doc.fontSize(12).text(`Month: ${summary.month}`, { align: 'center' });
         doc.moveDown(1);
 
-        // Summary
         doc.fontSize(14).text('Summary', { underline: true });
         doc.moveDown(0.5);
         doc.fontSize(11);
-        doc.text(`Total Income:       ৳${summary.incomeTotal.toLocaleString()}`);
-        doc.text(`Total Expense:      ৳${summary.expenseTotal.toLocaleString()}`);
-        doc.text(`Net Profit/Loss:    ৳${summary.netProfit.toLocaleString()}`);
-        doc.text(`Receivables:        ৳${summary.receivablesTotal.toLocaleString()} (${summary.receivablesCount} invoices)`);
-        doc.text(`Payables:           ৳${summary.payablesTotal.toLocaleString()} (${summary.payablesCount} pending)`);
+        doc.text(`Total Income:       ${formatMoney(summary.incomeTotal)}`);
+        doc.text(`Total Expense:      ${formatMoney(summary.expenseTotal)}`);
+        doc.text(`Net Profit/Loss:    ${formatMoney(summary.netProfit)}`);
+        doc.text(`Receivables:        ${formatMoney(summary.receivablesTotal)} (${summary.receivablesCount} invoices)`);
+        doc.text(`Payables:           ${formatMoney(summary.payablesTotal)} (${summary.payablesCount} pending)`);
         doc.moveDown(1);
 
-        // Top Income Sources
         doc.fontSize(14).text('Top Income Sources', { underline: true });
         doc.moveDown(0.5);
         doc.fontSize(11);
@@ -505,12 +538,11 @@ export async function generatePLReportPDF(month: string): Promise<Buffer> {
             doc.text('No income recorded this month.');
         } else {
             for (const src of summary.topIncomeSources) {
-                doc.text(`  • ${src.category || 'Uncategorized'}: ৳${src.total.toLocaleString()}`);
+                doc.text(`- ${src.category || 'Uncategorized'}: ${formatMoney(src.total)}`);
             }
         }
         doc.moveDown(1);
 
-        // Top Expense Categories
         doc.fontSize(14).text('Top Expense Categories', { underline: true });
         doc.moveDown(0.5);
         doc.fontSize(11);
@@ -518,26 +550,24 @@ export async function generatePLReportPDF(month: string): Promise<Buffer> {
             doc.text('No expenses recorded this month.');
         } else {
             for (const cat of summary.topExpenseCategories) {
-                doc.text(`  • ${cat.category || 'Uncategorized'}: ৳${cat.total.toLocaleString()}`);
+                doc.text(`- ${cat.category || 'Uncategorized'}: ${formatMoney(cat.total)}`);
             }
         }
         doc.moveDown(1);
 
-        // Budget Status
         if (summary.budgetStatus.length > 0) {
             doc.fontSize(14).text('Budget Status', { underline: true });
             doc.moveDown(0.5);
             doc.fontSize(11);
-            for (const b of summary.budgetStatus) {
-                const flag = b.exceeded ? ' ⚠️ OVER' : '';
-                doc.text(`  • ${b.categoryLabel} (${b.accountCode}): ৳${b.spent.toLocaleString()} / ৳${b.amountLimit.toLocaleString()} (${b.percentUsed}%)${flag}`);
+            for (const budget of summary.budgetStatus) {
+                const flag = budget.exceeded ? ' OVER' : '';
+                doc.text(`- ${budget.categoryLabel} (${budget.accountCode}): ${formatMoney(budget.spent)} / ${formatMoney(budget.amountLimit)} (${budget.percentUsed}%)${flag}`);
             }
             doc.moveDown(1);
         }
 
-        // Footer
         doc.moveDown(2);
-        doc.fontSize(9).fillColor('#888').text(`Generated on ${new Date().toISOString().slice(0, 16)} UTC — CampusWay Finance Center`, { align: 'center' });
+        doc.fontSize(9).fillColor('#888').text(`Generated on ${new Date().toISOString().slice(0, 16)} UTC - CampusWay Finance Center`, { align: 'center' });
 
         doc.end();
     });

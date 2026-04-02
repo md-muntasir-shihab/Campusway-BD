@@ -7,8 +7,10 @@ import {
   getUniversities,
   getUniversityBySlug,
   getPublicHomeSettings,
+  getPublicUniversityBrowseSettings,
   type ApiUniversity,
   type HomeSettingsConfig,
+  type PublicUniversityBrowseSettings,
 } from '../services/api';
 
 import {
@@ -114,6 +116,15 @@ export function usePublicHomeSettings() {
   return useQuery<HomeSettingsConfig>({
     queryKey: ['home-settings-public'],
     queryFn: async () => (await getPublicHomeSettings()).data.homeSettings,
+    staleTime: 60_000,
+    refetchInterval: 90_000,
+  });
+}
+
+export function usePublicUniversityBrowseSettings() {
+  return useQuery<PublicUniversityBrowseSettings>({
+    queryKey: ['university-browse-settings-public'],
+    queryFn: async () => (await getPublicUniversityBrowseSettings()).data.settings,
     staleTime: 60_000,
     refetchInterval: 90_000,
   });

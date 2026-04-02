@@ -22,12 +22,13 @@ type SectionKey =
     | 'exports'
     | 'audit-logs';
 
-type ArticleStatus = Extract<ApiNews['status'], 'pending_review' | 'duplicate_review' | 'draft' | 'published' | 'scheduled' | 'rejected'> | 'all';
+type ArticleStatus = Extract<ApiNews['status'], 'pending_review' | 'duplicate_review' | 'draft' | 'published' | 'scheduled' | 'rejected' | 'archived' | 'trash'> | 'all';
 
 interface RouteState {
     section: SectionKey;
     articleStatus: ArticleStatus;
     aiSelectedOnly: boolean;
+    autoCreate: boolean;
     editorId?: string;
 }
 
@@ -49,7 +50,7 @@ const PRIMARY_SHORTCUTS: NavItem[] = [
     },
     {
         key: 'published',
-        label: 'Live News',
+        label: 'Published News',
         path: '/__cw_admin__/news/published',
         icon: Newspaper,
         summary: 'See what is already live on the public site.',
@@ -114,16 +115,18 @@ function normalizePath(pathname: string): string {
 }
 
 const ARTICLE_TABS: Array<{
-    status: Extract<ArticleStatus, 'pending_review' | 'duplicate_review' | 'draft' | 'published' | 'scheduled' | 'rejected'>;
+    status: Extract<ArticleStatus, 'pending_review' | 'duplicate_review' | 'draft' | 'published' | 'scheduled' | 'rejected' | 'archived' | 'trash'>;
     label: string;
     path: string;
 }> = [
     { status: 'pending_review', label: 'Items to Review', path: '/__cw_admin__/news/pending' },
     { status: 'duplicate_review', label: 'Possible Duplicates', path: '/__cw_admin__/news/duplicates' },
     { status: 'draft', label: 'Saved Drafts', path: '/__cw_admin__/news/drafts' },
-    { status: 'published', label: 'Live News', path: '/__cw_admin__/news/published' },
+    { status: 'published', label: 'Published News', path: '/__cw_admin__/news/published' },
     { status: 'scheduled', label: 'Scheduled', path: '/__cw_admin__/news/scheduled' },
     { status: 'rejected', label: 'Rejected', path: '/__cw_admin__/news/rejected' },
+    { status: 'archived', label: 'Archived', path: '/__cw_admin__/news/archived' },
+    { status: 'trash', label: 'Trash', path: '/__cw_admin__/news/trash' },
 ];
 
 function segmentToArticleStatus(segment: string | undefined): ArticleStatus {
@@ -133,6 +136,8 @@ function segmentToArticleStatus(segment: string | undefined): ArticleStatus {
     if (segment === 'published') return 'published';
     if (segment === 'scheduled') return 'scheduled';
     if (segment === 'rejected') return 'rejected';
+    if (segment === 'archived') return 'archived';
+    if (segment === 'trash' || segment === 'trashed') return 'trash';
     return 'pending_review';
 }
 
@@ -147,53 +152,60 @@ function parseRoute(pathname: string): RouteState {
     const third = segments[2] || '';
 
     if (!first) {
-        return { section: 'articles', articleStatus: 'pending_review', aiSelectedOnly: false };
+        return { section: 'articles', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'dashboard') {
-        return { section: 'dashboard', articleStatus: 'pending_review', aiSelectedOnly: false };
+        return { section: 'dashboard', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'articles') {
-        if (second === 'editor' && third) {
-            return { section: 'articles', articleStatus: 'all', aiSelectedOnly: false, editorId: third };
+        if (second === 'new') {
+            return { section: 'articles', articleStatus: 'draft', aiSelectedOnly: false, autoCreate: true };
         }
-        return { section: 'articles', articleStatus: segmentToArticleStatus(second), aiSelectedOnly: false };
+        if (second === 'editor' && third) {
+            return { section: 'articles', articleStatus: 'all', aiSelectedOnly: false, autoCreate: false, editorId: third };
+        }
+        return { section: 'articles', articleStatus: segmentToArticleStatus(second), aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'editor' && second) {
-        return { section: 'articles', articleStatus: 'all', aiSelectedOnly: false, editorId: second };
+        return { section: 'articles', articleStatus: 'all', aiSelectedOnly: false, autoCreate: false, editorId: second };
     }
 
     if (first === 'pending' || first === 'pending-review' || first === 'duplicates' || first === 'duplicate' || first === 'drafts' || first === 'published' || first === 'scheduled' || first === 'rejected') {
-        return { section: 'articles', articleStatus: segmentToArticleStatus(first), aiSelectedOnly: false };
+        return { section: 'articles', articleStatus: segmentToArticleStatus(first), aiSelectedOnly: false, autoCreate: false };
+    }
+
+    if (first === 'archived' || first === 'trash') {
+        return { section: 'articles', articleStatus: segmentToArticleStatus(first), aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'ai-selected') {
-        return { section: 'articles', articleStatus: 'pending_review', aiSelectedOnly: true };
+        return { section: 'articles', articleStatus: 'pending_review', aiSelectedOnly: true, autoCreate: false };
     }
 
     if (first === 'sources') {
-        return { section: 'sources', articleStatus: 'pending_review', aiSelectedOnly: false };
+        return { section: 'sources', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'settings' || first === 'appearance' || first === 'ai-settings' || first === 'share-templates') {
-        return { section: 'settings-redirect', articleStatus: 'pending_review', aiSelectedOnly: false };
+        return { section: 'settings-redirect', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'media' || first === 'media-library') {
-        return { section: 'media', articleStatus: 'pending_review', aiSelectedOnly: false };
+        return { section: 'media', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'exports') {
-        return { section: 'exports', articleStatus: 'pending_review', aiSelectedOnly: false };
+        return { section: 'exports', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
     }
 
     if (first === 'audit-logs') {
-        return { section: 'audit-logs', articleStatus: 'pending_review', aiSelectedOnly: false };
+        return { section: 'audit-logs', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
     }
 
-    return { section: 'articles', articleStatus: 'pending_review', aiSelectedOnly: false };
+    return { section: 'articles', articleStatus: 'pending_review', aiSelectedOnly: false, autoCreate: false };
 }
 
 function articleStatusLabel(status: ArticleStatus): string {
@@ -207,6 +219,7 @@ function getQuickLinkLabel(route: RouteState, pathname: string): string {
     const activeItem = allItems.find((item) => normalizedPath === item.path || normalizedPath.startsWith(`${item.path}/`));
     if (activeItem) return activeItem.label;
     if (route.section === 'dashboard') return 'Overview';
+    if (route.section === 'articles' && route.autoCreate) return 'Create Custom News';
     if (route.section === 'articles' && route.editorId) return 'Edit Article';
     if (route.section === 'articles' && route.aiSelectedOnly) return 'AI Review';
     if (route.section === 'articles') return articleStatusLabel(route.articleStatus);
@@ -276,6 +289,7 @@ export default function AdminNewsConsole() {
 
     const pageTitle = useMemo(() => {
         if (section === 'dashboard') return 'Overview';
+        if (section === 'articles' && route.autoCreate) return 'Create Custom News';
         if (section === 'articles' && route.editorId) return 'Edit Article';
         if (section === 'articles' && route.aiSelectedOnly) return 'AI Review';
         if (section === 'articles') return articleStatusLabel(articleStatus);
@@ -303,7 +317,8 @@ export default function AdminNewsConsole() {
                 return (
                     <AdminNewsItemsSection
                         status={articleStatus}
-                        title={route.editorId ? 'Edit Article' : route.aiSelectedOnly ? 'AI Review' : articleStatusLabel(articleStatus)}
+                        title={route.autoCreate ? 'Create Custom News' : route.editorId ? 'Edit Article' : route.aiSelectedOnly ? 'AI Review' : articleStatusLabel(articleStatus)}
+                        autoCreate={route.autoCreate}
                         aiSelectedOnly={route.aiSelectedOnly}
                         initialEditId={route.editorId}
                     />
@@ -358,9 +373,14 @@ export default function AdminNewsConsole() {
                                         The review queue is primary. Overview, templates, logs, and settings are support tools.
                                     </p>
                                 </div>
-                                <Link to="/__cw_admin__/news/pending" className="inline-flex items-center gap-2 self-start rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
-                                    Open Review Queue
-                                </Link>
+                                <div className="flex flex-wrap gap-2 self-start">
+                                    <Link to="/__cw_admin__/news/articles/new" className="inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-400">
+                                        Create Custom News
+                                    </Link>
+                                    <Link to="/__cw_admin__/news/pending" className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
+                                        Open Review Queue
+                                    </Link>
+                                </div>
                             </div>
                         </div>
 
@@ -388,7 +408,7 @@ export default function AdminNewsConsole() {
                                 Items to Review
                             </Link>
                             <Link to="/__cw_admin__/news/published" className="rounded-full border border-slate-300/70 bg-white/80 px-3 py-1.5 font-medium text-slate-600 shadow-sm transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300 dark:hover:text-cyan-200">
-                                Live News
+                                Published News
                             </Link>
                             <Link to="/__cw_admin__/news/sources" className="rounded-full border border-slate-300/70 bg-white/80 px-3 py-1.5 font-medium text-slate-600 shadow-sm transition hover:border-cyan-500/50 hover:text-cyan-700 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300 dark:hover:text-cyan-200">
                                 RSS Sources

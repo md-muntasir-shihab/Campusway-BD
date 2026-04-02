@@ -19,6 +19,7 @@ import AdminGuardShell from '../components/admin/AdminGuardShell';
 import PlanCard from '../components/subscription/PlanCard';
 import PlanDetailsDrawer from '../components/subscription/PlanDetailsDrawer';
 import { useAdminSubscriptionPlan, useAdminSubscriptionPlans, useCreateSubscriptionPlanMutation, useDeleteSubscriptionPlanMutation, useDuplicateSubscriptionPlanMutation, useReorderSubscriptionPlansMutation, useSubscriptionSettings, useToggleSubscriptionPlanFeaturedMutation, useToggleSubscriptionPlanMutation, useUpdateSubscriptionPlanMutation, useUpdateSubscriptionSettingsMutation } from '../hooks/useSubscriptionPlans';
+import { showConfirmDialog } from '../lib/appDialog';
 import { ADMIN_PATHS } from '../routes/adminPaths';
 import { adminExportSubscriptionPlans, adminExportSubscriptions, type AdminSubscriptionPlan, type SubscriptionPlansPublicSettings } from '../services/api';
 import { downloadFile } from '../utils/download';
@@ -678,7 +679,15 @@ export default function AdminSubscriptionPlansPage() {
     };
 
     const archivePlan = async (plan: AdminSubscriptionPlan) => {
-        if (!window.confirm(`Archive "${plan.name}"?`)) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Archive subscription plan?',
+            message: `Archive "${plan.name}" from admin and public plan listings?`,
+            description: 'Existing records stay intact, but the plan will no longer be treated as active content.',
+            confirmLabel: 'Archive plan',
+            cancelLabel: 'Keep plan',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await deleteMutation.mutateAsync(plan._id);
             toast.success('Plan archived');

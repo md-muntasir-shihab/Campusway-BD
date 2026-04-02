@@ -34,6 +34,7 @@ import {
     type AdminQBankQuestion,
     type QBankSimilarityMatch,
 } from '../../services/api';
+import { showConfirmDialog, showPromptDialog } from '../../lib/appDialog';
 import { downloadFile } from '../../utils/download';
 
 type LanguageMode = 'EN' | 'BN' | 'BOTH';
@@ -646,7 +647,13 @@ export default function QuestionBankPanel() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('প্রশ্নটি আর্কাইভ করতে চান?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'প্রশ্ন আর্কাইভ',
+            message: 'প্রশ্নটি আর্কাইভ করতে চান?',
+            confirmLabel: 'আর্কাইভ',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteGlobalQuestion(id);
             toast.success('প্রশ্ন আর্কাইভ হয়েছে');
@@ -830,7 +837,12 @@ export default function QuestionBankPanel() {
                                         </button>
                                         <button
                                             onClick={async () => {
-                                                const reason = window.prompt('রিজেক্ট কারণ লিখুন') || '';
+                                                const reason = await showPromptDialog({
+                                                    title: 'রিজেক্ট কারণ',
+                                                    message: 'রিজেক্ট কারণ লিখুন',
+                                                    confirmLabel: 'রিজেক্ট করুন',
+                                                    allowEmpty: true,
+                                                }) || '';
                                                 await adminApproveGlobalQuestion(question._id, { action: 'reject', reason });
                                                 toast.success('প্রশ্ন রিজেক্ট হয়েছে');
                                                 await loadQuestions();
@@ -955,7 +967,12 @@ export default function QuestionBankPanel() {
                                                         </button>
                                                         <button
                                                             onClick={async () => {
-                                                                const reason = window.prompt('রিজেক্ট কারণ লিখুন') || '';
+                                                                const reason = await showPromptDialog({
+                                                                    title: 'রিজেক্ট কারণ',
+                                                                    message: 'রিজেক্ট কারণ লিখুন',
+                                                                    confirmLabel: 'রিজেক্ট করুন',
+                                                                    allowEmpty: true,
+                                                                }) || '';
                                                                 await adminApproveGlobalQuestion(question._id, { action: 'reject', reason });
                                                                 toast.success('প্রশ্ন রিজেক্ট হয়েছে');
                                                                 await loadQuestions();

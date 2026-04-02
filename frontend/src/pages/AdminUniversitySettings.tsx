@@ -1,25 +1,38 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     ArrowDown,
     ArrowUp,
     Check,
     GraduationCap,
+    Layers3,
     Loader2,
     RefreshCw,
     Save,
+    Settings2,
     Star,
-    Trash2,
     X,
 } from 'lucide-react';
 import AdminGuardShell from '../components/admin/AdminGuardShell';
 import AdminImageUploadField from '../components/admin/AdminImageUploadField';
 import {
+    adminGetHomeConfig,
+    adminGetHomeSettings,
     adminGetUniversities,
+    adminGetUniversityCategoryMaster,
+    adminGetUniversityClusters,
     adminGetUniversitySettings,
+    adminUpdateHomeConfig,
+    adminUpdateHomeSettings,
+    adminUpdateUniversityCategory,
+    adminUpdateUniversityCluster,
     adminUpdateUniversitySettings,
-    type ApiUniversity,
+    type AdminUniversityCategoryItem,
+    type AdminUniversityCluster,
     type AdminUniversitySettingsData,
+    type ApiUniversity,
+    type HomeConfigSection,
+    type HomeSettingsConfig,
 } from '../services/api';
 import { invalidateQueryGroup, invalidationGroups, queryKeys } from '../lib/queryKeys';
 
@@ -38,7 +51,14 @@ const ALLOWED_CATEGORIES = [
     'Nursing Colleges',
 ];
 
-const DEFAULTS: AdminUniversitySettingsData = {
+const HOME_UNIVERSITY_SECTION_DEFAULTS: HomeConfigSection[] = [
+    { id: 'featured', title: 'Featured Universities', isActive: true, order: 4 },
+    { id: 'category_filter', title: 'Category & Cluster Filter', isActive: true, order: 5 },
+    { id: 'deadlines', title: 'Admission Deadlines', isActive: true, order: 6 },
+    { id: 'upcoming_exams', title: 'Upcoming Exams', isActive: true, order: 7 },
+];
+
+const DEFAULT_SETTINGS: AdminUniversitySettingsData = {
     categoryOrder: [...ALLOWED_CATEGORIES],
     highlightedCategories: [],
     defaultCategory: 'Individual Admission',
@@ -50,68 +70,431 @@ const DEFAULTS: AdminUniversitySettingsData = {
     allowCustomCategories: false,
 };
 
+const DEFAULT_HOME_UNIVERSITY: Pick<
+    HomeSettingsConfig,
+    'universityPreview' | 'universityCardConfig' | 'highlightedCategories' | 'featuredUniversities' | 'universityDashboard'
+> = {
+    universityPreview: {
+        enabled: true,
+        useHighlightedCategoriesOnly: true,
+        defaultActiveCategory: 'Individual Admission',
+        enableClusterFilter: true,
+        maxFeaturedItems: 12,
+        maxDeadlineItems: 6,
+        maxExamItems: 6,
+        deadlineWithinDays: 15,
+        examWithinDays: 15,
+        featuredMode: 'manual',
+    },
+    universityCardConfig: {
+        defaultUniversityLogo: '',
+        showExamCentersPreview: true,
+        closingSoonDays: 7,
+        showAddress: true,
+        showEmail: true,
+        showApplicationProgress: true,
+        showExamDates: true,
+        defaultSort: 'alphabetical',
+    },
+    highlightedCategories: [],
+    featuredUniversities: [],
+    universityDashboard: {
+        enabled: true,
+        title: '',
+        subtitle: '',
+        showFilters: true,
+        defaultCategory: 'Individual Admission',
+        showAllCategories: false,
+        showPlaceholderText: false,
+        placeholderNote: '',
+    },
+};
+
+type QuickClusterState = Pick<AdminUniversityCluster, '_id' | 'name' | 'homeVisible' | 'homeOrder'> & { memberCount: number };
+
+type UniversitySettingsDraft = {
+    settings: AdminUniversitySettingsData;
+    home: Pick<
+        HomeSettingsConfig,
+        'universityPreview' | 'universityCardConfig' | 'highlightedCategories' | 'featuredUniversities' | 'universityDashboard'
+    >;
+    clusters: QuickClusterState[];
+    homeSections: HomeConfigSection[];
+};
+
+type UniversitySettingsPageData = {
+    settings: AdminUniversitySettingsData;
+    homeSettings: HomeSettingsConfig;
+    categories: AdminUniversityCategoryItem[];
+    universities: ApiUniversity[];
+    clusters: AdminUniversityCluster[];
+    homeConfigSections: HomeConfigSection[];
+};
+
 function deepEqual(a: unknown, b: unknown): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function pickText(value: unknown, fallback = ''): string {
+    if (value === null || value === undefined) return fallback;
+    const text = String(value).trim();
+    return text || fallback;
+}
+
+function normalizePositiveInt(value: number, fallback: number, min = 1, max = 50): number {
+    if (!Number.isFinite(value)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function moveItem<T>(items: T[], index: number, direction: 'up' | 'down'): T[] {
+    const next = [...items];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= next.length) return items;
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    return next;
+}
+
+function normalizeHomeUniversitySections(input: HomeConfigSection[] = []): HomeConfigSection[] {
+    const storedById = new Map(
+        input
+            .map((section) => ({
+                ...section,
+                id: pickText(section.id),
+                title: pickText(section.title),
+                isActive: section.isActive !== false,
+                order: Number.isFinite(Number(section.order)) ? Number(section.order) : 0,
+            }))
+            .filter((section) => section.id)
+            .map((section) => [section.id, section] as const),
+    );
+
+    return HOME_UNIVERSITY_SECTION_DEFAULTS.map((fallback) => {
+        const stored = storedById.get(fallback.id);
+        return {
+            ...fallback,
+            ...(stored || {}),
+            id: fallback.id,
+            title: pickText(stored?.title, fallback.title),
+            isActive: stored?.isActive !== false,
+            order: Number.isFinite(Number(stored?.order)) ? Number(stored?.order) : fallback.order,
+        };
+    }).sort((left, right) => left.order - right.order);
+}
+
+function mergeHomeSections(baseSections: HomeConfigSection[] = [], universitySections: HomeConfigSection[]): HomeConfigSection[] {
+    const universityById = new Map(universitySections.map((section) => [section.id, section] as const));
+    const working = [...baseSections.map((section) => ({ ...section }))];
+
+    HOME_UNIVERSITY_SECTION_DEFAULTS.forEach((fallback) => {
+        if (!working.some((section) => section.id === fallback.id)) {
+            working.push({ ...fallback });
+        }
+    });
+
+    const ordered = working.sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
+    const next = ordered.map((section) => {
+        const replacement = universityById.get(section.id);
+        if (!replacement) return { ...section };
+        return {
+            ...section,
+            ...replacement,
+            id: replacement.id,
+            title: pickText(replacement.title, section.title),
+            isActive: replacement.isActive !== false,
+        };
+    });
+
+    return next.map((section, index) => ({ ...section, order: index }));
+}
+
+function buildInitialDraft(data: UniversitySettingsPageData): UniversitySettingsDraft {
+    const settings = {
+        ...DEFAULT_SETTINGS,
+        ...(data.settings || {}),
+    };
+
+    const home = {
+        universityPreview: {
+            ...DEFAULT_HOME_UNIVERSITY.universityPreview,
+            ...(data.homeSettings?.universityPreview || {}),
+        },
+        universityCardConfig: {
+            ...DEFAULT_HOME_UNIVERSITY.universityCardConfig,
+            ...(data.homeSettings?.universityCardConfig || {}),
+        },
+        highlightedCategories: [...(data.homeSettings?.highlightedCategories || [])],
+        featuredUniversities: [...(data.homeSettings?.featuredUniversities || [])],
+        universityDashboard: {
+            ...DEFAULT_HOME_UNIVERSITY.universityDashboard,
+            ...(data.homeSettings?.universityDashboard || {}),
+        },
+    };
+
+    const badgeMetaByCategory = new Map(
+        (home.highlightedCategories || [])
+            .map((item) => ({
+                category: pickText(item.category),
+                enabled: item.enabled !== false,
+                badgeText: pickText(item.badgeText),
+            }))
+            .filter((item) => item.category)
+            .map((item) => [item.category, item] as const),
+    );
+
+    const highlightedFromCategoryMaster = (data.categories || [])
+        .filter((item) => item.homeHighlight)
+        .sort((left, right) => Number(left.homeOrder || 0) - Number(right.homeOrder || 0))
+        .map((item, index) => {
+            const categoryName = pickText(item.name);
+            const meta = badgeMetaByCategory.get(categoryName);
+            return {
+                category: categoryName,
+                order: index + 1,
+                enabled: meta?.enabled ?? true,
+                badgeText: meta?.badgeText || pickText(item.labelBn) || 'Highlight',
+            };
+        });
+
+    if (highlightedFromCategoryMaster.length > 0) {
+        home.highlightedCategories = highlightedFromCategoryMaster;
+    } else {
+        home.highlightedCategories = (home.highlightedCategories || [])
+            .map((item, index) => ({
+                category: pickText(item.category),
+                order: index + 1,
+                enabled: item.enabled !== false,
+                badgeText: pickText(item.badgeText) || 'Highlight',
+            }))
+            .filter((item) => item.category);
+    }
+
+    const universityBySlug = new Map(
+        (data.universities || [])
+            .map((item) => [pickText(item.slug).toLowerCase(), pickText(item._id)] as const)
+            .filter(([slug, id]) => Boolean(slug && id)),
+    );
+
+    if ((home.featuredUniversities || []).length === 0 && Array.isArray(settings.featuredUniversitySlugs) && settings.featuredUniversitySlugs.length > 0) {
+        home.featuredUniversities = settings.featuredUniversitySlugs
+            .map((slug, index) => {
+                const universityId = universityBySlug.get(pickText(slug).toLowerCase());
+                if (!universityId) return null;
+                return {
+                    universityId,
+                    order: index + 1,
+                    badgeText: 'Featured',
+                    enabled: true,
+                };
+            })
+            .filter((item): item is HomeSettingsConfig['featuredUniversities'][number] => item !== null);
+    } else {
+        home.featuredUniversities = (home.featuredUniversities || [])
+            .map((item, index) => ({
+                universityId: pickText(item.universityId),
+                order: index + 1,
+                badgeText: pickText(item.badgeText) || 'Featured',
+                enabled: item.enabled !== false,
+            }))
+            .filter((item) => item.universityId);
+    }
+
+    const clusters = (data.clusters || [])
+        .map((item) => ({
+            _id: pickText(item._id),
+            name: pickText(item.name),
+            homeVisible: Boolean(item.homeVisible),
+            homeOrder: Number(item.homeOrder || 0),
+            memberCount: Number(item.memberCount || 0),
+        }))
+        .filter((item) => item._id && item.name)
+        .sort((left, right) => {
+            if (left.homeVisible !== right.homeVisible) return left.homeVisible ? -1 : 1;
+            if (left.homeOrder !== right.homeOrder) return left.homeOrder - right.homeOrder;
+            return left.name.localeCompare(right.name);
+        });
+
+    return {
+        settings: {
+            ...settings,
+            maxFeaturedItems: home.universityPreview.maxFeaturedItems || settings.maxFeaturedItems || DEFAULT_SETTINGS.maxFeaturedItems,
+            defaultUniversityLogoUrl: pickText(home.universityCardConfig.defaultUniversityLogo) || settings.defaultUniversityLogoUrl || null,
+            defaultCategory: pickText(settings.defaultCategory, pickText(home.universityDashboard.defaultCategory, DEFAULT_SETTINGS.defaultCategory)),
+        },
+        home: {
+            ...home,
+            universityDashboard: {
+                ...home.universityDashboard,
+                defaultCategory: pickText(settings.defaultCategory, pickText(home.universityDashboard.defaultCategory, DEFAULT_SETTINGS.defaultCategory)),
+            },
+        },
+        clusters,
+        homeSections: normalizeHomeUniversitySections(data.homeConfigSections || []),
+    };
+}
+
+function ToggleCard({
+    label,
+    hint,
+    checked,
+    onToggle,
+}: {
+    label: string;
+    hint: string;
+    checked: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <label className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-card-border bg-surface/60 px-4 py-3 transition-colors hover:border-primary/30">
+            <div>
+                <p className="text-sm font-semibold cw-text">{label}</p>
+                <p className="mt-1 text-xs cw-muted">{hint}</p>
+            </div>
+            <button
+                type="button"
+                onClick={onToggle}
+                role="switch"
+                aria-checked={checked}
+                className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-slate-600'}`}
+            >
+                <span className={`mt-0.5 inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+        </label>
+    );
+}
+
+function TextInput({
+    label,
+    value,
+    onChange,
+    helper,
+}: {
+    label: string;
+    value: string;
+    onChange: (next: string) => void;
+    helper?: string;
+}) {
+    return (
+        <div>
+            <label className="text-xs text-slate-400">{label}</label>
+            <input
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2 text-sm text-white outline-none transition-all focus:border-indigo-500/50"
+            />
+            {helper ? <p className="mt-1 text-[11px] text-slate-500">{helper}</p> : null}
+        </div>
+    );
+}
+
+function NumberInput({
+    label,
+    value,
+    onChange,
+    helper,
+}: {
+    label: string;
+    value: number;
+    onChange: (next: number) => void;
+    helper?: string;
+}) {
+    return (
+        <div>
+            <label className="text-xs text-slate-400">{label}</label>
+            <input
+                type="number"
+                value={Number.isFinite(value) ? value : 0}
+                onChange={(event) => onChange(Number(event.target.value || 0))}
+                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2 text-sm text-white outline-none transition-all focus:border-indigo-500/50"
+            />
+            {helper ? <p className="mt-1 text-[11px] text-slate-500">{helper}</p> : null}
+        </div>
+    );
+}
+
 export default function AdminUniversitySettingsPage() {
     const queryClient = useQueryClient();
-    const [local, setLocal] = useState<AdminUniversitySettingsData>(DEFAULTS);
-    const [slugInput, setSlugInput] = useState('');
-    const [selectedFeaturedSlug, setSelectedFeaturedSlug] = useState('');
+    const [local, setLocal] = useState<UniversitySettingsDraft | null>(null);
+    const [categoryToAdd, setCategoryToAdd] = useState('');
+    const [featuredUniversityToAdd, setFeaturedUniversityToAdd] = useState('');
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+    const [pageError, setPageError] = useState('');
     const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const originalRef = useRef<AdminUniversitySettingsData | null>(null);
+    const originalRef = useRef<UniversitySettingsDraft | null>(null);
 
-    const { data, isLoading, isError, refetch } = useQuery({
-        queryKey: ['admin-university-settings'],
-        queryFn: () => adminGetUniversitySettings(),
-    });
-    const universitiesQuery = useQuery({
-        queryKey: ['admin-university-settings-universities'],
-        queryFn: async () => {
-            const response = await adminGetUniversities({
-                page: 1,
-                limit: 1000,
-                status: 'all',
-                sortBy: 'name',
-                sortOrder: 'asc',
-                fields: 'name,slug,shortForm',
-            });
-            return (response.data?.universities || []) as ApiUniversity[];
+    const pageQuery = useQuery({
+        queryKey: ['admin-university-settings-page'],
+        queryFn: async (): Promise<UniversitySettingsPageData> => {
+            const [settingsRes, homeSettingsRes, categoriesRes, universitiesRes, clustersRes, homeConfigRes] = await Promise.all([
+                adminGetUniversitySettings(),
+                adminGetHomeSettings(),
+                adminGetUniversityCategoryMaster({ status: 'all' }),
+                adminGetUniversities({ page: 1, limit: 1000, status: 'all', sortBy: 'name', sortOrder: 'asc' }),
+                adminGetUniversityClusters({ status: 'active' }),
+                adminGetHomeConfig(),
+            ]);
+
+            return {
+                settings: { ...DEFAULT_SETTINGS, ...(settingsRes.data?.data || {}) },
+                homeSettings: homeSettingsRes.data?.homeSettings,
+                categories: categoriesRes.data?.categories || [],
+                universities: universitiesRes.data?.universities || [],
+                clusters: clustersRes.data?.clusters || [],
+                homeConfigSections: homeConfigRes.data?.sections || [],
+            };
         },
     });
 
     useEffect(() => {
-        if (data?.data?.data) {
-            const s = data.data.data;
-            setLocal({ ...DEFAULTS, ...s });
-            originalRef.current = { ...DEFAULTS, ...s };
-        }
-    }, [data]);
+        if (!pageQuery.data) return;
+        const next = buildInitialDraft(pageQuery.data);
+        setLocal(next);
+        originalRef.current = next;
+        setPageError('');
+    }, [pageQuery.data]);
 
-    const mutation = useMutation({
-        mutationFn: (payload: Partial<AdminUniversitySettingsData>) =>
-            adminUpdateUniversitySettings(payload),
-        onSuccess: async (res) => {
-            const updated = res.data?.data;
-            if (updated) {
-                setLocal({ ...DEFAULTS, ...updated });
-                originalRef.current = { ...DEFAULTS, ...updated };
-            }
-            await queryClient.invalidateQueries({ queryKey: ['admin-university-settings'] });
-            await queryClient.invalidateQueries({ queryKey: ['admin-university-settings-universities'] });
-            await queryClient.invalidateQueries({ queryKey: ['home-clusters-featured'] });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.home });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.universityCategories });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.universityCategoriesLegacy });
-            await invalidateQueryGroup(queryClient, invalidationGroups.universitySave);
-            showToast('Settings saved successfully.', 'success');
-        },
-        onError: () => {
-            showToast('Failed to save. Please try again.', 'error');
-        },
-    });
+    useEffect(() => () => {
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+    }, []);
+
+    const categoryOptions = useMemo(() => {
+        const names = new Set<string>();
+        (pageQuery.data?.categories || []).forEach((item) => {
+            const name = pickText(item.name);
+            if (name) names.add(name);
+        });
+        (local?.settings.categoryOrder || []).forEach((item) => {
+            const name = pickText(item);
+            if (name) names.add(name);
+        });
+        return Array.from(names).sort((left, right) => left.localeCompare(right));
+    }, [local?.settings.categoryOrder, pageQuery.data?.categories]);
+
+    const defaultCategoryOptions = useMemo(() => {
+        const names = new Set<string>(['all']);
+        categoryOptions.forEach((item) => names.add(item));
+        return Array.from(names);
+    }, [categoryOptions]);
+
+    const universityOptions = useMemo(() => {
+        return (pageQuery.data?.universities || [])
+            .map((item) => ({
+                id: pickText(item._id),
+                name: pickText(item.name, 'University'),
+                shortForm: pickText(item.shortForm, 'N/A'),
+                slug: pickText(item.slug),
+            }))
+            .filter((item) => item.id);
+    }, [pageQuery.data?.universities]);
+
+    const universityLabelMap = useMemo(
+        () => new Map(universityOptions.map((item) => [item.id, `${item.name} (${item.shortForm})`])),
+        [universityOptions],
+    );
+
+    const universitySlugById = useMemo(
+        () => new Map(universityOptions.map((item) => [item.id, item.slug])),
+        [universityOptions],
+    );
 
     function showToast(msg: string, type: 'success' | 'error') {
         setToast({ msg, type });
@@ -119,470 +502,1111 @@ export default function AdminUniversitySettingsPage() {
         toastTimer.current = setTimeout(() => setToast(null), 3500);
     }
 
-    const isDirty = !deepEqual(local, originalRef.current);
-
-    function moveCategory(index: number, dir: 'up' | 'down') {
-        const next = [...local.categoryOrder];
-        const swap = dir === 'up' ? index - 1 : index + 1;
-        if (swap < 0 || swap >= next.length) return;
-        [next[index], next[swap]] = [next[swap], next[index]];
-        setLocal((prev) => ({ ...prev, categoryOrder: next }));
-    }
-
-    function toggleHighlighted(cat: string) {
-        setLocal((prev) => {
-            const has = prev.highlightedCategories.includes(cat);
-            return {
-                ...prev,
-                highlightedCategories: has
-                    ? prev.highlightedCategories.filter((c) => c !== cat)
-                    : [...prev.highlightedCategories, cat],
-            };
-        });
-    }
-
-    const universityOptions = useMemo(
-        () =>
-            (universitiesQuery.data || [])
-                .map((item) => ({
-                    slug: String(item.slug || '').trim(),
-                    label: `${String(item.name || 'University').trim()} (${String(item.shortForm || 'N/A').trim()})`,
+    const mutation = useMutation({
+        mutationFn: async (draft: UniversitySettingsDraft) => {
+            const normalizedHighlightedEntries = draft.home.highlightedCategories
+                .map((item, index) => ({
+                    category: pickText(item.category),
+                    order: index + 1,
+                    enabled: item.enabled !== false,
+                    badgeText: pickText(item.badgeText) || 'Highlight',
                 }))
-                .filter((item) => Boolean(item.slug)),
-        [universitiesQuery.data],
-    );
+                .filter((item) => item.category);
 
-    const universityLabelBySlug = useMemo(
-        () => new Map(universityOptions.map((item) => [item.slug, item.label])),
-        [universityOptions],
-    );
-    const summaryCards = [
-        {
-            title: 'Categories',
-            value: String(local.categoryOrder.length),
-            detail: local.defaultCategory === 'all' ? 'Default: All' : `Default: ${local.defaultCategory}`,
+            const enabledHighlightedEntries = normalizedHighlightedEntries.filter((item) => item.enabled);
+            const normalizedFeaturedEntries = draft.home.featuredUniversities
+                .map((item, index) => ({
+                    universityId: pickText(item.universityId),
+                    order: index + 1,
+                    badgeText: pickText(item.badgeText) || 'Featured',
+                    enabled: item.enabled !== false,
+                }))
+                .filter((item) => item.universityId);
+            const enabledFeaturedSlugs = normalizedFeaturedEntries
+                .filter((item) => item.enabled)
+                .map((item) => pickText(universitySlugById.get(item.universityId)))
+                .filter(Boolean);
+
+            const highlightedOrderMap = new Map(
+                enabledHighlightedEntries.map((item, index) => [pickText(item.category), index + 1] as const),
+            );
+
+            const normalizedDefaultCategory = pickText(draft.settings.defaultCategory, DEFAULT_SETTINGS.defaultCategory);
+            const universitySettingsPayload: Partial<AdminUniversitySettingsData> = {
+                categoryOrder: draft.settings.categoryOrder.map((item) => pickText(item)).filter(Boolean),
+                defaultCategory: normalizedDefaultCategory,
+                highlightedCategories: enabledHighlightedEntries.map((item) => item.category),
+                featuredUniversitySlugs: enabledFeaturedSlugs,
+                maxFeaturedItems: normalizePositiveInt(draft.home.universityPreview.maxFeaturedItems, DEFAULT_SETTINGS.maxFeaturedItems),
+                enableClusterFilterOnHome: draft.settings.enableClusterFilterOnHome !== false,
+                enableClusterFilterOnUniversities: draft.settings.enableClusterFilterOnUniversities !== false,
+                defaultUniversityLogoUrl: pickText(draft.home.universityCardConfig.defaultUniversityLogo) || null,
+                allowCustomCategories: draft.settings.allowCustomCategories === true,
+            };
+
+            const homeSettingsPayload: Partial<HomeSettingsConfig> = {
+                universityPreview: {
+                    ...draft.home.universityPreview,
+                    defaultActiveCategory: normalizedDefaultCategory,
+                    enableClusterFilter: draft.settings.enableClusterFilterOnHome !== false,
+                    maxFeaturedItems: normalizePositiveInt(
+                        draft.home.universityPreview.maxFeaturedItems,
+                        DEFAULT_HOME_UNIVERSITY.universityPreview.maxFeaturedItems,
+                    ),
+                    maxDeadlineItems: normalizePositiveInt(
+                        draft.home.universityPreview.maxDeadlineItems,
+                        DEFAULT_HOME_UNIVERSITY.universityPreview.maxDeadlineItems,
+                    ),
+                    maxExamItems: normalizePositiveInt(
+                        draft.home.universityPreview.maxExamItems,
+                        DEFAULT_HOME_UNIVERSITY.universityPreview.maxExamItems,
+                    ),
+                    deadlineWithinDays: normalizePositiveInt(
+                        draft.home.universityPreview.deadlineWithinDays,
+                        DEFAULT_HOME_UNIVERSITY.universityPreview.deadlineWithinDays,
+                    ),
+                    examWithinDays: normalizePositiveInt(
+                        draft.home.universityPreview.examWithinDays,
+                        DEFAULT_HOME_UNIVERSITY.universityPreview.examWithinDays,
+                    ),
+                },
+                universityCardConfig: {
+                    ...draft.home.universityCardConfig,
+                    defaultUniversityLogo: pickText(draft.home.universityCardConfig.defaultUniversityLogo),
+                    closingSoonDays: normalizePositiveInt(
+                        draft.home.universityCardConfig.closingSoonDays,
+                        DEFAULT_HOME_UNIVERSITY.universityCardConfig.closingSoonDays,
+                    ),
+                },
+                universityDashboard: {
+                    ...draft.home.universityDashboard,
+                    defaultCategory: normalizedDefaultCategory,
+                    showAllCategories: draft.home.universityDashboard.showAllCategories === true,
+                },
+                highlightedCategories: normalizedHighlightedEntries,
+                featuredUniversities: normalizedFeaturedEntries,
+            };
+
+            const mergedHomeSections = mergeHomeSections(
+                pageQuery.data?.homeConfigSections || [],
+                draft.homeSections.map((section, index) => ({ ...section, order: index })),
+            );
+
+            await adminUpdateUniversitySettings(universitySettingsPayload);
+            await adminUpdateHomeSettings(homeSettingsPayload);
+            await adminUpdateHomeConfig({ sections: mergedHomeSections });
+
+            const categoryUpdates = (pageQuery.data?.categories || [])
+                .map((item) => {
+                    const categoryName = pickText(item.name);
+                    const homeOrder = highlightedOrderMap.get(categoryName) || 0;
+                    const homeHighlight = highlightedOrderMap.has(categoryName);
+                    if (Boolean(item.homeHighlight) === homeHighlight && Number(item.homeOrder || 0) === homeOrder) {
+                        return null;
+                    }
+                    return adminUpdateUniversityCategory(item._id, { homeHighlight, homeOrder });
+                })
+                .filter((task): task is ReturnType<typeof adminUpdateUniversityCategory> => task !== null);
+
+            const originalClusters = new Map(
+                (originalRef.current?.clusters || []).map((item) => [item._id, item] as const),
+            );
+            const clusterUpdates = draft.clusters
+                .map((item) => {
+                    const original = originalClusters.get(item._id);
+                    if (
+                        original
+                        && original.homeVisible === item.homeVisible
+                        && Number(original.homeOrder || 0) === Number(item.homeOrder || 0)
+                    ) {
+                        return null;
+                    }
+                    return adminUpdateUniversityCluster(item._id, {
+                        homeVisible: item.homeVisible,
+                        homeOrder: Number(item.homeOrder || 0),
+                    });
+                })
+                .filter((task): task is ReturnType<typeof adminUpdateUniversityCluster> => task !== null);
+
+            if (categoryUpdates.length > 0) await Promise.all(categoryUpdates);
+            if (clusterUpdates.length > 0) await Promise.all(clusterUpdates);
         },
-        {
-            title: 'Highlighted',
-            value: String(local.highlightedCategories.length),
-            detail: local.highlightedCategories.length > 0 ? 'Shown on home/university filters' : 'No highlighted categories',
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['admin-university-settings'] }),
+                queryClient.invalidateQueries({ queryKey: ['admin-university-settings-page'] }),
+                queryClient.invalidateQueries({ queryKey: ['admin-home-config'] }),
+                queryClient.invalidateQueries({ queryKey: ['university-browse-settings-public'] }),
+                queryClient.invalidateQueries({ queryKey: ['home-settings'] }),
+                queryClient.invalidateQueries({ queryKey: ['home-settings-defaults'] }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.home }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.universities }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.universityCategories }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.universityCategoriesLegacy }),
+                invalidateQueryGroup(queryClient, invalidationGroups.homeSave),
+                invalidateQueryGroup(queryClient, invalidationGroups.universitySave),
+            ]);
+            const fresh = await pageQuery.refetch();
+            if (fresh.data) {
+                const next = buildInitialDraft(fresh.data);
+                setLocal(next);
+                originalRef.current = next;
+            }
+            showToast('University settings saved.', 'success');
         },
-        {
-            title: 'Featured',
-            value: String(local.featuredUniversitySlugs.length),
-            detail: `${local.maxFeaturedItems} max visible`,
+        onError: (error: unknown) => {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            setPageError(message || 'Failed to save university settings.');
+            showToast(message || 'Failed to save university settings.', 'error');
         },
-        {
-            title: 'Cluster Filters',
-            value: local.enableClusterFilterOnHome || local.enableClusterFilterOnUniversities ? 'Visible' : 'Hidden',
-            detail: [
-                local.enableClusterFilterOnHome ? 'Home on' : 'Home off',
-                local.enableClusterFilterOnUniversities ? 'Universities on' : 'Universities off',
-            ].join(' • '),
-        },
-    ];
-
-    function addSlug(rawSlug?: string) {
-        const s = String(rawSlug ?? slugInput).trim().toLowerCase().replace(/\s+/g, '-');
-        if (!s || local.featuredUniversitySlugs.includes(s)) return;
-        setLocal((prev) => ({
-            ...prev,
-            featuredUniversitySlugs: [...prev.featuredUniversitySlugs, s],
-        }));
-        setSlugInput('');
-        setSelectedFeaturedSlug('');
-    }
-
-    function removeSlug(slug: string) {
-        setLocal((prev) => ({
-            ...prev,
-            featuredUniversitySlugs: prev.featuredUniversitySlugs.filter((s) => s !== slug),
-        }));
-    }
-
-    function moveSlug(index: number, dir: 'up' | 'down') {
-        const next = [...local.featuredUniversitySlugs];
-        const swap = dir === 'up' ? index - 1 : index + 1;
-        if (swap < 0 || swap >= next.length) return;
-        [next[index], next[swap]] = [next[swap], next[index]];
-        setLocal((prev) => ({ ...prev, featuredUniversitySlugs: next }));
-    }
-
-    function handleSave() {
-        mutation.mutate(local);
-    }
+    });
 
     function handleReset() {
-        if (originalRef.current) {
-            setLocal({ ...originalRef.current });
-        }
+        if (!originalRef.current) return;
+        setLocal(JSON.parse(JSON.stringify(originalRef.current)) as UniversitySettingsDraft);
+        setCategoryToAdd('');
+        setFeaturedUniversityToAdd('');
+        setPageError('');
     }
 
-    if (isLoading) {
+    const isDirty = !deepEqual(local, originalRef.current);
+
+    if (pageQuery.isLoading || !local) {
         return (
-            <AdminGuardShell title="University Settings" description="Loading…">
+            <AdminGuardShell title="University Settings" description="Loading university browse and home university controls.">
                 <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="animate-spin w-8 h-8 text-primary" />
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             </AdminGuardShell>
         );
     }
 
-    if (isError) {
+    if (pageQuery.isError) {
         return (
-            <AdminGuardShell title="University Settings" description="Error loading settings.">
-                <div className="card-flat p-6 text-center space-y-3">
-                    <p className="text-rose-400">Failed to load university settings.</p>
-                    <button onClick={() => void refetch()} className="btn-outline text-sm gap-2 inline-flex items-center">
-                        <RefreshCw className="w-4 h-4" /> Retry
+            <AdminGuardShell title="University Settings" description="Failed to load university browse and home university controls.">
+                <div className="card-flat space-y-3 p-6 text-center">
+                    <p className="text-rose-400">University settings could not be loaded.</p>
+                    <button onClick={() => void pageQuery.refetch()} className="btn-outline inline-flex items-center gap-2 text-sm">
+                        <RefreshCw className="h-4 w-4" />
+                        Retry
                     </button>
                 </div>
             </AdminGuardShell>
         );
     }
 
+    const enabledHighlightedCount = local.home.highlightedCategories.filter((item) => item.enabled !== false).length;
+    const enabledFeaturedCount = local.home.featuredUniversities.filter((item) => item.enabled !== false).length;
+    const homeVisibleClusterCount = local.clusters.filter((item) => item.homeVisible).length;
+    const activeHomeSectionCount = local.homeSections.filter((item) => item.isActive !== false).length;
+
     return (
         <AdminGuardShell
             title="University Settings"
-            description="Control how universities are categorized, featured, and displayed across the platform."
+            description="Canonical control for university browse defaults, home section visibility, featured content, category highlights, cluster feed order, and university card display rules."
         >
-            {/* Toast */}
-            {toast && (
+            {toast ? (
                 <div
-                    className={`fixed top-4 right-4 z-50 flex items-center gap-3 rounded-xl shadow-xl border px-5 py-3 text-sm font-medium transition-all ${toast.type === 'success'
+                    className={`fixed right-4 top-4 z-50 flex items-center gap-3 rounded-xl border px-5 py-3 text-sm font-medium shadow-xl ${
+                        toast.type === 'success'
                             ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                             : 'border-rose-500/30 bg-rose-500/10 text-rose-400'
-                        }`}
+                    }`}
                 >
-                    {toast.type === 'success' ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                    {toast.type === 'success' ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
                     {toast.msg}
                 </div>
-            )}
+            ) : null}
 
             <div className="space-y-6">
-                {/* Save / Reset Bar */}
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-card-border bg-surface px-5 py-3">
-                    <p className={`text-sm ${isDirty ? 'text-amber-400' : 'cw-muted'}`}>
-                        {isDirty ? 'You have unsaved changes.' : 'All settings are up to date.'}
-                    </p>
+                    <div className="space-y-1">
+                        <p className={`text-sm ${isDirty ? 'text-amber-400' : 'cw-muted'}`}>
+                            {isDirty ? 'You have unsaved university-setting changes.' : 'University settings are up to date.'}
+                        </p>
+                        {pageError ? <p className="text-xs text-rose-400">{pageError}</p> : null}
+                    </div>
                     <div className="flex gap-2">
-                        {isDirty && (
-                            <button onClick={handleReset} className="btn-outline text-sm gap-2 inline-flex items-center">
-                                <RefreshCw className="w-4 h-4" /> Discard
+                        {isDirty ? (
+                            <button onClick={handleReset} className="btn-outline inline-flex items-center gap-2 text-sm">
+                                <RefreshCw className="h-4 w-4" />
+                                Discard
                             </button>
-                        )}
+                        ) : null}
                         <button
-                            onClick={handleSave}
+                            onClick={() => mutation.mutate(local)}
                             disabled={!isDirty || mutation.isPending}
-                            className="btn-primary text-sm gap-2 inline-flex items-center disabled:opacity-50"
+                            className="btn-primary inline-flex items-center gap-2 text-sm disabled:opacity-50"
                         >
-                            {mutation.isPending ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Save className="w-4 h-4" />
-                            )}
+                            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Save Changes
                         </button>
                     </div>
                 </div>
 
-                <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    {summaryCards.map((card) => (
-                        <div key={card.title} className="card-flat border border-primary/10 p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">{card.title}</p>
-                            <p className="mt-2 text-2xl font-semibold cw-text">{card.value}</p>
-                            <p className="mt-1 text-xs cw-muted">{card.detail}</p>
-                        </div>
-                    ))}
+                <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                    <div className="card-flat border border-primary/10 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">Categories</p>
+                        <p className="mt-2 text-2xl font-semibold cw-text">{local.settings.categoryOrder.length}</p>
+                        <p className="mt-1 text-xs cw-muted">Ordered browse tabs and category priority</p>
+                    </div>
+                    <div className="card-flat border border-primary/10 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">Home Sections</p>
+                        <p className="mt-2 text-2xl font-semibold cw-text">{activeHomeSectionCount}</p>
+                        <p className="mt-1 text-xs cw-muted">University-related home sections currently visible</p>
+                    </div>
+                    <div className="card-flat border border-primary/10 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">Highlights</p>
+                        <p className="mt-2 text-2xl font-semibold cw-text">{enabledHighlightedCount}</p>
+                        <p className="mt-1 text-xs cw-muted">Home category spotlights currently enabled</p>
+                    </div>
+                    <div className="card-flat border border-primary/10 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">Featured Universities</p>
+                        <p className="mt-2 text-2xl font-semibold cw-text">{enabledFeaturedCount}</p>
+                        <p className="mt-1 text-xs cw-muted">Manual home-featured university picks</p>
+                    </div>
+                    <div className="card-flat border border-primary/10 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">Featured Clusters</p>
+                        <p className="mt-2 text-2xl font-semibold cw-text">{homeVisibleClusterCount}</p>
+                        <p className="mt-1 text-xs cw-muted">Active clusters visible in Home featured feed</p>
+                    </div>
                 </section>
 
                 <section className="card-flat border border-primary/10 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                        <Settings2 className="mt-0.5 h-5 w-5 text-primary" />
                         <div>
-                            <h2 className="text-base font-semibold cw-text">Display Rules</h2>
+                            <h2 className="text-base font-semibold cw-text">Canonical Ownership</h2>
                             <p className="mt-1 text-sm cw-muted">
-                                These settings only control ordering, defaults, filters, and fallbacks. They do not rename routes or remove universities.
+                                This page now owns the working university-related website controls. Home Control keeps only global layout and non-university sections.
+                                Duplicate university widgets there are removed from the visible admin surface, while backend compatibility stays intact.
                             </p>
                         </div>
-                        <div className="flex flex-wrap gap-2 text-xs">
-                            <span className="rounded-full border border-card-border bg-surface/60 px-3 py-1 cw-muted">Home categories</span>
-                            <span className="rounded-full border border-card-border bg-surface/60 px-3 py-1 cw-muted">Featured row</span>
-                            <span className="rounded-full border border-card-border bg-surface/60 px-3 py-1 cw-muted">Fallback logo</span>
+                    </div>
+                </section>
+
+                <section className="card-flat p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <GraduationCap className="h-5 w-5 text-primary" />
+                        <div>
+                            <h2 className="text-base font-semibold cw-text">Category Order</h2>
+                            <p className="mt-1 text-sm cw-muted">This order drives public university browse tabs and admin-facing category priority.</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        {local.settings.categoryOrder.map((category, index) => (
+                            <div key={category} className="flex items-center gap-3 rounded-xl border border-card-border bg-surface/60 px-4 py-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setLocal((prev) => prev ? ({
+                                        ...prev,
+                                        settings: {
+                                            ...prev.settings,
+                                            categoryOrder: moveItem(prev.settings.categoryOrder, index, 'up'),
+                                        },
+                                    }) : prev)}
+                                    disabled={index === 0}
+                                    className="rounded p-0.5 text-slate-400 transition hover:text-primary disabled:opacity-30"
+                                    title="Move up"
+                                >
+                                    <ArrowUp className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setLocal((prev) => prev ? ({
+                                        ...prev,
+                                        settings: {
+                                            ...prev.settings,
+                                            categoryOrder: moveItem(prev.settings.categoryOrder, index, 'down'),
+                                        },
+                                    }) : prev)}
+                                    disabled={index === local.settings.categoryOrder.length - 1}
+                                    className="rounded p-0.5 text-slate-400 transition hover:text-primary disabled:opacity-30"
+                                    title="Move down"
+                                >
+                                    <ArrowDown className="h-4 w-4" />
+                                </button>
+                                <span className="w-6 text-center text-xs cw-muted">{index + 1}</span>
+                                <span className="flex-1 text-sm font-medium cw-text">{category}</span>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                    <div className="card-flat p-5">
+                        <h2 className="text-base font-semibold cw-text">Default Browse Category</h2>
+                        <p className="mt-1 text-sm cw-muted">
+                            Public `/universities` pages will use this category when the route does not force another one.
+                        </p>
+                        <div className="mt-4">
+                            <label className="text-xs text-slate-400">Default Category</label>
+                            <select
+                                value={local.settings.defaultCategory}
+                                onChange={(event) => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    settings: {
+                                        ...prev.settings,
+                                        defaultCategory: event.target.value,
+                                    },
+                                    home: {
+                                        ...prev.home,
+                                        universityDashboard: {
+                                            ...prev.home.universityDashboard,
+                                            defaultCategory: event.target.value,
+                                        },
+                                    },
+                                }) : prev)}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2 text-sm text-white"
+                            >
+                                {defaultCategoryOptions.map((category) => (
+                                    <option key={category} value={category}>{category}</option>
+                                ))}
+                            </select>
+                            <p className="mt-2 text-[11px] text-slate-500">
+                                `all` keeps the general browse view open. Specific categories lock the initial public browse tab.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <ToggleCard
+                            label="Show Cluster Filter on Universities Page"
+                            hint="Controls the public `/universities` cluster selector."
+                            checked={local.settings.enableClusterFilterOnUniversities}
+                            onToggle={() => setLocal((prev) => prev ? ({
+                                ...prev,
+                                settings: {
+                                    ...prev.settings,
+                                    enableClusterFilterOnUniversities: !prev.settings.enableClusterFilterOnUniversities,
+                                },
+                            }) : prev)}
+                        />
+                        <ToggleCard
+                            label="Show Cluster Filter on Home"
+                            hint="Controls the Home featured university cluster selector."
+                            checked={local.settings.enableClusterFilterOnHome}
+                            onToggle={() => setLocal((prev) => prev ? ({
+                                ...prev,
+                                settings: {
+                                    ...prev.settings,
+                                    enableClusterFilterOnHome: !prev.settings.enableClusterFilterOnHome,
+                                },
+                            }) : prev)}
+                        />
+                        <ToggleCard
+                            label="Allow Custom Categories"
+                            hint="Keeps import and admin validation flexible for non-standard categories."
+                            checked={local.settings.allowCustomCategories}
+                            onToggle={() => setLocal((prev) => prev ? ({
+                                ...prev,
+                                settings: {
+                                    ...prev.settings,
+                                    allowCustomCategories: !prev.settings.allowCustomCategories,
+                                },
+                            }) : prev)}
+                        />
+                        <ToggleCard
+                            label="Allow All Universities View"
+                            hint="Preserves the legacy all-category browse mode for routes still using dashboard-category config."
+                            checked={local.home.universityDashboard.showAllCategories === true}
+                            onToggle={() => setLocal((prev) => prev ? ({
+                                ...prev,
+                                home: {
+                                    ...prev.home,
+                                    universityDashboard: {
+                                        ...prev.home.universityDashboard,
+                                        showAllCategories: prev.home.universityDashboard.showAllCategories !== true,
+                                    },
+                                },
+                            }) : prev)}
+                        />
+                    </div>
+                </section>
+
+                <section className="card-flat p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Settings2 className="h-5 w-5 text-primary" />
+                        <div>
+                            <h2 className="text-base font-semibold cw-text">Home University Sections</h2>
+                            <p className="mt-1 text-sm cw-muted">
+                                University-related section visibility and order from Home Control now lives here.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        {local.homeSections.map((section, index) => (
+                            <div key={section.id} className="rounded-xl border border-card-border bg-surface/60 px-4 py-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setLocal((prev) => prev ? ({
+                                            ...prev,
+                                            homeSections: moveItem(prev.homeSections, index, 'up').map((item, nextIndex) => ({ ...item, order: nextIndex })),
+                                        }) : prev)}
+                                        disabled={index === 0}
+                                        className="rounded p-0.5 text-slate-400 transition hover:text-primary disabled:opacity-30"
+                                        title="Move up"
+                                    >
+                                        <ArrowUp className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLocal((prev) => prev ? ({
+                                            ...prev,
+                                            homeSections: moveItem(prev.homeSections, index, 'down').map((item, nextIndex) => ({ ...item, order: nextIndex })),
+                                        }) : prev)}
+                                        disabled={index === local.homeSections.length - 1}
+                                        className="rounded p-0.5 text-slate-400 transition hover:text-primary disabled:opacity-30"
+                                        title="Move down"
+                                    >
+                                        <ArrowDown className="h-4 w-4" />
+                                    </button>
+                                    <span className="w-6 text-center text-xs cw-muted">{index + 1}</span>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium cw-text">{section.title}</p>
+                                        <p className="text-xs cw-muted">{section.id}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLocal((prev) => prev ? ({
+                                            ...prev,
+                                            homeSections: prev.homeSections.map((item, itemIndex) => (
+                                                itemIndex === index ? { ...item, isActive: item.isActive === false } : item
+                                            )),
+                                        }) : prev)}
+                                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                                            section.isActive !== false
+                                                ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                                                : 'border-slate-600 bg-slate-800/70 text-slate-300'
+                                        }`}
+                                    >
+                                        {section.isActive !== false ? 'Visible' : 'Hidden'}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="card-flat p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Settings2 className="h-5 w-5 text-primary" />
+                        <div>
+                            <h2 className="text-base font-semibold cw-text">Home University Windows</h2>
+                            <p className="mt-1 text-sm cw-muted">
+                                Controls the live home university feed sizes and the featured/deadline/exam windows. Duplicate category and cluster controls were removed from Home Control.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        <NumberInput
+                            label="Featured Max Items"
+                            value={local.home.universityPreview.maxFeaturedItems}
+                            onChange={(value) => setLocal((prev) => prev ? ({
+                                ...prev,
+                                home: {
+                                    ...prev.home,
+                                    universityPreview: {
+                                        ...prev.home.universityPreview,
+                                        maxFeaturedItems: value,
+                                    },
+                                },
+                            }) : prev)}
+                        />
+                        <NumberInput
+                            label="Deadline Max Items"
+                            value={local.home.universityPreview.maxDeadlineItems}
+                            onChange={(value) => setLocal((prev) => prev ? ({
+                                ...prev,
+                                home: {
+                                    ...prev.home,
+                                    universityPreview: {
+                                        ...prev.home.universityPreview,
+                                        maxDeadlineItems: value,
+                                    },
+                                },
+                            }) : prev)}
+                        />
+                        <NumberInput
+                            label="Exam Max Items"
+                            value={local.home.universityPreview.maxExamItems}
+                            onChange={(value) => setLocal((prev) => prev ? ({
+                                ...prev,
+                                home: {
+                                    ...prev.home,
+                                    universityPreview: {
+                                        ...prev.home.universityPreview,
+                                        maxExamItems: value,
+                                    },
+                                },
+                            }) : prev)}
+                        />
+                        <NumberInput
+                            label="Deadline Within Days"
+                            value={local.home.universityPreview.deadlineWithinDays}
+                            onChange={(value) => setLocal((prev) => prev ? ({
+                                ...prev,
+                                home: {
+                                    ...prev.home,
+                                    universityPreview: {
+                                        ...prev.home.universityPreview,
+                                        deadlineWithinDays: value,
+                                    },
+                                },
+                            }) : prev)}
+                        />
+                        <NumberInput
+                            label="Exam Within Days"
+                            value={local.home.universityPreview.examWithinDays}
+                            onChange={(value) => setLocal((prev) => prev ? ({
+                                ...prev,
+                                home: {
+                                    ...prev.home,
+                                    universityPreview: {
+                                        ...prev.home.universityPreview,
+                                        examWithinDays: value,
+                                    },
+                                },
+                            }) : prev)}
+                        />
+                        <div>
+                            <label className="text-xs text-slate-400">Featured Mode</label>
+                            <select
+                                value={local.home.universityPreview.featuredMode}
+                                onChange={(event) => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    home: {
+                                        ...prev.home,
+                                        universityPreview: {
+                                            ...prev.home.universityPreview,
+                                            featuredMode: event.target.value as HomeSettingsConfig['universityPreview']['featuredMode'],
+                                        },
+                                    },
+                                }) : prev)}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2 text-sm text-white"
+                            >
+                                <option value="manual">Manual Featured Picks</option>
+                                <option value="auto">Auto from Active Universities</option>
+                            </select>
                         </div>
                     </div>
                 </section>
 
-                {/* Category Order */}
-                <section className="card-flat p-5 space-y-4">
-                    <div className="flex items-center gap-3">
-                        <GraduationCap className="w-5 h-5 text-primary" />
-                        <h2 className="text-base font-semibold cw-text">Category Order &amp; Highlights</h2>
+                <section className="card-flat p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Layers3 className="h-5 w-5 text-primary" />
+                        <div>
+                            <h2 className="text-base font-semibold cw-text">Highlighted Categories</h2>
+                            <p className="mt-1 text-sm cw-muted">Controls the highlighted category chips and their badge text for Home featured browsing.</p>
+                        </div>
                     </div>
-                    <p className="text-sm cw-muted">
-                        Drag or use arrows to reorder categories. Click a name to toggle it as highlighted (shown prominently).
-                    </p>
-                    <div className="space-y-2">
-                        {local.categoryOrder.map((cat, idx) => {
-                            const isHighlighted = local.highlightedCategories.includes(cat);
-                            return (
-                                <div
-                                    key={cat}
-                                    className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 transition-colors ${isHighlighted
-                                            ? 'border-primary/40 bg-primary/5'
-                                            : 'border-card-border bg-surface/50'
-                                        }`}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() => moveCategory(idx, 'up')}
-                                        disabled={idx === 0}
-                                        className="rounded p-0.5 text-slate-400 hover:text-primary disabled:opacity-30"
-                                        title="Move up"
-                                    >
-                                        <ArrowUp className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => moveCategory(idx, 'down')}
-                                        disabled={idx === local.categoryOrder.length - 1}
-                                        className="rounded p-0.5 text-slate-400 hover:text-primary disabled:opacity-30"
-                                        title="Move down"
-                                    >
-                                        <ArrowDown className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-xs w-5 text-center cw-muted">{idx + 1}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleHighlighted(cat)}
-                                        className={`flex-1 text-left text-sm font-medium transition-colors ${isHighlighted ? 'text-primary' : 'cw-text'
-                                            }`}
-                                    >
-                                        {cat}
-                                    </button>
-                                    {isHighlighted && (
-                                        <Star className="w-4 h-4 text-primary flex-shrink-0" />
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
-
-                {/* Default Category */}
-                <section className="card-flat p-5 space-y-3">
-                    <h2 className="text-base font-semibold cw-text">Default Active Category</h2>
-                    <p className="text-sm cw-muted">
-                        The category tab selected by default when a user opens the home or universities page.
-                    </p>
-                    <select
-                        value={local.defaultCategory}
-                        onChange={(e) => setLocal((prev) => ({ ...prev, defaultCategory: e.target.value }))}
-                        className="input-field w-full max-w-sm"
-                    >
-                        <option value="all">All</option>
-                        {local.categoryOrder.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </select>
-                </section>
-
-                {/* Cluster Filter Toggles */}
-                <section className="card-flat p-5 space-y-4">
-                    <h2 className="text-base font-semibold cw-text">Cluster Filter Visibility</h2>
-                    <div className="space-y-3">
-                        {(
-                            [
-                                {
-                                    key: 'enableClusterFilterOnHome' as const,
-                                    label: 'Show cluster filter on Home page',
-                                    hint: 'Enables cluster pills inside the Universities section on the home page.',
-                                },
-                                {
-                                    key: 'enableClusterFilterOnUniversities' as const,
-                                    label: 'Show cluster filter on Universities page',
-                                    hint: 'Enables the cluster group filter tab on the /universities page.',
-                                },
-                            ] as const
-                        ).map(({ key, label, hint }) => (
-                            <label
-                                key={key}
-                                className="flex items-start gap-4 cursor-pointer rounded-xl border border-card-border bg-surface/50 px-4 py-3 hover:border-primary/30 transition-colors"
-                            >
-                                <div className="mt-0.5">
-                                    <div
-                                        onClick={() =>
-                                            setLocal((prev) => ({ ...prev, [key]: !prev[key] }))
-                                        }
-                                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${local[key] ? 'bg-primary' : 'bg-slate-600'
-                                            }`}
-                                    >
-                                        <span
-                                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ${local[key] ? 'translate-x-4' : 'translate-x-0'
-                                                }`}
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium cw-text">{label}</p>
-                                    <p className="text-xs cw-muted mt-0.5">{hint}</p>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                </section>
-
-                {/* Featured Universities */}
-                <section className="card-flat p-5 space-y-4">
-                    <div className="flex items-center gap-3">
-                        <Star className="w-5 h-5 text-primary" />
-                        <h2 className="text-base font-semibold cw-text">Featured Universities</h2>
-                    </div>
-                    <p className="text-sm cw-muted">
-                        Enter university slugs in priority order. These will appear in the Featured Universities row on the home page.
-                    </p>
-
-                    {/* Max Items */}
-                    <div className="flex items-center gap-4">
-                        <label className="text-sm cw-muted whitespace-nowrap">Max featured items:</label>
-                        <input
-                            type="number"
-                            min={1}
-                            max={50}
-                            value={local.maxFeaturedItems}
-                            onChange={(e) =>
-                                setLocal((prev) => ({
-                                    ...prev,
-                                    maxFeaturedItems: Math.min(50, Math.max(1, Number(e.target.value) || 1)),
-                                }))
-                            }
-                            className="input-field w-24"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                    <div className="grid gap-2 md:grid-cols-[1fr_auto]">
                         <select
-                            value={selectedFeaturedSlug}
-                            onChange={(e) => setSelectedFeaturedSlug(e.target.value)}
-                            className="input-field w-full"
+                            value={categoryToAdd}
+                            onChange={(event) => setCategoryToAdd(event.target.value)}
+                            className="w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2 text-sm text-white"
                         >
-                            <option value="">Select university (auto slug)</option>
-                            {universityOptions.map((item) => (
-                                <option key={item.slug} value={item.slug}>
-                                    {item.label}
-                                </option>
+                            <option value="">Select category to add</option>
+                            {categoryOptions.map((category) => (
+                                <option key={category} value={category}>{category}</option>
                             ))}
                         </select>
                         <button
                             type="button"
-                            onClick={() => addSlug(selectedFeaturedSlug)}
-                            disabled={!selectedFeaturedSlug}
-                            className="btn-outline text-sm px-4 disabled:opacity-50"
-                        >
-                            Add Selected
-                        </button>
-                    </div>
-
-                    {/* Add Slug */}
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            placeholder="e.g. dhaka-university"
-                            value={slugInput}
-                            onChange={(e) => setSlugInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') { e.preventDefault(); addSlug(); }
+                            onClick={() => {
+                                const next = pickText(categoryToAdd);
+                                if (!next) return;
+                                setLocal((prev) => {
+                                    if (!prev) return prev;
+                                    if (prev.home.highlightedCategories.some((item) => pickText(item.category) === next)) return prev;
+                                    return {
+                                        ...prev,
+                                        home: {
+                                            ...prev.home,
+                                            highlightedCategories: [
+                                                ...prev.home.highlightedCategories,
+                                                {
+                                                    category: next,
+                                                    order: prev.home.highlightedCategories.length + 1,
+                                                    enabled: true,
+                                                    badgeText: 'Highlight',
+                                                },
+                                            ],
+                                        },
+                                    };
+                                });
+                                setCategoryToAdd('');
                             }}
-                            className="input-field flex-1"
-                        />
-                        <button onClick={() => addSlug()} className="btn-primary text-sm px-4">
+                            disabled={!pickText(categoryToAdd)}
+                            className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                        >
                             Add
                         </button>
                     </div>
-
-                    {/* Slug List */}
-                    {local.featuredUniversitySlugs.length > 0 ? (
-                        <div className="space-y-2">
-                            {local.featuredUniversitySlugs.map((slug, idx) => (
-                                <div
-                                    key={slug}
-                                    className="flex items-center gap-3 rounded-xl border border-card-border bg-surface/50 px-4 py-2.5"
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() => moveSlug(idx, 'up')}
-                                        disabled={idx === 0}
-                                        className="rounded p-0.5 text-slate-400 hover:text-primary disabled:opacity-30"
-                                    >
-                                        <ArrowUp className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => moveSlug(idx, 'down')}
-                                        disabled={idx === local.featuredUniversitySlugs.length - 1}
-                                        className="rounded p-0.5 text-slate-400 hover:text-primary disabled:opacity-30"
-                                    >
-                                        <ArrowDown className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-xs w-5 text-center cw-muted">{idx + 1}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <span className="block text-sm font-mono cw-text truncate">{slug}</span>
-                                        <span className="block text-xs cw-muted truncate">{universityLabelBySlug.get(slug) || 'Unknown university slug'}</span>
+                    {local.home.highlightedCategories.length === 0 ? (
+                        <p className="mt-3 text-xs text-slate-500">No highlighted categories selected.</p>
+                    ) : (
+                        <div className="mt-3 space-y-2">
+                            {local.home.highlightedCategories.map((item, index) => (
+                                <div key={`${item.category}-${index}`} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-200">#{index + 1}</span>
+                                        <p className="text-sm font-medium text-white">{item.category}</p>
+                                        <div className="ml-auto flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    home: {
+                                                        ...prev.home,
+                                                        highlightedCategories: moveItem(prev.home.highlightedCategories, index, 'up').map((entry, idx) => ({ ...entry, order: idx + 1 })),
+                                                    },
+                                                }) : prev)}
+                                                disabled={index === 0}
+                                                className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40"
+                                            >
+                                                Up
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    home: {
+                                                        ...prev.home,
+                                                        highlightedCategories: moveItem(prev.home.highlightedCategories, index, 'down').map((entry, idx) => ({ ...entry, order: idx + 1 })),
+                                                    },
+                                                }) : prev)}
+                                                disabled={index === local.home.highlightedCategories.length - 1}
+                                                className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40"
+                                            >
+                                                Down
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    home: {
+                                                        ...prev.home,
+                                                        highlightedCategories: prev.home.highlightedCategories
+                                                            .filter((entry) => entry.category !== item.category)
+                                                            .map((entry, idx) => ({ ...entry, order: idx + 1 })),
+                                                    },
+                                                }) : prev)}
+                                                className="rounded-lg border border-rose-500/25 px-2 py-1 text-xs text-rose-200"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeSlug(slug)}
-                                        className="rounded p-1 text-slate-400 hover:text-rose-400"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                                        <TextInput
+                                            label="Badge Text"
+                                            value={pickText(item.badgeText)}
+                                            onChange={(value) => setLocal((prev) => prev ? ({
+                                                ...prev,
+                                                home: {
+                                                    ...prev.home,
+                                                    highlightedCategories: prev.home.highlightedCategories.map((entry, entryIndex) => (
+                                                        entryIndex === index ? { ...entry, badgeText: value } : entry
+                                                    )),
+                                                },
+                                            }) : prev)}
+                                        />
+                                        <ToggleCard
+                                            label="Enabled"
+                                            hint="Disabled categories stay in draft order but do not appear on Home."
+                                            checked={item.enabled !== false}
+                                            onToggle={() => setLocal((prev) => prev ? ({
+                                                ...prev,
+                                                home: {
+                                                    ...prev.home,
+                                                    highlightedCategories: prev.home.highlightedCategories.map((entry, entryIndex) => (
+                                                        entryIndex === index ? { ...entry, enabled: entry.enabled === false } : entry
+                                                    )),
+                                                },
+                                            }) : prev)}
+                                        />
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                    ) : (
-                        <p className="text-sm cw-muted italic">No featured slugs yet. Add some above.</p>
                     )}
                 </section>
 
-                {/* Default Logo URL */}
-                <section className="card-flat border border-cyan-500/10 p-5 space-y-4">
-                    <h2 className="text-base font-semibold cw-text">Default University Logo</h2>
-                    <p className="text-sm cw-muted">
-                        Fallback logo shown when a university has no logo uploaded. Leave blank to use a placeholder icon.
-                    </p>
-                    <AdminImageUploadField
-                        label="Fallback Logo"
-                        value={local.defaultUniversityLogoUrl || ''}
-                        onChange={(nextValue) =>
-                            setLocal((prev) => ({
-                                ...prev,
-                                defaultUniversityLogoUrl: nextValue.trim() || null,
-                            }))
-                        }
-                        helper="Used across home and university listings when a logo is missing."
-                        category="admin_upload"
-                        previewAlt="Default university logo"
-                        fit="contain"
-                        previewClassName="min-h-[170px]"
-                    />
-                </section>
-
-                {/* Bottom Save */}
-                <div className="flex justify-end gap-3 pb-4">
-                    {isDirty && (
-                        <button onClick={handleReset} className="btn-outline text-sm gap-2 inline-flex items-center">
-                            <RefreshCw className="w-4 h-4" /> Discard Changes
+                <section className="card-flat p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Star className="h-5 w-5 text-primary" />
+                        <div>
+                            <h2 className="text-base font-semibold cw-text">Featured Universities</h2>
+                            <p className="mt-1 text-sm cw-muted">Manual list used by the Home featured university carousel when featured mode is manual.</p>
+                        </div>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                        <select
+                            value={featuredUniversityToAdd}
+                            onChange={(event) => setFeaturedUniversityToAdd(event.target.value)}
+                            className="w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2 text-sm text-white"
+                        >
+                            <option value="">Select university to add</option>
+                            {universityOptions.map((item) => (
+                                <option key={item.id} value={item.id}>{item.name} ({item.shortForm})</option>
+                            ))}
+                        </select>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const next = pickText(featuredUniversityToAdd);
+                                if (!next) return;
+                                setLocal((prev) => {
+                                    if (!prev) return prev;
+                                    if (prev.home.featuredUniversities.some((item) => pickText(item.universityId) === next)) return prev;
+                                    return {
+                                        ...prev,
+                                        home: {
+                                            ...prev.home,
+                                            featuredUniversities: [
+                                                ...prev.home.featuredUniversities,
+                                                {
+                                                    universityId: next,
+                                                    order: prev.home.featuredUniversities.length + 1,
+                                                    badgeText: 'Featured',
+                                                    enabled: true,
+                                                },
+                                            ],
+                                        },
+                                    };
+                                });
+                                setFeaturedUniversityToAdd('');
+                            }}
+                            disabled={!pickText(featuredUniversityToAdd)}
+                            className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                        >
+                            Add
                         </button>
+                    </div>
+                    {local.home.featuredUniversities.length === 0 ? (
+                        <p className="mt-3 text-xs text-slate-500">No featured universities selected.</p>
+                    ) : (
+                        <div className="mt-3 space-y-2">
+                            {local.home.featuredUniversities.map((item, index) => (
+                                <div key={`${item.universityId}-${index}`} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-200">#{index + 1}</span>
+                                        <p className="text-sm font-medium text-white">{universityLabelMap.get(item.universityId) || item.universityId}</p>
+                                        <div className="ml-auto flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    home: {
+                                                        ...prev.home,
+                                                        featuredUniversities: moveItem(prev.home.featuredUniversities, index, 'up').map((entry, idx) => ({ ...entry, order: idx + 1 })),
+                                                    },
+                                                }) : prev)}
+                                                disabled={index === 0}
+                                                className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40"
+                                            >
+                                                Up
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    home: {
+                                                        ...prev.home,
+                                                        featuredUniversities: moveItem(prev.home.featuredUniversities, index, 'down').map((entry, idx) => ({ ...entry, order: idx + 1 })),
+                                                    },
+                                                }) : prev)}
+                                                disabled={index === local.home.featuredUniversities.length - 1}
+                                                className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40"
+                                            >
+                                                Down
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    home: {
+                                                        ...prev.home,
+                                                        featuredUniversities: prev.home.featuredUniversities
+                                                            .filter((entry) => entry.universityId !== item.universityId)
+                                                            .map((entry, idx) => ({ ...entry, order: idx + 1 })),
+                                                    },
+                                                }) : prev)}
+                                                className="rounded-lg border border-rose-500/25 px-2 py-1 text-xs text-rose-200"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                                        <TextInput
+                                            label="Badge Text"
+                                            value={pickText(item.badgeText)}
+                                            onChange={(value) => setLocal((prev) => prev ? ({
+                                                ...prev,
+                                                home: {
+                                                    ...prev.home,
+                                                    featuredUniversities: prev.home.featuredUniversities.map((entry, entryIndex) => (
+                                                        entryIndex === index ? { ...entry, badgeText: value } : entry
+                                                    )),
+                                                },
+                                            }) : prev)}
+                                        />
+                                        <ToggleCard
+                                            label="Enabled"
+                                            hint="Disabled universities stay in draft order but do not render on Home."
+                                            checked={item.enabled !== false}
+                                            onToggle={() => setLocal((prev) => prev ? ({
+                                                ...prev,
+                                                home: {
+                                                    ...prev.home,
+                                                    featuredUniversities: prev.home.featuredUniversities.map((entry, entryIndex) => (
+                                                        entryIndex === index ? { ...entry, enabled: entry.enabled === false } : entry
+                                                    )),
+                                                },
+                                            }) : prev)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     )}
+                </section>
+
+                <section className="card-flat p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Layers3 className="h-5 w-5 text-primary" />
+                        <div>
+                            <h2 className="text-base font-semibold cw-text">Featured Clusters on Home</h2>
+                            <p className="mt-1 text-sm cw-muted">Controls which active clusters appear first in the Home featured cluster feed and in what order.</p>
+                        </div>
+                    </div>
+                    {local.clusters.length === 0 ? (
+                        <p className="text-xs text-slate-500">No active clusters found.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {local.clusters.map((cluster, index) => (
+                                <div key={cluster._id} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-200">#{index + 1}</span>
+                                        <p className="text-sm font-medium text-white">{cluster.name}</p>
+                                        <span className="rounded-full border border-indigo-500/25 px-2 py-0.5 text-[10px] text-indigo-200">
+                                            {cluster.memberCount} members
+                                        </span>
+                                        <div className="ml-auto flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    clusters: moveItem(prev.clusters, index, 'up'),
+                                                }) : prev)}
+                                                disabled={index === 0}
+                                                className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40"
+                                            >
+                                                Up
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    clusters: moveItem(prev.clusters, index, 'down'),
+                                                }) : prev)}
+                                                disabled={index === local.clusters.length - 1}
+                                                className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40"
+                                            >
+                                                Down
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 grid gap-3 md:grid-cols-[1fr_140px]">
+                                        <ToggleCard
+                                            label="Show on Home"
+                                            hint="Hidden clusters stay active in taxonomy but are excluded from the Home featured cluster feed."
+                                            checked={cluster.homeVisible}
+                                            onToggle={() => setLocal((prev) => prev ? ({
+                                                ...prev,
+                                                clusters: prev.clusters.map((entry, entryIndex) => (
+                                                    entryIndex === index
+                                                        ? { ...entry, homeVisible: !entry.homeVisible, homeOrder: !entry.homeVisible ? Math.max(1, entry.homeOrder || index + 1) : 0 }
+                                                        : entry
+                                                )),
+                                            }) : prev)}
+                                        />
+                                        <NumberInput
+                                            label="Home Order"
+                                            value={cluster.homeOrder}
+                                            onChange={(value) => setLocal((prev) => prev ? ({
+                                                ...prev,
+                                                clusters: prev.clusters.map((entry, entryIndex) => (
+                                                    entryIndex === index ? { ...entry, homeOrder: value } : entry
+                                                )),
+                                            }) : prev)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
+
+                <section className="card-flat p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Settings2 className="h-5 w-5 text-primary" />
+                        <div>
+                            <h2 className="text-base font-semibold cw-text">University Card Defaults</h2>
+                            <p className="mt-1 text-sm cw-muted">Only settings with live frontend effect stay here. Inert legacy card toggles were removed from the admin surface.</p>
+                        </div>
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                        <AdminImageUploadField
+                            label="Default University Logo"
+                            value={pickText(local.home.universityCardConfig.defaultUniversityLogo)}
+                            onChange={(nextValue) => setLocal((prev) => prev ? ({
+                                ...prev,
+                                home: {
+                                    ...prev.home,
+                                    universityCardConfig: {
+                                        ...prev.home.universityCardConfig,
+                                        defaultUniversityLogo: nextValue,
+                                    },
+                                },
+                            }) : prev)}
+                            helper="Shown when a university does not have its own uploaded logo."
+                            category="admin_upload"
+                            previewAlt="Fallback university logo"
+                            fit="contain"
+                            previewClassName="min-h-[170px]"
+                            panelClassName="bg-slate-950/30 dark:bg-slate-950/55"
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <NumberInput
+                                label="Closing Soon Days Threshold"
+                                value={local.home.universityCardConfig.closingSoonDays}
+                                onChange={(value) => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    home: {
+                                        ...prev.home,
+                                        universityCardConfig: {
+                                            ...prev.home.universityCardConfig,
+                                            closingSoonDays: value,
+                                        },
+                                    },
+                                }) : prev)}
+                            />
+                            <div>
+                                <label className="text-xs text-slate-400">Default Sort</label>
+                                <select
+                                    value={local.home.universityCardConfig.defaultSort}
+                                    onChange={(event) => setLocal((prev) => prev ? ({
+                                        ...prev,
+                                        home: {
+                                            ...prev.home,
+                                            universityCardConfig: {
+                                                ...prev.home.universityCardConfig,
+                                                defaultSort: event.target.value as HomeSettingsConfig['universityCardConfig']['defaultSort'],
+                                            },
+                                        },
+                                    }) : prev)}
+                                    className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2 text-sm text-white"
+                                >
+                                    <option value="alphabetical">Name (A-Z)</option>
+                                    <option value="nearest_deadline">Nearest Deadline</option>
+                                </select>
+                            </div>
+                            <ToggleCard
+                                label="Show Exam Centers Preview"
+                                hint="Shows the short exam center preview line on cards."
+                                checked={local.home.universityCardConfig.showExamCentersPreview}
+                                onToggle={() => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    home: {
+                                        ...prev.home,
+                                        universityCardConfig: {
+                                            ...prev.home.universityCardConfig,
+                                            showExamCentersPreview: !prev.home.universityCardConfig.showExamCentersPreview,
+                                        },
+                                    },
+                                }) : prev)}
+                            />
+                            <ToggleCard
+                                label="Show Address"
+                                hint="Shows the compact address block and enables click-to-copy address behavior."
+                                checked={local.home.universityCardConfig.showAddress}
+                                onToggle={() => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    home: {
+                                        ...prev.home,
+                                        universityCardConfig: {
+                                            ...prev.home.universityCardConfig,
+                                            showAddress: !prev.home.universityCardConfig.showAddress,
+                                        },
+                                    },
+                                }) : prev)}
+                            />
+                            <ToggleCard
+                                label="Show Email"
+                                hint="Shows the direct email action on non-home university cards."
+                                checked={local.home.universityCardConfig.showEmail}
+                                onToggle={() => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    home: {
+                                        ...prev.home,
+                                        universityCardConfig: {
+                                            ...prev.home.universityCardConfig,
+                                            showEmail: !prev.home.universityCardConfig.showEmail,
+                                        },
+                                    },
+                                }) : prev)}
+                            />
+                            <ToggleCard
+                                label="Show Application Progress"
+                                hint="Shows the deadline bar and remaining-day message inside the application block."
+                                checked={local.home.universityCardConfig.showApplicationProgress}
+                                onToggle={() => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    home: {
+                                        ...prev.home,
+                                        universityCardConfig: {
+                                            ...prev.home.universityCardConfig,
+                                            showApplicationProgress: !prev.home.universityCardConfig.showApplicationProgress,
+                                        },
+                                    },
+                                }) : prev)}
+                            />
+                            <ToggleCard
+                                label="Show Exam Dates"
+                                hint="Shows science, arts, and business exam date boxes on university cards."
+                                checked={local.home.universityCardConfig.showExamDates}
+                                onToggle={() => setLocal((prev) => prev ? ({
+                                    ...prev,
+                                    home: {
+                                        ...prev.home,
+                                        universityCardConfig: {
+                                            ...prev.home.universityCardConfig,
+                                            showExamDates: !prev.home.universityCardConfig.showExamDates,
+                                        },
+                                    },
+                                }) : prev)}
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                <div className="flex justify-end gap-3 pb-4">
+                    {isDirty ? (
+                        <button onClick={handleReset} className="btn-outline inline-flex items-center gap-2 text-sm">
+                            <RefreshCw className="h-4 w-4" />
+                            Discard Changes
+                        </button>
+                    ) : null}
                     <button
-                        onClick={handleSave}
+                        onClick={() => mutation.mutate(local)}
                         disabled={!isDirty || mutation.isPending}
-                        className="btn-primary text-sm gap-2 inline-flex items-center disabled:opacity-50"
+                        className="btn-primary inline-flex items-center gap-2 text-sm disabled:opacity-50"
                     >
-                        {mutation.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <Save className="w-4 h-4" />
-                        )}
+                        {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                         Save Settings
                     </button>
                 </div>

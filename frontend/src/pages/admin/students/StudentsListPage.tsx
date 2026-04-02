@@ -7,6 +7,7 @@ import {
   getStudentsList, suspendStudent, activateStudent, resetStudentPassword,
   exportStudents, importStudentsPreview, importStudentsCommit, bulkDeleteStudents, bulkUpdateStudents,
 } from '../../../api/adminStudentApi';
+import { showConfirmDialog } from '../../../lib/appDialog';
 import { downloadFile } from '../../../utils/download';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
@@ -142,7 +143,13 @@ export default function StudentsListPage() {
   };
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`Delete ${selected.length} selected students?`)) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete students',
+      message: `Delete ${selected.length} selected students?`,
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await bulkDeleteStudents(selected);
       qc.invalidateQueries({ queryKey: ['admin-students'] });

@@ -59,7 +59,7 @@ export default function AdminNewsDashboard() {
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard label="Pending" value={cards.pending} icon={<Newspaper className="h-4 w-4" />} />
-                <StatCard label="Published" value={cards.published} icon={<Newspaper className="h-4 w-4" />} />
+                <StatCard label="Published News" value={cards.published} icon={<Newspaper className="h-4 w-4" />} />
                 <StatCard label="Failed Fetches" value={cards.fetchFailed} icon={<TriangleAlert className="h-4 w-4" />} />
                 <StatCard label="Active Sources" value={cards.activeSources} icon={<Rss className="h-4 w-4" />} />
             </div>
@@ -203,7 +203,7 @@ function statusToLabel(status: ApiNews['status']): string {
     if (status === 'pending_review') return 'Items to Review';
     if (status === 'duplicate_review') return 'Possible Duplicates';
     if (status === 'draft') return 'Saved Drafts';
-    if (status === 'published') return 'Live News';
+    if (status === 'published') return 'Published News';
     if (status === 'scheduled') return 'Scheduled';
     if (status === 'rejected') return 'Rejected';
     return 'Items to Review';

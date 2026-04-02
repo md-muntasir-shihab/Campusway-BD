@@ -191,9 +191,9 @@ function resolveRouteTitle(pathname: string, siteName: string, defaultTitle: str
     if (pathname.startsWith('/__cw_admin__/subscription-plans')) return withSite('Admin Subscription Plans');
     if (pathname === '/__cw_admin__/support-center') return withSite('Admin Support Center');
     if (pathname === '/__cw_admin__/contact') return withSite('Admin Contact Messages');
-    if (pathname === '/__cw_admin__/notification-center') return withSite('Admin Actionable Alerts');
+    if (pathname === '/__cw_admin__/notification-center') return withSite('Admin Notifications');
     if (pathname === '/__cw_admin__/help-center') return withSite('Admin Help Center');
-    if (pathname === '/__cw_admin__/settings/notifications') return withSite('Admin Notification Settings');
+    if (pathname === '/__cw_admin__/settings/notifications') return withSite('Admin Notifications');
     if (pathname === '/__cw_admin__/notifications/test-send') return withSite('Admin Campaign Platform');
     if (pathname === '/__cw_admin__/notifications/triggers') return withSite('Admin Notification Triggers');
     if (pathname.startsWith('/__cw_admin__/campaigns')) return withSite('Admin Campaign Platform');
@@ -467,7 +467,7 @@ export default function App() {
                                     <Route path="import-export" element={<AdminStudentImportExportPage />} />
                                     <Route path="groups" element={<AdminStudentGroupsV2Page />} />
                                     <Route path="groups/:id" element={<AdminStudentGroupDetailPage />} />
-                                    <Route path="audiences" element={<Navigate to={`${ADMIN_PATHS.campaignsContactCenter}?tab=members`} replace />} />
+                                    <Route path="audiences" element={<Navigate to={`${ADMIN_PATHS.subscriptionContactCenter}?tab=members`} replace />} />
                                     <Route path="crm-timeline" element={<AdminStudentCrmTimelinePage />} />
                                     <Route path="weak-topics" element={<AdminStudentWeakTopicsPage />} />
                                     <Route path="profile-requests" element={<AdminProfileRequestsPage />} />
@@ -486,13 +486,14 @@ export default function App() {
                                 <Route path={ADMIN_PATHS.campaignsDashboard} element={<CampaignConsolePage />} />
                                 <Route path={ADMIN_PATHS.campaignsList} element={<CampaignConsolePage />} />
                                 <Route path={ADMIN_PATHS.campaignsNew} element={<CampaignConsolePage />} />
-                                <Route path={ADMIN_PATHS.campaignsContactCenter} element={<SubscriptionContactCenterPage />} />
+                                <Route path={ADMIN_PATHS.subscriptionContactCenter} element={<SubscriptionContactCenterPage />} />
+                                <Route path={ADMIN_PATHS.campaignsContactCenter} element={<Navigate to={ADMIN_PATHS.subscriptionContactCenter} replace />} />
                                 <Route path={ADMIN_PATHS.campaignsTemplates} element={<CampaignConsolePage />} />
                                 <Route path={ADMIN_PATHS.campaignsSettings} element={<CampaignConsolePage />} />
                                 <Route path={ADMIN_PATHS.campaignsLogs} element={<CampaignConsolePage />} />
                                 {/* Data Hub */}
-                                <Route path={ADMIN_PATHS.dataHub} element={<Navigate to={`${ADMIN_PATHS.campaignsContactCenter}?tab=export`} replace />} />
-                                <Route path={ADMIN_PATHS.dataHubHistory} element={<Navigate to={`${ADMIN_PATHS.campaignsContactCenter}?tab=logs`} replace />} />
+                                <Route path={ADMIN_PATHS.dataHub} element={<Navigate to={`${ADMIN_PATHS.subscriptionContactCenter}?tab=export`} replace />} />
+                                <Route path={ADMIN_PATHS.dataHubHistory} element={<Navigate to={`${ADMIN_PATHS.subscriptionContactCenter}?tab=logs`} replace />} />
                                 {/* Team & Access Control */}
                                 <Route path={ADMIN_PATHS.teamMembers} element={<TeamAccessConsolePage />} />
                                 <Route path={adminUi('team/members/:id')} element={<MemberDetailPage />} />

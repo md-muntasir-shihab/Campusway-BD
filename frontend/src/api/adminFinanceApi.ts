@@ -87,9 +87,9 @@ export const fcApi = {
 
     // ── Settings ────────────────────────────────────────
     getSettings: () =>
-        api.get<{ data: FcSettings }>(`${FC}/settings`).then(r => r.data),
+        api.get<{ ok: boolean; data: FcSettings }>(`${FC}/settings`).then(r => r.data.data),
     updateSettings: (data: Partial<FcSettings>) =>
-        api.put<{ data: FcSettings }>(`${FC}/settings`, data).then(r => r.data),
+        api.put<{ ok: boolean; data: FcSettings }>(`${FC}/settings`, data).then(r => r.data.data),
 
     // ── Refunds ─────────────────────────────────────────
     getRefunds: (p: Params = {}) =>
@@ -107,7 +107,11 @@ export const fcApi = {
 
     // ── Export / Import ─────────────────────────────────
     exportTransactions: async (p: Params = {}, proof?: SensitiveActionProof) =>
-        api.get(`${FC}/export${qs(p)}`, {
+        api.get(`${FC}/export${qs({
+            ...p,
+            dateFrom: p.dateFrom ?? p.from,
+            dateTo: p.dateTo ?? p.to,
+        })}`, {
             responseType: 'blob',
             headers: await resolveSensitiveActionHeaders({
                 actionLabel: 'export finance transactions',
@@ -123,8 +127,8 @@ export const fcApi = {
         fd.append('file', file);
         return api.post(`${FC}/import-preview`, fd).then(r => r.data);
     },
-    importCommit: (rows: unknown[]) =>
-        api.post(`${FC}/import-commit`, { rows }).then(r => r.data),
+    importCommit: (payload: { rows: unknown[]; mapping?: Record<string, string> }) =>
+        api.post(`${FC}/import-commit`, payload).then(r => r.data),
 
     // ── P&L Report PDF ──────────────────────────────────
     downloadPLReport: async (month?: string, proof?: SensitiveActionProof) => {

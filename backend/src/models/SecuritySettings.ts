@@ -450,7 +450,7 @@ const passwordPoliciesSchema = new Schema<PasswordPoliciesSettings>(
 
 const twoFactorSchema = new Schema<TwoFactorSecuritySettings>(
     {
-        requireForRoles: { type: [String], default: ['superadmin', 'admin'] },
+        requireForRoles: { type: [String], default: [] },
         optionalForStudents: { type: Boolean, default: true },
         allowedMethods: { type: [String], default: ['authenticator', 'email'] },
         defaultMethod: { type: String, enum: ['authenticator', 'email', 'sms'], default: 'authenticator' },
@@ -490,7 +490,7 @@ const accessControlSchema = new Schema<AccessControlSecuritySettings>(
 
 const verificationRecoverySchema = new Schema<VerificationRecoverySettings>(
     {
-        requireVerifiedEmailForStudents: { type: Boolean, default: true },
+        requireVerifiedEmailForStudents: { type: Boolean, default: false },
         requireVerifiedEmailForAdmins: { type: Boolean, default: false },
         phoneVerificationEnabled: { type: Boolean, default: false },
         emailVerificationExpiryHours: { type: Number, default: 24, min: 1, max: 168 },

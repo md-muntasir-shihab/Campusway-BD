@@ -104,11 +104,20 @@ export function getUniversityFallbackTextSizeClass(text: string): string {
 }
 
 export function getUniversityNameSizeClass(name: string): string {
-    const length = pickText(name).replace(/\s+/g, ' ').length;
-    if (length >= 60) return 'text-[0.95rem] sm:text-[1rem]';
-    if (length >= 46) return 'text-sm sm:text-[0.95rem]';
-    if (length >= 34) return 'text-base sm:text-[1.05rem]';
-    return 'text-lg';
+    const normalized = pickText(name).replace(/\s+/g, ' ');
+    const length = normalized.length;
+    const longestWord = normalized
+        .split(' ')
+        .map((part) => part.replace(/[^A-Za-z0-9]/g, '').length)
+        .reduce((max, current) => Math.max(max, current), 0);
+
+    if (length >= 110 || longestWord >= 20) return 'text-[0.62rem] sm:text-[0.68rem] leading-[1.14]';
+    if (length >= 92 || longestWord >= 17) return 'text-[0.68rem] sm:text-[0.74rem] leading-[1.14]';
+    if (length >= 76 || longestWord >= 15) return 'text-[0.74rem] sm:text-[0.8rem] leading-[1.15]';
+    if (length >= 60 || longestWord >= 13) return 'text-[0.8rem] sm:text-[0.86rem] leading-[1.16]';
+    if (length >= 46 || longestWord >= 11) return 'text-[0.88rem] sm:text-[0.94rem] leading-[1.18]';
+    if (length >= 34) return 'text-[0.96rem] sm:text-[1rem] leading-[1.18]';
+    return 'text-[1.04rem] sm:text-[1.08rem] leading-[1.18]';
 }
 
 export function getUniversityShortFormClass(shortForm: string): string {

@@ -14,6 +14,7 @@ import {
   type StudentSecurityMeta,
 } from '../../../api/adminStudentSecurityApi';
 import ModernToggle from '../../../components/ui/ModernToggle';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
 type Tab = 'profile' | 'subscription' | 'notifications' | 'timeline' | 'security';
@@ -162,7 +163,13 @@ export default function StudentDetailPage() {
   };
 
   const handleExpireNow = async () => {
-    if (!confirm('Expire subscription now?')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Expire subscription',
+      message: 'Expire subscription now?',
+      confirmLabel: 'Expire now',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await expireSubscriptionNow(id!);
       qc.invalidateQueries({ queryKey: ['admin-student', id] });
@@ -189,7 +196,13 @@ export default function StudentDetailPage() {
   };
 
   const handleDeleteEntry = async (entryId: string) => {
-    if (!confirm('Delete this entry?')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete timeline entry',
+      message: 'Delete this entry?',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await deleteTimelineEntry(id!, entryId);
       qc.invalidateQueries({ queryKey: ['admin-timeline', id] });

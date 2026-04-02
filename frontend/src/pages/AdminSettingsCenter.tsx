@@ -28,7 +28,7 @@ import { adminGetAdminUiLayout, adminUpdateAdminUiLayout, type AdminUiLayoutSett
 
 const settingsCards = [
     { key: 'settings-home', title: 'Home Control', description: 'Manage home sections, visibility, timeline, and live sync.', icon: Home, to: '/__cw_admin__/settings/home-control' },
-    { key: 'settings-university', title: 'University Settings', description: 'Category order, cluster filters, featured slugs, and display defaults.', icon: SlidersHorizontal, to: '/__cw_admin__/settings/university-settings' },
+    { key: 'settings-university', title: 'University Settings', description: 'Browse defaults, home university sections, featured content, cluster feed order, and display defaults.', icon: SlidersHorizontal, to: '/__cw_admin__/settings/university-settings' },
     { key: 'settings-reports', title: 'Reports', description: 'View KPI reports, exam insights, and exports.', icon: BarChart3, to: '/__cw_admin__/reports' },
     { key: 'settings-notifications', title: 'Notifications', description: 'Set automation triggers and reminder timing.', icon: BellRing, to: '/__cw_admin__/settings/notifications' },
     { key: 'settings-analytics', title: 'Analytics', description: 'Toggle event tracking and analytics privacy controls.', icon: BarChart3, to: '/__cw_admin__/settings/analytics' },

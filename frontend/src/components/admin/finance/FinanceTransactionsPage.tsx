@@ -5,6 +5,7 @@ import {
 } from '../../../hooks/useFinanceCenterQueries';
 import type { FcTransaction, TransactionDirection, TransactionStatus, PaymentMethod, SourceType } from '../../../types/finance';
 import { Plus, Trash2, Pencil, RotateCcw, Search, Filter, ChevronLeft, ChevronRight, Eye, X, Link2 } from 'lucide-react';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Params = Record<string, string | number | boolean | undefined>;
 
@@ -208,7 +209,15 @@ export default function FinanceTransactionsPage() {
                                                             </button>
                                                         </div>
                                                         <div className="flex items-center gap-1">
-                                                            <button onClick={() => { if (confirm('Delete this transaction?')) deleteMut.mutate(t._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Delete">
+                                                            <button onClick={async () => {
+                                                                const confirmed = await showConfirmDialog({
+                                                                    title: 'Delete transaction',
+                                                                    message: 'Delete this transaction?',
+                                                                    confirmLabel: 'Delete',
+                                                                    tone: 'danger',
+                                                                });
+                                                                if (confirmed) deleteMut.mutate(t._id);
+                                                            }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Delete">
                                                                 <Trash2 size={13} className="text-red-500" />
                                                             </button>
                                                         </div>
@@ -266,7 +275,15 @@ export default function FinanceTransactionsPage() {
                                                 <button onClick={() => setEditTxn(t)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Pencil size={13} className="text-blue-600" /></button>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                <button onClick={() => { if (confirm('Delete?')) deleteMut.mutate(t._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} className="text-red-500" /></button>
+                                                <button onClick={async () => {
+                                                    const confirmed = await showConfirmDialog({
+                                                        title: 'Delete transaction',
+                                                        message: 'Delete this transaction?',
+                                                        confirmLabel: 'Delete',
+                                                        tone: 'danger',
+                                                    });
+                                                    if (confirmed) deleteMut.mutate(t._id);
+                                                }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} className="text-red-500" /></button>
                                             </div>
                                         </>
                                     )}

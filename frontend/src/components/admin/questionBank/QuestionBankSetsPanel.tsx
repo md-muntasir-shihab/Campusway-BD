@@ -5,6 +5,7 @@ import {
     useSetList, useCreateSet, useUpdateSet, useDeleteSet, useResolveSetQuestions,
 } from '../../../hooks/useQuestionBankV2Queries';
 import type { QuestionBankSet, BankQuestion } from '../../../types/questionBank';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -20,8 +21,14 @@ export default function QuestionBankSetsPanel() {
 
     function handleNew() { setEditing(null); setShowForm(true); }
     function handleEdit(s: QuestionBankSet) { setEditing(s); setShowForm(true); }
-    function handleDelete(id: string) {
-        if (!confirm('Delete this set?')) return;
+    async function handleDelete(id: string) {
+        const confirmed = await showConfirmDialog({
+            title: 'Delete set',
+            message: 'Delete this set?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         deleteMut.mutate(id, { onSuccess: () => toast.success('Set deleted') });
     }
 

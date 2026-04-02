@@ -22,6 +22,12 @@ test.describe('Admin team/security smoke', () => {
         await expect(page.getByRole('heading', { name: /Security Center/i }).first()).toBeVisible();
         await expect(page.getByText(/Security Overview/i)).toBeVisible();
         await expect(page.getByText(/Failed Logins \(24h\)/i)).toBeVisible();
+        await expect(page.getByTestId('security-tab-dashboard')).toBeVisible();
+        await expect(page.getByTestId('security-tab-settings')).toBeVisible();
+        await expect(page.getByTestId('security-tab-alerts')).toBeVisible();
+        await expect(page.getByTestId('security-tab-audit-logs')).toBeVisible();
+        await expect(page.getByRole('button', { name: /^Authentication$/i })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: /^Help$/i })).toHaveCount(0);
 
         await page.goto('/__cw_admin__/team/members', { waitUntil: 'domcontentloaded' });
         await waitForAdminAccess(page);

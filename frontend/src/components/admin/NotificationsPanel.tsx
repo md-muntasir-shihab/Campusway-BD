@@ -10,6 +10,7 @@ import {
     adminUpdateNotification,
     adminUploadMedia,
 } from '../../services/api';
+import { showConfirmDialog } from '../../lib/appDialog';
 import { normalizeExternalUrl } from '../../utils/url';
 
 type NotificationForm = {
@@ -152,7 +153,13 @@ export default function NotificationsPanel() {
     };
 
     const remove = async (id: string) => {
-        if (!window.confirm('Delete this notification?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete notification',
+            message: 'Delete this notification?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteNotification(id);
             toast.success('Notification deleted');

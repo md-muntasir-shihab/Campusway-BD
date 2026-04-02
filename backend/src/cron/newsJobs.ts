@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { runDueSourceIngestion, runScheduledNewsPublish } from '../controllers/newsV2Controller';
+import { purgeExpiredTrashNews, runDueSourceIngestion, runScheduledNewsPublish } from '../controllers/newsV2Controller';
 import { runJobWithLog } from '../services/jobRunLogService';
 
 export function startNewsV2CronJobs(): void {
@@ -8,6 +8,7 @@ export function startNewsV2CronJobs(): void {
             await runJobWithLog('news.rss_fetch_publish', async () => {
                 await runDueSourceIngestion();
                 await runScheduledNewsPublish();
+                await purgeExpiredTrashNews();
                 return {
                     summary: {
                         message: 'RSS ingestion and scheduled publish completed.',

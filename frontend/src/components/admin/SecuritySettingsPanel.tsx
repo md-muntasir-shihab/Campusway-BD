@@ -1,99 +1,117 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Loader2, Lock, RotateCcw, Save, Shield, Unlock, Users } from 'lucide-react';
+import {
+    AlertTriangle,
+    CheckCircle2,
+    Clock3,
+    KeyRound,
+    Loader2,
+    Lock,
+    LogOut,
+    RefreshCcw,
+    Save,
+    ServerCrash,
+    Shield,
+    ShieldAlert,
+    ShieldCheck,
+    TimerReset,
+    UserCheck,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
-    AdminFeatureFlags,
-    AdminActionApproval,
-    SecurityCenterSettings,
-    SensitiveActionProof,
     adminApprovePendingAction,
     adminForceLogoutAllUsers,
     adminGetPendingApprovals,
-    adminGetRuntimeSettings,
     adminGetSecurityCenterSettings,
     adminRejectPendingAction,
     adminResetSecurityCenterSettings,
     adminSetAdminPanelLockState,
-    adminUpdateRuntimeSettings,
     adminUpdateSecurityCenterSettings,
+    type AdminActionApproval,
+    type SecurityCenterSettings,
 } from '../../services/api';
 import { queryKeys } from '../../lib/queryKeys';
-import SecurityHelpButton, { type SecurityHelpButtonProps } from './SecurityHelpButton';
-import { promptForSensitiveActionProof } from '../../utils/sensitiveAction';
+import { showConfirmDialog, showPromptDialog } from '../../lib/appDialog';
 import AdminAuthenticatorSetup from './AdminAuthenticatorSetup';
+import SecurityHelpButton from './SecurityHelpButton';
 
-const DEFAULT_SETTINGS: SecurityCenterSettings = {
-    passwordPolicy: {
-        minLength: 10,
-        requireNumber: true,
-        requireUppercase: true,
-        requireSpecial: true,
-    },
-    loginProtection: {
-        maxAttempts: 5,
-        lockoutMinutes: 15,
-        recaptchaEnabled: false,
-    },
-    session: {
-        accessTokenTTLMinutes: 20,
-        refreshTokenTTLDays: 7,
-        idleTimeoutMinutes: 60,
-    },
-    adminAccess: {
-        require2FAForAdmins: false,
-        allowedAdminIPs: [],
-        adminPanelEnabled: true,
-    },
-    siteAccess: {
-        maintenanceMode: false,
-        blockNewRegistrations: false,
-    },
-    examProtection: {
-        maxActiveSessionsPerUser: 1,
-        logTabSwitch: true,
-        requireProfileScoreForExam: true,
-        profileScoreThreshold: 70,
-    },
-    logging: {
-        logLevel: 'info',
-        logLoginFailures: true,
-        logAdminActions: true,
-    },
-    rateLimit: {
-        loginWindowMs: 15 * 60 * 1000,
-        loginMax: 10,
-        examSubmitWindowMs: 15 * 60 * 1000,
-        examSubmitMax: 60,
-        adminWindowMs: 15 * 60 * 1000,
-        adminMax: 300,
-        uploadWindowMs: 15 * 60 * 1000,
-        uploadMax: 80,
-    },
-    twoPersonApproval: {
-        enabled: false,
-        riskyActions: [
-            'students.bulk_delete',
-            'universities.bulk_delete',
-            'news.bulk_delete',
-            'exams.publish_result',
-            'news.publish_breaking',
-            'payments.mark_refunded',
-        ],
-        approvalExpiryMinutes: 120,
-    },
-    retention: {
-        enabled: false,
-        examSessionsDays: 30,
-        auditLogsDays: 180,
-        eventLogsDays: 90,
-    },
-    panic: {
-        readOnlyMode: false,
-        disableStudentLogins: false,
-        disablePaymentWebhooks: false,
-        disableExamStarts: false,
-    },
+type PasswordPolicyKey = 'default' | 'admin' | 'staff' | 'student';
+type VisibleTwoFactorMethod = 'authenticator' | 'email';
+type RiskyActionKey = SecurityCenterSettings['twoPersonApproval']['riskyActions'][number];
+type NormalizedSecurityCenterSettings = SecurityCenterSettings & {
+    authentication: NonNullable<SecurityCenterSettings['authentication']>;
+    passwordPolicies: NonNullable<SecurityCenterSettings['passwordPolicies']>;
+    twoFactor: Omit<NonNullable<SecurityCenterSettings['twoFactor']>, 'allowedMethods' | 'defaultMethod'> & {
+        allowedMethods: VisibleTwoFactorMethod[];
+        defaultMethod: VisibleTwoFactorMethod;
+    };
+    sessions: NonNullable<SecurityCenterSettings['sessions']>;
+    accessControl: NonNullable<SecurityCenterSettings['accessControl']>;
+    verificationRecovery: NonNullable<SecurityCenterSettings['verificationRecovery']>;
+    uploadSecurity: NonNullable<SecurityCenterSettings['uploadSecurity']>;
+    alerting: NonNullable<SecurityCenterSettings['alerting']>;
+    exportSecurity: NonNullable<SecurityCenterSettings['exportSecurity']>;
+    backupRestore: NonNullable<SecurityCenterSettings['backupRestore']>;
+    runtimeGuards: NonNullable<SecurityCenterSettings['runtimeGuards']>;
+};
+
+const ROLE_OPTIONS = [
+    { value: 'superadmin', label: 'Super Admin' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'moderator', label: 'Moderator' },
+    { value: 'editor', label: 'Editor' },
+    { value: 'viewer', label: 'Viewer' },
+    { value: 'support_agent', label: 'Support' },
+    { value: 'finance_agent', label: 'Finance' },
+    { value: 'chairman', label: 'Chairman' },
+    { value: 'student', label: 'Student' },
+] as const;
+
+const EXPORT_ROLE_OPTIONS = [
+    { value: 'superadmin', label: 'Super Admin' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'moderator', label: 'Moderator' },
+    { value: 'editor', label: 'Editor' },
+    { value: 'viewer', label: 'Viewer' },
+    { value: 'support_agent', label: 'Support' },
+    { value: 'finance_agent', label: 'Finance' },
+    { value: 'chairman', label: 'Chairman' },
+] as const;
+
+const PASSWORD_POLICY_KEYS: PasswordPolicyKey[] = ['default', 'admin', 'staff', 'student'];
+
+const TWO_FACTOR_METHOD_OPTIONS: Array<{ value: VisibleTwoFactorMethod; label: string; description: string }> = [
+    { value: 'authenticator', label: 'Authenticator', description: 'TOTP app codes for production-grade MFA.' },
+    { value: 'email', label: 'Email OTP', description: 'Email-delivered codes for lower-friction verification.' },
+];
+
+const RISKY_ACTION_OPTIONS: Array<{ value: RiskyActionKey; label: string; description: string }> = [
+    { value: 'data.destructive_change', label: 'Destructive Data Change', description: 'Bulk or irreversible data mutations.' },
+    { value: 'students.bulk_delete', label: 'Bulk Student Delete', description: 'Delete multiple students at once.' },
+    { value: 'universities.bulk_delete', label: 'Bulk University Delete', description: 'Delete multiple universities at once.' },
+    { value: 'news.bulk_delete', label: 'Bulk News Delete', description: 'Delete multiple news entries at once.' },
+    { value: 'exams.publish_result', label: 'Publish Exam Result', description: 'Release protected exam result data.' },
+    { value: 'news.publish_breaking', label: 'Publish Breaking News', description: 'Send high-priority news immediately.' },
+    { value: 'payments.mark_refunded', label: 'Mark Payment Refunded', description: 'Finalize refund-sensitive finance actions.' },
+    { value: 'students.export', label: 'Student Export', description: 'Export protected student records.' },
+    { value: 'finance.adjustment', label: 'Finance Adjustment', description: 'Manual finance corrections and adjustments.' },
+    { value: 'providers.credentials_change', label: 'Provider Credentials', description: 'Change external provider credentials.' },
+    { value: 'security.settings_change', label: 'Security Settings Change', description: 'Change core security policies.' },
+    { value: 'backups.restore', label: 'Backup Restore', description: 'Restore data from backups.' },
+];
+
+const DEFAULT_SETTINGS: NormalizedSecurityCenterSettings = {
+    passwordPolicy: { minLength: 10, requireNumber: true, requireUppercase: true, requireSpecial: true },
+    loginProtection: { maxAttempts: 5, lockoutMinutes: 15, recaptchaEnabled: false },
+    session: { accessTokenTTLMinutes: 20, refreshTokenTTLDays: 7, idleTimeoutMinutes: 60 },
+    adminAccess: { require2FAForAdmins: false, allowedAdminIPs: [], adminPanelEnabled: true },
+    siteAccess: { maintenanceMode: false, blockNewRegistrations: false },
+    examProtection: { maxActiveSessionsPerUser: 5, logTabSwitch: true, requireProfileScoreForExam: true, profileScoreThreshold: 70 },
+    logging: { logLevel: 'info', logLoginFailures: true, logAdminActions: true },
+    rateLimit: { loginWindowMs: 15 * 60 * 1000, loginMax: 10, examSubmitWindowMs: 15 * 60 * 1000, examSubmitMax: 60, adminWindowMs: 15 * 60 * 1000, adminMax: 300, uploadWindowMs: 15 * 60 * 1000, uploadMax: 80 },
+    twoPersonApproval: { enabled: false, riskyActions: RISKY_ACTION_OPTIONS.map((option) => option.value), approvalExpiryMinutes: 120 },
+    retention: { enabled: false, examSessionsDays: 30, auditLogsDays: 180, eventLogsDays: 90 },
+    panic: { readOnlyMode: false, disableStudentLogins: false, disablePaymentWebhooks: false, disableExamStarts: false },
     authentication: {
         loginAttemptsLimit: 5,
         lockDurationMinutes: 15,
@@ -109,8 +127,15 @@ const DEFAULT_SETTINGS: SecurityCenterSettings = {
         otpVerifyLimit: 25,
         recaptchaEnabled: false,
     },
+    passwordPolicies: {
+        default: { minLength: 10, requireUppercase: true, requireLowercase: true, requireNumber: true, requireSpecial: true, denyCommonPasswords: true, preventReuseCount: 5, expiryDays: 0, forceResetOnFirstLogin: false },
+        admin: { minLength: 12, requireUppercase: true, requireLowercase: true, requireNumber: true, requireSpecial: true, denyCommonPasswords: true, preventReuseCount: 8, expiryDays: 90, forceResetOnFirstLogin: true },
+        staff: { minLength: 10, requireUppercase: true, requireLowercase: true, requireNumber: true, requireSpecial: true, denyCommonPasswords: true, preventReuseCount: 5, expiryDays: 180, forceResetOnFirstLogin: true },
+        student: { minLength: 10, requireUppercase: true, requireLowercase: true, requireNumber: true, requireSpecial: false, denyCommonPasswords: true, preventReuseCount: 3, expiryDays: 0, forceResetOnFirstLogin: false },
+        strengthMeterEnabled: true,
+    },
     twoFactor: {
-        requireForRoles: ['superadmin', 'admin'],
+        requireForRoles: [],
         optionalForStudents: true,
         allowedMethods: ['authenticator', 'email'],
         defaultMethod: 'authenticator',
@@ -121,1602 +146,1348 @@ const DEFAULT_SETTINGS: SecurityCenterSettings = {
         otpExpiryMinutes: 10,
         maxAttempts: 5,
     },
-    accessControl: {
-        enforceRoutePolicies: true,
-        allowedAdminIPs: [],
-        requireApprovalForRiskyActions: false,
-        sensitiveActionReasonRequired: true,
-        exportAllowedRoles: ['superadmin', 'admin', 'finance_agent'],
-    },
-    verificationRecovery: {
-        requireVerifiedEmailForStudents: true,
-        requireVerifiedEmailForAdmins: false,
-        phoneVerificationEnabled: false,
-        emailVerificationExpiryHours: 24,
-        passwordResetExpiryMinutes: 60,
-        resendCooldownMinutes: 5,
-        allowAdminRecovery: true,
-    },
-    uploadSecurity: {
-        publicAllowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-        protectedAllowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx'],
-        maxImageSizeMB: 5,
-        maxDocumentSizeMB: 10,
-        blockDangerousExtensions: true,
-        protectedAccessEnabled: true,
-        virusScanStatus: 'hook_ready',
-    },
-    alerting: {
-        recipients: [],
-        failedLoginThreshold: 10,
-        otpFailureThreshold: 10,
-        backupFailureAlerts: true,
-        providerChangeAlerts: true,
-        exportAlerts: true,
-        suspiciousAdminAlerts: true,
-    },
-    exportSecurity: {
-        allowedRoles: ['superadmin', 'admin', 'finance_agent'],
-        requireApproval: false,
-        requireReason: true,
-        logAllExports: true,
-        maskSensitiveFields: true,
-    },
-    backupRestore: {
-        backupHealthWarnAfterHours: 24,
-        requireRestoreApproval: true,
-        archiveBeforeHardDelete: true,
-        showStatusOnDashboard: true,
-    },
-    runtimeGuards: {
-        maintenanceMode: false,
-        blockNewRegistrations: false,
-        readOnlyMode: false,
-        disableStudentLogins: false,
-        disablePaymentWebhooks: false,
-        disableExamStarts: false,
-        adminPanelEnabled: true,
-        testingAccessMode: false,
-    },
+    sessions: { accessTokenTTLMinutes: 20, refreshTokenTTLDays: 7, idleTimeoutMinutes: 60, absoluteTimeoutHours: 24, rememberDeviceDays: 30, maxActiveSessionsPerUser: 5, allowConcurrentSessions: true },
+    accessControl: { enforceRoutePolicies: true, allowedAdminIPs: [], requireApprovalForRiskyActions: false, sensitiveActionReasonRequired: true, exportAllowedRoles: ['superadmin', 'admin', 'finance_agent'] },
+    verificationRecovery: { requireVerifiedEmailForStudents: false, requireVerifiedEmailForAdmins: false, phoneVerificationEnabled: false, emailVerificationExpiryHours: 24, passwordResetExpiryMinutes: 60, resendCooldownMinutes: 5, allowAdminRecovery: true },
+    uploadSecurity: { publicAllowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'], protectedAllowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx'], maxImageSizeMB: 5, maxDocumentSizeMB: 10, blockDangerousExtensions: true, protectedAccessEnabled: true, virusScanStatus: 'hook_ready' },
+    alerting: { recipients: [], failedLoginThreshold: 10, otpFailureThreshold: 10, backupFailureAlerts: true, providerChangeAlerts: true, exportAlerts: true, suspiciousAdminAlerts: true },
+    exportSecurity: { allowedRoles: ['superadmin', 'admin', 'finance_agent'], requireApproval: false, requireReason: true, logAllExports: true, maskSensitiveFields: true },
+    backupRestore: { backupHealthWarnAfterHours: 24, requireRestoreApproval: true, archiveBeforeHardDelete: true, showStatusOnDashboard: true },
+    runtimeGuards: { maintenanceMode: false, blockNewRegistrations: false, readOnlyMode: false, disableStudentLogins: false, disablePaymentWebhooks: false, disableExamStarts: false, adminPanelEnabled: true, testingAccessMode: false },
     updatedBy: null,
     updatedAt: null,
 };
 
-const DEFAULT_RUNTIME_FLAGS: AdminFeatureFlags = {
-    studentDashboardV2: false,
-    studentManagementV2: false,
-    subscriptionEngineV2: false,
-    examShareLinks: false,
-    proctoringSignals: false,
-    aiQuestionSuggestions: false,
-    pushNotifications: false,
-    strictExamTabLock: false,
-    webNextEnabled: false,
-    trainingMode: false,
-    requireDeleteKeywordConfirm: true,
+function deepClone<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function uniqueStrings(values: Iterable<string>): string[] {
+    return Array.from(new Set(Array.from(values).map((value) => String(value || '').trim()).filter(Boolean)));
+}
+
+function normalizeRoles(values: Iterable<string>, allow: readonly string[]): string[] {
+    const allowed = new Set(allow.map((item) => item.toLowerCase()));
+    return uniqueStrings(values).map((item) => item.toLowerCase()).filter((item) => allowed.has(item));
+}
+
+function normalizeAllowedMethods(values: Iterable<string>): VisibleTwoFactorMethod[] {
+    return normalizeRoles(values, TWO_FACTOR_METHOD_OPTIONS.map((option) => option.value)) as VisibleTwoFactorMethod[];
+}
+
+function normalizeDefaultMethod(value: string | undefined, allowedMethods: VisibleTwoFactorMethod[]): VisibleTwoFactorMethod {
+    const normalized = String(value || '').trim().toLowerCase() as VisibleTwoFactorMethod;
+    if (allowedMethods.includes(normalized)) return normalized;
+    return allowedMethods[0] || 'authenticator';
+}
+
+function normalizeSettings(raw?: Partial<SecurityCenterSettings> | null): NormalizedSecurityCenterSettings {
+    const defaults = deepClone(DEFAULT_SETTINGS);
+    const source = raw || {};
+    const adminIps = uniqueStrings(source.adminAccess?.allowedAdminIPs || source.accessControl?.allowedAdminIPs || defaults.adminAccess.allowedAdminIPs);
+    const roleOptions = ROLE_OPTIONS.map((option) => option.value);
+    const exportRoleOptions = EXPORT_ROLE_OPTIONS.map((option) => option.value);
+    const allowedMethods = normalizeAllowedMethods(source.twoFactor?.allowedMethods || defaults.twoFactor.allowedMethods);
+
+    return {
+        ...defaults,
+        ...source,
+        passwordPolicy: { ...defaults.passwordPolicy, ...(source.passwordPolicy || {}) },
+        loginProtection: { ...defaults.loginProtection, ...(source.loginProtection || {}) },
+        session: { ...defaults.session, ...(source.session || {}) },
+        adminAccess: { ...defaults.adminAccess, ...(source.adminAccess || {}), allowedAdminIPs: adminIps },
+        siteAccess: { ...defaults.siteAccess, ...(source.siteAccess || {}) },
+        examProtection: { ...defaults.examProtection, ...(source.examProtection || {}) },
+        logging: { ...defaults.logging, ...(source.logging || {}) },
+        rateLimit: { ...defaults.rateLimit, ...(source.rateLimit || {}) },
+        twoPersonApproval: {
+            ...defaults.twoPersonApproval,
+            ...(source.twoPersonApproval || {}),
+            riskyActions: normalizeRoles(
+                source.twoPersonApproval?.riskyActions || defaults.twoPersonApproval.riskyActions,
+                RISKY_ACTION_OPTIONS.map((option) => option.value),
+            ) as RiskyActionKey[],
+        },
+        retention: { ...defaults.retention, ...(source.retention || {}) },
+        panic: { ...defaults.panic, ...(source.panic || {}) },
+        authentication: { ...defaults.authentication, ...(source.authentication || {}) },
+        passwordPolicies: {
+            ...defaults.passwordPolicies,
+            ...(source.passwordPolicies || {}),
+            default: { ...defaults.passwordPolicies.default, ...(source.passwordPolicies?.default || {}) },
+            admin: { ...defaults.passwordPolicies.admin, ...(source.passwordPolicies?.admin || {}) },
+            staff: { ...defaults.passwordPolicies.staff, ...(source.passwordPolicies?.staff || {}) },
+            student: { ...defaults.passwordPolicies.student, ...(source.passwordPolicies?.student || {}) },
+        },
+        twoFactor: {
+            ...defaults.twoFactor,
+            ...(source.twoFactor || {}),
+            requireForRoles: normalizeRoles(source.twoFactor?.requireForRoles || defaults.twoFactor.requireForRoles, roleOptions),
+            allowedMethods: allowedMethods.length ? allowedMethods : ['authenticator', 'email'],
+            defaultMethod: normalizeDefaultMethod(source.twoFactor?.defaultMethod, allowedMethods.length ? allowedMethods : ['authenticator', 'email']),
+        },
+        sessions: {
+            ...defaults.sessions,
+            ...(source.sessions || {}),
+            maxActiveSessionsPerUser: Number(source.sessions?.maxActiveSessionsPerUser || source.examProtection?.maxActiveSessionsPerUser || defaults.sessions.maxActiveSessionsPerUser),
+        },
+        accessControl: {
+            ...defaults.accessControl,
+            ...(source.accessControl || {}),
+            allowedAdminIPs: adminIps,
+            exportAllowedRoles: normalizeRoles(
+                source.accessControl?.exportAllowedRoles || source.exportSecurity?.allowedRoles || defaults.accessControl.exportAllowedRoles,
+                exportRoleOptions,
+            ),
+        },
+        verificationRecovery: { ...defaults.verificationRecovery, ...(source.verificationRecovery || {}) },
+        uploadSecurity: { ...defaults.uploadSecurity, ...(source.uploadSecurity || {}) },
+        alerting: { ...defaults.alerting, ...(source.alerting || {}) },
+        exportSecurity: {
+            ...defaults.exportSecurity,
+            ...(source.exportSecurity || {}),
+            allowedRoles: normalizeRoles(source.exportSecurity?.allowedRoles || source.accessControl?.exportAllowedRoles || defaults.exportSecurity.allowedRoles, exportRoleOptions),
+        },
+        backupRestore: { ...defaults.backupRestore, ...(source.backupRestore || {}) },
+        runtimeGuards: {
+            ...defaults.runtimeGuards,
+            ...(source.runtimeGuards || {}),
+            maintenanceMode: Boolean(source.runtimeGuards?.maintenanceMode ?? source.siteAccess?.maintenanceMode ?? defaults.runtimeGuards.maintenanceMode),
+            blockNewRegistrations: Boolean(source.runtimeGuards?.blockNewRegistrations ?? source.siteAccess?.blockNewRegistrations ?? defaults.runtimeGuards.blockNewRegistrations),
+            readOnlyMode: Boolean(source.runtimeGuards?.readOnlyMode ?? source.panic?.readOnlyMode ?? defaults.runtimeGuards.readOnlyMode),
+            disableStudentLogins: Boolean(source.runtimeGuards?.disableStudentLogins ?? source.panic?.disableStudentLogins ?? defaults.runtimeGuards.disableStudentLogins),
+            disablePaymentWebhooks: Boolean(source.runtimeGuards?.disablePaymentWebhooks ?? source.panic?.disablePaymentWebhooks ?? defaults.runtimeGuards.disablePaymentWebhooks),
+            disableExamStarts: Boolean(source.runtimeGuards?.disableExamStarts ?? source.panic?.disableExamStarts ?? defaults.runtimeGuards.disableExamStarts),
+            adminPanelEnabled: Boolean(source.runtimeGuards?.adminPanelEnabled ?? source.adminAccess?.adminPanelEnabled ?? defaults.runtimeGuards.adminPanelEnabled),
+        },
+    };
+}
+
+function buildSavePayload(settings: NormalizedSecurityCenterSettings): Partial<SecurityCenterSettings> {
+    const exportApprovalEnabled = settings.twoPersonApproval.enabled && settings.twoPersonApproval.riskyActions.includes('students.export');
+    const backupApprovalEnabled = settings.twoPersonApproval.enabled && settings.twoPersonApproval.riskyActions.includes('backups.restore');
+
+    const payload: Record<string, unknown> = {
+        passwordPolicies: {
+            default: { ...settings.passwordPolicies.default },
+            admin: { ...settings.passwordPolicies.admin },
+            staff: { ...settings.passwordPolicies.staff },
+            student: { ...settings.passwordPolicies.student },
+        },
+        authentication: {
+            loginAttemptsLimit: settings.authentication.loginAttemptsLimit,
+            lockDurationMinutes: settings.authentication.lockDurationMinutes,
+            genericErrorMessages: settings.authentication.genericErrorMessages,
+            otpResendLimit: settings.authentication.otpResendLimit,
+            otpVerifyLimit: settings.authentication.otpVerifyLimit,
+        },
+        twoFactor: {
+            requireForRoles: [...settings.twoFactor.requireForRoles],
+            allowedMethods: [...settings.twoFactor.allowedMethods],
+            defaultMethod: settings.twoFactor.defaultMethod,
+            otpExpiryMinutes: settings.twoFactor.otpExpiryMinutes,
+            maxAttempts: settings.twoFactor.maxAttempts,
+            stepUpForSensitiveActions: settings.twoFactor.stepUpForSensitiveActions,
+        },
+        sessions: {
+            accessTokenTTLMinutes: settings.sessions.accessTokenTTLMinutes,
+            refreshTokenTTLDays: settings.sessions.refreshTokenTTLDays,
+            idleTimeoutMinutes: settings.sessions.idleTimeoutMinutes,
+            allowConcurrentSessions: settings.sessions.allowConcurrentSessions,
+            maxActiveSessionsPerUser: settings.sessions.maxActiveSessionsPerUser,
+        },
+        adminAccess: {
+            allowedAdminIPs: [...settings.adminAccess.allowedAdminIPs],
+            adminPanelEnabled: settings.adminAccess.adminPanelEnabled,
+        },
+        siteAccess: {
+            maintenanceMode: settings.siteAccess.maintenanceMode,
+            blockNewRegistrations: settings.siteAccess.blockNewRegistrations,
+        },
+        verificationRecovery: {
+            requireVerifiedEmailForAdmins: settings.verificationRecovery.requireVerifiedEmailForAdmins,
+            requireVerifiedEmailForStudents: settings.verificationRecovery.requireVerifiedEmailForStudents,
+            emailVerificationExpiryHours: settings.verificationRecovery.emailVerificationExpiryHours,
+            passwordResetExpiryMinutes: settings.verificationRecovery.passwordResetExpiryMinutes,
+        },
+        twoPersonApproval: {
+            enabled: settings.twoPersonApproval.enabled,
+            riskyActions: [...settings.twoPersonApproval.riskyActions],
+            approvalExpiryMinutes: settings.twoPersonApproval.approvalExpiryMinutes,
+        },
+        accessControl: {
+            sensitiveActionReasonRequired: settings.accessControl.sensitiveActionReasonRequired,
+            exportAllowedRoles: [...settings.accessControl.exportAllowedRoles],
+        },
+        panic: {
+            readOnlyMode: settings.panic.readOnlyMode,
+            disableStudentLogins: settings.panic.disableStudentLogins,
+            disablePaymentWebhooks: settings.panic.disablePaymentWebhooks,
+            disableExamStarts: settings.panic.disableExamStarts,
+        },
+        runtimeGuards: {
+            testingAccessMode: settings.runtimeGuards.testingAccessMode,
+        },
+        examProtection: {
+            maxActiveSessionsPerUser: settings.sessions.maxActiveSessionsPerUser,
+            requireProfileScoreForExam: settings.examProtection.requireProfileScoreForExam,
+            profileScoreThreshold: settings.examProtection.profileScoreThreshold,
+        },
+        retention: {
+            enabled: settings.retention.enabled,
+            examSessionsDays: settings.retention.examSessionsDays,
+            auditLogsDays: settings.retention.auditLogsDays,
+            eventLogsDays: settings.retention.eventLogsDays,
+        },
+        exportSecurity: {
+            allowedRoles: [...settings.accessControl.exportAllowedRoles],
+            requireReason: settings.accessControl.sensitiveActionReasonRequired,
+            requireApproval: exportApprovalEnabled,
+        },
+        backupRestore: {
+            requireRestoreApproval: backupApprovalEnabled,
+        },
+    };
+
+    return payload as Partial<SecurityCenterSettings>;
+}
+
+function toMultilineList(values: string[]): string {
+    return values.join('\n');
+}
+
+function fromMultilineList(value: string): string[] {
+    return uniqueStrings(value.split(/[\n,]+/g));
+}
+
+function formatTimestamp(value?: string | null): string {
+    if (!value) return 'Just now';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown';
+    return date.toLocaleString();
+}
+
+function formatApprovalExpiry(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown';
+    return date.toLocaleString();
+}
+
+type SectionCardProps = {
+    title: string;
+    description: string;
+    help?: ComponentProps<typeof SecurityHelpButton>;
+    children: ReactNode;
 };
 
-const RISKY_ACTION_OPTIONS: Array<{
-    key: SecurityCenterSettings['twoPersonApproval']['riskyActions'][number];
+function SectionCard({ title, description, help, children }: SectionCardProps) {
+    return (
+        <section className="rounded-3xl border border-white/8 bg-slate-950/70 shadow-[0_14px_36px_rgba(2,6,23,0.24)]">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/8 px-6 py-5">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-white">{title}</h3>
+                        {help ? <SecurityHelpButton {...help} /> : null}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-400">{description}</p>
+                </div>
+            </div>
+            <div className="space-y-5 px-6 py-5">{children}</div>
+        </section>
+    );
+}
+
+type ToggleFieldProps = {
     label: string;
-}> = [
-    { key: 'data.destructive_change', label: 'All destructive deletes, archives, and restores' },
-    { key: 'students.bulk_delete', label: 'Students bulk delete' },
-    { key: 'universities.bulk_delete', label: 'Universities bulk delete' },
-    { key: 'news.bulk_delete', label: 'News delete actions' },
-    { key: 'exams.publish_result', label: 'Publish exam result' },
-    { key: 'news.publish_breaking', label: 'Publish breaking news' },
-    { key: 'payments.mark_refunded', label: 'Mark payment refunded' },
-];
+    description: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+};
 
-function numberInput(label: string, value: number, onChange: (next: number) => void, min = 0, max = 999999) {
+function ToggleField({ label, description, checked, onChange }: ToggleFieldProps) {
     return (
-        <input
-            aria-label={label}
-            title={label}
-            type="number"
-            value={value}
-            min={min}
-            max={max}
-            onChange={(event) => onChange(Number(event.target.value) || 0)}
-            className="mt-1 w-full rounded-lg border border-indigo-500/20 bg-slate-950/70 px-3 py-2 text-sm text-white"
-        />
+        <label className="flex items-start justify-between gap-4 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+            <div className="min-w-0">
+                <p className="text-sm font-medium text-white">{label}</p>
+                <p className="mt-1 text-xs text-slate-400">{description}</p>
+            </div>
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={(event) => onChange(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
+            />
+        </label>
     );
 }
 
-const SECTION_COPY: Record<string, { title: string; description: string }> = {
-    settings: { title: 'Security Settings', description: 'Configure the platform-wide security baseline from one place.' },
-    authentication: { title: 'Authentication & Login', description: 'Control login attempts, lockouts, and verification requirements.' },
-    'password-policies': { title: 'Password Policies', description: 'Tune password complexity, expiry, and reset behavior by role.' },
-    'two-factor': { title: 'Two-Factor Authentication', description: 'Enforce role-based MFA, backup codes, and sensitive-action step-up.' },
-    sessions: { title: 'Sessions & Devices', description: 'Adjust session lifetime, forced logout behavior, and device visibility.' },
-    'access-control': { title: 'Access Control & Role Security', description: 'Harden admin access, approvals, and privileged workflows.' },
-    'api-route': { title: 'API & Route Protection', description: 'Review route enforcement, rate limits, and backend-only protections.' },
-    verification: { title: 'Verification & Recovery', description: 'Manage email verification, reset expiry, and account recovery rules.' },
-    uploads: { title: 'Upload & File Security', description: 'Set upload limits, allowed extensions, and protected-file rules.' },
-    backup: { title: 'Backup & Restore Safety', description: 'Review retention, restore safeguards, and recoverability controls.' },
+type NumberFieldProps = {
+    label: string;
+    description: string;
+    value: number;
+    min: number;
+    max?: number;
+    step?: number;
+    onChange: (value: number) => void;
 };
 
-const SECTION_HELP: Record<string, SecurityHelpButtonProps> = {
-    runtime: {
-        title: 'Runtime Flags',
-        content: 'These toggles change live feature exposure without replacing the main Security Center policy.',
-        affected: 'Admins and students who can see route-gated features.',
-        enabledNote: 'The linked runtime behavior becomes active immediately after saving.',
-        disabledNote: 'The related feature stays hidden or inactive even if the code exists.',
-        bestPractice: 'Keep runtime flags limited to rollout controls, not core security enforcement.',
-    },
-    password: {
-        title: 'Password Policy',
-        content: 'Controls minimum complexity and baseline password strength requirements.',
-        impact: 'Reduces weak-password and credential-stuffing risk.',
-        affected: 'All users creating or changing passwords.',
-        enabledNote: 'New passwords must satisfy the configured complexity rules.',
-        disabledNote: 'Users can set simpler passwords and account takeover risk rises.',
-        bestPractice: 'Keep admin and staff passwords stronger than student defaults.',
-    },
-    login: {
-        title: 'Login & Session Security',
-        content: 'Sets lockouts, token lifetime, and idle timeout limits for authenticated sessions.',
-        impact: 'Reduces brute-force attempts and stale-session abuse.',
-        affected: 'All users logging into CampusWay.',
-        enabledNote: 'Repeated failures trigger lockouts and idle sessions expire faster.',
-        disabledNote: 'Attackers get longer windows to guess credentials or reuse sessions.',
-        bestPractice: 'Keep idle timeouts tight for admin traffic and review session counts regularly.',
-    },
-    verification: {
-        title: 'Verification & Recovery',
-        content: 'Controls whether verified email is required before login and whether login messaging stays generic.',
-        impact: 'Balances account assurance against access friction.',
-        affected: 'Students and admins during login and recovery flows.',
-        enabledNote: 'Only verified users can sign in for the selected role.',
-        disabledNote: 'Unverified accounts can still sign in if their password is correct.',
-        bestPractice: 'Keep admin verification optional only temporarily; turn it back on once admin emails are verified.',
-    },
-    adminAccess: {
-        title: 'Admin Access',
-        content: 'Defines admin-only protections like required MFA, IP allowlists, and panel availability.',
-        impact: 'Protects the highest-privilege routes from account compromise.',
-        affected: 'Superadmins, admins, moderators, and other staff roles.',
-        enabledNote: 'Admins face stronger access checks before they can enter the control plane.',
-        disabledNote: 'Privileged access depends more heavily on passwords alone.',
-        bestPractice: 'Require authenticator-based 2FA for all privileged roles.',
-    },
-    siteExam: {
-        title: 'Site & Exam Protection',
-        content: 'Combines public-site gates with exam eligibility and anti-abuse settings.',
-        impact: 'Reduces abuse on registrations and protects exam integrity.',
-        affected: 'Public visitors and students entering exams.',
-        enabledNote: 'Site restrictions and exam eligibility rules are enforced consistently.',
-        disabledNote: 'More users can start registrations or exams with fewer guardrails.',
-        bestPractice: 'Only lower these controls during planned maintenance or support incidents.',
-    },
-    rateLimit: {
-        title: 'Rate Limiting',
-        content: 'Controls request windows and burst ceilings for login, admin, exam submit, and upload actions.',
-        impact: 'Helps block automated abuse before it reaches business logic.',
-        affected: 'Any user or bot hitting protected endpoints.',
-        enabledNote: 'Excessive request bursts are throttled and logged.',
-        disabledNote: 'Attackers can hammer sensitive endpoints with fewer backend checks.',
-        bestPractice: 'Set lower limits for login and uploads than for ordinary dashboard reads.',
-    },
-    logging: {
-        title: 'Logging & Audit',
-        content: 'Controls how much security telemetry is written for troubleshooting and incident review.',
-        impact: 'Improves investigation quality after sensitive actions or failures.',
-        affected: 'Security operators and admin reviewers.',
-        enabledNote: 'Important auth and admin events remain visible in the audit trail.',
-        disabledNote: 'You lose forensic detail needed during incident response.',
-        bestPractice: 'Keep login-failure and admin-action logging enabled in production.',
-    },
-    sensitive: {
-        title: 'Sensitive Actions & Exports',
-        content: 'Determines whether risky actions require reasons, step-up 2FA, export approval, and protected-file access.',
-        impact: 'Reduces silent misuse of exports, resets, restores, and provider changes.',
-        affected: 'Admins performing destructive or data-sensitive operations.',
-        enabledNote: 'Protected actions must supply proof and produce stronger audit evidence.',
-        disabledNote: 'Sensitive actions execute with less friction and less accountability.',
-        bestPractice: 'Keep reasons, export logs, and step-up authentication enabled for privileged operators.',
-    },
-    approval: {
-        title: 'Two-Person Approval',
-        content: 'Requires a second privileged reviewer before selected risky actions can execute.',
-        impact: 'Prevents one compromised admin from making high-impact changes alone.',
-        affected: 'Admins performing risky actions and approvers reviewing them.',
-        enabledNote: 'Selected risky actions enter an approval queue before execution.',
-        disabledNote: 'The initiating admin can execute those actions immediately.',
-        bestPractice: 'Use this for exports, restores, and destructive bulk operations.',
-    },
-    panic: {
-        title: 'Panic Mode',
-        content: 'Emergency toggles for locking the platform into a safer mode during an incident.',
-        impact: 'Limits blast radius while the incident is investigated.',
-        affected: 'Students, admins, and payment/exam entry flows.',
-        enabledNote: 'The selected surfaces stop accepting risky state changes.',
-        disabledNote: 'Normal platform behavior resumes immediately.',
-        bestPractice: 'Use only during real incidents and record the reason in audit logs.',
-    },
-    retention: {
-        title: 'Retention Policy',
-        content: 'Controls how long security-relevant operational records stay available.',
-        impact: 'Balances investigation depth against storage cost.',
-        affected: 'Audit reviewers, ops, and compliance reporting.',
-        enabledNote: 'Old records are archived or pruned on the configured schedule.',
-        disabledNote: 'Data remains longer and storage grows without policy enforcement.',
-        bestPractice: 'Retain audit logs longer than transient exam session data.',
-    },
-    critical: {
-        title: 'Critical Security Actions',
-        content: 'Manual emergency controls for forced logout and admin panel locking.',
-        impact: 'Lets security operators contain live incidents quickly.',
-        affected: 'All active users or all admins, depending on the action.',
-        enabledNote: 'The action executes immediately after sensitive-action proof passes.',
-        disabledNote: 'The system keeps running with the current active sessions and admin access.',
-        bestPractice: 'Always include a clear incident reason before using these controls.',
-    },
-};
-
-const CONTROL_HELP: Record<string, SecurityHelpButtonProps> = {
-    webNext: {
-        title: 'Web Next Runtime Flag',
-        content: 'Enables the newer admin or site experience without changing the core security policy document.',
-        affected: 'Admins using routes wired to the newer frontend shell.',
-        enabledNote: 'The newer route experience becomes reachable immediately after runtime save.',
-        disabledNote: 'The platform keeps serving the current stable experience only.',
-        bestPractice: 'Use this only for staged rollout, not as a substitute for RBAC or security settings.',
-    },
-    trainingMode: {
-        title: 'Training Mode',
-        content: 'Keeps training-only UI or sample workflows visible for controlled demos and onboarding.',
-        affected: 'Admins working inside training-aware screens.',
-        enabledNote: 'Training-oriented prompts or demo helpers can appear in the admin experience.',
-        disabledNote: 'Only production-oriented controls remain visible.',
-        bestPractice: 'Leave this off in production unless staff is actively rehearsing workflows.',
-    },
-    deleteKeyword: {
-        title: 'Delete Keyword Confirmation',
-        content: 'Requires explicit keyword confirmation before delete actions can proceed.',
-        impact: 'Reduces accidental destructive actions during admin work.',
-        affected: 'Admins performing hard delete or similar destructive actions.',
-        enabledNote: 'Admins must deliberately type a confirmation keyword before deletion.',
-        disabledNote: 'Delete prompts become easier to bypass by mistake.',
-        bestPractice: 'Keep this on for any environment with real user or finance data.',
-    },
-    passwordMinLength: {
-        title: 'Minimum Password Length',
-        content: 'Sets the baseline character count for new passwords.',
-        impact: 'Longer passwords make brute-force and credential guessing harder.',
-        affected: 'All users changing or setting passwords.',
-        enabledNote: 'Short passwords are rejected during password creation or reset.',
-        disabledNote: 'Users can choose shorter passwords that are easier to crack.',
-        bestPractice: 'Keep privileged roles at 10-12 characters or higher.',
-    },
-    passwordNumber: {
-        title: 'Require Numbers',
-        content: 'Adds a numeric character requirement to new passwords.',
-        affected: 'All users creating or resetting passwords.',
-        enabledNote: 'Passwords must include at least one digit.',
-        disabledNote: 'Users can set passwords without numeric variation.',
-        bestPractice: 'Combine this with length and special-character rules for admin accounts.',
-    },
-    passwordUppercase: {
-        title: 'Require Uppercase',
-        content: 'Requires at least one uppercase character in newly chosen passwords.',
-        affected: 'All users during password set or reset.',
-        enabledNote: 'Passwords missing uppercase letters are rejected.',
-        disabledNote: 'Passwords can be simpler and easier to reuse across services.',
-        bestPractice: 'Keep this on for staff and admin accounts.',
-    },
-    passwordSpecial: {
-        title: 'Require Special Character',
-        content: 'Requires symbols such as `!`, `@`, or `#` in newly created passwords.',
-        affected: 'All password creation and reset flows.',
-        enabledNote: 'Passwords must include a non-alphanumeric character.',
-        disabledNote: 'Simpler passwords become valid and resistance drops.',
-        bestPractice: 'Use together with deny-common-password checks and password history.',
-    },
-    loginMaxAttempts: {
-        title: 'Max Login Attempts',
-        content: 'Controls how many failed credential attempts are allowed before lockout.',
-        impact: 'Limits brute-force and password-spraying attacks.',
-        affected: 'Anyone attempting to sign in.',
-        enabledNote: 'Repeated failures trigger lockout sooner.',
-        disabledNote: 'Attackers get a larger window to guess credentials.',
-        bestPractice: 'Keep this between 5 and 10 for public login surfaces.',
-    },
-    lockoutMinutes: {
-        title: 'Lockout Duration',
-        content: 'Sets how long an account stays locked after too many failed logins.',
-        affected: 'Users who trigger failed-login protection.',
-        enabledNote: 'Locked users must wait until the lockout window expires.',
-        disabledNote: 'Lockouts clear too quickly and abuse pressure stays high.',
-        bestPractice: 'Use at least 15 minutes for internet-exposed logins.',
-    },
-    accessTokenTtl: {
-        title: 'Access Token Lifetime',
-        content: 'Sets how long the in-memory access token can be used before refresh is required.',
-        affected: 'All signed-in users.',
-        enabledNote: 'Sessions refresh more often and stolen access tokens expire sooner.',
-        disabledNote: 'A stolen access token remains useful for longer.',
-        bestPractice: 'Keep admin access tokens short-lived.',
-    },
-    refreshTokenTtl: {
-        title: 'Refresh Token Lifetime',
-        content: 'Defines how long the refresh-cookie session can survive before re-login is required.',
-        affected: 'All signed-in users with persistent sessions.',
-        enabledNote: 'Users can stay signed in across browser restarts until this window ends.',
-        disabledNote: 'Shorter persistence forces more frequent full reauthentication.',
-        bestPractice: 'Use shorter windows for admin traffic than for students when possible.',
-    },
-    idleTimeout: {
-        title: 'Idle Timeout',
-        content: 'Ends inactive sessions after the configured number of idle minutes.',
-        impact: 'Prevents abandoned browsers from staying authenticated.',
-        affected: 'All users with inactive sessions.',
-        enabledNote: 'Inactive sessions are revoked automatically after the timeout window.',
-        disabledNote: 'Stale sessions remain live longer and increase hijack risk.',
-        bestPractice: 'Set tighter idle timeouts for admin and finance access.',
-    },
-    adminEmailVerification: {
-        title: 'Require Verified Email For Admin Login',
-        content: 'Blocks admin sign-in until the admin email address is marked verified.',
-        impact: 'Prevents unverified privileged identities from authenticating.',
-        affected: 'Superadmins, admins, moderators, and other privileged roles.',
-        enabledNote: 'Unverified admin accounts cannot log in until email verification is completed.',
-        disabledNote: 'Admins can log in without email verification if their password is valid.',
-        bestPractice: 'Keep this off only temporarily while fixing admin access, then turn it back on.',
-    },
-    studentEmailVerification: {
-        title: 'Require Verified Email For Student Login',
-        content: 'Blocks student access until the user completes email verification.',
-        affected: 'Student login and recovery flows.',
-        enabledNote: 'Only verified students can sign in.',
-        disabledNote: 'Students can sign in before email verification completes.',
-        bestPractice: 'Enable this when email deliverability and resend flows are stable.',
-    },
-    genericErrors: {
-        title: 'Generic Login Errors',
-        content: 'Hides whether the username, password, or account state caused a login failure.',
-        impact: 'Reduces user enumeration and credential-testing intelligence.',
-        affected: 'Anyone receiving login errors.',
-        enabledNote: 'Attackers learn less about valid accounts from login responses.',
-        disabledNote: 'Detailed login errors expose more account-state information.',
-        bestPractice: 'Keep this enabled on public and admin login forms.',
-    },
-    newDeviceAlerts: {
-        title: 'New Device Alerts',
-        content: 'Raises alerts when a login comes from a new browser or IP signature.',
-        impact: 'Helps catch account takeovers early.',
-        affected: 'Users with new or unusual login context.',
-        enabledNote: 'Security alerts appear for unseen device fingerprints or IP combinations.',
-        disabledNote: 'Potential account takeover signals are easier to miss.',
-        bestPractice: 'Pair this with admin alerting and session review.',
-    },
-    admin2fa: {
-        title: 'Require 2FA For Admins',
-        content: 'Forces privileged roles to complete two-factor authentication during login.',
-        impact: 'Greatly reduces password-only compromise risk.',
-        affected: 'Admin, staff, moderator, and similar privileged roles.',
-        enabledNote: 'Privileged users must complete MFA before entering the admin panel.',
-        disabledNote: 'Passwords alone can unlock privileged access.',
-        bestPractice: 'Require authenticator-app MFA for all privileged accounts.',
-    },
-    adminPanelEnabled: {
-        title: 'Admin Panel Availability',
-        content: 'Acts as an emergency gate for the admin interface.',
-        affected: 'All admins attempting to access the control plane.',
-        enabledNote: 'Admins can access the panel normally if other policy checks pass.',
-        disabledNote: 'Admin panel access is blocked until the toggle is turned back on.',
-        bestPractice: 'Use this only during incidents, maintenance, or compromise response.',
-    },
-    allowedAdminIps: {
-        title: 'Allowed Admin IPs',
-        content: 'Restricts admin access to a comma-separated allowlist of trusted IP addresses.',
-        impact: 'Shrinks the exposed admin attack surface.',
-        affected: 'Admins signing in from non-allowlisted networks.',
-        enabledNote: 'Only listed networks can access privileged admin routes.',
-        disabledNote: 'Admins can log in from any network that passes authentication.',
-        bestPractice: 'Use office, VPN, or bastion IPs and keep the list current.',
-    },
-    sensitiveReason: {
-        title: 'Reason Required For Sensitive Actions',
-        content: 'Requires a short operator explanation before risky actions can run.',
-        impact: 'Improves accountability and audit context.',
-        affected: 'Admins performing exports, resets, restores, and similar actions.',
-        enabledNote: 'Protected actions must include an operator reason.',
-        disabledNote: 'Audit evidence loses context about why an action happened.',
-        bestPractice: 'Keep reasons mandatory for data export, role change, and session revocation.',
-    },
-    sensitiveStepUp: {
-        title: 'Step-Up 2FA For Sensitive Actions',
-        content: 'Requires fresh authenticator or backup-code confirmation even after login.',
-        impact: 'Protects against stolen live sessions performing risky actions.',
-        affected: '2FA-enabled admins executing protected actions.',
-        enabledNote: 'Sensitive actions require a fresh 2FA check.',
-        disabledNote: 'A stolen authenticated session can do more damage without extra proof.',
-        bestPractice: 'Leave this on for exports, provider changes, restores, and password resets.',
-    },
-    exportLogging: {
-        title: 'Log All Export Actions',
-        content: 'Writes export operations into the audit trail with operator context.',
-        affected: 'Admins exporting data and auditors reviewing those exports.',
-        enabledNote: 'Exports appear in audit review and incident investigations.',
-        disabledNote: 'Sensitive data movement becomes harder to trace later.',
-        bestPractice: 'Keep export logging enabled for student, finance, and security datasets.',
-    },
-    exportApproval: {
-        title: 'Require Approval For Exports',
-        content: 'Queues protected export actions for secondary review when policy requires it.',
-        affected: 'Admins exporting protected datasets and approving reviewers.',
-        enabledNote: 'Selected exports pause until a second approver signs off.',
-        disabledNote: 'The initiating admin can export immediately.',
-        bestPractice: 'Use this for bulk student, finance, or contact exports.',
-    },
-    protectedUploads: {
-        title: 'Protected File Access',
-        content: 'Serves sensitive uploads through authenticated access checks instead of direct public URLs.',
-        impact: 'Protects payment proofs, student documents, and other non-public files.',
-        affected: 'Admins and students opening protected attachments.',
-        enabledNote: 'Sensitive files require an authorized signed-in context to open.',
-        disabledNote: 'Protected uploads can fall back to weaker direct access patterns.',
-        bestPractice: 'Keep this enabled for any document containing personal or payment data.',
-    },
-    maintenanceMode: {
-        title: 'Maintenance Mode',
-        content: 'Places public-facing surfaces into a controlled maintenance experience.',
-        affected: 'Public visitors and regular users during maintenance windows.',
-        enabledNote: 'Visitors see the maintenance state instead of live interactions.',
-        disabledNote: 'The live site remains fully available.',
-        bestPractice: 'Enable only for planned changes or incident containment.',
-    },
-    blockRegistrations: {
-        title: 'Block New Registrations',
-        content: 'Stops creation of new student accounts while keeping existing accounts intact.',
-        affected: 'New visitors trying to register.',
-        enabledNote: 'New signups are blocked until the switch is turned off.',
-        disabledNote: 'New student registration stays open.',
-        bestPractice: 'Use during abuse spikes, migration windows, or invite-only launches.',
-    },
-    profileScoreThreshold: {
-        title: 'Exam Profile Score Threshold',
-        content: 'Sets the minimum profile-completion score required before students can enter exams.',
-        affected: 'Students whose profiles are incomplete.',
-        enabledNote: 'Students below the threshold cannot start protected exams.',
-        disabledNote: 'Students can attempt exams with less-complete profiles.',
-        bestPractice: 'Use this to keep exam eligibility tied to complete student records.',
-    },
-    maxActiveSessions: {
-        title: 'Max Active Sessions Per User',
-        content: 'Caps how many simultaneous sessions a single user can keep active.',
-        impact: 'Limits credential sharing and stale device exposure.',
-        affected: 'Users signing in from many devices at once.',
-        enabledNote: 'Older sessions are forced out once the session cap is exceeded.',
-        disabledNote: 'A user can stay signed in across more devices.',
-        bestPractice: 'Keep lower caps for exam and admin contexts.',
-    },
-    requireProfileScore: {
-        title: 'Require Profile Score For Exam Access',
-        content: 'Enforces profile completion before exam entry rules can pass.',
-        affected: 'Students launching protected exam routes.',
-        enabledNote: 'Exam access checks the configured profile score threshold.',
-        disabledNote: 'Profile completeness no longer blocks exam access.',
-        bestPractice: 'Keep this enabled for high-stakes admission or result workflows.',
-    },
-    logTabSwitch: {
-        title: 'Log Tab Switch Violations',
-        content: 'Records tab switching or exam context changes for exam monitoring.',
-        affected: 'Students taking monitored exams and reviewers investigating misconduct.',
-        enabledNote: 'Potential exam integrity violations are recorded for review.',
-        disabledNote: 'You lose monitoring context around suspicious exam behavior.',
-        bestPractice: 'Keep this on wherever exam integrity matters.',
-    },
-    loginWindow: {
-        title: 'Login Rate Limit Window',
-        content: 'Defines the time window used for login request burst limits.',
-        affected: 'All login attempts hitting rate-limited auth routes.',
-        enabledNote: 'Rate limiting evaluates login bursts inside this window.',
-        disabledNote: 'A poorly tuned window weakens login abuse protection.',
-        bestPractice: 'Use a shorter window with a strict cap for login endpoints.',
-    },
-    loginRateMax: {
-        title: 'Login Request Cap',
-        content: 'Sets how many login requests are permitted inside the login rate-limit window.',
-        affected: 'Users and bots sending repeated login requests.',
-        enabledNote: 'Excess requests are throttled and can create abuse alerts.',
-        disabledNote: 'Attackers can send more requests before being blocked.',
-        bestPractice: 'Keep this aligned with failed-login lockout policy.',
-    },
-    adminWindow: {
-        title: 'Admin Rate Limit Window',
-        content: 'Defines the request window for privileged admin endpoints.',
-        affected: 'Admins and automated scripts calling admin routes.',
-        enabledNote: 'Admin bursts are measured inside this time window.',
-        disabledNote: 'Too-wide windows reduce the value of admin throttling.',
-        bestPractice: 'Tune this lower than general browsing traffic and monitor abuse.',
-    },
-    adminRateMax: {
-        title: 'Admin Request Cap',
-        content: 'Sets how many privileged admin requests are allowed per rate-limit window.',
-        affected: 'Admins and automation hitting admin APIs.',
-        enabledNote: 'Admin bursts above this cap are throttled.',
-        disabledNote: 'Compromised tokens can hit more admin endpoints quickly.',
-        bestPractice: 'Use stricter caps for write-heavy or destructive modules.',
-    },
-    logLevel: {
-        title: 'Security Log Level',
-        content: 'Controls the verbosity of security and operational logging.',
-        affected: 'Operators reading logs and backend storage volume.',
-        enabledNote: 'More detailed logs can be written when lower levels are selected.',
-        disabledNote: 'Higher levels keep logs quieter but omit troubleshooting detail.',
-        bestPractice: 'Use info or warn in production unless investigating an incident.',
-    },
-    logLoginFailures: {
-        title: 'Log Login Failures',
-        content: 'Writes failed sign-in attempts into monitoring and audit flows.',
-        impact: 'Improves brute-force and suspicious-login detection.',
-        affected: 'Security operators reviewing auth incidents.',
-        enabledNote: 'Failed logins remain visible for dashboards and alerts.',
-        disabledNote: 'Auth abuse becomes harder to investigate later.',
-        bestPractice: 'Keep this enabled in all production environments.',
-    },
-    logAdminActions: {
-        title: 'Log Admin Actions',
-        content: 'Writes privileged admin changes into the audit trail.',
-        impact: 'Provides accountability for changes made in the control plane.',
-        affected: 'All privileged operators and auditors.',
-        enabledNote: 'Admin actions remain searchable in audit review.',
-        disabledNote: 'You lose visibility into who changed what in the admin area.',
-        bestPractice: 'Never disable this outside of local development.',
-    },
-    approvalEnabled: {
-        title: 'Two-Person Approval',
-        content: 'Requires a second privileged reviewer for configured risky actions.',
-        impact: 'Stops a single compromised admin from executing the riskiest actions alone.',
-        affected: 'Initiators and approvers on protected workflows.',
-        enabledNote: 'Configured actions enter an approval queue before execution.',
-        disabledNote: 'The initiating admin can execute those actions immediately.',
-        bestPractice: 'Use this for destructive bulk operations, restores, and sensitive exports.',
-    },
-    approvalExpiry: {
-        title: 'Approval Expiry Window',
-        content: 'Sets how long a pending approval request stays valid before it expires.',
-        affected: 'Admins waiting for secondary approval.',
-        enabledNote: 'Approvals must be completed within this time window.',
-        disabledNote: 'Long expiry windows leave sensitive actions pending for too long.',
-        bestPractice: 'Keep approval windows short enough to prevent stale approvals.',
-    },
-    panicReadOnly: {
-        title: 'Read-Only Mode',
-        content: 'Blocks non-superadmin state-changing actions during an incident.',
-        impact: 'Reduces blast radius while investigating ongoing risk.',
-        affected: 'Most privileged operators attempting writes.',
-        enabledNote: 'Mutation-heavy admin actions are blocked for non-superadmins.',
-        disabledNote: 'Normal write operations resume immediately.',
-        bestPractice: 'Use during incidents, migrations, or suspected compromise.',
-    },
-    panicStudentLogins: {
-        title: 'Disable Student Logins',
-        content: 'Temporarily blocks student authentication at the backend.',
-        affected: 'All student login attempts.',
-        enabledNote: 'Students cannot sign in until the switch is turned off.',
-        disabledNote: 'Student authentication remains available.',
-        bestPractice: 'Reserve this for abuse spikes or incident containment.',
-    },
-    testingAccessMode: {
-        title: 'Testing Access Mode',
-        content: 'Temporarily bypasses login-time blockers so admins, students, and chairmen can test the platform without verification, lockout, or MFA interruptions.',
-        impact: 'Improves QA access at the cost of weaker login-time protections.',
-        affected: 'Admin, student, and chairman login flows plus sensitive-action OTP step-up.',
-        enabledNote: 'Email verification, role-required 2FA, student-login disable, pending-verification login blocks, and active lockouts are bypassed until you turn this off.',
-        disabledNote: 'Normal verification, lockout, and MFA requirements are enforced again immediately.',
-        bestPractice: 'Use only in test or recovery windows and switch it off before production hardening.',
-    },
-    panicPaymentWebhooks: {
-        title: 'Disable Payment Webhooks',
-        content: 'Stops inbound payment webhook processing during incidents or provider issues.',
-        affected: 'Payment ingestion and automation flows.',
-        enabledNote: 'Payment webhooks stop mutating finance state.',
-        disabledNote: 'Payment webhooks continue processing normally.',
-        bestPractice: 'Turn this on only when payment integrity is at risk.',
-    },
-    panicExamStarts: {
-        title: 'Disable Exam Starts',
-        content: 'Prevents new exam sessions from starting while allowing containment work.',
-        affected: 'Students trying to launch exams.',
-        enabledNote: 'New exam attempts are blocked until the flag is cleared.',
-        disabledNote: 'Exam starts continue normally.',
-        bestPractice: 'Use when exam integrity, proctoring, or data sync is under investigation.',
-    },
-    retentionEnabled: {
-        title: 'Retention Archiver',
-        content: 'Turns on policy-based cleanup or archival windows for operational records.',
-        affected: 'Audit, exam-session, and event-log storage lifecycles.',
-        enabledNote: 'Retention schedules become active for configured record classes.',
-        disabledNote: 'Operational records keep growing without lifecycle enforcement.',
-        bestPractice: 'Enable this with careful retention periods that match incident response needs.',
-    },
-    retentionExam: {
-        title: 'Exam Session Retention',
-        content: 'Defines how many days exam session artifacts stay available.',
-        affected: 'Exam investigations and storage usage.',
-        enabledNote: 'Exam session records are retained for the configured number of days.',
-        disabledNote: 'Short windows may remove evidence too quickly.',
-        bestPractice: 'Keep this long enough for exam appeals and incident review.',
-    },
-    retentionAudit: {
-        title: 'Audit Log Retention',
-        content: 'Defines how many days privileged audit records remain available.',
-        affected: 'Security reviews, compliance checks, and incident investigations.',
-        enabledNote: 'Audit records stay searchable for the configured retention window.',
-        disabledNote: 'Short retention weakens investigations and compliance posture.',
-        bestPractice: 'Retain audit logs longer than transient operational telemetry.',
-    },
-    retentionEvent: {
-        title: 'Event Log Retention',
-        content: 'Defines how long analytics or event-level telemetry remains stored.',
-        affected: 'Operational analytics and abuse investigations.',
-        enabledNote: 'Event telemetry stays available for the configured period.',
-        disabledNote: 'Short windows can remove abuse traces before review.',
-        bestPractice: 'Tune this based on storage cost and investigation needs.',
-    },
-};
-
-function sectionTitle(label: string, helpKey: keyof typeof SECTION_HELP) {
+function NumberField({ label, description, value, min, max, step = 1, onChange }: NumberFieldProps) {
     return (
-        <span className="inline-flex items-center gap-2">
-            <span>{label}</span>
-            <SecurityHelpButton {...SECTION_HELP[helpKey]} variant="full" />
-        </span>
+        <label className="block rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="text-sm font-medium text-white">{label}</p>
+                    <p className="mt-1 text-xs text-slate-400">{description}</p>
+                </div>
+                <input
+                    type="number"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={value}
+                    onChange={(event) => onChange(Number(event.target.value))}
+                    className="w-28 rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-right text-sm text-white outline-none transition focus:border-cyan-400/50"
+                />
+            </div>
+        </label>
     );
 }
 
-function inlineLabel(label: string, helpKey: keyof typeof CONTROL_HELP) {
+type ChipToggleGroupProps<T extends string> = {
+    title: string;
+    description: string;
+    options: Array<{ value: T; label: string; description?: string }>;
+    selected: T[];
+    onChange: (selected: T[]) => void;
+    dataTestId?: string;
+};
+
+function ChipToggleGroup<T extends string>({
+    title,
+    description,
+    options,
+    selected,
+    onChange,
+    dataTestId,
+}: ChipToggleGroupProps<T>) {
+    const toggleValue = (value: T) => {
+        const next = selected.includes(value)
+            ? selected.filter((item) => item !== value)
+            : [...selected, value];
+        onChange(next);
+    };
+
     return (
-        <span className="inline-flex items-center gap-2">
-            <span>{label}</span>
-            <SecurityHelpButton {...CONTROL_HELP[helpKey]} />
-        </span>
+        <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3" data-testid={dataTestId}>
+            <p className="text-sm font-medium text-white">{title}</p>
+            <p className="mt-1 text-xs text-slate-400">{description}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+                {options.map((option) => {
+                    const active = selected.includes(option.value);
+                    return (
+                        <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => toggleValue(option.value)}
+                            className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                                active
+                                    ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-200'
+                                    : 'border-white/10 bg-slate-900 text-slate-300 hover:border-white/20 hover:text-white'
+                            }`}
+                            title={option.description || option.label}
+                        >
+                            {option.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
     );
 }
 
-export default function SecuritySettingsPanel({ section = 'settings' }: { section?: string }) {
+type PolicyCardProps = {
+    label: string;
+    policy: NormalizedSecurityCenterSettings['passwordPolicies']['default'];
+    onChange: (policy: NormalizedSecurityCenterSettings['passwordPolicies']['default']) => void;
+    dataTestId: string;
+};
+
+function PolicyCard({ label, policy, onChange, dataTestId }: PolicyCardProps) {
+    const update = <K extends keyof NormalizedSecurityCenterSettings['passwordPolicies']['default']>(
+        key: K,
+        value: NormalizedSecurityCenterSettings['passwordPolicies']['default'][K],
+    ) => {
+        onChange({ ...policy, [key]: value });
+    };
+
+    return (
+        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4" data-testid={dataTestId}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <h4 className="text-sm font-semibold text-white">{label}</h4>
+                <span className="rounded-full border border-white/10 bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-slate-300">
+                    Active policy
+                </span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+                <NumberField
+                    label="Minimum length"
+                    description="Shortest allowed password length."
+                    value={policy.minLength}
+                    min={8}
+                    max={128}
+                    onChange={(value) => update('minLength', value)}
+                />
+                <NumberField
+                    label="Reuse prevention"
+                    description="How many old passwords remain blocked."
+                    value={policy.preventReuseCount}
+                    min={0}
+                    max={24}
+                    onChange={(value) => update('preventReuseCount', value)}
+                />
+                <NumberField
+                    label="Expiry days"
+                    description="Use 0 to disable password expiry."
+                    value={policy.expiryDays}
+                    min={0}
+                    max={3650}
+                    onChange={(value) => update('expiryDays', value)}
+                />
+                <div className="rounded-2xl border border-white/8 bg-slate-950/60 px-4 py-3">
+                    <p className="text-sm font-medium text-white">Required character mix</p>
+                    <div className="mt-3 space-y-2">
+                        <ToggleField label="Uppercase" description="Require at least one uppercase letter." checked={policy.requireUppercase} onChange={(value) => update('requireUppercase', value)} />
+                        <ToggleField label="Lowercase" description="Require at least one lowercase letter." checked={policy.requireLowercase} onChange={(value) => update('requireLowercase', value)} />
+                        <ToggleField label="Number" description="Require at least one numeric character." checked={policy.requireNumber} onChange={(value) => update('requireNumber', value)} />
+                        <ToggleField label="Special" description="Require at least one special character." checked={policy.requireSpecial} onChange={(value) => update('requireSpecial', value)} />
+                    </div>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-slate-950/60 px-4 py-3 md:col-span-2">
+                    <div className="grid gap-2 md:grid-cols-2">
+                        <ToggleField
+                            label="Deny common passwords"
+                            description="Reject weak and commonly-used passwords."
+                            checked={policy.denyCommonPasswords}
+                            onChange={(value) => update('denyCommonPasswords', value)}
+                        />
+                        <ToggleField
+                            label="Force reset on first login"
+                            description="Require a password change immediately after account activation."
+                            checked={policy.forceResetOnFirstLogin}
+                            onChange={(value) => update('forceResetOnFirstLogin', value)}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default function SecuritySettingsPanel() {
     const queryClient = useQueryClient();
-    const [settings, setSettings] = useState<SecurityCenterSettings>(DEFAULT_SETTINGS);
-    const [runtimeFlags, setRuntimeFlags] = useState<AdminFeatureFlags>(DEFAULT_RUNTIME_FLAGS);
+    const [settings, setSettings] = useState<NormalizedSecurityCenterSettings | null>(null);
+    const [baseline, setBaseline] = useState<NormalizedSecurityCenterSettings | null>(null);
+    const [adminIpDraft, setAdminIpDraft] = useState('');
 
-    const adminPanelLocked = useMemo(() => !settings.adminAccess.adminPanelEnabled, [settings.adminAccess.adminPanelEnabled]);
-
-    const securityQuery = useQuery({
+    const settingsQuery = useQuery({
         queryKey: queryKeys.securitySettings,
-        queryFn: async () => (await adminGetSecurityCenterSettings()).data.settings,
+        queryFn: async () => {
+            const response = await adminGetSecurityCenterSettings();
+            return normalizeSettings(response.data?.settings);
+        },
+        staleTime: 30_000,
+        refetchOnWindowFocus: false,
     });
-    const runtimeQuery = useQuery({
-        queryKey: queryKeys.runtimeSettings,
-        queryFn: async () => (await adminGetRuntimeSettings()).data.featureFlags,
-    });
-    const approvalsQuery = useQuery({
-        queryKey: queryKeys.pendingApprovals,
-        queryFn: async () => (await adminGetPendingApprovals({ limit: 100 })).data.items,
-        refetchInterval: 30_000,
+
+    const pendingApprovalsQuery = useQuery({
+        queryKey: [...queryKeys.pendingApprovals, 'security-center'],
+        queryFn: async () => {
+            const response = await adminGetPendingApprovals({ limit: 8 });
+            return response.data;
+        },
+        staleTime: 10_000,
+        refetchOnWindowFocus: false,
     });
 
     useEffect(() => {
-        if (!securityQuery.data) return;
-        setSettings({ ...DEFAULT_SETTINGS, ...(securityQuery.data || {}) });
-    }, [securityQuery.data]);
+        if (!settingsQuery.data) return;
+        setSettings(settingsQuery.data);
+        setBaseline(settingsQuery.data);
+        setAdminIpDraft(toMultilineList(settingsQuery.data.adminAccess.allowedAdminIPs));
+    }, [settingsQuery.data]);
 
-    useEffect(() => {
-        if (!runtimeQuery.data) return;
-        setRuntimeFlags({ ...DEFAULT_RUNTIME_FLAGS, ...(runtimeQuery.data || {}) });
-    }, [runtimeQuery.data]);
-
-    useEffect(() => {
-        if (securityQuery.isError && runtimeQuery.isError) {
-            toast.error('Failed to load security settings');
-        }
-    }, [securityQuery.isError, runtimeQuery.isError]);
+    const invalidateSecurityQueries = async () => {
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.securitySettings }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.pendingApprovals }),
+            queryClient.invalidateQueries({ queryKey: ['securityDashboard'] }),
+            queryClient.invalidateQueries({ queryKey: ['securityAuditLogs'] }),
+            queryClient.invalidateQueries({ queryKey: ['securityAlerts'] }),
+            queryClient.invalidateQueries({ queryKey: ['securityAlertsSummary'] }),
+        ]);
+    };
 
     const saveMutation = useMutation({
-        mutationFn: async (proof: SensitiveActionProof) => {
-            const payload = {
-                passwordPolicy: settings.passwordPolicy,
-                loginProtection: settings.loginProtection,
-                session: settings.session,
-                adminAccess: {
-                    ...settings.adminAccess,
-                    allowedAdminIPs: (settings.adminAccess.allowedAdminIPs || []).filter(Boolean),
-                },
-                siteAccess: settings.siteAccess,
-                examProtection: settings.examProtection,
-                logging: settings.logging,
-                rateLimit: settings.rateLimit,
-                twoPersonApproval: settings.twoPersonApproval,
-                retention: settings.retention,
-                panic: settings.panic,
-                ...(settings.authentication ? { authentication: settings.authentication } : {}),
-                ...(settings.passwordPolicies ? { passwordPolicies: settings.passwordPolicies } : {}),
-                ...(settings.twoFactor ? { twoFactor: settings.twoFactor } : {}),
-                ...(settings.sessions ? { sessions: settings.sessions } : {}),
-                ...(settings.accessControl ? { accessControl: settings.accessControl } : {}),
-                ...(settings.verificationRecovery ? { verificationRecovery: settings.verificationRecovery } : {}),
-                ...(settings.uploadSecurity ? { uploadSecurity: settings.uploadSecurity } : {}),
-                ...(settings.alerting ? { alerting: settings.alerting } : {}),
-                ...(settings.exportSecurity ? { exportSecurity: settings.exportSecurity } : {}),
-                ...(settings.backupRestore ? { backupRestore: settings.backupRestore } : {}),
-                ...(settings.runtimeGuards ? { runtimeGuards: settings.runtimeGuards } : {}),
-            };
-            return adminUpdateSecurityCenterSettings(payload, proof);
-        },
+        mutationFn: async (current: NormalizedSecurityCenterSettings) => adminUpdateSecurityCenterSettings(buildSavePayload(current)),
         onSuccess: async (response) => {
-            setSettings({ ...DEFAULT_SETTINGS, ...(response.data.settings || {}) });
-            toast.success('Security Center updated');
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: queryKeys.securitySettings }),
-                queryClient.invalidateQueries({ queryKey: queryKeys.runtimeSettings }),
-                queryClient.invalidateQueries({ queryKey: queryKeys.pendingApprovals }),
-            ]);
+            const body = response.data as { settings?: SecurityCenterSettings; message?: string } | undefined;
+            if (body?.settings) {
+                const nextSettings = normalizeSettings(body.settings);
+                setSettings(nextSettings);
+                setBaseline(nextSettings);
+                setAdminIpDraft(toMultilineList(nextSettings.adminAccess.allowedAdminIPs));
+            }
+            toast.success(body?.message || 'Security settings updated');
+            await invalidateSecurityQueries();
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Failed to save security settings');
-        },
-    });
-
-    const runtimeMutation = useMutation({
-        mutationFn: async () => adminUpdateRuntimeSettings({ featureFlags: runtimeFlags }),
-        onSuccess: async (response) => {
-            setRuntimeFlags({ ...DEFAULT_RUNTIME_FLAGS, ...(response.data.featureFlags || {}) });
-            toast.success('Runtime flags updated');
-            await queryClient.invalidateQueries({ queryKey: queryKeys.runtimeSettings });
-        },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Failed to save runtime flags');
+        onError: (error: unknown) => {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Unable to save security settings';
+            toast.error(message);
         },
     });
 
     const resetMutation = useMutation({
-        mutationFn: async (proof: SensitiveActionProof) => adminResetSecurityCenterSettings(proof),
+        mutationFn: async () => adminResetSecurityCenterSettings(),
         onSuccess: async (response) => {
-            setSettings({ ...DEFAULT_SETTINGS, ...(response.data.settings || {}) });
-            toast.success('Security settings reset to default');
-            await queryClient.invalidateQueries({ queryKey: queryKeys.securitySettings });
+            const body = response.data as { settings?: SecurityCenterSettings; message?: string } | undefined;
+            if (body?.settings) {
+                const nextSettings = normalizeSettings(body.settings);
+                setSettings(nextSettings);
+                setBaseline(nextSettings);
+                setAdminIpDraft(toMultilineList(nextSettings.adminAccess.allowedAdminIPs));
+            }
+            toast.success(body?.message || 'Security settings reset');
+            await invalidateSecurityQueries();
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Reset failed');
+        onError: (error: unknown) => {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Unable to reset security settings';
+            toast.error(message);
         },
     });
 
     const forceLogoutMutation = useMutation({
-        mutationFn: async (proof: SensitiveActionProof) => adminForceLogoutAllUsers('security_center_force_logout_all', proof),
-        onSuccess: (response) => {
-            toast.success(`Force logout completed (${response.data.terminatedCount} sessions)`);
+        mutationFn: async () => adminForceLogoutAllUsers(),
+        onSuccess: async (response) => {
+            toast.success(response.data?.message || 'Active sessions were terminated');
+            await invalidateSecurityQueries();
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Force logout failed');
+        onError: (error: unknown) => {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Unable to force logout all users';
+            toast.error(message);
         },
     });
 
-    const toggleLockMutation = useMutation({
-        mutationFn: async (proof: SensitiveActionProof) => adminSetAdminPanelLockState(adminPanelLocked, proof),
+    const adminPanelMutation = useMutation({
+        mutationFn: async (enabled: boolean) => adminSetAdminPanelLockState(enabled),
         onSuccess: async (response) => {
-            setSettings((prev) => ({
-                ...prev,
-                ...(response.data.settings || {}),
-            }));
-            toast.success(adminPanelLocked ? 'Admin panel unlocked' : 'Admin panel locked');
-            await queryClient.invalidateQueries({ queryKey: queryKeys.securitySettings });
+            const body = response.data as { settings?: SecurityCenterSettings; message?: string } | undefined;
+            if (body?.settings) {
+                const nextSettings = normalizeSettings(body.settings);
+                setSettings(nextSettings);
+                setBaseline(nextSettings);
+                setAdminIpDraft(toMultilineList(nextSettings.adminAccess.allowedAdminIPs));
+            }
+            toast.success(body?.message || 'Admin panel access updated');
+            await invalidateSecurityQueries();
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Admin lock action failed');
+        onError: (error: unknown) => {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Unable to update admin panel state';
+            toast.error(message);
         },
     });
 
     const approveMutation = useMutation({
         mutationFn: async (id: string) => adminApprovePendingAction(id),
-        onSuccess: async () => {
-            toast.success('Approval executed');
-            await queryClient.invalidateQueries({ queryKey: queryKeys.pendingApprovals });
+        onSuccess: async (response) => {
+            toast.success(response.data?.message || 'Pending action approved');
+            await invalidateSecurityQueries();
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Approval failed');
+        onError: (error: unknown) => {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Unable to approve pending action';
+            toast.error(message);
         },
     });
 
     const rejectMutation = useMutation({
-        mutationFn: async (payload: { id: string; reason: string }) => adminRejectPendingAction(payload.id, payload.reason),
-        onSuccess: async () => {
-            toast.success('Approval rejected');
-            await queryClient.invalidateQueries({ queryKey: queryKeys.pendingApprovals });
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) => adminRejectPendingAction(id, reason),
+        onSuccess: async (response) => {
+            toast.success(response.data?.message || 'Pending action rejected');
+            await invalidateSecurityQueries();
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Reject failed');
+        onError: (error: unknown) => {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Unable to reject pending action';
+            toast.error(message);
         },
     });
 
-    const requestProof = async (actionLabel: string, defaultReason: string) => {
-        return promptForSensitiveActionProof({
-            actionLabel,
-            defaultReason,
-            requireOtpHint: true,
-        });
+    const hasChanges = useMemo(() => {
+        if (!settings || !baseline) return false;
+        return JSON.stringify(settings) !== JSON.stringify(baseline);
+    }, [settings, baseline]);
+
+    const updateSettings = (updater: (current: NormalizedSecurityCenterSettings) => NormalizedSecurityCenterSettings) => {
+        setSettings((current) => (current ? updater(current) : current));
     };
 
-    const saveChanges = async () => {
-        const proof = await requestProof('update security settings', 'Update Security Center settings');
-        if (!proof) return;
-        await saveMutation.mutateAsync(proof);
-    };
-
-    const saveRuntime = async () => {
-        await runtimeMutation.mutateAsync();
+    const saveCurrentSettings = async () => {
+        if (!settings) return;
+        await saveMutation.mutateAsync(settings);
     };
 
     const resetDefaults = async () => {
-        const proof = await requestProof('reset security settings', 'Reset Security Center defaults');
-        if (!proof) return;
-        await resetMutation.mutateAsync(proof);
+        const confirmed = await showConfirmDialog({
+            title: 'Reset security settings?',
+            message: 'This will restore the Security Center to default policy values.',
+            description: 'Saved defaults can change login behavior, MFA enforcement, and emergency controls.',
+            confirmLabel: 'Reset to defaults',
+            cancelLabel: 'Keep current settings',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
+        await resetMutation.mutateAsync();
     };
 
     const forceLogoutAll = async () => {
-        const proof = await requestProof('force logout all sessions', 'Force logout all active sessions');
-        if (!proof) return;
-        await forceLogoutMutation.mutateAsync(proof);
+        const confirmed = await showConfirmDialog({
+            title: 'Force logout every active session?',
+            message: 'All users will be signed out from active devices.',
+            description: 'Use this only for incident response, compromised tokens, or major policy changes.',
+            confirmLabel: 'Force logout all',
+            cancelLabel: 'Cancel',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
+        await forceLogoutMutation.mutateAsync();
     };
 
-    const toggleAdminLock = async () => {
-        const proof = await requestProof(
-            adminPanelLocked ? 'unlock admin panel' : 'lock admin panel',
-            adminPanelLocked ? 'Unlock admin panel access' : 'Lock admin panel access',
-        );
-        if (!proof) return;
-        await toggleLockMutation.mutateAsync(proof);
+    const toggleAdminPanel = async () => {
+        if (!settings) return;
+        const nextEnabled = !settings.adminAccess.adminPanelEnabled;
+        const confirmed = await showConfirmDialog({
+            title: nextEnabled ? 'Unlock admin panel?' : 'Lock admin panel?',
+            message: nextEnabled
+                ? 'Admin routes will be accessible again to authorized staff.'
+                : 'This will block admin route access for everyone except current in-flight sessions.',
+            description: nextEnabled
+                ? 'Use this after emergency maintenance or incident response.'
+                : 'Locking the admin panel is an emergency control. Make sure the team is informed first.',
+            confirmLabel: nextEnabled ? 'Unlock panel' : 'Lock panel',
+            cancelLabel: 'Cancel',
+            tone: nextEnabled ? 'default' : 'danger',
+        });
+        if (!confirmed) return;
+        await adminPanelMutation.mutateAsync(nextEnabled);
     };
 
-    const pendingApprovals: AdminActionApproval[] = approvalsQuery.data || [];
-
-    const approveItem = async (id: string) => {
-        await approveMutation.mutateAsync(id);
+    const rejectApproval = async (item: AdminActionApproval) => {
+        const reason = await showPromptDialog({
+            title: 'Reject pending approval',
+            message: `Provide a short reason for rejecting ${item.action.replace(/_/g, ' ')}.`,
+            defaultValue: 'Rejected after policy review',
+            placeholder: 'Reason for rejection',
+            confirmLabel: 'Reject action',
+            cancelLabel: 'Cancel',
+            tone: 'danger',
+            inputLabel: 'Reason',
+        });
+        if (!reason) return;
+        await rejectMutation.mutateAsync({ id: item._id, reason });
     };
 
-    const rejectItem = async (id: string) => {
-        await rejectMutation.mutateAsync({ id, reason: 'Rejected from Security Center queue' });
-    };
-
-    if (securityQuery.isLoading || runtimeQuery.isLoading) {
+    if (settingsQuery.isLoading || !settings) {
         return (
-            <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+            <div className="flex items-center justify-center rounded-3xl border border-white/8 bg-slate-950/70 py-24">
+                <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
+            </div>
+        );
+    }
+
+    if (settingsQuery.isError) {
+        return (
+            <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 px-6 py-8 text-center">
+                <ServerCrash className="mx-auto h-8 w-8 text-rose-300" />
+                <h3 className="mt-3 text-lg font-semibold text-white">Security settings failed to load</h3>
+                <p className="mt-1 text-sm text-rose-100/80">The Security Center could not load its canonical policy snapshot.</p>
+                <button
+                    type="button"
+                    onClick={() => settingsQuery.refetch()}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                >
+                    <RefreshCcw className="h-4 w-4" />
+                    Retry
+                </button>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-white">{SECTION_COPY[section]?.title || SECTION_COPY.settings.title}</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                    {SECTION_COPY[section]?.description || SECTION_COPY.settings.description}
-                </p>
-            </section>
-
-            {(section === 'settings' || section === 'two-factor') && (
-                <AdminAuthenticatorSetup />
-            )}
-
-            <section className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-6" data-testid="security-settings-panel">
+            <div className="rounded-3xl border border-white/8 bg-slate-950/70 p-6 shadow-[0_18px_46px_rgba(2,6,23,0.26)]">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <h2 className="flex items-center gap-2 text-xl font-bold text-white">
-                            <Shield className="h-5 w-5 text-indigo-400" />
-                            Security Center
-                        </h2>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-xl font-semibold text-white">Security Settings</h2>
+                            <SecurityHelpButton
+                                title="Security Settings"
+                                content="This page now owns only real security controls that are enforced in backend or runtime flows."
+                                impact="It removes duplicate or dead settings so policy changes are predictable."
+                                affected="Admin authentication, session handling, exports, approvals, and emergency operations."
+                                enabledNote="Changes here propagate to the canonical security snapshot used by auth and sensitive-action middleware."
+                                disabledNote="Duplicate settings elsewhere are intentionally hidden to avoid split ownership."
+                                bestPractice="Review these controls in sections, then save once after checking the impact summary."
+                            />
+                        </div>
                         <p className="mt-1 text-sm text-slate-400">
-                            Configure password policy, session security, admin access, exam guardrails, and rate limits.
+                            Canonical policy controls only. Upload placeholders and dead legacy mirrors are intentionally removed from this surface.
                         </p>
+                        <p className="mt-2 text-xs text-slate-500">Last synced {formatTimestamp(settings.updatedAt)}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <button
-                            onClick={() => void saveChanges()}
-                            disabled={saveMutation.isPending}
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-60"
+                            type="button"
+                            onClick={resetDefaults}
+                            disabled={resetMutation.isPending}
+                            className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50"
+                        >
+                            {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <TimerReset className="h-4 w-4" />}
+                            Reset defaults
+                        </button>
+                        <button
+                            type="button"
+                            onClick={saveCurrentSettings}
+                            disabled={!hasChanges || saveMutation.isPending}
+                            data-testid="security-settings-save"
+                            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Save changes
                         </button>
-                        <button
-                            onClick={() => void resetDefaults()}
-                            disabled={resetMutation.isPending}
-                            className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/20 px-4 py-2 text-sm text-slate-200 hover:bg-indigo-500/10 disabled:opacity-60"
-                        >
-                            {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                            Reset defaults
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <section className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h3 className="text-lg font-semibold text-white">{sectionTitle('Runtime Flags', 'runtime')}</h3>
-                        <p className="mt-1 text-sm text-slate-400">
-                            Toggle runtime feature switches and persist them immediately.
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => void saveRuntime()}
-                        disabled={runtimeMutation.isPending}
-                        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-60"
-                    >
-                        {runtimeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Save Runtime
-                    </button>
-                </div>
-                <div className="mt-4 rounded-xl border border-indigo-500/15 bg-slate-950/70 p-3">
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                            <span>{inlineLabel('Web Next (Stored)', 'webNext')}</span>
-                            <input
-                                data-testid="runtime-flag-web-next"
-                                type="checkbox"
-                                checked={Boolean(runtimeFlags.webNextEnabled)}
-                                onChange={(event) => setRuntimeFlags((prev) => ({ ...prev, webNextEnabled: event.target.checked }))}
-                            />
-                        </label>
-                        <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                            <span>{inlineLabel('Training Mode', 'trainingMode')}</span>
-                            <input
-                                type="checkbox"
-                                checked={Boolean(runtimeFlags.trainingMode)}
-                                onChange={(event) => setRuntimeFlags((prev) => ({ ...prev, trainingMode: event.target.checked }))}
-                            />
-                        </label>
-                        <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                            <span>{inlineLabel('Require "DELETE" Confirm', 'deleteKeyword')}</span>
-                            <input
-                                type="checkbox"
-                                checked={Boolean(runtimeFlags.requireDeleteKeywordConfirm)}
-                                onChange={(event) => setRuntimeFlags((prev) => ({ ...prev, requireDeleteKeywordConfirm: event.target.checked }))}
-                            />
-                        </label>
-                    </div>
-                </div>
-            </section>
-
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Password Policy', 'password')}</h3>
-                    <label className="text-sm text-slate-300">{inlineLabel('Minimum length', 'passwordMinLength')}
-                        {numberInput('Minimum length', settings.passwordPolicy.minLength, (next) => setSettings((prev) => ({
-                            ...prev,
-                            passwordPolicy: { ...prev.passwordPolicy, minLength: Math.max(8, next) },
-                        })), 8, 64)}
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require number', 'passwordNumber')}</span>
-                        <input aria-label="Require number" type="checkbox" checked={settings.passwordPolicy.requireNumber} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            passwordPolicy: { ...prev.passwordPolicy, requireNumber: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require uppercase', 'passwordUppercase')}</span>
-                        <input aria-label="Require uppercase" type="checkbox" checked={settings.passwordPolicy.requireUppercase} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            passwordPolicy: { ...prev.passwordPolicy, requireUppercase: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require special char', 'passwordSpecial')}</span>
-                        <input aria-label="Require special char" type="checkbox" checked={settings.passwordPolicy.requireSpecial} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            passwordPolicy: { ...prev.passwordPolicy, requireSpecial: event.target.checked },
-                        }))} />
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Login & Session Security', 'login')}</h3>
-                    <label className="text-sm text-slate-300">{inlineLabel('Max login attempts', 'loginMaxAttempts')}
-                        {numberInput('Max login attempts', settings.loginProtection.maxAttempts, (next) => setSettings((prev) => ({
-                            ...prev,
-                            loginProtection: { ...prev.loginProtection, maxAttempts: Math.max(1, next) },
-                        })), 1, 20)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Lockout minutes', 'lockoutMinutes')}
-                        {numberInput('Lockout minutes', settings.loginProtection.lockoutMinutes, (next) => setSettings((prev) => ({
-                            ...prev,
-                            loginProtection: { ...prev.loginProtection, lockoutMinutes: Math.max(1, next) },
-                        })), 1, 240)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Access token TTL (minutes)', 'accessTokenTtl')}
-                        {numberInput('Access token TTL', settings.session.accessTokenTTLMinutes, (next) => setSettings((prev) => ({
-                            ...prev,
-                            session: { ...prev.session, accessTokenTTLMinutes: Math.max(5, next) },
-                        })), 5, 180)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Refresh token TTL (days)', 'refreshTokenTtl')}
-                        {numberInput('Refresh token TTL', settings.session.refreshTokenTTLDays, (next) => setSettings((prev) => ({
-                            ...prev,
-                            session: { ...prev.session, refreshTokenTTLDays: Math.max(1, next) },
-                        })), 1, 120)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Idle timeout (minutes)', 'idleTimeout')}
-                        {numberInput('Idle timeout', settings.session.idleTimeoutMinutes, (next) => setSettings((prev) => ({
-                            ...prev,
-                            session: { ...prev.session, idleTimeoutMinutes: Math.max(5, next) },
-                        })), 5, 1440)}
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Verification & Recovery', 'verification')}</h3>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require verified email for admin login', 'adminEmailVerification')}</span>
-                        <input
-                            aria-label="Require verified email for admin login"
-                            type="checkbox"
-                            checked={Boolean(settings.verificationRecovery?.requireVerifiedEmailForAdmins)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                verificationRecovery: {
-                                    ...prev.verificationRecovery!,
-                                    requireVerifiedEmailForAdmins: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require verified email for student login', 'studentEmailVerification')}</span>
-                        <input
-                            aria-label="Require verified email for student login"
-                            type="checkbox"
-                            checked={Boolean(settings.verificationRecovery?.requireVerifiedEmailForStudents)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                verificationRecovery: {
-                                    ...prev.verificationRecovery!,
-                                    requireVerifiedEmailForStudents: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Use generic login error messages', 'genericErrors')}</span>
-                        <input
-                            aria-label="Use generic login error messages"
-                            type="checkbox"
-                            checked={Boolean(settings.authentication?.genericErrorMessages)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                authentication: {
-                                    ...prev.authentication!,
-                                    genericErrorMessages: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Alert on new device login', 'newDeviceAlerts')}</span>
-                        <input
-                            aria-label="Alert on new device login"
-                            type="checkbox"
-                            checked={Boolean(settings.authentication?.newDeviceAlerts)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                authentication: {
-                                    ...prev.authentication!,
-                                    newDeviceAlerts: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Admin Access', 'adminAccess')}</h3>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require 2FA for admins', 'admin2fa')}</span>
-                        <input aria-label="Require 2FA for admins" type="checkbox" checked={settings.adminAccess.require2FAForAdmins} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            adminAccess: { ...prev.adminAccess, require2FAForAdmins: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Admin panel enabled', 'adminPanelEnabled')}</span>
-                        <input aria-label="Admin panel enabled" type="checkbox" checked={settings.adminAccess.adminPanelEnabled} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            adminAccess: { ...prev.adminAccess, adminPanelEnabled: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="text-sm text-slate-300">
-                        {inlineLabel('Allowed Admin IPs (comma separated)', 'allowedAdminIps')}
-                        <textarea
-                            aria-label="Allowed Admin IPs"
-                            title="Allowed Admin IPs"
-                            value={(settings.adminAccess.allowedAdminIPs || []).join(', ')}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                adminAccess: {
-                                    ...prev.adminAccess,
-                                    allowedAdminIPs: event.target.value
-                                        .split(',')
-                                        .map((item) => item.trim())
-                                        .filter(Boolean),
-                                },
-                            }))}
-                            rows={3}
-                            className="mt-1 w-full rounded-lg border border-indigo-500/20 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                        />
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Sensitive Actions & Exports', 'sensitive')}</h3>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require reason for sensitive actions', 'sensitiveReason')}</span>
-                        <input
-                            aria-label="Require reason for sensitive actions"
-                            type="checkbox"
-                            checked={Boolean(settings.accessControl?.sensitiveActionReasonRequired)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                accessControl: {
-                                    ...prev.accessControl!,
-                                    sensitiveActionReasonRequired: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Step-up 2FA for sensitive actions', 'sensitiveStepUp')}</span>
-                        <input
-                            aria-label="Step-up 2FA for sensitive actions"
-                            type="checkbox"
-                            checked={Boolean(settings.twoFactor?.stepUpForSensitiveActions)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                twoFactor: {
-                                    ...prev.twoFactor!,
-                                    stepUpForSensitiveActions: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Log all export actions', 'exportLogging')}</span>
-                        <input
-                            aria-label="Log all export actions"
-                            type="checkbox"
-                            checked={Boolean(settings.exportSecurity?.logAllExports)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                exportSecurity: {
-                                    ...prev.exportSecurity!,
-                                    logAllExports: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require approval for exports', 'exportApproval')}</span>
-                        <input
-                            aria-label="Require approval for exports"
-                            type="checkbox"
-                            checked={Boolean(settings.exportSecurity?.requireApproval)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                exportSecurity: {
-                                    ...prev.exportSecurity!,
-                                    requireApproval: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Protected file access enabled', 'protectedUploads')}</span>
-                        <input
-                            aria-label="Protected file access enabled"
-                            type="checkbox"
-                            checked={Boolean(settings.uploadSecurity?.protectedAccessEnabled)}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                uploadSecurity: {
-                                    ...prev.uploadSecurity!,
-                                    protectedAccessEnabled: event.target.checked,
-                                },
-                            }))}
-                        />
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Site & Exam Protection', 'siteExam')}</h3>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Maintenance mode', 'maintenanceMode')}</span>
-                        <input aria-label="Maintenance mode" type="checkbox" checked={settings.siteAccess.maintenanceMode} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            siteAccess: { ...prev.siteAccess, maintenanceMode: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Block new registrations', 'blockRegistrations')}</span>
-                        <input aria-label="Block new registrations" type="checkbox" checked={settings.siteAccess.blockNewRegistrations} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            siteAccess: { ...prev.siteAccess, blockNewRegistrations: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Profile score threshold for exams', 'profileScoreThreshold')}
-                        {numberInput('Profile score threshold', settings.examProtection.profileScoreThreshold, (next) => setSettings((prev) => ({
-                            ...prev,
-                            examProtection: { ...prev.examProtection, profileScoreThreshold: Math.max(0, Math.min(100, next)) },
-                        })), 0, 100)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Max active sessions per user', 'maxActiveSessions')}
-                        {numberInput('Max active sessions', settings.examProtection.maxActiveSessionsPerUser, (next) => setSettings((prev) => ({
-                            ...prev,
-                            examProtection: { ...prev.examProtection, maxActiveSessionsPerUser: Math.max(1, next) },
-                        })), 1, 5)}
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require profile score for exam access', 'requireProfileScore')}</span>
-                        <input aria-label="Require profile score" type="checkbox" checked={settings.examProtection.requireProfileScoreForExam} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            examProtection: { ...prev.examProtection, requireProfileScoreForExam: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Log tab switch violations', 'logTabSwitch')}</span>
-                        <input aria-label="Log tab switch" type="checkbox" checked={settings.examProtection.logTabSwitch} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            examProtection: { ...prev.examProtection, logTabSwitch: event.target.checked },
-                        }))} />
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Rate Limiting', 'rateLimit')}</h3>
-                    <label className="text-sm text-slate-300">{inlineLabel('Login window (ms)', 'loginWindow')}
-                        {numberInput('Login window', settings.rateLimit.loginWindowMs, (next) => setSettings((prev) => ({
-                            ...prev,
-                            rateLimit: { ...prev.rateLimit, loginWindowMs: Math.max(10000, next) },
-                        })), 10000, 86400000)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Login max requests', 'loginRateMax')}
-                        {numberInput('Login max requests', settings.rateLimit.loginMax, (next) => setSettings((prev) => ({
-                            ...prev,
-                            rateLimit: { ...prev.rateLimit, loginMax: Math.max(1, next) },
-                        })), 1, 500)}
-                    </label>
-                    <label className="text-sm text-slate-300">Exam submit window (ms)
-                        {numberInput('Exam submit window', settings.rateLimit.examSubmitWindowMs, (next) => setSettings((prev) => ({
-                            ...prev,
-                            rateLimit: { ...prev.rateLimit, examSubmitWindowMs: Math.max(10000, next) },
-                        })), 10000, 86400000)}
-                    </label>
-                    <label className="text-sm text-slate-300">Exam submit max
-                        {numberInput('Exam submit max', settings.rateLimit.examSubmitMax, (next) => setSettings((prev) => ({
-                            ...prev,
-                            rateLimit: { ...prev.rateLimit, examSubmitMax: Math.max(1, next) },
-                        })), 1, 2000)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Admin window (ms)', 'adminWindow')}
-                        {numberInput('Admin window', settings.rateLimit.adminWindowMs, (next) => setSettings((prev) => ({
-                            ...prev,
-                            rateLimit: { ...prev.rateLimit, adminWindowMs: Math.max(10000, next) },
-                        })), 10000, 86400000)}
-                    </label>
-                    <label className="text-sm text-slate-300">{inlineLabel('Admin max', 'adminRateMax')}
-                        {numberInput('Admin max', settings.rateLimit.adminMax, (next) => setSettings((prev) => ({
-                            ...prev,
-                            rateLimit: { ...prev.rateLimit, adminMax: Math.max(1, next) },
-                        })), 1, 5000)}
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Logging & Audit', 'logging')}</h3>
-                    <label className="text-sm text-slate-300">
-                        {inlineLabel('Log level', 'logLevel')}
-                        <select
-                            aria-label="Log level"
-                            title="Log level"
-                            value={settings.logging.logLevel}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                logging: { ...prev.logging, logLevel: event.target.value as SecurityCenterSettings['logging']['logLevel'] },
-                            }))}
-                            className="mt-1 w-full rounded-lg border border-indigo-500/20 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                        >
-                            <option value="debug">Debug</option>
-                            <option value="info">Info</option>
-                            <option value="warn">Warn</option>
-                            <option value="error">Error</option>
-                        </select>
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Log login failures', 'logLoginFailures')}</span>
-                        <input aria-label="Log login failures" type="checkbox" checked={settings.logging.logLoginFailures} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            logging: { ...prev.logging, logLoginFailures: event.target.checked },
-                        }))} />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Log admin actions', 'logAdminActions')}</span>
-                        <input aria-label="Log admin actions" type="checkbox" checked={settings.logging.logAdminActions} onChange={(event) => setSettings((prev) => ({
-                            ...prev,
-                            logging: { ...prev.logging, logAdminActions: event.target.checked },
-                        }))} />
-                    </label>
-                    <p className="rounded-lg border border-indigo-500/15 bg-slate-950/70 px-3 py-2 text-xs text-slate-400">
-                        Updated at: {settings.updatedAt ? new Date(settings.updatedAt).toLocaleString() : 'N/A'}
-                    </p>
-                </div>
-            </section>
-
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Two-Person Approval', 'approval')}</h3>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Require second approver for risky actions', 'approvalEnabled')}</span>
-                        <input
-                            type="checkbox"
-                            checked={settings.twoPersonApproval.enabled}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                twoPersonApproval: { ...prev.twoPersonApproval, enabled: event.target.checked },
-                            }))}
-                        />
-                    </label>
-                    <label className="text-sm text-slate-300">
-                        {inlineLabel('Approval expiry (minutes)', 'approvalExpiry')}
-                        {numberInput(
-                            'Approval expiry',
-                            settings.twoPersonApproval.approvalExpiryMinutes,
-                            (next) => setSettings((prev) => ({
-                                ...prev,
-                                twoPersonApproval: {
-                                    ...prev.twoPersonApproval,
-                                    approvalExpiryMinutes: Math.max(5, next),
-                                },
-                            })),
-                            5,
-                            1440,
-                        )}
-                    </label>
-                    <div className="space-y-2 rounded-xl border border-indigo-500/15 bg-slate-950/70 p-3">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Risky actions</p>
-                        {RISKY_ACTION_OPTIONS.map((item) => {
-                            const checked = settings.twoPersonApproval.riskyActions.includes(item.key);
-                            return (
-                                <label key={item.key} className="flex items-center justify-between gap-3 text-sm text-slate-200">
-                                    <span>{item.label}</span>
-                                    <input
-                                        aria-label={item.label}
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={(event) => {
-                                            const next = event.target.checked
-                                                ? [...settings.twoPersonApproval.riskyActions, item.key]
-                                                : settings.twoPersonApproval.riskyActions.filter((key) => key !== item.key);
-                                            setSettings((prev) => ({
-                                                ...prev,
-                                                twoPersonApproval: {
-                                                    ...prev.twoPersonApproval,
-                                                    riskyActions: Array.from(new Set(next)),
-                                                },
-                                            }));
-                                        }}
-                                    />
-                                </label>
-                            );
-                        })}
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-rose-300">{sectionTitle('Panic Mode', 'panic')}</h3>
-                    <div className="rounded-2xl border border-amber-400/25 bg-amber-400/8 p-4">
-                        <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-2">
-                                <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-200">{inlineLabel('Testing access mode', 'testingAccessMode')}</h4>
-                                <p className="max-w-2xl text-sm text-amber-50/90">
-                                    Turn this on only while testing. It temporarily bypasses email verification, login lockouts, student login disable, required 2FA, and pending-verification login blocks for admin, student, and chairman sign-in.
-                                </p>
-                            </div>
-                            <input
-                                aria-label="Testing access mode"
-                                type="checkbox"
-                                checked={Boolean(settings.runtimeGuards?.testingAccessMode)}
-                                onChange={(event) => setSettings((prev) => ({
-                                    ...prev,
-                                    runtimeGuards: {
-                                        ...prev.runtimeGuards!,
-                                        testingAccessMode: event.target.checked,
+                <div className="mt-5 grid gap-3 md:grid-cols-4">
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <div className="flex items-center gap-2 text-cyan-300">
+                            <KeyRound className="h-4 w-4" />
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em]">Password Roles</span>
+                        </div>
+                        <p className="mt-3 text-2xl font-semibold text-white">{PASSWORD_POLICY_KEYS.length}</p>
+                        <p className="mt-1 text-xs text-slate-400">Canonical role-based password policies.</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <div className="flex items-center gap-2 text-indigo-300">
+                            <ShieldCheck className="h-4 w-4" />
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em]">2FA Roles</span>
+                        </div>
+                        <p className="mt-3 text-2xl font-semibold text-white">{settings.twoFactor.requireForRoles.length}</p>
+                        <p className="mt-1 text-xs text-slate-400">Roles forced through MFA during login.</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <div className="flex items-center gap-2 text-amber-300">
+                            <ShieldAlert className="h-4 w-4" />
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em]">Risky Actions</span>
+                        </div>
+                        <p className="mt-3 text-2xl font-semibold text-white">{settings.twoPersonApproval.riskyActions.length}</p>
+                        <p className="mt-1 text-xs text-slate-400">Actions that can require second approval.</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <div className="flex items-center gap-2 text-emerald-300">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em]">Admin Panel</span>
+                        </div>
+                        <p className="mt-3 text-2xl font-semibold text-white">{settings.adminAccess.adminPanelEnabled ? 'Open' : 'Locked'}</p>
+                        <p className="mt-1 text-xs text-slate-400">Emergency access gate for admin routes.</p>
+                    </div>
+                </div>
+            </div>
+
+            <SectionCard
+                title="Password Policies"
+                description="Role-scoped password rules that actually feed backend password validation."
+                help={{
+                    title: 'Password Policies',
+                    content: 'Each role card maps to the canonical passwordPolicies object used by account creation, reset, and password-change flows.',
+                    impact: 'Weak role policies directly reduce account protection and increase takeover risk.',
+                    affected: 'Default, admin, staff, and student users.',
+                    enabledNote: 'Role-specific requirements let privileged users carry a stricter password posture than students.',
+                    disabledNote: 'Relying on legacy flat passwordPolicy fields causes drift between roles.',
+                    bestPractice: 'Keep admin and staff requirements stricter than student defaults and use non-zero reuse limits.',
+                }}
+            >
+                <div className="grid gap-4 xl:grid-cols-2">
+                    {PASSWORD_POLICY_KEYS.map((key) => (
+                        <PolicyCard
+                            key={key}
+                            label={key === 'default' ? 'Default Policy' : `${key.charAt(0).toUpperCase()}${key.slice(1)} Policy`}
+                            policy={settings.passwordPolicies[key]}
+                            onChange={(policy) =>
+                                updateSettings((current) => ({
+                                    ...current,
+                                    passwordPolicies: {
+                                        ...current.passwordPolicies,
+                                        [key]: policy,
                                     },
-                                }))}
+                                }))
+                            }
+                            dataTestId={`security-password-policy-${key}`}
+                        />
+                    ))}
+                </div>
+            </SectionCard>
+
+            <SectionCard
+                title="Authentication & Login"
+                description="Only active login throttling and verification controls stay here."
+                help={{
+                    title: 'Authentication & Login',
+                    content: 'These controls map to authentication.loginAttemptsLimit, lockDurationMinutes, genericErrorMessages, otpResendLimit, and otpVerifyLimit.',
+                    impact: 'These values govern brute-force resistance and OTP abuse protection.',
+                    affected: 'Every login portal and OTP challenge flow.',
+                    enabledNote: 'Balanced limits reduce abuse while keeping support overhead manageable.',
+                    disabledNote: 'Loose settings make password and OTP guessing easier.',
+                    bestPractice: 'Keep generic login errors on and OTP resend/verify caps finite.',
+                }}
+            >
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <NumberField
+                        label="Login attempts limit"
+                        description="Failed login attempts allowed before temporary lockout."
+                        value={settings.authentication.loginAttemptsLimit}
+                        min={1}
+                        max={20}
+                        onChange={(value) => updateSettings((current) => ({ ...current, authentication: { ...current.authentication, loginAttemptsLimit: value } }))}
+                    />
+                    <NumberField
+                        label="Lock duration"
+                        description="Minutes an account stays locked after the attempt limit is hit."
+                        value={settings.authentication.lockDurationMinutes}
+                        min={1}
+                        max={240}
+                        onChange={(value) => updateSettings((current) => ({ ...current, authentication: { ...current.authentication, lockDurationMinutes: value } }))}
+                    />
+                    <NumberField
+                        label="OTP resend limit"
+                        description="How many resend attempts are allowed per OTP window."
+                        value={settings.authentication.otpResendLimit}
+                        min={1}
+                        max={50}
+                        onChange={(value) => updateSettings((current) => ({ ...current, authentication: { ...current.authentication, otpResendLimit: value } }))}
+                    />
+                    <NumberField
+                        label="OTP verify limit"
+                        description="How many OTP verify attempts are allowed per window."
+                        value={settings.authentication.otpVerifyLimit}
+                        min={1}
+                        max={100}
+                        onChange={(value) => updateSettings((current) => ({ ...current, authentication: { ...current.authentication, otpVerifyLimit: value } }))}
+                    />
+                    <div className="md:col-span-2 xl:col-span-1">
+                        <ToggleField
+                            label="Generic login error messages"
+                            description="Hide whether a username, email, or password was incorrect."
+                            checked={settings.authentication.genericErrorMessages}
+                            onChange={(checked) => updateSettings((current) => ({ ...current, authentication: { ...current.authentication, genericErrorMessages: checked } }))}
+                        />
+                    </div>
+                </div>
+            </SectionCard>
+
+            <SectionCard
+                title="Two-Factor Policy"
+                description="Canonical MFA policy for login enforcement, allowed methods, and step-up verification."
+                help={{
+                    title: 'Two-Factor Policy',
+                    content: 'This section maps to twoFactor.requireForRoles, allowedMethods, defaultMethod, otpExpiryMinutes, maxAttempts, and stepUpForSensitiveActions.',
+                    impact: 'It controls both who must pass MFA and how sensitive admin actions request extra proof.',
+                    affected: 'Admin, chairman, and student logins depending on role selection.',
+                    enabledNote: 'Authenticator plus step-up verification significantly lowers stolen-password risk.',
+                    disabledNote: 'No required roles means MFA remains optional for everyone except self-enabled users.',
+                    bestPractice: 'Prefer authenticator as default, enable step-up for sensitive actions, and only keep email as a fallback delivery method.',
+                }}
+            >
+                <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+                    <div className="space-y-4">
+                        <ChipToggleGroup
+                            title="Required roles"
+                            description="Selected roles must complete MFA during login even if they did not just enable it themselves."
+                            options={ROLE_OPTIONS.map((option) => ({ ...option }))}
+                            selected={settings.twoFactor.requireForRoles}
+                            onChange={(selected) =>
+                                updateSettings((current) => ({
+                                    ...current,
+                                    twoFactor: {
+                                        ...current.twoFactor,
+                                        requireForRoles: normalizeRoles(selected, ROLE_OPTIONS.map((option) => option.value)),
+                                    },
+                                }))
+                            }
+                            dataTestId="security-two-factor-roles"
+                        />
+
+                        <ChipToggleGroup
+                            title="Allowed methods"
+                            description="Only authenticator and email are exposed here because SMS delivery is not production-ready."
+                            options={TWO_FACTOR_METHOD_OPTIONS}
+                            selected={settings.twoFactor.allowedMethods}
+                            onChange={(selected) =>
+                                updateSettings((current) => {
+                                    const nextAllowed = normalizeAllowedMethods(selected);
+                                    return {
+                                        ...current,
+                                        twoFactor: {
+                                            ...current.twoFactor,
+                                            allowedMethods: nextAllowed.length ? nextAllowed : ['authenticator'],
+                                            defaultMethod: normalizeDefaultMethod(current.twoFactor.defaultMethod, nextAllowed.length ? nextAllowed : ['authenticator']),
+                                        },
+                                    };
+                                })
+                            }
+                            dataTestId="security-two-factor-methods"
+                        />
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <label className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                                <p className="text-sm font-medium text-white">Default method</p>
+                                <p className="mt-1 text-xs text-slate-400">Preferred challenge when a user enables 2FA.</p>
+                                <select
+                                    value={settings.twoFactor.defaultMethod}
+                                    onChange={(event) =>
+                                        updateSettings((current) => ({
+                                            ...current,
+                                            twoFactor: {
+                                                ...current.twoFactor,
+                                                defaultMethod: normalizeDefaultMethod(event.target.value, current.twoFactor.allowedMethods),
+                                            },
+                                        }))
+                                    }
+                                    className="mt-3 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50"
+                                >
+                                    {settings.twoFactor.allowedMethods.map((method) => (
+                                        <option key={method} value={method}>
+                                            {method === 'authenticator' ? 'Authenticator' : 'Email OTP'}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <NumberField
+                                label="OTP expiry"
+                                description="Minutes an OTP challenge stays valid."
+                                value={settings.twoFactor.otpExpiryMinutes}
+                                min={1}
+                                max={30}
+                                onChange={(value) => updateSettings((current) => ({ ...current, twoFactor: { ...current.twoFactor, otpExpiryMinutes: value } }))}
+                            />
+
+                            <NumberField
+                                label="Max OTP attempts"
+                                description="Failed attempts allowed per challenge."
+                                value={settings.twoFactor.maxAttempts}
+                                min={1}
+                                max={20}
+                                onChange={(value) => updateSettings((current) => ({ ...current, twoFactor: { ...current.twoFactor, maxAttempts: value } }))}
                             />
                         </div>
-                        <p className="mt-3 text-xs text-amber-100/80">
-                            Password checks, blocked or suspended accounts, and route permissions still stay enforced.
-                        </p>
-                    </div>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Read-only mode (non-superadmin mutations blocked)', 'panicReadOnly')}</span>
-                        <input
-                            aria-label="Read-only mode"
-                            type="checkbox"
-                            checked={settings.panic.readOnlyMode}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                panic: { ...prev.panic, readOnlyMode: event.target.checked },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Disable student logins', 'panicStudentLogins')}</span>
-                        <input
-                            aria-label="Disable student logins"
-                            type="checkbox"
-                            checked={settings.panic.disableStudentLogins}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                panic: { ...prev.panic, disableStudentLogins: event.target.checked },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Disable payment webhooks', 'panicPaymentWebhooks')}</span>
-                        <input
-                            aria-label="Disable payment webhooks"
-                            type="checkbox"
-                            checked={settings.panic.disablePaymentWebhooks}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                panic: { ...prev.panic, disablePaymentWebhooks: event.target.checked },
-                            }))}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Disable exam starts', 'panicExamStarts')}</span>
-                        <input
-                            aria-label="Disable exam starts"
-                            type="checkbox"
-                            checked={settings.panic.disableExamStarts}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                panic: { ...prev.panic, disableExamStarts: event.target.checked },
-                            }))}
-                        />
-                    </label>
-                </div>
 
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6 space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">{sectionTitle('Retention Policy', 'retention')}</h3>
-                    <label className="flex items-center justify-between gap-4 text-sm text-slate-200">
-                        <span>{inlineLabel('Enable retention archiver', 'retentionEnabled')}</span>
-                        <input
-                            aria-label="Enable retention archiver"
-                            type="checkbox"
-                            checked={settings.retention.enabled}
-                            onChange={(event) => setSettings((prev) => ({
-                                ...prev,
-                                retention: { ...prev.retention, enabled: event.target.checked },
-                            }))}
+                        <ToggleField
+                            label="Step-up verification for sensitive admin actions"
+                            description="When enabled, admins with 2FA set up must provide authenticator or backup code for protected writes."
+                            checked={settings.twoFactor.stepUpForSensitiveActions}
+                            onChange={(checked) => updateSettings((current) => ({ ...current, twoFactor: { ...current.twoFactor, stepUpForSensitiveActions: checked } }))}
+                        />
+                    </div>
+
+                    <AdminAuthenticatorSetup />
+                </div>
+            </SectionCard>
+
+            <SectionCard
+                title="Sessions & Access"
+                description="Canonical session lifetime, concurrency, and admin route access rules."
+                help={{
+                    title: 'Sessions & Access',
+                    content: 'These controls map to sessions.*, adminAccess.allowedAdminIPs, and adminAccess.adminPanelEnabled.',
+                    impact: 'They affect token lifetime, concurrent device usage, and emergency admin-route shutdown.',
+                    affected: 'Every authenticated user plus all admin route access.',
+                    enabledNote: 'Shorter lifetimes and lower session counts reduce token persistence risk.',
+                    disabledNote: 'Loose session rules can leave stale or compromised tokens active longer.',
+                    bestPractice: 'Keep token TTLs conservative, define allow-lists only when needed, and reserve admin panel lock for emergency use.',
+                }}
+            >
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <NumberField
+                        label="Access token TTL"
+                        description="Minutes before access tokens expire."
+                        value={settings.sessions.accessTokenTTLMinutes}
+                        min={5}
+                        max={180}
+                        onChange={(value) => updateSettings((current) => ({ ...current, sessions: { ...current.sessions, accessTokenTTLMinutes: value } }))}
+                    />
+                    <NumberField
+                        label="Refresh token TTL"
+                        description="Days before refresh tokens expire."
+                        value={settings.sessions.refreshTokenTTLDays}
+                        min={1}
+                        max={120}
+                        onChange={(value) => updateSettings((current) => ({ ...current, sessions: { ...current.sessions, refreshTokenTTLDays: value } }))}
+                    />
+                    <NumberField
+                        label="Idle timeout"
+                        description="Minutes before inactive sessions expire."
+                        value={settings.sessions.idleTimeoutMinutes}
+                        min={5}
+                        max={1440}
+                        onChange={(value) => updateSettings((current) => ({ ...current, sessions: { ...current.sessions, idleTimeoutMinutes: value } }))}
+                    />
+                    <NumberField
+                        label="Max active sessions"
+                        description="Maximum concurrent active sessions per user."
+                        value={settings.sessions.maxActiveSessionsPerUser}
+                        min={1}
+                        max={20}
+                        onChange={(value) =>
+                            updateSettings((current) => ({
+                                ...current,
+                                sessions: { ...current.sessions, maxActiveSessionsPerUser: value },
+                                examProtection: { ...current.examProtection, maxActiveSessionsPerUser: value },
+                            }))
+                        }
+                    />
+                    <div className="md:col-span-2 xl:col-span-1">
+                        <ToggleField
+                            label="Allow concurrent sessions"
+                            description="If off, a new login forces other active sessions out."
+                            checked={settings.sessions.allowConcurrentSessions}
+                            onChange={(checked) => updateSettings((current) => ({ ...current, sessions: { ...current.sessions, allowConcurrentSessions: checked } }))}
+                        />
+                    </div>
+                    <label className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 md:col-span-2 xl:col-span-2">
+                        <p className="text-sm font-medium text-white">Allowed admin IPs</p>
+                        <p className="mt-1 text-xs text-slate-400">Leave empty to allow all admin IPs. One IP or CIDR per line.</p>
+                        <textarea
+                            value={adminIpDraft}
+                            onChange={(event) => {
+                                const nextText = event.target.value;
+                                setAdminIpDraft(nextText);
+                                const ips = fromMultilineList(nextText);
+                                updateSettings((current) => ({
+                                    ...current,
+                                    adminAccess: { ...current.adminAccess, allowedAdminIPs: ips },
+                                    accessControl: { ...current.accessControl, allowedAdminIPs: ips },
+                                }));
+                            }}
+                            rows={4}
+                            placeholder={`203.0.113.10\n198.51.100.0/24`}
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-900 px-3 py-3 text-sm text-white outline-none transition focus:border-cyan-400/50"
                         />
                     </label>
-                    <label className="text-sm text-slate-300">
-                        {inlineLabel('Exam sessions retention (days)', 'retentionExam')}
-                        {numberInput(
-                            'Exam sessions retention',
-                            settings.retention.examSessionsDays,
-                            (next) => setSettings((prev) => ({
-                                ...prev,
-                                retention: { ...prev.retention, examSessionsDays: Math.max(7, next) },
-                            })),
-                            7,
-                            3650,
-                        )}
-                    </label>
-                    <label className="text-sm text-slate-300">
-                        {inlineLabel('Audit logs retention (days)', 'retentionAudit')}
-                        {numberInput(
-                            'Audit logs retention',
-                            settings.retention.auditLogsDays,
-                            (next) => setSettings((prev) => ({
-                                ...prev,
-                                retention: { ...prev.retention, auditLogsDays: Math.max(30, next) },
-                            })),
-                            30,
-                            3650,
-                        )}
-                    </label>
-                    <label className="text-sm text-slate-300">
-                        {inlineLabel('Event logs retention (days)', 'retentionEvent')}
-                        {numberInput(
-                            'Event logs retention',
-                            settings.retention.eventLogsDays,
-                            (next) => setSettings((prev) => ({
-                                ...prev,
-                                retention: { ...prev.retention, eventLogsDays: Math.max(30, next) },
-                            })),
-                            30,
-                            3650,
-                        )}
-                    </label>
-                </div>
-
-                <div className="rounded-2xl border border-indigo-500/10 bg-slate-900/60 p-4 sm:p-6">
-                    <div className="mb-3 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Pending Approvals</h3>
-                        <span className="text-xs text-slate-500">{pendingApprovals.length} pending</span>
+                    <div className="md:col-span-2 xl:col-span-1">
+                        <ToggleField
+                            label="Admin panel enabled"
+                            description="Master switch for admin route access. Use the quick action below for emergency lock or unlock."
+                            checked={settings.adminAccess.adminPanelEnabled}
+                            onChange={(checked) =>
+                                updateSettings((current) => ({
+                                    ...current,
+                                    adminAccess: { ...current.adminAccess, adminPanelEnabled: checked },
+                                    runtimeGuards: { ...current.runtimeGuards, adminPanelEnabled: checked },
+                                }))
+                            }
+                        />
                     </div>
-                    <div className="space-y-2">
-                        {approvalsQuery.isLoading ? (
-                            <p className="rounded-lg border border-indigo-500/15 bg-slate-950/70 px-3 py-2 text-sm text-slate-400">
-                                Loading approval queue...
-                            </p>
-                        ) : pendingApprovals.length === 0 ? (
-                            <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-                                No pending second approvals.
-                            </p>
-                        ) : pendingApprovals.slice(0, 10).map((item) => (
-                            <div key={item._id} className="rounded-xl border border-indigo-500/15 bg-slate-950/70 p-3">
-                                <p className="text-sm font-medium text-white">{item.actionKey}</p>
-                                <p className="mt-1 text-xs text-slate-400">
-                                    Initiator role: {item.initiatedByRole} · Expires: {new Date(item.expiresAt).toLocaleString()}
-                                </p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    <button
-                                        onClick={() => void approveItem(item._id)}
-                                        disabled={approveMutation.isPending}
-                                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-                                    >
-                                        Approve & Execute
-                                    </button>
-                                    <button
-                                        onClick={() => void rejectItem(item._id)}
-                                        disabled={rejectMutation.isPending}
-                                        className="rounded-lg border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-200 hover:bg-rose-500/10 disabled:opacity-60"
-                                    >
-                                        Reject
-                                    </button>
-                                </div>
+                </div>
+            </SectionCard>
+
+            <SectionCard
+                title="Verification & Recovery"
+                description="Keep only verified-email requirements and real expiry windows."
+                help={{
+                    title: 'Verification & Recovery',
+                    content: 'This section owns requireVerifiedEmailForAdmins, requireVerifiedEmailForStudents, emailVerificationExpiryHours, and passwordResetExpiryMinutes.',
+                    impact: 'These rules define how quickly email verification and reset links expire and whether verified email is mandatory.',
+                    affected: 'Admin and student recovery, onboarding, and login readiness.',
+                    enabledNote: 'Verified-email requirements improve account recovery trust and reduce impersonation risk.',
+                    disabledNote: 'Long-lived reset windows and unverified accounts increase recovery abuse risk.',
+                    bestPractice: 'Keep password reset expiry short and require verified email at least for admin users.',
+                }}
+            >
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <ToggleField
+                        label="Require verified email for admins"
+                        description="Admin accounts must verify email before using protected account flows."
+                        checked={settings.verificationRecovery.requireVerifiedEmailForAdmins}
+                        onChange={(checked) => updateSettings((current) => ({ ...current, verificationRecovery: { ...current.verificationRecovery, requireVerifiedEmailForAdmins: checked } }))}
+                    />
+                    <ToggleField
+                        label="Require verified email for students"
+                        description="Students must verify email before protected account recovery and access checks."
+                        checked={settings.verificationRecovery.requireVerifiedEmailForStudents}
+                        onChange={(checked) => updateSettings((current) => ({ ...current, verificationRecovery: { ...current.verificationRecovery, requireVerifiedEmailForStudents: checked } }))}
+                    />
+                    <NumberField
+                        label="Email verification expiry"
+                        description="Hours before verification links expire."
+                        value={settings.verificationRecovery.emailVerificationExpiryHours}
+                        min={1}
+                        max={168}
+                        onChange={(value) => updateSettings((current) => ({ ...current, verificationRecovery: { ...current.verificationRecovery, emailVerificationExpiryHours: value } }))}
+                    />
+                    <NumberField
+                        label="Password reset expiry"
+                        description="Minutes before password reset links expire."
+                        value={settings.verificationRecovery.passwordResetExpiryMinutes}
+                        min={5}
+                        max={1440}
+                        onChange={(value) => updateSettings((current) => ({ ...current, verificationRecovery: { ...current.verificationRecovery, passwordResetExpiryMinutes: value } }))}
+                    />
+                </div>
+            </SectionCard>
+
+            <SectionCard
+                title="Approvals & Sensitive Actions"
+                description="Two-person approval policy, risky-action coverage, export roles, and approval queue."
+                help={{
+                    title: 'Approvals & Sensitive Actions',
+                    content: 'This section maps to twoPersonApproval, accessControl.sensitiveActionReasonRequired, and accessControl.exportAllowedRoles.',
+                    impact: 'It decides which protected actions need a second approver and which roles may export sensitive data.',
+                    affected: 'Security settings updates, exports, destructive admin actions, and restore flows.',
+                    enabledNote: 'Two-person approval limits unilateral destructive or high-risk changes.',
+                    disabledNote: 'Without approvals, one compromised privileged account can execute risky actions alone.',
+                    bestPractice: 'Enable approvals for restore, exports, destructive changes, and security-setting updates in production.',
+                }}
+            >
+                <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+                    <div className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <ToggleField
+                                label="Enable two-person approval"
+                                description="Sensitive actions can be queued for a second approver instead of executing immediately."
+                                checked={settings.twoPersonApproval.enabled}
+                                onChange={(checked) => updateSettings((current) => ({ ...current, twoPersonApproval: { ...current.twoPersonApproval, enabled: checked } }))}
+                            />
+                            <ToggleField
+                                label="Require a reason for sensitive actions"
+                                description="Protected writes and exports must include a human-readable reason."
+                                checked={settings.accessControl.sensitiveActionReasonRequired}
+                                onChange={(checked) =>
+                                    updateSettings((current) => ({
+                                        ...current,
+                                        accessControl: { ...current.accessControl, sensitiveActionReasonRequired: checked },
+                                        exportSecurity: { ...current.exportSecurity, requireReason: checked },
+                                    }))
+                                }
+                            />
+                        </div>
+
+                        <NumberField
+                            label="Approval expiry"
+                            description="Minutes before a pending approval request expires."
+                            value={settings.twoPersonApproval.approvalExpiryMinutes}
+                            min={5}
+                            max={1440}
+                            onChange={(value) => updateSettings((current) => ({ ...current, twoPersonApproval: { ...current.twoPersonApproval, approvalExpiryMinutes: value } }))}
+                        />
+
+                        <ChipToggleGroup
+                            title="Risky actions"
+                            description="Select every action that should be covered when two-person approval is enabled."
+                            options={RISKY_ACTION_OPTIONS}
+                            selected={settings.twoPersonApproval.riskyActions}
+                            onChange={(selected) =>
+                                updateSettings((current) => ({
+                                    ...current,
+                                    twoPersonApproval: {
+                                        ...current.twoPersonApproval,
+                                        riskyActions: normalizeRoles(selected, RISKY_ACTION_OPTIONS.map((option) => option.value)) as RiskyActionKey[],
+                                    },
+                                }))
+                            }
+                            dataTestId="security-risky-actions"
+                        />
+
+                        <ChipToggleGroup
+                            title="Export-allowed roles"
+                            description="Only these roles are allowed to export protected data."
+                            options={EXPORT_ROLE_OPTIONS.map((option) => ({ ...option }))}
+                            selected={settings.accessControl.exportAllowedRoles}
+                            onChange={(selected) =>
+                                updateSettings((current) => ({
+                                    ...current,
+                                    accessControl: {
+                                        ...current.accessControl,
+                                        exportAllowedRoles: normalizeRoles(selected, EXPORT_ROLE_OPTIONS.map((option) => option.value)),
+                                    },
+                                    exportSecurity: {
+                                        ...current.exportSecurity,
+                                        allowedRoles: normalizeRoles(selected, EXPORT_ROLE_OPTIONS.map((option) => option.value)),
+                                    },
+                                }))
+                            }
+                            dataTestId="security-export-roles"
+                        />
+                    </div>
+
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 className="text-sm font-semibold text-white">Pending approvals</h4>
+                                <p className="mt-1 text-xs text-slate-400">Second-approval queue for risky actions.</p>
                             </div>
-                        ))}
+                            {pendingApprovalsQuery.isFetching ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
+                        </div>
+                        <div className="mt-4 space-y-3">
+                            {(pendingApprovalsQuery.data?.items || []).map((item) => (
+                                <div key={item._id} className="rounded-2xl border border-white/8 bg-slate-950/70 p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-white">{item.action.replace(/_/g, ' ')}</p>
+                                            <p className="mt-1 text-xs text-slate-400">
+                                                {item.module} · {item.method.toUpperCase()} · expires {formatApprovalExpiry(item.expiresAt)}
+                                            </p>
+                                            <p className="mt-1 text-xs text-slate-500">Requested by {item.initiatedByRole}</p>
+                                        </div>
+                                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                                            {item.status.replace(/_/g, ' ')}
+                                        </span>
+                                    </div>
+                                    {item.reviewSummary?.length ? (
+                                        <div className="mt-3 space-y-1">
+                                            {item.reviewSummary.slice(0, 3).map((entry) => (
+                                                <p key={`${item._id}-${entry.label}`} className="text-xs text-slate-400">
+                                                    <span className="font-semibold text-slate-300">{entry.label}:</span> {entry.value}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                    <div className="mt-4 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => approveMutation.mutate(item._id)}
+                                            disabled={approveMutation.isPending}
+                                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
+                                        >
+                                            <UserCheck className="h-3.5 w-3.5" />
+                                            Approve
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => rejectApproval(item)}
+                                            disabled={rejectMutation.isPending}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50"
+                                        >
+                                            <AlertTriangle className="h-3.5 w-3.5" />
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {!pendingApprovalsQuery.isLoading && !(pendingApprovalsQuery.data?.items || []).length ? (
+                                <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/50 px-4 py-6 text-center">
+                                    <p className="text-sm font-medium text-white">No pending approvals</p>
+                                    <p className="mt-1 text-xs text-slate-400">Sensitive actions that need a second approver will appear here.</p>
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                 </div>
-            </section>
+            </SectionCard>
 
-            <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 sm:p-6">
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-amber-300">
-                    <AlertTriangle className="h-4 w-4" />
-                    {sectionTitle('Critical Security Actions', 'critical')}
-                </h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <button
-                        onClick={() => void forceLogoutAll()}
-                        disabled={forceLogoutMutation.isPending}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm text-white hover:bg-rose-700 disabled:opacity-60"
-                    >
-                        {forceLogoutMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-                        Force logout all users
-                    </button>
-                    <button
-                        onClick={() => void toggleAdminLock()}
-                        disabled={toggleLockMutation.isPending}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-400/30 px-4 py-2 text-sm text-amber-200 hover:bg-amber-400/10 disabled:opacity-60"
-                    >
-                        {toggleLockMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : adminPanelLocked ? (
-                            <Unlock className="h-4 w-4" />
-                        ) : (
-                            <Lock className="h-4 w-4" />
-                        )}
-                        {adminPanelLocked ? 'Unlock admin panel' : 'Lock admin panel'}
-                    </button>
+            <SectionCard
+                title="Site, Emergency & Retention"
+                description="Live access controls, exam gating, testing mode, and retention windows."
+                help={{
+                    title: 'Site, Emergency & Retention',
+                    content: 'These controls own maintenance mode, registration blocks, emergency panic switches, testing access mode, exam gating, and retention windows.',
+                    impact: 'They directly affect whether users can log in, start exams, or hit webhooks during incidents.',
+                    affected: 'Public visitors, students, admins, payment webhooks, and exam operations.',
+                    enabledNote: 'Emergency toggles let you contain incidents quickly without editing code or using a separate runtime control surface elsewhere.',
+                    disabledNote: 'Without these controls, response time during incidents is slower and more manual.',
+                    bestPractice: 'Use maintenance/read-only only when needed, and keep retention windows aligned to audit and compliance needs.',
+                }}
+            >
+                <div className="grid gap-5 xl:grid-cols-2">
+                    <div className="space-y-4">
+                        <ToggleField label="Maintenance mode" description="Show maintenance state to the site and stop normal access flows." checked={settings.siteAccess.maintenanceMode} onChange={(checked) => updateSettings((current) => ({ ...current, siteAccess: { ...current.siteAccess, maintenanceMode: checked }, runtimeGuards: { ...current.runtimeGuards, maintenanceMode: checked } }))} />
+                        <ToggleField label="Block new registrations" description="Prevent new accounts from being created while keeping existing access intact." checked={settings.siteAccess.blockNewRegistrations} onChange={(checked) => updateSettings((current) => ({ ...current, siteAccess: { ...current.siteAccess, blockNewRegistrations: checked }, runtimeGuards: { ...current.runtimeGuards, blockNewRegistrations: checked } }))} />
+                        <ToggleField label="Read-only mode" description="Block write-heavy actions during incidents or maintenance windows." checked={settings.panic.readOnlyMode} onChange={(checked) => updateSettings((current) => ({ ...current, panic: { ...current.panic, readOnlyMode: checked }, runtimeGuards: { ...current.runtimeGuards, readOnlyMode: checked } }))} />
+                        <ToggleField label="Disable student logins" description="Prevent students from starting new authenticated sessions." checked={settings.panic.disableStudentLogins} onChange={(checked) => updateSettings((current) => ({ ...current, panic: { ...current.panic, disableStudentLogins: checked }, runtimeGuards: { ...current.runtimeGuards, disableStudentLogins: checked } }))} />
+                        <ToggleField label="Disable payment webhooks" description="Pause payment webhook intake during gateway or incident response windows." checked={settings.panic.disablePaymentWebhooks} onChange={(checked) => updateSettings((current) => ({ ...current, panic: { ...current.panic, disablePaymentWebhooks: checked }, runtimeGuards: { ...current.runtimeGuards, disablePaymentWebhooks: checked } }))} />
+                        <ToggleField label="Disable exam starts" description="Prevent new exam launches while leaving analytics and monitoring intact." checked={settings.panic.disableExamStarts} onChange={(checked) => updateSettings((current) => ({ ...current, panic: { ...current.panic, disableExamStarts: checked }, runtimeGuards: { ...current.runtimeGuards, disableExamStarts: checked } }))} />
+                        <ToggleField label="Testing access mode" description="Disables certain production-grade restrictions for controlled QA environments." checked={settings.runtimeGuards.testingAccessMode} onChange={(checked) => updateSettings((current) => ({ ...current, runtimeGuards: { ...current.runtimeGuards, testingAccessMode: checked } }))} />
+                    </div>
+
+                    <div className="space-y-4">
+                        <ToggleField label="Require profile score for exam access" description="Students must meet the configured profile score threshold before starting protected exams." checked={settings.examProtection.requireProfileScoreForExam} onChange={(checked) => updateSettings((current) => ({ ...current, examProtection: { ...current.examProtection, requireProfileScoreForExam: checked } }))} />
+                        <NumberField label="Profile score threshold" description="Minimum score required when exam access gating is on." value={settings.examProtection.profileScoreThreshold} min={0} max={100} onChange={(value) => updateSettings((current) => ({ ...current, examProtection: { ...current.examProtection, profileScoreThreshold: value } }))} />
+                        <ToggleField label="Retention policy enabled" description="Turn retention windows on for audit and event cleanup processes." checked={settings.retention.enabled} onChange={(checked) => updateSettings((current) => ({ ...current, retention: { ...current.retention, enabled: checked } }))} />
+                        <NumberField label="Exam sessions retention" description="Days to keep exam session records before cleanup." value={settings.retention.examSessionsDays} min={7} max={3650} onChange={(value) => updateSettings((current) => ({ ...current, retention: { ...current.retention, examSessionsDays: value } }))} />
+                        <NumberField label="Audit logs retention" description="Days to keep admin audit logs before cleanup." value={settings.retention.auditLogsDays} min={30} max={3650} onChange={(value) => updateSettings((current) => ({ ...current, retention: { ...current.retention, auditLogsDays: value } }))} />
+                        <NumberField label="Event logs retention" description="Days to keep lower-level event and security logs." value={settings.retention.eventLogsDays} min={30} max={3650} onChange={(value) => updateSettings((current) => ({ ...current, retention: { ...current.retention, eventLogsDays: value } }))} />
+                    </div>
                 </div>
-            </section>
+            </SectionCard>
+
+            <SectionCard
+                title="Critical Actions"
+                description="Immediate response controls kept separate from policy editing."
+                help={{
+                    title: 'Critical Actions',
+                    content: 'These actions trigger sensitive backend operations such as forced logout and admin-panel lockdown.',
+                    impact: 'They are meant for incident response, compromised sessions, or emergency maintenance.',
+                    affected: 'All active users or all admin-route visitors depending on the action.',
+                    enabledNote: 'Use these controls when immediate containment is more important than normal continuity.',
+                    disabledNote: 'Avoid using them casually because they interrupt normal operations.',
+                    bestPractice: 'Announce these actions to the team before triggering them unless you are actively containing an incident.',
+                }}
+            >
+                <div className="grid gap-4 md:grid-cols-3">
+                    <button
+                        type="button"
+                        onClick={forceLogoutAll}
+                        disabled={forceLogoutMutation.isPending}
+                        className="flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-left transition hover:bg-amber-500/20 disabled:opacity-50"
+                    >
+                        {forceLogoutMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin text-amber-200" /> : <LogOut className="h-5 w-5 text-amber-200" />}
+                        <div>
+                            <p className="text-sm font-semibold text-white">Force logout all sessions</p>
+                            <p className="mt-1 text-xs text-slate-300">Ends all active sessions across the platform.</p>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={toggleAdminPanel}
+                        disabled={adminPanelMutation.isPending}
+                        className={`flex items-center gap-3 rounded-2xl border px-4 py-4 text-left transition disabled:opacity-50 ${
+                            settings.adminAccess.adminPanelEnabled
+                                ? 'border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20'
+                                : 'border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20'
+                        }`}
+                    >
+                        {adminPanelMutation.isPending ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-white" />
+                        ) : settings.adminAccess.adminPanelEnabled ? (
+                            <Lock className="h-5 w-5 text-rose-200" />
+                        ) : (
+                            <Shield className="h-5 w-5 text-emerald-200" />
+                        )}
+                        <div>
+                            <p className="text-sm font-semibold text-white">{settings.adminAccess.adminPanelEnabled ? 'Lock admin panel' : 'Unlock admin panel'}</p>
+                            <p className="mt-1 text-xs text-slate-300">{settings.adminAccess.adminPanelEnabled ? 'Emergency stop for admin routes.' : 'Restore admin route access.'}</p>
+                        </div>
+                    </button>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4">
+                        <div className="flex items-center gap-3">
+                            <Clock3 className="h-5 w-5 text-cyan-300" />
+                            <div>
+                                <p className="text-sm font-semibold text-white">Current posture</p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    Admin panel {settings.adminAccess.adminPanelEnabled ? 'open' : 'locked'} · MFA roles {settings.twoFactor.requireForRoles.length} · approvals {settings.twoPersonApproval.enabled ? 'enabled' : 'off'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </SectionCard>
         </div>
     );
 }

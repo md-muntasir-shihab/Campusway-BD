@@ -103,7 +103,17 @@ export function DeadlineProgress({
   if (total <= 0) return null;
   const elapsed = Math.max(0, Math.min(now - start, total));
   const pct = Math.round((elapsed / total) * 100);
-  const tone = urgencyTone(daysUntil(endDate));
+  const daysRemaining = daysUntil(endDate);
+  const tone = urgencyTone(daysRemaining);
+  const progressLabel = now > end
+    ? 'Closed'
+    : daysRemaining === 0
+      ? 'Closes today'
+      : daysRemaining === 1
+        ? '1 day left'
+        : daysRemaining > 900
+          ? 'Dates TBD'
+          : `${daysRemaining} days left`;
 
   const barColor: Record<string, string> = {
     danger: 'bg-red-500',
@@ -115,7 +125,7 @@ export function DeadlineProgress({
   return (
     <div className={`w-full ${className}`}>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{pct}% elapsed</span>
+        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{progressLabel}</span>
       </div>
       <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
         <div

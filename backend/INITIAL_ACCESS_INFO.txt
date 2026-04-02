@@ -15,7 +15,7 @@
 👑  SUPER ADMIN LOGIN
 ----------------------------------------------------
   Email    : admin@campusway.com
-  Password : admin123
+  Password : E2E_Admin#12345
   Role     : superadmin
 
 ----------------------------------------------------

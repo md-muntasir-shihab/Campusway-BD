@@ -210,13 +210,19 @@ function isAdminRole(role: string): boolean {
     return ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'].includes(role);
 }
 
-function needsTwoFactor(user: IUser, security: SecurityConfig): boolean {
+export function needsTwoFactor(user: IUser, security: SecurityConfig): boolean {
     if (security.testingAccessMode) return false;
-    if (user.role === 'superadmin') return false; // Temporary bypass for first login
+    const requiredRoles = Array.isArray(security.requiredTwoFactorRoles)
+        ? security.requiredTwoFactorRoles.map((role) => String(role || '').toLowerCase())
+        : [];
+    const userRole = String(user.role || '').toLowerCase();
+    if (user.twoFactorEnabled === true) return true;
+    if (requiredRoles.length > 0) {
+        return requiredRoles.includes(userRole);
+    }
     return (
-        user.twoFactorEnabled === true ||
-        (isAdminRole(user.role) && security.enable2faAdmin) ||
-        (user.role === 'student' && security.enable2faStudent)
+        (isAdminRole(userRole) && security.enable2faAdmin) ||
+        (userRole === 'student' && security.enable2faStudent)
     );
 }
 
@@ -891,7 +897,8 @@ export async function verify2fa(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const normalizedOtp = String(otp || '').replace(/\D/g, '');
+        const rawOtp = String(otp || '').trim();
+        const normalizedOtp = rawOtp.replace(/\D/g, '');
         const isDefaultTestOtp = security.allowTestOtp && normalizedOtp === security.testOtpCode;
         const challengeMethod = normalizeTwoFactorMethod(tokenDoc.channel || tokenDoc.meta?.method, security.default2faMethod);
         let verified = false;
@@ -899,7 +906,7 @@ export async function verify2fa(req: Request, res: Response): Promise<void> {
         if (challengeMethod === 'authenticator') {
             verified = Boolean(user.twoFactorSecret && verifyTotpCode(user.twoFactorSecret, normalizedOtp));
             if (!verified) {
-                const backupResult = consumeBackupCode(user.twoFactorBackupCodes, normalizedOtp);
+                const backupResult = consumeBackupCode(user.twoFactorBackupCodes, rawOtp);
                 if (backupResult.ok) {
                     user.twoFactorBackupCodes = backupResult.nextCodes;
                     verified = true;
@@ -920,7 +927,10 @@ export async function verify2fa(req: Request, res: Response): Promise<void> {
                 reason: 'otp_invalid',
                 details: { attemptsRemaining },
             });
-            respondOtpError(res, 401, 'OTP_INVALID', 'Invalid OTP', { attemptsRemaining });
+            const invalidOtpMessage = challengeMethod === 'authenticator'
+                ? 'Invalid authenticator or backup code. Ensure device time is automatic and try the latest 6-digit code.'
+                : 'Invalid OTP';
+            respondOtpError(res, 401, 'OTP_INVALID', invalidOtpMessage, { attemptsRemaining });
             return;
         }
 
@@ -1992,7 +2002,7 @@ export async function confirmTotpSetup(req: AuthRequest, res: Response): Promise
             return;
         }
         if (!verifyTotpCode(user.twoFactorSecret, code)) {
-            res.status(400).json({ message: 'Invalid authenticator code' });
+            res.status(400).json({ message: 'Invalid authenticator code. Ensure device time is automatic and try the latest 6-digit code.' });
             return;
         }
 

@@ -8,6 +8,7 @@ import {
     adminDeleteBanner,
     adminPublishBanner,
 } from '../../services/api';
+import { showConfirmDialog } from '../../lib/appDialog';
 import AdminImageUploadField from './AdminImageUploadField';
 import { uploadSignedBannerAsset } from './bannerUpload';
 
@@ -131,7 +132,13 @@ export default function BannerPanel() {
     };
 
     const removeBanner = async (id: string) => {
-        if (!confirm('Delete this banner?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete banner',
+            message: 'Delete this banner?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteBanner(id);
             toast.success('Banner deleted');

@@ -32,6 +32,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminRuntimeFlags } from '../../hooks/useAdminRuntimeFlags';
 import { downloadFile } from '../../utils/download';
+import { showConfirmDialog, showPromptDialog } from '../../lib/appDialog';
 import {
     Plus, Search,
     CreditCard, Layers,
@@ -1414,7 +1415,13 @@ export default function StudentManagementPanel({ initialTab = 'students' }: { in
     };
 
     const handleDeleteGroup = async (id: string) => {
-        if (!window.confirm('Are you sure you want to delete this group?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete group',
+            message: 'Are you sure you want to delete this group?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteStudentGroup(id);
             toast.success('Group deleted');
@@ -1485,13 +1492,25 @@ export default function StudentManagementPanel({ initialTab = 'students' }: { in
         }
         if (action === 'delete') {
             if (runtimeFlags.requireDeleteKeywordConfirm) {
-                const typed = window.prompt(`Type DELETE to remove ${selectedVisibleStudentIds.length} students.`);
+                const typed = await showPromptDialog({
+                    title: 'Delete students',
+                    message: `Type DELETE to remove ${selectedVisibleStudentIds.length} students.`,
+                    expectedValue: 'DELETE',
+                    confirmLabel: 'Delete',
+                    tone: 'danger',
+                });
                 if (typed !== 'DELETE') {
                     toast.error('Bulk delete cancelled');
                     return;
                 }
-            } else if (!window.confirm(`Are you sure you want to delete ${selectedVisibleStudentIds.length} students?`)) {
-                return;
+            } else {
+                const confirmed = await showConfirmDialog({
+                    title: 'Delete students',
+                    message: `Are you sure you want to delete ${selectedVisibleStudentIds.length} students?`,
+                    confirmLabel: 'Delete',
+                    tone: 'danger',
+                });
+                if (!confirmed) return;
             }
         }
 

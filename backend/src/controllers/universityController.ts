@@ -3,6 +3,7 @@ import { escapeRegex } from '../utils/escapeRegex';
 import ExcelJS from 'exceljs';
 import slugify from 'slugify';
 import HomeSettings from '../models/HomeSettings';
+import HomeConfig from '../models/HomeConfig';
 import University from '../models/University';
 import UniversityCategory from '../models/UniversityCategory';
 import UniversityCluster from '../models/UniversityCluster';
@@ -24,6 +25,7 @@ import {
     getUniversityCategoryOrderIndex,
     isAllUniversityCategoryToken,
     normalizeUniversityCategory,
+    normalizeUniversityCategoryStrict,
 } from '../utils/universityCategories';
 
 type UniversityStatusFilter = 'active' | 'inactive' | 'archived' | 'all';
@@ -32,12 +34,26 @@ const SORT_WHITELIST: Record<string, string> = {
     name: 'name',
     shortForm: 'shortForm',
     category: 'category',
+    clusterGroup: 'clusterGroup',
     applicationStartDate: 'applicationStartDate',
     applicationEndDate: 'applicationEndDate',
     examDateScience: 'scienceExamDate',
     examDateArts: 'artsExamDate',
     examDateBusiness: 'businessExamDate',
     establishedYear: 'established',
+    totalSeats: 'totalSeats',
+    seatsScienceEng: 'seatsScienceEng',
+    seatsArtsHum: 'seatsArtsHum',
+    seatsBusiness: 'seatsBusiness',
+    contactNumber: 'contactNumber',
+    address: 'address',
+    email: 'email',
+    websiteUrl: 'website',
+    admissionUrl: 'admissionWebsite',
+    examCenters: 'examCenters',
+    logoUrl: 'logoUrl',
+    featured: 'featured',
+    isActive: 'isActive',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
 };
@@ -122,6 +138,18 @@ function normalizeSort(sortBy: unknown, sortOrder: unknown, legacySort: unknown)
 function normalizeSlug(name: string, existingSlug?: string): string {
     const fallback = slugify(name || existingSlug || '', { lower: true, strict: true });
     return fallback || `university-${Date.now()}`;
+}
+
+function normalizeClusterSlugValue(value: unknown): string {
+    const fallback = slugify(String(value || '').trim(), { lower: true, strict: true });
+    return fallback || '';
+}
+
+function resolveUniversityCategoryFilterValue(value: unknown): string {
+    const raw = String(value || '').trim();
+    if (!raw) return DEFAULT_UNIVERSITY_CATEGORY;
+    if (isAllUniversityCategoryToken(raw)) return DEFAULT_UNIVERSITY_CATEGORY;
+    return normalizeUniversityCategoryStrict(raw);
 }
 
 function csvEscape(value: unknown): string {
@@ -327,6 +355,7 @@ function toCanonicalUniversityRecord(input: Record<string, unknown>): Record<str
     const seatsArtsHum = String(input.seatsArtsHum || input.artsSeats || '').trim();
     const seatsBusiness = String(input.seatsBusiness || input.businessSeats || '').trim();
     const clusterGroup = String(input.clusterGroup || input.clusterName || '').trim();
+    const clusterSlug = normalizeClusterSlugValue(input.clusterSlug || clusterGroup);
 
     return {
         ...input,
@@ -360,12 +389,64 @@ function toCanonicalUniversityRecord(input: Record<string, unknown>): Record<str
         totalSeats: String(input.totalSeats || '').trim() || 'N/A',
         clusterGroup,
         clusterName: String(input.clusterName || clusterGroup).trim(),
+        clusterSlug,
         isActive: toBool(input.isActive, true),
         featured: toBool(input.featured, false),
         categorySyncLocked: toBool(input.categorySyncLocked, false),
         clusterSyncLocked: toBool(input.clusterSyncLocked, false),
         examCenters: normalizeExamCenters(input.examCenters),
     };
+}
+
+async function attachClusterSlugs<T extends Record<string, unknown>>(items: T[]): Promise<Array<T & { clusterSlug: string }>> {
+    if (!Array.isArray(items) || items.length === 0) return [];
+
+    const clusterIds = Array.from(new Set(
+        items
+            .map((item) => String(item.clusterId || '').trim())
+            .filter(Boolean),
+    ));
+    const clusterNames = Array.from(new Set(
+        items
+            .map((item) => String(item.clusterGroup || item.clusterName || '').trim())
+            .filter(Boolean),
+    ));
+
+    if (clusterIds.length === 0 && clusterNames.length === 0) {
+        return items.map((item) => ({
+            ...item,
+            clusterSlug: normalizeClusterSlugValue(item.clusterSlug || item.clusterGroup || item.clusterName),
+        }));
+    }
+
+    const query: Record<string, unknown> = {
+        $or: [
+            ...(clusterIds.length > 0 ? [{ _id: { $in: clusterIds } }] : []),
+            ...(clusterNames.length > 0 ? [{ name: { $in: clusterNames } }] : []),
+        ],
+    };
+    const clusters = await UniversityCluster.find(query).select('_id name slug').lean();
+    const slugById = new Map<string, string>();
+    const slugByName = new Map<string, string>();
+    clusters.forEach((cluster) => {
+        const computedSlug = normalizeClusterSlugValue(cluster.slug || cluster.name);
+        if (!computedSlug) return;
+        slugById.set(String(cluster._id), computedSlug);
+        const name = String(cluster.name || '').trim();
+        if (name) slugByName.set(name, computedSlug);
+    });
+
+    return items.map((item) => {
+        const clusterId = String(item.clusterId || '').trim();
+        const clusterName = String(item.clusterGroup || item.clusterName || '').trim();
+        const clusterSlug = slugById.get(clusterId)
+            || slugByName.get(clusterName)
+            || normalizeClusterSlugValue(item.clusterSlug || clusterName);
+        return {
+            ...item,
+            clusterSlug,
+        };
+    });
 }
 
 async function resolveCategoryFields(source: Record<string, unknown>): Promise<{ category: string; categoryId: string | null }> {
@@ -403,9 +484,16 @@ async function resolveClusterFields(source: Record<string, unknown>): Promise<{ 
 }
 
 async function getUniversityDashboardConfig(): Promise<{ defaultCategory: string; showAllCategories: boolean }> {
-    const settings = await HomeSettings.findOne().select('universityDashboard').lean();
-    const showAllCategories = Boolean(settings?.universityDashboard?.showAllCategories);
-    const rawDefault = String(settings?.universityDashboard?.defaultCategory || '').trim();
+    const [homeSettings, universitySettings] = await Promise.all([
+        HomeSettings.findOne().select('universityDashboard').lean(),
+        ensureUniversitySettings(),
+    ]);
+    const showAllCategories = Boolean(homeSettings?.universityDashboard?.showAllCategories);
+    const rawDefault = String(
+        universitySettings?.defaultCategory
+        || homeSettings?.universityDashboard?.defaultCategory
+        || '',
+    ).trim();
     const normalizedDefault = isAllUniversityCategoryToken(rawDefault)
         ? DEFAULT_UNIVERSITY_CATEGORY
         : normalizeUniversityCategory(rawDefault || DEFAULT_UNIVERSITY_CATEGORY);
@@ -438,7 +526,7 @@ function buildUniversityFilter(
     let categoryMissing = false;
     const categoryRaw = String(category || '').trim();
     if (categoryRaw && !isAllUniversityCategoryToken(categoryRaw)) {
-        filter.category = normalizeUniversityCategory(categoryRaw);
+        filter.category = resolveUniversityCategoryFilterValue(categoryRaw);
     } else if (categoryRaw && isAllUniversityCategoryToken(categoryRaw) && requireCategory && !allowAllCategories) {
         categoryMissing = true;
     } else if (!categoryRaw && requireCategory && !allowAllCategories) {
@@ -534,10 +622,12 @@ export async function getUniversities(req: Request, res: Response): Promise<void
             .skip((pageNum - 1) * limitNum)
             .limit(limitNum)
             .lean();
+        const canonicalRows = rows.map((item) => toCanonicalUniversityRecord(
+            stripInactiveClusterFromUniversityRecord(item as unknown as Record<string, unknown>, taxonomy),
+        ));
+        const rowsWithClusterSlugs = await attachClusterSlugs(canonicalRows);
         res.json({
-            items: rows.map((item) => toCanonicalUniversityRecord(
-                stripInactiveClusterFromUniversityRecord(item as unknown as Record<string, unknown>, taxonomy),
-            )),
+            items: rowsWithClusterSlugs,
             page: pageNum,
             limit: limitNum,
             total,
@@ -587,6 +677,7 @@ export async function getUniversityCategories(_req: Request, res: Response): Pro
             .filter((name) => allowedCategorySet.size === 0 || allowedCategorySet.has(name));
         const categories = ordered.map((categoryName, index) => ({
             categoryName,
+            categorySlug: normalizeSlug(categoryName),
             order: index + 1,
             count: map.get(categoryName)?.count || 0,
             clusterGroups: Array.from(map.get(categoryName)?.clusterGroups || []).sort(),
@@ -609,9 +700,10 @@ export async function getUniversityBySlug(req: Request, res: Response): Promise<
             res.status(404).json({ message: 'University not found' });
             return;
         }
-        res.json(toCanonicalUniversityRecord(
+        const [withClusterSlug] = await attachClusterSlugs([toCanonicalUniversityRecord(
             stripInactiveClusterFromUniversityRecord(row as unknown as Record<string, unknown>, taxonomy),
-        ));
+        )]);
+        res.json(withClusterSlug);
     } catch (error) {
         console.error('Get university error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -638,9 +730,11 @@ export async function adminGetAllUniversities(req: Request, res: Response): Prom
         const query = University.find(filter).sort(sortOption).skip((pageNum - 1) * limitNum).limit(limitNum);
         if (projection) query.select(projection);
         const rows = await query.lean();
+        const canonicalRows = rows.map((item) => toCanonicalUniversityRecord(item as unknown as Record<string, unknown>));
+        const rowsWithClusterSlugs = await attachClusterSlugs(canonicalRows);
 
         res.json({
-            universities: rows.map((item) => toCanonicalUniversityRecord(item as unknown as Record<string, unknown>)),
+            universities: rowsWithClusterSlugs,
             pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },
         });
     } catch (err) {
@@ -682,6 +776,7 @@ export async function adminGetUniversityCategories(req: Request, res: Response):
         const categories = Array.from(normalizedMap.entries())
             .map(([name, meta]) => ({
                 name,
+                categorySlug: normalizeSlug(name),
                 count: meta.count,
                 clusterGroups: Array.from(meta.clusterGroups).sort(),
             }))
@@ -704,7 +799,8 @@ export async function adminGetUniversityById(req: Request, res: Response): Promi
         await backfillUniversityTaxonomyIfNeeded();
         const row = await University.findById(req.params.id).lean();
         if (!row) { res.status(404).json({ message: 'University not found' }); return; }
-        res.json({ university: toCanonicalUniversityRecord(row as unknown as Record<string, unknown>) });
+        const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(row as unknown as Record<string, unknown>)]);
+        res.json({ university });
     } catch (err) {
         console.error('adminGetUniversityById error:', err);
         res.status(500).json({ message: 'Server error' });
@@ -747,7 +843,8 @@ export async function adminCreateUniversity(req: Request, res: Response): Promis
         await reconcileUniversityClusterAssignments((req as Request & { user?: { _id?: string } }).user?._id || null);
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'create', universityId: String(created._id) } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'create', universityId: String(created._id) } });
-        res.status(201).json({ university: toCanonicalUniversityRecord(created.toObject() as unknown as Record<string, unknown>), message: 'University created successfully' });
+        const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(created.toObject() as unknown as Record<string, unknown>)]);
+        res.status(201).json({ university, message: 'University created successfully' });
     } catch (err: unknown) {
         if ((err as { code?: number }).code === 11000) { res.status(400).json({ message: 'A university with this name or slug already exists' }); return; }
         console.error('adminCreateUniversity error:', err);
@@ -794,7 +891,8 @@ export async function adminUpdateUniversity(req: Request, res: Response): Promis
         await reconcileUniversityClusterAssignments((req as Request & { user?: { _id?: string } }).user?._id || null);
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'update', universityId: String(updated._id) } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'update', universityId: String(updated._id) } });
-        res.json({ university: toCanonicalUniversityRecord(updated.toObject() as unknown as Record<string, unknown>), message: 'University updated successfully' });
+        const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(updated.toObject() as unknown as Record<string, unknown>)]);
+        res.json({ university, message: 'University updated successfully' });
     } catch (err: unknown) {
         if ((err as { code?: number }).code === 11000) { res.status(400).json({ message: 'Slug or name already taken by another university' }); return; }
         console.error('adminUpdateUniversity error:', err);
@@ -829,9 +927,13 @@ export async function adminBulkDeleteUniversities(req: Request, res: Response): 
         await backfillUniversityTaxonomyIfNeeded();
         const targetFilter = await resolveBulkTargetFilter(req);
         const mode = String(req.body?.mode || 'soft').toLowerCase() === 'hard' ? 'hard' : 'soft';
+        const taxonomyScope = String(req.body?.taxonomyScope || 'none').toLowerCase() === 'uni-taxonomy'
+            ? 'uni-taxonomy'
+            : 'none';
         if (Object.keys(targetFilter).length === 0) { res.status(400).json({ message: 'Invalid or empty target selection provided.' }); return; }
         const actorId = (req as Request & { user?: { _id?: string } }).user?._id || null;
         let affected = 0;
+        let taxonomyPruned = false;
         if (mode === 'hard') {
             const result = await University.deleteMany(targetFilter);
             affected = Number(result.deletedCount || 0);
@@ -842,10 +944,30 @@ export async function adminBulkDeleteUniversities(req: Request, res: Response): 
             );
             affected = Number(result.modifiedCount || 0);
         }
+        if (taxonomyScope === 'uni-taxonomy' && affected > 0) {
+            const remainingActiveUniversities = await University.countDocuments({ isArchived: { $ne: true } });
+            if (remainingActiveUniversities === 0) {
+                await Promise.all([
+                    UniversityCategory.deleteMany({}),
+                    UniversityCluster.deleteMany({}),
+                    HomeSettings.updateMany({}, { $set: { highlightedCategories: [], featuredUniversities: [] } }),
+                    HomeConfig.updateMany({}, { $set: { selectedUniversityCategories: [], highlightCategoryIds: [] } }),
+                ]);
+                taxonomyPruned = true;
+            }
+        }
         await reconcileUniversityClusterAssignments(actorId || null);
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'bulk_delete', mode, affected } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'bulk_delete', mode, affected } });
-        res.json({ message: mode === 'hard' ? `${affected} universities permanently deleted.` : `${affected} universities archived.`, affected, mode, skipped: [], errors: [] });
+        res.json({
+            message: mode === 'hard' ? `${affected} universities permanently deleted.` : `${affected} universities archived.`,
+            affected,
+            mode,
+            taxonomyScope,
+            taxonomyPruned,
+            skipped: [],
+            errors: [],
+        });
     } catch (err) {
         console.error('adminBulkDeleteUniversities error:', err);
         res.status(500).json({ message: 'Server error during bulk deletion.' });

@@ -29,8 +29,10 @@ function ExamChip({ label, value }: { label: string; value: string }) {
 export default function DeadlineCard({ university: uni }: DeadlineCardProps) {
     const endDate = uni.applicationEndDate || uni.applicationEnd;
     const startDate = uni.applicationStartDate || uni.applicationStart;
-    const days = daysUntil(endDate);
-    const tone = urgencyTone(days);
+    const historicalEndDate = uni.endedAt || endDate;
+    const isHistorical = Boolean(uni.isHistorical && historicalEndDate);
+    const days = isHistorical ? 999 : daysUntil(endDate);
+    const tone = isHistorical ? 'muted' : urgencyTone(days);
     const officialUrl = pickText(uni.website);
     const applyUrl = pickText(uni.admissionWebsite);
     const detailsUrl = `/universities/${uni.slug}`;
@@ -77,9 +79,17 @@ export default function DeadlineCard({ university: uni }: DeadlineCardProps) {
             <div className="space-y-3 px-4 pb-4">
                 <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        Apply by {formatUniversityDate(endDate, 'en-GB', { day: '2-digit', month: 'short' })}
+                        {isHistorical
+                            ? `Closed on ${formatUniversityDate(historicalEndDate, 'en-GB', { day: '2-digit', month: 'short' })}`
+                            : `Apply by ${formatUniversityDate(endDate, 'en-GB', { day: '2-digit', month: 'short' })}`}
                     </span>
-                    <CountdownChip targetDate={endDate} size="sm" />
+                    {isHistorical ? (
+                        <span className="inline-flex items-center rounded-full border border-slate-300/80 bg-slate-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
+                            Recently closed
+                        </span>
+                    ) : (
+                        <CountdownChip targetDate={endDate} size="sm" />
+                    )}
                 </div>
                 <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700/80 dark:bg-slate-950/55">
                     <div className="flex items-center justify-between gap-3 text-xs">

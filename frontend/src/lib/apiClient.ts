@@ -217,9 +217,9 @@ function normalizeUniversityCard(raw: ApiUniversity | ApiUniversityCardPreview):
         shortForm: pickText(r.shortForm, 'N/A'),
         slug: pickText(r.slug),
         category,
-        categorySlug: toSlug(category),
+        categorySlug: pickText(r.categorySlug) || toSlug(category),
         clusterGroup,
-        clusterSlug: toSlug(clusterGroup),
+        clusterSlug: pickText(r.clusterSlug) || toSlug(clusterGroup),
         contactNumber: pickText(r.contactNumber),
         established: typeof r.established === 'number' ? r.established
             : typeof r.establishedYear === 'number' ? r.establishedYear
@@ -265,7 +265,7 @@ export async function fetchUniversityCategories(): Promise<UniversityCategoryDet
             : [];
     return raw.map(c => ({
         categoryName: c.categoryName,
-        categorySlug: toSlug(c.categoryName),
+        categorySlug: c.categorySlug || toSlug(c.categoryName),
         order: c.order,
         count: c.count,
         clusterGroups: c.clusterGroups,

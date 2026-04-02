@@ -23,6 +23,7 @@ import { adminGetResources, adminCreateResource, adminUpdateResource, adminDelet
 import AdminFileUploadField from './AdminFileUploadField';
 import AdminImageUploadField from './AdminImageUploadField';
 import { buildYouTubeEmbedUrl } from '../../utils/youtube';
+import { showConfirmDialog } from '../../lib/appDialog';
 
 type ResourceType = 'pdf' | 'link' | 'video' | 'audio' | 'image' | 'note';
 
@@ -207,7 +208,14 @@ export default function ResourcesPanel() {
     };
 
     const onDelete = async (id: string) => {
-        if (!confirm('Delete this resource?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete resource?',
+            message: 'This resource will be removed from the admin library and public/student listings.',
+            confirmLabel: 'Delete resource',
+            cancelLabel: 'Keep resource',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteResource(id);
             toast.success('Resource deleted');

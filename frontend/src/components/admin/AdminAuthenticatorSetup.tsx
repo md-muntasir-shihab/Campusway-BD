@@ -9,6 +9,7 @@ import {
     regenerateBackupCodes,
     disableTwoFactor,
 } from '../../services/api';
+import { showConfirmDialog } from '../../lib/appDialog';
 
 const AdminAuthenticatorSetup: React.FC = () => {
     const { user, refreshUser } = useAuth();
@@ -27,6 +28,16 @@ const AdminAuthenticatorSetup: React.FC = () => {
             toast.error('Enter your current password to start setup');
             return;
         }
+        if (setupData && !user?.twoFactorEnabled) {
+            const confirmed = await showConfirmDialog({
+                title: 'Replace current setup secret?',
+                message: 'A setup secret is already generated. Generate a new secret and invalidate the current QR code and manual key?',
+                confirmLabel: 'Generate new secret',
+                cancelLabel: 'Keep current secret',
+                tone: 'danger',
+            });
+            if (!confirmed) return;
+        }
         try {
             setSetupLoading(true);
             const res = await beginTotpSetup(twoFactorPassword);
@@ -40,8 +51,8 @@ const AdminAuthenticatorSetup: React.FC = () => {
     };
 
     const completeAuthenticatorSetup = async () => {
-        if (!setupCode) {
-            toast.error('Enter the code from your authenticator app');
+        if (setupCode.length !== 6) {
+            toast.error('Enter a valid 6-digit code from your authenticator app');
             return;
         }
         try {
@@ -85,7 +96,15 @@ const AdminAuthenticatorSetup: React.FC = () => {
             toast.error('Enter your current password to disable 2FA');
             return;
         }
-        if (!window.confirm('Are you sure you want to disable Two-Factor Authentication? This reduces your account security.')) {
+        const confirmed = await showConfirmDialog({
+            title: 'Disable two-factor authentication?',
+            message: 'This will remove authenticator-based login protection from your account.',
+            description: 'You can enable it again later, but your account will be less secure until you do.',
+            confirmLabel: 'Disable 2FA',
+            cancelLabel: 'Keep enabled',
+            tone: 'danger',
+        });
+        if (!confirmed) {
             return;
         }
         try {
@@ -113,11 +132,11 @@ const AdminAuthenticatorSetup: React.FC = () => {
                     <p className="mt-1 text-sm text-slate-400">Configure your personal Two-Factor Authentication (2FA).</p>
                 </div>
                 {user?.twoFactorEnabled ? (
-                    <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                    <div data-testid="admin-2fa-enabled-badge" className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
                         <ShieldCheck className="h-4 w-4" /> Enabled
                     </div>
                 ) : (
-                    <div className="flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-400 border border-slate-700">
+                    <div data-testid="admin-2fa-disabled-badge" className="flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-400 border border-slate-700">
                         Not Enabled
                     </div>
                 )}
@@ -145,6 +164,7 @@ const AdminAuthenticatorSetup: React.FC = () => {
                         <div className="relative">
                             <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                             <input 
+                                data-testid="admin-2fa-current-password"
                                 className="w-full pl-10 rounded-xl border border-indigo-500/10 bg-slate-950/70 py-2.5 pr-4 text-sm text-white outline-none transition focus:border-indigo-400/40 focus:ring-1 focus:ring-indigo-400/40" 
                                 type="password" 
                                 placeholder="Verify your password to proceed" 
@@ -158,6 +178,7 @@ const AdminAuthenticatorSetup: React.FC = () => {
                     {/* Actions if not enabled */}
                     {!user?.twoFactorEnabled ? (
                         <button 
+                            data-testid="admin-2fa-start"
                             onClick={startAuthenticatorSetup} 
                             disabled={setupLoading || !twoFactorPassword} 
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-500/20"
@@ -169,6 +190,7 @@ const AdminAuthenticatorSetup: React.FC = () => {
                         /* Actions if already enabled */
                         <div className="grid gap-3 sm:grid-cols-2">
                             <button 
+                                data-testid="admin-2fa-backup-codes"
                                 onClick={regenerateCodes} 
                                 disabled={backupLoading || !twoFactorPassword} 
                                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -177,6 +199,7 @@ const AdminAuthenticatorSetup: React.FC = () => {
                                 {backupLoading ? 'Refreshing...' : 'Get Backup Codes'}
                             </button>
                             <button 
+                                data-testid="admin-2fa-disable"
                                 onClick={disableAuthenticator} 
                                 disabled={disableLoading || !twoFactorPassword} 
                                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-400 transition hover:bg-rose-500/20 focus:border-rose-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -206,7 +229,7 @@ const AdminAuthenticatorSetup: React.FC = () => {
                                             value={setupData.otpAuthUrl} 
                                             size={140} 
                                             level="M"
-                                            includeMargin={false}
+                                            includeMargin
                                         />
                                     </div>
                                     <p className="text-[10px] text-slate-400 text-center uppercase tracking-wider font-semibold">Scan with your app</p>
@@ -218,8 +241,9 @@ const AdminAuthenticatorSetup: React.FC = () => {
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Manual Setup Secret</p>
                                         <div className="mt-1.5 select-all rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-indigo-300">
-                                            {setupData.secret}
+                                            <span data-testid="admin-2fa-manual-secret">{setupData.secret}</span>
                                         </div>
+                                        <p className="mt-1 text-[11px] text-slate-500">If scan fails, add this key manually and keep phone time set to automatic.</p>
                                     </div>
                                 )}
                                 
@@ -242,6 +266,7 @@ const AdminAuthenticatorSetup: React.FC = () => {
                                         <label className="mb-1.5 block text-xs font-medium text-slate-400">Step 3: Verification Code</label>
                                         <div className="flex gap-2">
                                             <input 
+                                                data-testid="admin-2fa-verify-code"
                                                 className="w-full flex-1 rounded-xl border border-indigo-500/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-indigo-400/40 shadow-inner font-mono tracking-widest" 
                                                 type="text" 
                                                 inputMode="numeric"
@@ -252,6 +277,7 @@ const AdminAuthenticatorSetup: React.FC = () => {
                                                 disabled={verifyingSetup}
                                             />
                                             <button 
+                                                data-testid="admin-2fa-verify-submit"
                                                 onClick={completeAuthenticatorSetup} 
                                                 disabled={verifyingSetup || setupCode.length < 6} 
                                                 className="whitespace-nowrap inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-500/20"

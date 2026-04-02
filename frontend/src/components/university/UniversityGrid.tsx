@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import UniversityCard, { DEFAULT_UNIVERSITY_CARD_CONFIG, UniversityCardSkeleton } from './UniversityCard';
 import type { UniversityCardVisualVariant } from './UniversityCard';
 import type { HomeAnimationLevel, HomeUniversityCardConfig, UniversityCardSort } from '../../services/api';
-import { parseUniversityDate, pickNearestUniversityExamDate } from '../../lib/universityPresentation';
 
 type UniversityItem = Record<string, unknown>;
 
@@ -19,35 +18,6 @@ interface UniversityGridProps {
     itemsPerPage?: number;
     sort?: UniversityCardSort;
     cardVariant?: UniversityCardVisualVariant;
-}
-
-function sortUniversities(items: UniversityItem[], mode: UniversityCardSort): UniversityItem[] {
-    const sorted = [...items];
-    if (mode === 'alphabetical' || mode === 'name_asc') {
-        sorted.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-        return sorted;
-    }
-    if (mode === 'name_desc') {
-        sorted.sort((a, b) => String(b.name || '').localeCompare(String(a.name || '')));
-        return sorted;
-    }
-    if (mode === 'exam_soon') {
-        sorted.sort((a, b) => {
-            const left = parseUniversityDate(pickNearestUniversityExamDate(a))?.getTime() ?? Number.POSITIVE_INFINITY;
-            const right = parseUniversityDate(pickNearestUniversityExamDate(b))?.getTime() ?? Number.POSITIVE_INFINITY;
-            if (left !== right) return left - right;
-            return String(a.name || '').localeCompare(String(b.name || ''));
-        });
-        return sorted;
-    }
-
-    sorted.sort((a, b) => {
-        const leftDate = parseUniversityDate(a.applicationEnd || a.applicationEndDate)?.getTime() ?? Number.POSITIVE_INFINITY;
-        const rightDate = parseUniversityDate(b.applicationEnd || b.applicationEndDate)?.getTime() ?? Number.POSITIVE_INFINITY;
-        if (leftDate !== rightDate) return leftDate - rightDate;
-        return String(a.name || '').localeCompare(String(b.name || ''));
-    });
-    return sorted;
 }
 
 function getContainerVariants(level: HomeAnimationLevel): Variants {
@@ -77,13 +47,11 @@ export default function UniversityGrid({
     emptyText = 'No universities found.',
     className = '',
     itemsPerPage = 25,
-    sort,
+    sort: _sort,
     cardVariant = 'modern',
 }: UniversityGridProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const mergedConfig: HomeUniversityCardConfig = { ...DEFAULT_UNIVERSITY_CARD_CONFIG, ...(config || {}) };
-    const effectiveSort: UniversityCardSort = sort ?? mergedConfig.defaultSort;
-
     const uniqueItems = useMemo(() => {
         const seen = new Set<string>();
         const output: UniversityItem[] = [];
@@ -98,10 +66,8 @@ export default function UniversityGrid({
         return output;
     }, [items]);
 
-    const sortedItems = useMemo(
-        () => sortUniversities(uniqueItems, effectiveSort),
-        [uniqueItems, effectiveSort]
-    );
+    // Keep backend order as source-of-truth for public browse sorting.
+    const sortedItems = useMemo(() => uniqueItems, [uniqueItems]);
 
     const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
     const paginatedItems = useMemo(() => {

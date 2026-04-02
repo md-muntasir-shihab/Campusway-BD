@@ -512,18 +512,6 @@ async function handleShare(news: ApiNews, channel: 'whatsapp' | 'facebook' | 'me
                                                         Copy
                                                     </button>
                                                 ) : null}
-                                                {shareButtons.copyText ? (
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-card-border px-2 py-1 text-xs text-text-muted hover:border-cyan-500 hover:text-cyan-600 dark:border-dark-border dark:text-dark-text/80"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleShare(news, 'copy_text');
-                                                        }}
-                                                    >
-                                                        Copy Text
-                                                    </button>
-                                                ) : null}
                                             </div>
                                         </div>
                                     </div>

@@ -20,6 +20,7 @@ import {
   adminDeleteUniversityCategory,
   adminDeleteUniversity,
   adminDeleteUniversityCluster,
+  adminDeleteUniversityClusterPermanent,
   adminDownloadUniversityImportErrors,
   adminDownloadUniversityImportTemplate,
   adminExportUniversitiesSheet,
@@ -46,6 +47,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAdminRuntimeFlags } from '../../hooks/useAdminRuntimeFlags';
 import { downloadFile } from '../../utils/download';
 import { promptForSensitiveActionProof } from '../../utils/sensitiveAction';
+import { showConfirmDialog, showPromptDialog } from '../../lib/appDialog';
 
 
 type Tab = 'universities' | 'categories' | 'clusters' | 'import';
@@ -138,7 +140,7 @@ const IMPORT_FIELDS = [
   'category', 'clusterGroup', 'name', 'shortForm', 'shortDescription', 'description', 'establishedYear', 'address', 'contactNumber', 'email', 'websiteUrl', 'admissionUrl',
   'totalSeats', 'seatsScienceEng', 'seatsArtsHum', 'seatsBusiness',
   'applicationStartDate', 'applicationEndDate', 'examDateScience', 'examDateArts', 'examDateBusiness',
-  'examCenters', 'logoUrl', 'isActive', 'featured', 'featuredOrder', 'categorySyncLocked', 'clusterSyncLocked', 'verificationStatus', 'remarks', 'slug',
+  'examCenters',
 ];
 
 const COLUMN_MAP: Record<string, string> = {
@@ -586,7 +588,14 @@ export default function UniversitiesPanel() {
   };
 
   const deleteOne = async (id: string) => {
-    if (!window.confirm('Delete this university?')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete university?',
+      message: 'This removes the university record and its admin-managed data from the current listing.',
+      confirmLabel: 'Delete university',
+      cancelLabel: 'Keep record',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       const proof = await promptForSensitiveActionProof({
         actionLabel: 'delete university record',
@@ -614,18 +623,35 @@ export default function UniversitiesPanel() {
         const mode = bulkAction === 'softDelete' ? 'soft' : 'hard';
         if (mode === 'hard') {
           if (runtimeFlags.requireDeleteKeywordConfirm) {
-            const typed = window.prompt(`Type DELETE to permanently remove ${bulkScope === 'selected' ? selectedIds.length : totalCount} universities.`);
+            const typed = await showPromptDialog({
+              title: 'Confirm permanent delete',
+              message: `Type DELETE to permanently remove ${bulkScope === 'selected' ? selectedIds.length : totalCount} universities.`,
+              expectedValue: 'DELETE',
+              confirmLabel: 'Delete permanently',
+              cancelLabel: 'Cancel',
+              inputLabel: 'Confirmation keyword',
+              tone: 'danger',
+            });
             if (typed !== 'DELETE') {
               toast.error('Bulk delete cancelled');
               return;
             }
-          } else if (!window.confirm('Permanently delete selected items?')) {
-            return;
+          } else {
+            const confirmed = await showConfirmDialog({
+              title: 'Permanently delete universities?',
+              message: 'This action cannot be undone.',
+              confirmLabel: 'Delete permanently',
+              cancelLabel: 'Cancel',
+              tone: 'danger',
+            });
+            if (!confirmed) {
+              return;
+            }
           }
         }
         let response: Awaited<ReturnType<typeof adminBulkDeleteUniversities>>;
         try {
-          response = await adminBulkDeleteUniversities(target, mode);
+          response = await adminBulkDeleteUniversities(target, mode, mode === 'hard' ? 'uni-taxonomy' : 'none');
         } catch (error: unknown) {
           const canFallbackToIds = bulkScope !== 'selected' && !Array.isArray(target) && isIdsArrayRequiredError(error);
           if (!canFallbackToIds) throw error;
@@ -634,7 +660,7 @@ export default function UniversitiesPanel() {
             toast.error('No universities matched this bulk delete request');
             return;
           }
-          response = await adminBulkDeleteUniversities(fallbackIds, mode);
+          response = await adminBulkDeleteUniversities(fallbackIds, mode, mode === 'hard' ? 'uni-taxonomy' : 'none');
         }
         if (response.status === 202 || response.data?.code === 'PENDING_SECOND_APPROVAL') {
           toast.success(response.data?.message || 'Bulk delete request queued for second approval');
@@ -853,7 +879,7 @@ export default function UniversitiesPanel() {
       await loadUniversities();
       await loadCandidates();
       await loadCategoryMaster();
-    } catch { toast.error('Cluster save failed'); }
+    } catch (error: unknown) { toast.error(readErrorMessage(error, 'Cluster save failed')); }
     finally { setSavingCluster(false); }
   };
 
@@ -886,7 +912,14 @@ export default function UniversitiesPanel() {
     } catch (e) { toast.error('Cluster sync failed'); }
   };
   const deactivateCluster = async (id: string) => {
-    if (!window.confirm('Deactivate cluster?')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Deactivate cluster?',
+      message: 'The cluster will stop being treated as active in admin and public cluster views.',
+      confirmLabel: 'Deactivate cluster',
+      cancelLabel: 'Keep active',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       const proof = await promptForSensitiveActionProof({
         actionLabel: 'deactivate university cluster',
@@ -900,7 +933,40 @@ export default function UniversitiesPanel() {
       await loadClusters();
       await loadUniversities();
       await loadCandidates();
-    } catch (e) { toast.error('Deactivate failed'); }
+    } catch (error: unknown) { toast.error(readErrorMessage(error, 'Deactivate failed')); }
+  };
+  const permanentDeleteCluster = async (cluster: AdminUniversityCluster) => {
+    const memberCount = Number(cluster.memberCount || cluster.memberUniversityIds?.length || 0);
+    if (memberCount > 0) {
+      toast.error('Permanent delete is allowed only for empty clusters');
+      return;
+    }
+    const confirmed = await showConfirmDialog({
+      title: 'Permanently delete cluster?',
+      message: `This will permanently remove "${cluster.name}".`,
+      description: 'Only empty clusters can be permanently deleted.',
+      confirmLabel: 'Delete permanently',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      const proof = await promptForSensitiveActionProof({
+        actionLabel: 'permanently delete university cluster',
+        defaultReason: `Permanently delete empty cluster ${cluster._id}`,
+        requireOtpHint: true,
+      });
+      if (!proof) return;
+      await adminDeleteUniversityClusterPermanent(cluster._id, proof);
+      toast.success('Cluster permanently deleted');
+      await invalidateUniversityQueries();
+      await loadClusters();
+      await loadUniversities();
+      await loadCandidates();
+      await loadCategoryMaster();
+    } catch (error: unknown) {
+      toast.error(readErrorMessage(error, 'Permanent delete failed'));
+    }
   };
 
   const initImport = async () => {
@@ -1084,7 +1150,14 @@ export default function UniversitiesPanel() {
   };
 
   const archiveCategory = async (id: string) => {
-    if (!window.confirm('Archive this category?')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Archive category?',
+      message: 'The category will be marked inactive and removed from normal browse ordering.',
+      confirmLabel: 'Archive category',
+      cancelLabel: 'Keep category',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       const proof = await promptForSensitiveActionProof({
         actionLabel: 'archive university category',
@@ -1534,7 +1607,7 @@ export default function UniversitiesPanel() {
             <button type="button" onClick={openClusterCreate} disabled={!canManageTaxonomy} className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:opacity-90 shadow-lg shadow-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-40"><Plus className="w-4 h-4" /> New Cluster</button>
           </div>
           <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 p-4 text-sm text-amber-100">
-            Disabling a cluster keeps its universities safe. Inactive clusters stay in admin and can be restored after review.
+            Disable keeps linked universities safe. Permanent delete is available only when a cluster has zero linked universities.
             <div className="mt-3 flex flex-wrap gap-2">
               {(['all', 'active', 'inactive'] as const).map((view) => (
                 <button
@@ -1565,13 +1638,21 @@ export default function UniversitiesPanel() {
                   <p className="text-slate-500 font-medium">Centers</p><p className="text-slate-300 font-bold">{c.dates?.examCenters?.length || 0}</p>
                 </div>
                 <div className="rounded-xl border border-indigo-500/5 bg-slate-950/30 px-3 py-2 text-[11px] text-slate-400">
-                  Disable keeps all linked universities untouched. Re-enable the cluster later from this list.
+                  Disable keeps linked universities untouched. Use Permanent Delete only for empty clusters.
                 </div>
-                <div className="mt-auto grid grid-cols-2 gap-2 sm:grid-cols-2">
+                <div className="mt-auto grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <button type="button" disabled={!canManageTaxonomy} onClick={() => void openClusterEdit(c)} className="rounded-full bg-indigo-500/10 px-2 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-40">Edit</button>
                   <button type="button" disabled={!canManageTaxonomy} onClick={() => void syncCluster(c._id)} className="rounded-full bg-emerald-500/10 px-2 py-1.5 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-40">Sync</button>
                   <button type="button" disabled={!canManageTaxonomy} onClick={() => void resolveCluster(c._id)} className="rounded-full bg-indigo-500/5 px-2 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/10 transition-all disabled:cursor-not-allowed disabled:opacity-40">Resolve</button>
                   <button type="button" disabled={!canDeleteTaxonomy} onClick={() => void deactivateCluster(c._id)} className="rounded-full bg-rose-500/10 px-2 py-1.5 text-[11px] font-bold text-rose-300 hover:bg-rose-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-40">Disable</button>
+                  <button
+                    type="button"
+                    disabled={!canDeleteTaxonomy || Number(c.memberCount || c.memberUniversityIds?.length || 0) > 0}
+                    onClick={() => void permanentDeleteCluster(c)}
+                    className="rounded-full bg-red-600/15 px-2 py-1.5 text-[11px] font-bold text-red-300 hover:bg-red-600/25 transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Permanent Delete
+                  </button>
                 </div>
               </article>
             ))}

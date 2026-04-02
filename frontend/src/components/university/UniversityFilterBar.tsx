@@ -12,6 +12,7 @@ interface UniversityFilterBarProps {
     sort: UniversityCardSort;
     setSort: (v: UniversityCardSort) => void;
     clusters: string[];
+    showClusterFilter?: boolean;
     selectedCluster: string;
     setSelectedCluster: (v: string) => void;
     hasActiveFilters: boolean;
@@ -30,6 +31,7 @@ export default function UniversityFilterBar({
     sort,
     setSort,
     clusters,
+    showClusterFilter = true,
     selectedCluster,
     setSelectedCluster,
     hasActiveFilters,
@@ -64,7 +66,7 @@ export default function UniversityFilterBar({
                         />
                     </div>
                 </div>
-                {clusters.length > 0 && (
+                {showClusterFilter && clusters.length > 0 && (
                     <div className="w-52">
                         <label className="text-xs font-bold uppercase tracking-wider text-text-muted dark:text-dark-text/50 mb-1 block">
                             Cluster Group

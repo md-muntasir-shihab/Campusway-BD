@@ -5,6 +5,9 @@ module.exports = {
     roots: ['<rootDir>/tests'],
     testMatch: ['**/*.test.ts'],
     setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+    moduleNameMapper: {
+        '^uuid$': '<rootDir>/tests/mocks/uuid.ts',
+    },
     testTimeout: 30000,
     maxWorkers: 1,
     clearMocks: true,

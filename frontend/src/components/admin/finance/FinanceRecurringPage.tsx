@@ -5,6 +5,7 @@ import {
 } from '../../../hooks/useFinanceCenterQueries';
 import type { FcRecurringRule, TransactionDirection, PaymentMethod, RecurringFrequency } from '../../../types/finance';
 import { Plus, Trash2, Pencil, PlayCircle, ChevronLeft, ChevronRight, RefreshCw, DollarSign, CalendarClock, ToggleRight } from 'lucide-react';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Params = Record<string, string | number | boolean | undefined>;
 
@@ -108,7 +109,15 @@ export default function FinanceRecurringPage() {
                                                 <button onClick={() => setEditRule(r)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Edit">
                                                     <Pencil size={13} className="text-blue-500" />
                                                 </button>
-                                                <button onClick={() => { if (confirm('Delete this rule?')) deleteMut.mutate(r._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Delete">
+                                                <button onClick={async () => {
+                                                    const confirmed = await showConfirmDialog({
+                                                        title: 'Delete rule',
+                                                        message: 'Delete this rule?',
+                                                        confirmLabel: 'Delete',
+                                                        tone: 'danger',
+                                                    });
+                                                    if (confirmed) deleteMut.mutate(r._id);
+                                                }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700" title="Delete">
                                                     <Trash2 size={13} className="text-red-500" />
                                                 </button>
                                             </div>
@@ -140,7 +149,15 @@ export default function FinanceRecurringPage() {
                                 <div className="mt-2 flex justify-end gap-1">
                                     <button onClick={() => runNowMut.mutate(r._id)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><PlayCircle size={13} className="text-indigo-600" /></button>
                                     <button onClick={() => setEditRule(r)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Pencil size={13} className="text-blue-500" /></button>
-                                    <button onClick={() => { if (confirm('Delete?')) deleteMut.mutate(r._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} className="text-red-500" /></button>
+                                    <button onClick={async () => {
+                                        const confirmed = await showConfirmDialog({
+                                            title: 'Delete rule',
+                                            message: 'Delete this rule?',
+                                            confirmLabel: 'Delete',
+                                            tone: 'danger',
+                                        });
+                                        if (confirmed) deleteMut.mutate(r._id);
+                                    }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} className="text-red-500" /></button>
                                 </div>
                             </div>
                         ))}

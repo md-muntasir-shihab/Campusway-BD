@@ -430,6 +430,7 @@ export interface ApiUniversity {
     shortForm: string;
     category: string;
     clusterGroup?: string;
+    clusterSlug?: string;
     clusterName?: string;
     clusterCount?: number;
     clusterId?: string | { _id?: string; name?: string } | null;
@@ -905,11 +906,8 @@ export interface HomeUniversityCardConfig {
     closingSoonDays: number;
     showAddress: boolean;
     showEmail: boolean;
-    showSeats: boolean;
     showApplicationProgress: boolean;
     showExamDates: boolean;
-    showExamCenters: boolean;
-    cardDensity: UniversityCardDensity;
     defaultSort: UniversityCardSort;
 }
 
@@ -1137,6 +1135,8 @@ export interface ApiUniversityCardPreview {
     logoUrl: string;
     badgeText?: string;
     featured?: boolean;
+    isHistorical?: boolean;
+    endedAt?: string;
 }
 
 export interface ApiClusterCardPreview {
@@ -1157,6 +1157,8 @@ export interface ApiClusterCardPreview {
     examCentersPreview: string[];
     homeVisible?: boolean;
     homeOrder?: number;
+    isHistorical?: boolean;
+    endedAt?: string;
 }
 
 export interface ApiCategoryCardPreview {
@@ -1489,6 +1491,11 @@ export interface SecurityCenterSettings {
             | 'exams.publish_result'
             | 'news.publish_breaking'
             | 'payments.mark_refunded'
+            | 'students.export'
+            | 'finance.adjustment'
+            | 'providers.credentials_change'
+            | 'security.settings_change'
+            | 'backups.restore'
         >;
         approvalExpiryMinutes: number;
     };
@@ -1960,12 +1967,20 @@ export interface ApiNews {
     coverSource?: 'rss' | 'admin' | 'default';
     category: string;
     tags: string[];
+    publicTags?: string[];
     isPublished: boolean;
-    status: 'published' | 'draft' | 'archived' | 'pending_review' | 'duplicate_review' | 'approved' | 'rejected' | 'scheduled' | 'fetch_failed';
+    status: 'published' | 'draft' | 'archived' | 'trash' | 'pending_review' | 'duplicate_review' | 'approved' | 'rejected' | 'scheduled' | 'fetch_failed';
     isFeatured: boolean;
     publishDate: string;
     publishedAt?: string;
     scheduleAt?: string;
+    deletedAt?: string | null;
+    deletedBy?: string | null;
+    deletedFromStatus?: string;
+    purgeAt?: string | null;
+    archivedAt?: string | null;
+    archivedBy?: string | null;
+    archivedFromStatus?: string;
     sourceType?: 'manual' | 'rss' | 'ai_assisted';
     sourceId?: string;
     sourceName?: string;
@@ -3033,6 +3048,7 @@ export interface ApiCertificateVerification {
 /* — Public Universities — */
 export interface UniversityCategorySummary {
     categoryName: string;
+    categorySlug?: string;
     order: number;
     count: number;
     clusterGroups: string[];
@@ -3108,6 +3124,14 @@ export const getPublicSocialLinks = () =>
     api.get<{ items: PublicSocialLinkItem[] }>('/social-links/public');
 export const getPublicHomeSettings = () =>
     api.get<{ homeSettings: HomeSettingsConfig; updatedAt?: string }>('/home-settings/public');
+export interface PublicUniversityBrowseSettings {
+    defaultCategory: string;
+    enableClusterFilterOnUniversities: boolean;
+    enableClusterFilterOnHome: boolean;
+    allowCustomCategories: boolean;
+}
+export const getPublicUniversityBrowseSettings = () =>
+    api.get<{ ok: boolean; settings: PublicUniversityBrowseSettings }>('/universities/settings/public');
 export const getHomeSystem = () => api.get<HomeApiResponse>('/home');
 export const getHome = getHomeSystem;
 export const getHomeStats = () => api.get('/stats');
@@ -3258,12 +3282,16 @@ export type AdminBulkTargetOptions = {
     ids?: string[];
     applyToFiltered?: boolean;
     filter?: Record<string, unknown>;
+    taxonomyScope?: 'none' | 'uni-taxonomy';
 };
 
 export const adminBulkDeleteUniversities = (
     target: string[] | AdminBulkTargetOptions,
     mode: 'soft' | 'hard' = 'soft',
-) => api.post(`/${ADMIN_PATH}/universities/bulk-delete`, Array.isArray(target) ? { ids: target, mode } : { ...target, mode });
+    taxonomyScope: 'none' | 'uni-taxonomy' = 'none',
+) => api.post(`/${ADMIN_PATH}/universities/bulk-delete`, Array.isArray(target)
+    ? { ids: target, mode, taxonomyScope }
+    : { ...target, mode, taxonomyScope });
 
 export const adminBulkUpdateUniversities = (
     target: string[] | AdminBulkTargetOptions,
@@ -3427,6 +3455,15 @@ export const adminDeleteUniversityCluster = async (id: string, proof?: Sensitive
         headers: await resolveSensitiveActionHeaders({
             actionLabel: 'deactivate university cluster',
             defaultReason: 'Deactivate university cluster',
+            requireOtpHint: true,
+            proof,
+        }),
+    });
+export const adminDeleteUniversityClusterPermanent = async (id: string, proof?: SensitiveActionProof) =>
+    api.delete(`/${ADMIN_PATH}/university-clusters/${id}/permanent`, {
+        headers: await resolveSensitiveActionHeaders({
+            actionLabel: 'permanently delete university cluster',
+            defaultReason: 'Permanently delete empty university cluster',
             requireOtpHint: true,
             proof,
         }),
@@ -4795,6 +4832,7 @@ export interface ApiNewsV2Settings {
         archiveAfterPublishDays?: number | null;
         removeUnusedMediaAfterDays?: number | null;
         disableSourceAfterFailureCount?: number | null;
+        newsTrashRetentionDays?: number | null;
     };
     help?: {
         enabled?: boolean;
@@ -4805,7 +4843,7 @@ export interface ApiNewsV2Settings {
 
 export const adminNewsV2GetDashboard = () =>
     api.get<{
-        cards: { pending: number; duplicate: number; published: number; scheduled: number; fetchFailed: number; activeSources: number; unhealthySources?: number };
+        cards: { pending: number; duplicate: number; published: number; scheduled: number; trash: number; fetchFailed: number; activeSources: number; unhealthySources?: number };
         health?: { activeSources: number; unhealthySources: number; lastFetchCompletedAt?: string | null };
         latestJobs: any[];
         latestRssItems: ApiNews[];
@@ -4869,6 +4907,12 @@ export const adminNewsV2MoveToDraft = (id: string) =>
     api.post<{ item: ApiNews; message: string }>(`/${ADMIN_PATH}/news/${id}/move-to-draft`);
 export const adminNewsV2Archive = (id: string) =>
     api.post<{ item: ApiNews; message: string }>(`/${ADMIN_PATH}/news/${id}/archive`);
+export const adminNewsV2DeleteItem = (id: string) =>
+    api.delete<{ item?: ApiNews; message: string }>(`/${ADMIN_PATH}/news/${id}`);
+export const adminNewsV2RestoreItem = (id: string) =>
+    api.post<{ item?: ApiNews; message: string }>(`/${ADMIN_PATH}/news/${id}/restore`);
+export const adminNewsV2PurgeItem = (id: string) =>
+    api.delete<{ message: string }>(`/${ADMIN_PATH}/news/${id}/purge`);
 export const adminNewsV2ConvertToNotice = (
     id: string,
     payload: {

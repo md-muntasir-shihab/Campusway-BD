@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useFcBudgets, useFcCreateBudget, useFcUpdateBudget, useFcDeleteBudget } from '../../../hooks/useFinanceCenterQueries';
 import type { FcBudget, BudgetDirection } from '../../../types/finance';
 import { Plus, Trash2, Pencil, ChevronLeft, ChevronRight, Target, AlertTriangle, ShieldCheck, TrendingUp } from 'lucide-react';
+import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Params = Record<string, string | number | boolean | undefined>;
 
@@ -81,7 +82,15 @@ export default function FinanceBudgetsPage() {
                                     <div className="flex items-center gap-1">
                                         <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${statusBg}`}>{statusLabel}</span>
                                         <button onClick={() => setEditBudget(b)} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Pencil size={13} className="text-blue-500" /></button>
-                                        <button onClick={() => { if (confirm('Delete budget?')) deleteMut.mutate(b._id); }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} className="text-red-500" /></button>
+                                        <button onClick={async () => {
+                                            const confirmed = await showConfirmDialog({
+                                                title: 'Delete budget',
+                                                message: 'Delete budget?',
+                                                confirmLabel: 'Delete',
+                                                tone: 'danger',
+                                            });
+                                            if (confirmed) deleteMut.mutate(b._id);
+                                        }} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} className="text-red-500" /></button>
                                     </div>
                                 </div>
                                 <div className="flex items-baseline justify-between">

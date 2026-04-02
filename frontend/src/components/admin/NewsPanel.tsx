@@ -12,6 +12,7 @@ import {
     adminDeleteNewsCategory, adminToggleNewsCategory,
     ApiNews, ApiNewsCategory
 } from '../../services/api';
+import { showConfirmDialog } from '../../lib/appDialog';
 import AdminImageUploadField from './AdminImageUploadField';
 
 export default function NewsPanel() {
@@ -136,7 +137,13 @@ export default function NewsPanel() {
     };
 
     const deleteArticle = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this news article? This action cannot be undone.')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete news article',
+            message: 'Are you sure you want to delete this news article? This action cannot be undone.',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await adminDeleteNews(id);
             toast.success('News article deleted successfully');
@@ -168,7 +175,13 @@ export default function NewsPanel() {
     };
 
     const deleteCat = async (id: string) => {
-        if (!confirm('Delete category?')) return;
+        const confirmed = await showConfirmDialog({
+            title: 'Delete category',
+            message: 'Delete category?',
+            confirmLabel: 'Delete',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try { await adminDeleteNewsCategory(id); toast.success('Deleted'); fetchCategories(); }
         catch { toast.error('Delete failed'); }
     };
