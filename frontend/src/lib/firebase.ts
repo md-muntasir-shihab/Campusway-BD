@@ -1,4 +1,5 @@
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
+import { Analytics, getAnalytics } from 'firebase/analytics';
 import {
     AppCheck,
     getToken,
@@ -9,6 +10,7 @@ import {
 
 let firebaseClientApp: FirebaseApp | null = null;
 let firebaseAppCheck: AppCheck | null = null;
+let firebaseAnalytics: Analytics | null = null;
 let firebaseAppCheckInitAttempted = false;
 
 declare global {
@@ -33,6 +35,7 @@ export function initFirebaseClient(): FirebaseApp | null {
         storageBucket: String(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '').trim() || undefined,
         messagingSenderId: String(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '').trim() || undefined,
         appId: String(import.meta.env.VITE_FIREBASE_APP_ID || '').trim() || undefined,
+        measurementId: String(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '').trim() || undefined,
     };
 
     if (!getApps().length) {
@@ -42,6 +45,36 @@ export function initFirebaseClient(): FirebaseApp | null {
     }
 
     return firebaseClientApp;
+}
+
+export function isFirebaseAnalyticsConfigured(): boolean {
+    return Boolean(
+        isFirebaseClientConfigured() &&
+        String(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '').trim()
+    );
+}
+
+export function initFirebaseAnalytics(): Analytics | null {
+    if (firebaseAnalytics) return firebaseAnalytics;
+    if (typeof window === 'undefined' || !isFirebaseAnalyticsConfigured()) {
+        return null;
+    }
+
+    const app = initFirebaseClient();
+    if (!app) {
+        return null;
+    }
+
+    try {
+        firebaseAnalytics = getAnalytics(app);
+        return firebaseAnalytics;
+    } catch (error) {
+        if (import.meta.env.DEV) {
+            console.warn('[CampusWay] Firebase Analytics initialization skipped.', error);
+        }
+        firebaseAnalytics = null;
+        return null;
+    }
 }
 
 export function isFirebaseClientConfigured(): boolean {

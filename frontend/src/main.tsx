@@ -4,12 +4,13 @@ import { Toaster } from 'react-hot-toast';
 import App from './App';
 import AppDialogHost from './components/ui/AppDialogHost';
 import './styles/index.css';
-import { initFirebaseAppCheck, initFirebaseClient } from './lib/firebase';
+import { initFirebaseAnalytics, initFirebaseAppCheck, initFirebaseClient } from './lib/firebase';
 import { registerAllMocks } from './mocks/registerMocks';
 
 import { HelmetProvider } from 'react-helmet-async';
 
 initFirebaseClient();
+void initFirebaseAnalytics();
 void initFirebaseAppCheck();
 registerAllMocks();
 
