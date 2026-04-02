@@ -39,6 +39,7 @@ const universities: ApiUniversityCardPreview[] = [
         slug: 'dhaka-university',
     },
 ];
+const universityCount = universities.length;
 
 const newsItems: ApiNews[] = [
     {
@@ -71,17 +72,147 @@ const resources = [
 ];
 
 export function mockHomeResponse(): HomeApiResponse {
-    const response = {
+    const response: HomeApiResponse = {
         homeSettings: {
-            sectionVisibility: {},
+            sectionVisibility: {
+                hero: true,
+                subscriptionBanner: true,
+                stats: true,
+                timeline: false,
+                universityDashboard: true,
+                closingExamWidget: true,
+                examsWidget: true,
+                newsPreview: true,
+                resourcesPreview: true,
+                socialStrip: false,
+                adsSection: false,
+                footer: true,
+            },
             hero: {
                 title: 'CampusWay',
                 subtitle: 'Plan. Explore. Achieve.',
                 pillText: 'Mock Mode',
                 showSearch: true,
                 searchPlaceholder: 'Search',
+                showNextDeadlineCard: false,
                 primaryCTA: { label: 'Universities', url: '/universities' },
                 secondaryCTA: { label: 'Plans', url: '/subscription-plans' },
+                heroImageUrl: '',
+                shortcutChips: [],
+            },
+            universityPreview: {
+                enabled: true,
+                useHighlightedCategoriesOnly: false,
+                defaultActiveCategory: '',
+                enableClusterFilter: false,
+                maxFeaturedItems: 6,
+                maxDeadlineItems: 6,
+                maxExamItems: 6,
+                deadlineWithinDays: 30,
+                examWithinDays: 30,
+                featuredMode: 'manual',
+            },
+            subscriptionBanner: {
+                enabled: true,
+                title: 'Subscription Preview',
+                subtitle: 'Choose a plan',
+                loginMessage: '',
+                noPlanMessage: '',
+                activePlanMessage: '',
+                bannerImageUrl: '',
+                primaryCTA: { label: 'Plans', url: '/subscription-plans' },
+                secondaryCTA: { label: 'Contact', url: '/contact' },
+                showPlanCards: true,
+                planIdsToShow: [],
+            },
+            topBanner: { enabled: false, imageUrl: '', linkUrl: '' },
+            middleBanner: { enabled: false, imageUrl: '', linkUrl: '' },
+            bottomBanner: { enabled: false, imageUrl: '', linkUrl: '' },
+            adsSection: { enabled: false, title: '' },
+            stats: {
+                enabled: true,
+                title: 'Platform Overview',
+                subtitle: 'CampusWay at a glance',
+                items: [
+                    { key: 'students', label: 'Students', enabled: true },
+                    { key: 'universities', label: 'Universities', enabled: true },
+                ],
+            },
+            timeline: {
+                enabled: false,
+                title: '',
+                subtitle: '',
+                closingSoonDays: 7,
+                examSoonDays: 7,
+                maxClosingItems: 0,
+                maxExamItems: 0,
+            },
+            universityDashboard: {
+                enabled: true,
+                title: 'Universities',
+                subtitle: '',
+                showFilters: true,
+                defaultCategory: '',
+                showPlaceholderText: false,
+                placeholderNote: '',
+            },
+            universityCardConfig: {
+                defaultUniversityLogo: '',
+                showExamCentersPreview: true,
+                closingSoonDays: 7,
+                showAddress: true,
+                showEmail: false,
+                showApplicationProgress: false,
+                showExamDates: true,
+                defaultSort: 'closing_soon',
+            },
+            highlightedCategories: [],
+            featuredUniversities: [],
+            closingExamWidget: {
+                enabled: true,
+                title: 'Application Deadlines',
+                subtitle: "Don't miss your chance to apply",
+                maxClosing: 6,
+                maxExamsThisWeek: 6,
+            },
+            examsWidget: {
+                enabled: true,
+                title: 'Upcoming Exams',
+                subtitle: 'Prepare and plan ahead',
+                maxLive: 6,
+                maxUpcoming: 6,
+                showLockedExamsToUnsubscribed: 'show_locked',
+                loginRequiredText: '',
+                subscriptionRequiredText: '',
+            },
+            newsPreview: {
+                enabled: true,
+                title: 'Latest News',
+                subtitle: '',
+                maxItems: 6,
+                ctaLabel: 'View all',
+                ctaUrl: '/news',
+            },
+            resourcesPreview: {
+                enabled: true,
+                title: 'Resources',
+                subtitle: '',
+                maxItems: 6,
+                ctaLabel: 'View all',
+                ctaUrl: '/resources',
+            },
+            socialStrip: {
+                enabled: false,
+                title: '',
+                subtitle: '',
+                ctaLabel: '',
+            },
+            footer: {
+                enabled: true,
+                aboutText: 'CampusWay helps students manage admissions.',
+                quickLinks: [],
+                contactInfo: { email: 'support@campusway.local', phone: '', address: '' },
+                legalLinks: [],
             },
             ui: { animationLevel: 'minimal' },
         },
@@ -114,7 +245,7 @@ export function mockHomeResponse(): HomeApiResponse {
             examSoonItems: [],
         },
         universityCategories: [
-            { categoryName: 'Individual Admission', count: 1, clusterGroups: [] },
+            { categoryName: 'Individual Admission', count: universityCount, clusterGroups: [] },
         ],
         featuredUniversities: universities,
         deadlineUniversities: universities,
@@ -130,9 +261,9 @@ export function mockHomeResponse(): HomeApiResponse {
             defaultCategory: '',
         },
         universityDashboardData: {
-            categories: [{ key: 'Individual Admission', label: 'Individual Admission', count: 1 }],
+            categories: [{ key: 'Individual Admission', label: 'Individual Admission', count: universityCount }],
             filtersMeta: {
-                totalItems: 1,
+                totalItems: universityCount,
                 statuses: [],
                 defaultCategory: '',
                 showFilters: true,
@@ -158,6 +289,7 @@ export function mockHomeResponse(): HomeApiResponse {
         sectionOrder: [],
         campaignBannersActive: [],
         contentBlocksForHome: [],
+        socialLinks: {},
     };
-    return response as unknown as HomeApiResponse;
+    return response;
 }
