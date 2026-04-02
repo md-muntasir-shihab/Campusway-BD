@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
+import { useAuth } from '../../../hooks/useAuth';
 import { useModuleAccess } from '../../../hooks/useModuleAccess';
 import {
   teamApi,
@@ -27,6 +28,7 @@ const TABS: { key: DetailTab; label: string; icon: React.ElementType }[] = [
 export default function RoleDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { hasAccess } = useModuleAccess();
   const [tab, setTab] = useState<DetailTab>('overview');
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,7 @@ export default function RoleDetailPage() {
   const canCreateTeam = hasAccess('team_access_control', 'create');
   const canEditTeam = hasAccess('team_access_control', 'edit');
   const canDeleteTeam = hasAccess('team_access_control', 'delete');
+  const canEditPermissions = user?.role === 'superadmin';
 
   async function loadRole() {
     if (!id) return;
@@ -103,6 +106,10 @@ export default function RoleDetailPage() {
 
   async function handleSavePermissions() {
     if (!id || !role) return;
+    if (!canEditPermissions) {
+      toast.error('Only super admin can edit role permissions');
+      return;
+    }
     setSaving(true);
     try {
       await teamApi.updateRolePermissions(id, permissions);
@@ -276,14 +283,14 @@ export default function RoleDetailPage() {
                               <input
                                 type="checkbox"
                                 checked={!!permissions[mod]?.[act]}
-                                disabled={!canEditTeam}
+                                disabled={!canEditPermissions}
                                 onChange={() => togglePerm(mod, act)}
                                 className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                               />
                             </td>
                           ))}
                           <td className="px-2 py-2 text-center">
-                            {canEditTeam ? (
+                            {canEditPermissions ? (
                               <button onClick={() => toggleModuleAll(mod)} className="text-xs text-indigo-600 hover:underline dark:text-indigo-400">
                                 {actions.every((a) => permissions[mod]?.[a]) ? 'None' : 'All'}
                               </button>
@@ -296,7 +303,12 @@ export default function RoleDetailPage() {
                     </tbody>
                   </table>
                 </div>
-                {canEditTeam && (
+                {!canEditPermissions && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                    Permission editing is restricted to super admin accounts.
+                  </div>
+                )}
+                {canEditPermissions && (
                   <div className="flex items-center gap-1">
                     <button onClick={handleSavePermissions} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
                       <CheckCircle2 className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Permissions'}

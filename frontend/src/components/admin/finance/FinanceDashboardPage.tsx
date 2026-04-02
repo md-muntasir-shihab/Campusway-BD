@@ -55,27 +55,27 @@ export default function FinanceDashboardPage() {
     const warningBudgets = budgetStatus?.filter(b => !b.exceeded && b.percentUsed >= b.alertThresholdPercent) ?? [];
 
     return (
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
             {/* ── Header ── */}
-            <div className="flex flex-col flex-wrap justify-between gap-4 rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-slate-100/50 p-6 shadow-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 sm:flex-row sm:items-center">
+            <div className="flex flex-col justify-between gap-4 rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-slate-100/50 p-4 shadow-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 sm:p-6 xl:flex-row xl:items-center">
                 <div>
                     <h2 className="bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-2xl font-black tracking-tight text-transparent dark:from-white dark:to-slate-300">Finance Dashboard</h2>
                     <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">Unified money control center</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+                    <div className="flex min-w-0 items-center gap-2">
                         <select
                             value={month}
                             onChange={e => setMonth(e.target.value)}
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                            className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium dark:border-slate-600 dark:bg-slate-800 dark:text-white sm:w-auto sm:min-w-[8rem]"
                         >
                             {months.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                         <button
                             onClick={() => fcApi.downloadPLReport(month)}
-                            className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                            className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto"
                         >
                             <Download size={13} /> P&L Report
                         </button>
@@ -84,7 +84,7 @@ export default function FinanceDashboardPage() {
             </div>
 
             {/* ── Primary KPI Cards (6) ── */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                 <KpiCard icon={<TrendingUp size={18} />} label="Total Income" value={`৳${fmt(incomeTotal)}`} color="green" change={monthOverMonthChange?.incomeChange} />
                 <KpiCard icon={<TrendingDown size={18} />} label="Total Expense" value={`৳${fmt(expenseTotal)}`} color="red" change={monthOverMonthChange?.expenseChange} />
                 <KpiCard icon={<Wallet size={18} />} label="Net Profit/Loss" value={`৳${fmt(netProfit)}`} color={netProfit >= 0 ? 'green' : 'red'} />
@@ -94,7 +94,7 @@ export default function FinanceDashboardPage() {
             </div>
 
             {/* ── Secondary KPI Cards (4) ── */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                 <SecondaryKpi icon={<BookOpen size={16} />} label="Subscription Revenue" value={`৳${fmt(subscriptionRevenue)}`} />
                 <SecondaryKpi icon={<GraduationCap size={16} />} label="Exam Revenue" value={`৳${fmt(examRevenue)}`} />
                 <SecondaryKpi icon={<Briefcase size={16} />} label="Manual/Service Revenue" value={`৳${fmt(manualServiceRevenue)}`} />
@@ -182,12 +182,12 @@ function KpiCard({ icon, label, value, color, sub, change }: {
     };
     const c = colors[color] ?? colors.blue;
     return (
-        <div className={`group relative overflow-hidden rounded-[1.5rem] border border-slate-200/60 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:ring-2 ${c.ring} ${c.bg} dark:border-slate-800/60`}>
+        <div className={`group relative min-w-0 overflow-hidden rounded-[1.5rem] border border-slate-200/60 p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:ring-2 ${c.ring} ${c.bg} dark:border-slate-800/60`}>
             <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.03] duration-500 group-hover:scale-150 ${c.text} bg-current dark:opacity-5 transition-transform`} />
             <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-[1rem] ${c.iconBg} ${c.icon} shadow-inner`}>{icon}</div>
-            <div className="relative z-10">
+            <div className="relative z-10 min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
-            <p className={`mt-1 text-3xl font-black tracking-tight ${c.text}`}>{value}</p>
+            <p className={`mt-1 break-words text-2xl font-black tracking-tight sm:text-3xl ${c.text}`}>{value}</p>
             {sub && <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{sub}</p>}
             {change != null && change !== 0 && (
                 <div className={`mt-3 flex items-center gap-1 text-[11px] font-bold ${change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -203,11 +203,11 @@ function KpiCard({ icon, label, value, color, sub, change }: {
 /* ── Secondary KPI ──────────────────────────────────────── */
 function SecondaryKpi({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
     return (
-        <div className="flex items-center gap-4 rounded-[1.5rem] border border-slate-200/60 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800/60 dark:bg-slate-900/50">
+        <div className="flex min-w-0 items-center gap-4 rounded-[1.5rem] border border-slate-200/60 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800/60 dark:bg-slate-900/50">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] bg-indigo-50 text-indigo-600 shadow-inner dark:bg-indigo-950/40 dark:text-indigo-400">{icon}</div>
-            <div>
+            <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
-                <p className="mt-0.5 text-xl font-black tracking-tight text-slate-900 dark:text-white">{value}</p>
+                <p className="mt-0.5 break-words text-xl font-black tracking-tight text-slate-900 dark:text-white">{value}</p>
             </div>
         </div>
     );

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
+import { useAuth } from '../../../hooks/useAuth';
 import { useModuleAccess } from '../../../hooks/useModuleAccess';
 import {
   teamApi,
@@ -64,6 +65,7 @@ const TABS: { key: DetailTab; label: string; icon: React.ElementType }[] = [
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { hasAccess } = useModuleAccess();
   const [tab, setTab] = useState<DetailTab>('overview');
   const [loading, setLoading] = useState(true);
@@ -71,9 +73,11 @@ export default function MemberDetailPage() {
   const [roles, setRoles] = useState<TeamRoleItem[]>([]);
   const [activityItems, setActivityItems] = useState<TeamAuditItem[]>([]);
   const [editForm, setEditForm] = useState({ fullName: '', email: '', phone: '', notes: '', roleId: '' });
+  const [resetForm, setResetForm] = useState({ password: '', confirmPassword: '', forcePasswordResetRequired: false });
   const [saving, setSaving] = useState(false);
   const canCreateTeam = hasAccess('team_access_control', 'create');
   const canEditTeam = hasAccess('team_access_control', 'edit');
+  const canManageMemberPasswords = user?.role === 'superadmin' || user?.role === 'admin';
 
   async function loadMember() {
     if (!id) return;
@@ -166,7 +170,7 @@ export default function MemberDetailPage() {
       if (action === 'suspend') await teamApi.suspendMember(id);
       if (action === 'activate') await teamApi.activateMember(id);
       if (action === 'reset') {
-        const res = await teamApi.resetMemberPassword(id);
+        const res = await teamApi.resetMemberPassword(id, { mode: 'invite', forcePasswordResetRequired: true });
         toast.success(res.data.message || (res.data.inviteSent ? 'Password reset link sent' : 'Password reset prepared'));
         await loadMember();
         return;
@@ -176,6 +180,38 @@ export default function MemberDetailPage() {
       await loadMember();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Action failed');
+    }
+  }
+
+  async function handleDirectPasswordSet() {
+    if (!id) return;
+    if (!canManageMemberPasswords) {
+      toast.error('Only admin or super admin can set passwords directly');
+      return;
+    }
+    if (resetForm.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    if (resetForm.password !== resetForm.confirmPassword) {
+      toast.error('Password confirmation does not match');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await teamApi.resetMemberPassword(id, {
+        mode: 'manual',
+        password: resetForm.password,
+        forcePasswordResetRequired: resetForm.forcePasswordResetRequired,
+      });
+      toast.success(res.data.message || 'Password updated');
+      setResetForm({ password: '', confirmPassword: '', forcePasswordResetRequired: false });
+      await loadMember();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update password');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -219,7 +255,9 @@ export default function MemberDetailPage() {
                   <div className="flex flex-wrap gap-2">
                     <div className="flex items-center gap-1"><button onClick={() => handleAction('activate')} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"><UserCheck className="h-3.5 w-3.5" /> Activate</button></div>
                     <div className="flex items-center gap-1"><button onClick={() => handleAction('suspend')} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400"><UserX className="h-3.5 w-3.5" /> Suspend</button></div>
-                    <div className="flex items-center gap-1"><button onClick={() => handleAction('reset')} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"><KeyRound className="h-3.5 w-3.5" /> Reset Password</button></div>
+                    {canManageMemberPasswords && (
+                      <div className="flex items-center gap-1"><button onClick={() => handleAction('reset')} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"><KeyRound className="h-3.5 w-3.5" /> Send Reset Link</button></div>
+                    )}
                     <div className="flex items-center gap-1"><button onClick={() => handleAction('revoke')} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400"><Lock className="h-3.5 w-3.5" /> Revoke Sessions</button></div>
                   </div>
                 )}
@@ -360,7 +398,9 @@ export default function MemberDetailPage() {
                   <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Security Actions</h3>
                   {canCreateTeam && (
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => handleAction('reset')} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500"><KeyRound className="h-3.5 w-3.5" /> Reset Password</button>
+                      {canManageMemberPasswords && (
+                        <button onClick={() => handleAction('reset')} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500"><KeyRound className="h-3.5 w-3.5" /> Send Reset Link</button>
+                      )}
                       <button onClick={() => handleAction('revoke')} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500"><Lock className="h-3.5 w-3.5" /> Revoke All Sessions</button>
                       {member.status === 'suspended'
                         ? <button onClick={() => handleAction('activate')} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500"><UserCheck className="h-3.5 w-3.5" /> Activate Account</button>
@@ -369,6 +409,46 @@ export default function MemberDetailPage() {
                     </div>
                   )}
                 </div>
+                {canManageMemberPasswords && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Set Password Directly</h4>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Admin and super admin can assign a new password immediately. The member can still change it later from their own account.
+                    </p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <input
+                        className="admin-input"
+                        type="password"
+                        placeholder="New password"
+                        value={resetForm.password}
+                        onChange={(e) => setResetForm((current) => ({ ...current, password: e.target.value }))}
+                        minLength={8}
+                      />
+                      <input
+                        className="admin-input"
+                        type="password"
+                        placeholder="Confirm password"
+                        value={resetForm.confirmPassword}
+                        onChange={(e) => setResetForm((current) => ({ ...current, confirmPassword: e.target.value }))}
+                        minLength={8}
+                      />
+                      <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 md:col-span-2">
+                        <input
+                          type="checkbox"
+                          checked={resetForm.forcePasswordResetRequired}
+                          onChange={(e) => setResetForm((current) => ({ ...current, forcePasswordResetRequired: e.target.checked }))}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        Force password reset on next login
+                      </label>
+                      <div className="md:col-span-2">
+                        <button onClick={handleDirectPasswordSet} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/20">
+                          <KeyRound className="h-3.5 w-3.5" /> {saving ? 'Saving...' : 'Set Password'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

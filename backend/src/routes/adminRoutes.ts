@@ -686,7 +686,7 @@ router.get('/team/members/:id', authorize('superadmin', 'admin', 'moderator', 'e
 router.put('/team/members/:id', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamUpdateMember);
 router.post('/team/members/:id/suspend', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamSuspendMember);
 router.post('/team/members/:id/activate', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamActivateMember);
-router.post('/team/members/:id/reset-password', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), requireSecurityStepUp('team_access', 'member_reset_password'), teamResetPassword);
+router.post('/team/members/:id/reset-password', authorize('superadmin', 'admin'), requireSecurityStepUp('team_access', 'member_reset_password'), teamResetPassword);
 router.post('/team/members/:id/revoke-sessions', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), requireSecurityStepUp('team_access', 'member_revoke_sessions'), teamRevokeSessions);
 router.post('/team/members/:id/resend-invite', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamResendInvite);
 
@@ -698,8 +698,8 @@ router.post('/team/roles/:id/duplicate', authorize('superadmin', 'admin', 'moder
 router.delete('/team/roles/:id', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), requireSecurityStepUp('team_access', 'role_delete'), teamDeleteRole);
 
 router.get('/team/permissions', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamGetPermissions);
-router.put('/team/permissions/roles/:id', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), requireSecurityStepUp('team_access', 'role_permissions_update'), teamUpdateRolePermissions);
-router.put('/team/permissions/members/:id/override', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamUpdateMemberOverride);
+router.put('/team/permissions/roles/:id', authorize('superadmin'), requireSecurityStepUp('team_access', 'role_permissions_update'), teamUpdateRolePermissions);
+router.put('/team/permissions/members/:id/override', authorize('superadmin'), teamUpdateMemberOverride);
 
 router.get('/team/approval-rules', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamGetApprovalRules);
 router.post('/team/approval-rules', authorize('superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'), teamCreateApprovalRule);

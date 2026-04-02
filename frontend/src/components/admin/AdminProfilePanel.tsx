@@ -106,6 +106,11 @@ const AdminProfilePanel: React.FC = () => {
 
     return (
         <div className="mx-auto max-w-6xl space-y-6 px-4 py-4 md:px-0">
+            {user?.mustChangePassword ? (
+                <section className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-100">
+                    Your account is flagged for a password reset. Update your password now before continuing with other admin actions.
+                </section>
+            ) : null}
             <section className="rounded-3xl border border-indigo-500/10 bg-slate-900/60 p-6 shadow-2xl shadow-slate-950/20">
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

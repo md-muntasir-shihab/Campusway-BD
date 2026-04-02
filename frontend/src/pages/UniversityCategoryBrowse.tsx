@@ -41,7 +41,7 @@ export default function UniversityCategoryBrowsePage() {
             title={categoryName || 'Category'}
             subtitle={`Showing all universities in ${categoryName || 'this category'}.`}
             hideCategoryTabs
-            cardVariant="modern"
+            cardVariant="classic"
         />
     );
 }

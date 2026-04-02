@@ -22,6 +22,7 @@ interface User {
     twoFactorEnabled?: boolean;
     twoFactorMethod?: string | null;
     passwordExpiresAt?: string | null;
+    mustChangePassword?: boolean;
     permissions?: {
         canEditExams: boolean;
         canManageStudents: boolean;

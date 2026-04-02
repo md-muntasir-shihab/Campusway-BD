@@ -149,6 +149,8 @@ export default function TeamAccessConsolePage() {
   const { user, isLoading: authLoading } = useAuth();
   const { hasAccess } = useModuleAccess();
   const view = useMemo(() => getViewFromPath(location.pathname), [location.pathname]);
+  const isSuperAdmin = user?.role === 'superadmin';
+  const canManageMemberPasswords = user?.role === 'superadmin' || user?.role === 'admin';
   const canCreateTeam = hasAccess('team_access_control', 'create');
   const canEditTeam = hasAccess('team_access_control', 'edit');
   const canDeleteTeam = hasAccess('team_access_control', 'delete');
@@ -173,8 +175,11 @@ export default function TeamAccessConsolePage() {
     phone: '',
     roleId: '',
     status: 'active',
+    passwordMode: 'manual' as 'manual' | 'invite',
+    password: '',
+    confirmPassword: '',
     mode: 'invite',
-    forcePasswordResetRequired: true,
+    forcePasswordResetRequired: false,
     notes: '',
   });
 
@@ -323,6 +328,17 @@ export default function TeamAccessConsolePage() {
   }, [view]);
 
   useEffect(() => {
+    if (canManageMemberPasswords) return;
+    setNewMember((current) => ({
+      ...current,
+      passwordMode: 'invite',
+      password: '',
+      confirmPassword: '',
+      forcePasswordResetRequired: true,
+    }));
+  }, [canManageMemberPasswords]);
+
+  useEffect(() => {
     if (authLoading || !user) {
       return;
     }
@@ -345,9 +361,53 @@ export default function TeamAccessConsolePage() {
 
   async function handleCreateMember() {
     try {
-      await teamApi.createMember(newMember);
+      if (!newMember.fullName.trim() || !newMember.email.trim() || !newMember.roleId) {
+        toast.error('Full name, email, and role are required');
+        return;
+      }
+      if (newMember.passwordMode === 'manual') {
+        if (!canManageMemberPasswords) {
+          toast.error('Only admin or super admin can set passwords directly');
+          return;
+        }
+        if (newMember.password.length < 8) {
+          toast.error('Password must be at least 8 characters');
+          return;
+        }
+        if (newMember.password !== newMember.confirmPassword) {
+          toast.error('Password confirmation does not match');
+          return;
+        }
+      }
+
+      await teamApi.createMember({
+        fullName: newMember.fullName,
+        email: newMember.email,
+        username: newMember.username,
+        phone: newMember.phone,
+        roleId: newMember.roleId,
+        status: newMember.status,
+        passwordMode: newMember.passwordMode,
+        password: newMember.passwordMode === 'manual' ? newMember.password : undefined,
+        mode: newMember.passwordMode === 'invite' ? (newMember.mode as 'invite' | 'without_send' | 'draft') : 'without_send',
+        forcePasswordResetRequired: newMember.forcePasswordResetRequired,
+        notes: newMember.notes,
+      });
       toast.success('Team member created');
-      setNewMember({ ...newMember, fullName: '', email: '', username: '', phone: '', notes: '' });
+      setNewMember({
+        fullName: '',
+        email: '',
+        username: '',
+        phone: '',
+        roleId: '',
+        status: 'active',
+        passwordMode: 'manual',
+        password: '',
+        confirmPassword: '',
+        mode: 'invite',
+        forcePasswordResetRequired: false,
+        notes: '',
+      });
       await loadMembers();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to create member');
@@ -368,6 +428,10 @@ export default function TeamAccessConsolePage() {
   async function handleSaveMatrix() {
     if (!selectedRoleId) {
       toast.error('Select a role first');
+      return;
+    }
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can edit the permissions matrix');
       return;
     }
     try {
@@ -392,7 +456,7 @@ export default function TeamAccessConsolePage() {
     try {
       if (action === 'suspend') await teamApi.suspendMember(memberId);
       if (action === 'activate') await teamApi.activateMember(memberId);
-      if (action === 'reset') await teamApi.resetMemberPassword(memberId);
+      if (action === 'reset') await teamApi.resetMemberPassword(memberId, { mode: 'invite', forcePasswordResetRequired: true });
       if (action === 'revoke') await teamApi.revokeMemberSessions(memberId);
       if (action === 'resend') await teamApi.resendMemberInvite(memberId);
       toast.success('Action completed');
@@ -456,11 +520,49 @@ export default function TeamAccessConsolePage() {
                       <option value="">Select role</option>
                       {roles.map((role) => <option key={role._id} value={role._id}>{role.name}</option>)}
                     </select>
-                    <select className="admin-input" value={newMember.mode} onChange={(e) => setNewMember((v) => ({ ...v, mode: e.target.value }))}>
-                      <option value="invite">Create &amp; Send Invite</option>
-                      <option value="without_send">Create Without Sending</option>
-                      <option value="draft">Save Draft Invite</option>
+                    <select className="admin-input" value={newMember.passwordMode} onChange={(e) => setNewMember((v) => ({
+                      ...v,
+                      passwordMode: e.target.value as 'manual' | 'invite',
+                      forcePasswordResetRequired: e.target.value === 'invite',
+                    }))}>
+                      {canManageMemberPasswords && <option value="manual">Set Password Manually</option>}
+                      <option value="invite">Send Set-Password Invite</option>
                     </select>
+                    {newMember.passwordMode === 'manual' ? (
+                      <>
+                        <input
+                          className="admin-input"
+                          type="password"
+                          placeholder="Password"
+                          value={newMember.password}
+                          onChange={(e) => setNewMember((v) => ({ ...v, password: e.target.value }))}
+                          minLength={8}
+                        />
+                        <input
+                          className="admin-input"
+                          type="password"
+                          placeholder="Confirm password"
+                          value={newMember.confirmPassword}
+                          onChange={(e) => setNewMember((v) => ({ ...v, confirmPassword: e.target.value }))}
+                          minLength={8}
+                        />
+                      </>
+                    ) : (
+                      <select className="admin-input" value={newMember.mode} onChange={(e) => setNewMember((v) => ({ ...v, mode: e.target.value as 'invite' | 'without_send' | 'draft' }))}>
+                        <option value="invite">Create &amp; Send Invite</option>
+                        <option value="without_send">Create Without Sending</option>
+                        <option value="draft">Save Draft Invite</option>
+                      </select>
+                    )}
+                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 md:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={newMember.forcePasswordResetRequired}
+                        onChange={(e) => setNewMember((v) => ({ ...v, forcePasswordResetRequired: e.target.checked }))}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      Force password reset on first login
+                    </label>
                     <textarea className="admin-input md:col-span-2" rows={2} placeholder="Notes" value={newMember.notes} onChange={(e) => setNewMember((v) => ({ ...v, notes: e.target.value }))} />
                     <div className="flex gap-2 md:col-span-2">
                       <button onClick={handleCreateMember} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"><Send className="h-4 w-4" /> Create</button>
@@ -493,7 +595,9 @@ export default function TeamAccessConsolePage() {
                             <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
                               <button onClick={() => { handleMemberAction(member._id, 'activate'); setActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"><UserCheck className="h-3.5 w-3.5 text-emerald-600" /> Activate</button>
                               <button onClick={() => { handleMemberAction(member._id, 'suspend'); setActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"><UserX className="h-3.5 w-3.5 text-amber-600" /> Suspend</button>
-                              <button onClick={() => { handleMemberAction(member._id, 'reset'); setActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"><KeyRound className="h-3.5 w-3.5 text-indigo-600" /> Reset Password</button>
+                              {canManageMemberPasswords && (
+                                <button onClick={() => { handleMemberAction(member._id, 'reset'); setActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"><KeyRound className="h-3.5 w-3.5 text-indigo-600" /> Send Reset Link</button>
+                              )}
                               <button onClick={() => { handleMemberAction(member._id, 'revoke'); setActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"><Lock className="h-3.5 w-3.5 text-rose-600" /> Revoke Sessions</button>
                               <button onClick={() => { handleMemberAction(member._id, 'resend'); setActionMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"><Mail className="h-3.5 w-3.5 text-cyan-600" /> Resend Invite</button>
                             </div>
@@ -614,12 +718,17 @@ export default function TeamAccessConsolePage() {
                 <option value="">Select role</option>
                 {roles.map((role) => <option key={role._id} value={role._id}>{role.name}</option>)}
               </select>
-              {canEditTeam && (
+              {isSuperAdmin && (
                 <>
                   <button className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500" onClick={handleSaveMatrix}><CheckCircle2 className="h-4 w-4" /> Save</button>
                   <button className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800" onClick={() => { const full: ModulePermissionMap = {}; matrixModules.forEach(m => { full[m] = {}; matrixActions.forEach(a => { full[m][a] = true; }); }); setMatrix(full); }}>Enable All</button>
                   <button className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800" onClick={() => setMatrix(emptyPermissions(matrixModules))}>Disable All</button>
                 </>
+              )}
+              {!isSuperAdmin && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                  Permissions matrix is view-only for non-superadmin accounts.
+                </div>
               )}
             </div>
 
@@ -642,7 +751,7 @@ export default function TeamAccessConsolePage() {
                             type="checkbox"
                             className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
                             checked={Boolean(matrix[moduleName]?.[action])}
-                            disabled={!canEditTeam}
+                            disabled={!isSuperAdmin}
                             onChange={(e) => {
                               setMatrix((prev) => ({
                                 ...prev,
@@ -656,7 +765,7 @@ export default function TeamAccessConsolePage() {
                         </td>
                       ))}
                       <td className="px-2 py-2 text-center">
-                        {canEditTeam ? (
+                        {isSuperAdmin ? (
                           <button className="text-[10px] text-indigo-600 hover:underline dark:text-indigo-400" onClick={() => { const newMap = { ...matrix }; const allOn = matrixActions.every(a => matrix[moduleName]?.[a]); newMap[moduleName] = {}; matrixActions.forEach(a => { newMap[moduleName][a] = !allOn; }); setMatrix(newMap); }}>
                             {matrixActions.every(a => matrix[moduleName]?.[a]) ? 'None' : 'All'}
                           </button>

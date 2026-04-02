@@ -148,7 +148,11 @@ export default function StudentManagementDetailPage() {
   const extendSubMut = useMutation({ mutationFn: () => extendSubscription(id!, parseInt(extendDays)), onSuccess: () => { refetch(); flash('Subscription extended'); setExtendModal(false); } });
   const expireSubMut = useMutation({ mutationFn: () => expireSubscriptionNow(id!), onSuccess: () => { refetch(); flash('Subscription expired'); } });
   const toggleAutoMut = useMutation({ mutationFn: () => toggleAutoRenew(id!), onSuccess: () => { refetch(); flash('Auto-renew toggled'); } });
-  const setPassMut = useMutation({ mutationFn: () => adminSetPassword(id!, { newPassword: newPass }), onSuccess: () => { flash('Password reset link sent'); setSetPassModal(false); setNewPass(''); } });
+  const setPassMut = useMutation({
+    mutationFn: () => adminSetPassword(id!, { newPassword: newPass }),
+    onSuccess: () => { flash('Password updated'); setSetPassModal(false); setNewPass(''); },
+    onError: (err: any) => flash(String(err?.response?.data?.message || 'Failed to set password'), false),
+  });
   const resendMut = useMutation({ mutationFn: () => resendAccountInfo(id!, { channels: ['email'] }), onSuccess: () => flash('Password setup link sent') });
   const forceResetMut = useMutation({ mutationFn: () => toggleForceReset(id!, { enabled: !student?.security?.forcePasswordResetRequired }), onSuccess: () => { refetch(); flash('Force reset toggled'); } });
   const revokeMut = useMutation({ mutationFn: () => revokeStudentSessions(id!), onSuccess: () => flash('Sessions revoked') });

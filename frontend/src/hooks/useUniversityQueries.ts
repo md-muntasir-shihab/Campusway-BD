@@ -71,13 +71,14 @@ export interface UniversityListParams {
   sort?: string;
   page?: number;
   limit?: number;
+  enabled?: boolean;
 }
 
 export function useUniversities(params: UniversityListParams) {
-  const { category, clusterGroup, q, sort = 'name_asc', page = 1, limit = 500 } = params;
+  const { category, clusterGroup, q, sort = 'name_asc', page = 1, limit = 500, enabled = true } = params;
   return useQuery<UniversityCard[]>({
     queryKey: ['universities', { category, clusterGroup: clusterGroup || '', q: q || '', sort, page, limit }],
-    enabled: Boolean(category),
+    enabled: enabled && Boolean(category),
     placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       if (USE_MOCK) {

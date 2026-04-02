@@ -51,6 +51,26 @@ export interface TeamMemberItem {
   forcePasswordResetRequired?: boolean;
 }
 
+export interface TeamCreateMemberPayload {
+  fullName: string;
+  email: string;
+  username?: string;
+  phone?: string;
+  roleId: string;
+  status?: TeamStatus | string;
+  mode?: 'invite' | 'without_send' | 'draft';
+  passwordMode?: 'manual' | 'invite';
+  password?: string;
+  forcePasswordResetRequired?: boolean;
+  notes?: string;
+}
+
+export interface TeamResetPasswordPayload {
+  password?: string;
+  mode?: 'manual' | 'invite';
+  forcePasswordResetRequired?: boolean;
+}
+
 export interface TeamApprovalRuleItem {
   _id: string;
   module: string;
@@ -117,12 +137,12 @@ const BASE = `/${ADMIN_PATH}`;
 
 export const teamApi = {
   getMembers: (params?: Record<string, unknown>) => api.get<{ items: TeamMemberItem[] }>(`${BASE}/team/members`, { params }),
-  createMember: (payload: Record<string, unknown>) => api.post(`${BASE}/team/members`, payload),
+  createMember: (payload: TeamCreateMemberPayload) => api.post(`${BASE}/team/members`, payload),
   getMemberById: (id: string) => api.get(`${BASE}/team/members/${id}`),
   updateMember: (id: string, payload: Record<string, unknown>) => api.put(`${BASE}/team/members/${id}`, payload),
   suspendMember: (id: string) => api.post(`${BASE}/team/members/${id}/suspend`),
   activateMember: (id: string) => api.post(`${BASE}/team/members/${id}/activate`),
-  resetMemberPassword: (id: string) => api.post<{ inviteSent?: boolean; message?: string }>(`${BASE}/team/members/${id}/reset-password`),
+  resetMemberPassword: (id: string, payload?: TeamResetPasswordPayload) => api.post<{ inviteSent?: boolean; message?: string }>(`${BASE}/team/members/${id}/reset-password`, payload),
   revokeMemberSessions: (id: string) => api.post(`${BASE}/team/members/${id}/revoke-sessions`),
   resendMemberInvite: (id: string) => api.post(`${BASE}/team/members/${id}/resend-invite`),
 

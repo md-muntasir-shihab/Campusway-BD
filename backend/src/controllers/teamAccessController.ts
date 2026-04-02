@@ -34,6 +34,40 @@ function randomPassword(): string {
     return crypto.randomBytes(8).toString('hex');
 }
 
+function canManageTeamPasswords(role: unknown): boolean {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'superadmin' || normalized === 'admin';
+}
+
+function validateManagedPassword(value: unknown): string {
+    return String(value || '').trim();
+}
+
+function applyManagedPasswordState(
+    user: InstanceType<typeof User>,
+    passwordHash: string,
+    adminId: string | undefined,
+    forcePasswordResetRequired: boolean,
+): void {
+    user.password = passwordHash;
+    user.passwordSetByAdminId = adminId && mongoose.Types.ObjectId.isValid(adminId)
+        ? new mongoose.Types.ObjectId(adminId)
+        : undefined;
+    user.passwordLastChangedAtUTC = new Date();
+    user.passwordChangedByType = 'admin';
+    user.forcePasswordResetRequired = forcePasswordResetRequired;
+    user.mustChangePassword = forcePasswordResetRequired;
+    user.password_updated_at = new Date();
+    user.passwordExpiresAt = null;
+}
+
+async function terminateTeamMemberSessions(memberId: string): Promise<void> {
+    await ActiveSession.updateMany(
+        { user_id: asObjectId(memberId), status: 'active' },
+        { $set: { status: 'terminated', terminated_reason: 'admin_password_reset', terminated_at: new Date() } },
+    );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -290,6 +324,7 @@ export async function teamGetMembers(req: Request, res: Response): Promise<void>
 export async function teamCreateMember(req: Request, res: Response): Promise<void> {
     try {
         await ensureDefaultTeamRoles();
+        const authReq = req as AuthRequest;
         const body = req.body as Record<string, unknown>;
         const fullName = String(body.fullName || '').trim();
         const email = normalizeEmail(body.email);
@@ -299,7 +334,21 @@ export async function teamCreateMember(req: Request, res: Response): Promise<voi
         const mode = String(body.mode || 'invite').trim();
         const status = String(body.status || 'active').trim();
         const notes = String(body.notes || '').trim();
-        const requirePasswordReset = Boolean(body.forcePasswordResetRequired ?? true);
+        const passwordMode = String(body.passwordMode || (body.password ? 'manual' : 'invite')).trim().toLowerCase();
+        const directPassword = validateManagedPassword(body.password);
+        const useDirectPassword = passwordMode === 'manual';
+
+        if (useDirectPassword && !canManageTeamPasswords(authReq.user?.role)) {
+            res.status(403).json({ message: 'Only admin or super admin can set passwords directly' });
+            return;
+        }
+
+        if (useDirectPassword && directPassword.length < 8) {
+            res.status(400).json({ message: 'Password must be at least 8 characters' });
+            return;
+        }
+
+        const requirePasswordReset = Boolean(body.forcePasswordResetRequired ?? (useDirectPassword ? false : true));
 
         if (!fullName || !email || !username || !mongoose.Types.ObjectId.isValid(roleId)) {
             res.status(400).json({ message: 'fullName, email, username and roleId are required' });
@@ -318,7 +367,7 @@ export async function teamCreateMember(req: Request, res: Response): Promise<voi
             return;
         }
 
-        const passwordHash = await bcrypt.hash(randomPassword(), 10);
+        const passwordHash = await bcrypt.hash(useDirectPassword ? directPassword : randomPassword(), 10);
 
         const user = await User.create({
             full_name: fullName,
@@ -330,42 +379,56 @@ export async function teamCreateMember(req: Request, res: Response): Promise<voi
             teamRoleId: role._id,
             status,
             forcePasswordResetRequired: requirePasswordReset,
+            mustChangePassword: requirePasswordReset,
+            passwordSetByAdminId: authReq.user?._id && mongoose.Types.ObjectId.isValid(String(authReq.user._id))
+                ? new mongoose.Types.ObjectId(String(authReq.user._id))
+                : null,
+            passwordLastChangedAtUTC: new Date(),
+            passwordChangedByType: 'admin',
+            password_updated_at: new Date(),
+            passwordExpiresAt: null,
             notes,
         });
 
-        const authReq = req as AuthRequest;
         const shouldSendInvite = mode !== 'draft' && mode !== 'without_send';
-        const inviteSent = shouldSendInvite
-            ? await issueMemberSetPasswordInvite(user, authReq.user?._id)
+        const inviteSent = !useDirectPassword && shouldSendInvite
+            ? await issueMemberSetPasswordInvite(user, authReq.user?._id ? String(authReq.user._id) : undefined)
             : false;
-        const inviteStatus = mode === 'draft' ? 'draft' : inviteSent ? 'sent' : 'pending';
-        await TeamInvite.create({
-            memberId: user._id,
-            fullName,
-            email,
-            phone,
-            roleId: role._id,
-            status: inviteStatus,
-            invitedBy: authReq.user?._id,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            notes,
-        });
+        if (!useDirectPassword) {
+            const inviteStatus = mode === 'draft' ? 'draft' : inviteSent ? 'sent' : 'pending';
+            await TeamInvite.create({
+                memberId: user._id,
+                fullName,
+                email,
+                phone,
+                roleId: role._id,
+                status: inviteStatus,
+                invitedBy: authReq.user?._id,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                notes,
+            });
+        }
 
         await writeAudit(req, 'member_created', 'team_member', String(user._id), undefined, {
             roleId,
             role: role.slug,
             status,
             inviteMode: mode,
+            passwordMode: useDirectPassword ? 'manual' : 'invite',
+            forcePasswordResetRequired: requirePasswordReset,
             inviteSent,
         });
 
         res.status(201).json({
-            message: inviteSent ? 'Team member created and invite sent' : 'Team member created',
+            message: useDirectPassword
+                ? 'Team member created with a direct password'
+                : inviteSent ? 'Team member created and invite sent' : 'Team member created',
             item: {
                 _id: user._id,
                 fullName: user.full_name,
                 email: user.email,
                 roleId,
+                passwordMode: useDirectPassword ? 'manual' : 'invite',
                 inviteSent,
             },
         });
@@ -499,23 +562,46 @@ async function teamUpdateStatus(req: Request, res: Response, status: string, act
 
 export async function teamResetPassword(req: Request, res: Response): Promise<void> {
     try {
+        const authReq = req as AuthRequest;
+        const body = req.body as Record<string, unknown>;
         const member = await User.findById(req.params.id).select('+password');
         if (!member) {
             res.status(404).json({ message: 'Member not found' });
             return;
         }
-        member.password = await bcrypt.hash(randomPassword(), 10);
-        member.forcePasswordResetRequired = true;
-        member.mustChangePassword = true;
+
+        const mode = String(body.mode || (body.password ? 'manual' : 'invite')).trim().toLowerCase();
+        const directPassword = validateManagedPassword(body.password);
+        const useDirectPassword = mode === 'manual';
+
+        if (useDirectPassword && directPassword.length < 8) {
+            res.status(400).json({ message: 'Password must be at least 8 characters' });
+            return;
+        }
+
+        if (useDirectPassword) {
+            const forcePasswordResetRequired = Boolean(body.forcePasswordResetRequired ?? false);
+            const passwordHash = await bcrypt.hash(directPassword, 10);
+            applyManagedPasswordState(member, passwordHash, authReq.user?._id ? String(authReq.user._id) : undefined, forcePasswordResetRequired);
+        } else {
+            const passwordHash = await bcrypt.hash(randomPassword(), 10);
+            applyManagedPasswordState(member, passwordHash, authReq.user?._id ? String(authReq.user._id) : undefined, true);
+        }
+
         await member.save();
-        const authReq = req as AuthRequest;
-        const inviteSent = await issueMemberSetPasswordInvite(member, authReq.user?._id);
+        await terminateTeamMemberSessions(String(req.params.id));
+        const inviteSent = !useDirectPassword
+            ? await issueMemberSetPasswordInvite(member, authReq.user?._id ? String(authReq.user._id) : undefined)
+            : false;
         await writeAudit(req, 'member_password_reset', 'team_member', req.params.id, undefined, {
-            forcePasswordResetRequired: true,
+            mode: useDirectPassword ? 'manual' : 'invite',
+            forcePasswordResetRequired: member.forcePasswordResetRequired,
             inviteSent,
         });
         res.json({
-            message: inviteSent ? 'Password reset link sent' : 'Password reset prepared',
+            message: useDirectPassword
+                ? (member.forcePasswordResetRequired ? 'Password updated and force reset enabled' : 'Password updated')
+                : inviteSent ? 'Password reset link sent' : 'Password reset prepared',
             inviteSent,
         });
     } catch (error) {

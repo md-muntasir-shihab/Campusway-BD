@@ -6,7 +6,6 @@ import toast from 'react-hot-toast';
 import { normalizeExternalUrl } from '../../utils/url';
 import { trackAnalyticsEvent, type HomeAnimationLevel, type HomeUniversityCardConfig } from '../../services/api';
 import DaysLeftChip from './DaysLeftChip';
-import { DeadlineProgress } from '../home/CountdownChip';
 import UniversityLogo from './UniversityLogo';
 import type { UrgencyState } from '../../lib/apiClient';
 import {
@@ -151,33 +150,6 @@ function shortenAddress(address: string): string {
     return `${address.slice(0, 41)}...`;
 }
 
-function getCompactMetaTextClass(value: string): string {
-    const length = pickText(value).length;
-    if (length >= 40) return 'text-[10px] leading-4';
-    if (length >= 26) return 'text-[10.5px] leading-4';
-    if (length >= 18) return 'text-[11px] leading-4';
-    return 'text-xs leading-4';
-}
-
-function getContactValueClass(value: string): string {
-    const length = pickText(value).length;
-    if (length >= 34) return 'text-[10px] leading-4';
-    if (length >= 24) return 'text-[11px] leading-4';
-    return 'text-[12px] leading-4';
-}
-
-function buildPhoneHref(phone?: string): string {
-    const value = String(phone || '').trim();
-    if (!value) return '';
-    return `tel:${value.replace(/\s+/g, '')}`;
-}
-
-function buildEmailHref(email?: string): string {
-    const value = String(email || '').trim();
-    if (!value) return '';
-    return `mailto:${value}`;
-}
-
 function getClassicStatusLabel(urgencyState: UrgencyState): string {
     if (urgencyState === 'closing_soon') return 'Closing soon';
     if (urgencyState === 'open') return 'Open';
@@ -251,12 +223,10 @@ const UniversityCard = memo(function UniversityCard({
     );
     const appDurationDays = calculateApplicationDurationDays(startRaw, endRaw);
     const contactNumber = pickText(university.contactNumber);
-    const phoneHref = buildPhoneHref(contactNumber);
     const establishedYear = pickText(university.establishedYear || university.established);
     const email = pickText(university.email);
-    const emailHref = buildEmailHref(email);
-    const fullAddress = pickText(university.address);
-    const address = shortenAddress(pickText(university.address));
+    const rawAddress = pickText(university.address);
+    const address = shortenAddress(rawAddress);
     const seats = {
         total: normalizeSeat(university.totalSeats),
         science: normalizeSeat(university.scienceSeats),
@@ -269,13 +239,9 @@ const UniversityCard = memo(function UniversityCard({
     const examCenterPreview = Array.isArray(university.examCentersPreview)
         ? university.examCentersPreview.map((value: unknown) => pickText(value)).filter(Boolean).slice(0, 3)
         : [];
-    const categoryTextClass = getCompactMetaTextClass(category);
-    const clusterDisplay = clusterGroup || 'Cluster N/A';
-    const clusterTextClass = getCompactMetaTextClass(clusterDisplay);
-    const displayAddress = mergedConfig.showAddress ? address : 'Address N/A';
-    const addressValueClass = getContactValueClass(displayAddress);
-    const phoneValueClass = getContactValueClass(contactNumber || 'N/A');
-    const emailValueClass = getContactValueClass(email || 'N/A');
+    const phoneLink = contactNumber ? `tel:${contactNumber.replace(/\s+/g, '')}` : '';
+    const emailLink = email ? `mailto:${email}` : '';
+    const showStatusPulse = appMeta.urgencyState !== 'closed' && appMeta.urgencyState !== 'unknown';
 
     const sendEvent = (eventName: string, meta: Record<string, unknown>) => {
         void trackAnalyticsEvent({
@@ -286,13 +252,22 @@ const UniversityCard = memo(function UniversityCard({
         }).catch(() => undefined);
     };
 
-    const variants = getAnimationVariants(animationLevel);
-    const copyAddress = () => {
-        if (!fullAddress) return;
-        void navigator.clipboard.writeText(fullAddress)
-            .then(() => toast.success('Address copied'))
-            .catch(() => toast.error('Could not copy address'));
+    const copyAddress = async () => {
+        if (!rawAddress) return;
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(rawAddress);
+            } else {
+                throw new Error('Clipboard API unavailable');
+            }
+            toast.success('Address copied');
+            sendEvent('university_address_copy', { universityId: id, slug, address: rawAddress });
+        } catch {
+            toast.error('Could not copy address');
+        }
     };
+
+    const variants = getAnimationVariants(animationLevel);
 
     const detailsButton = (
         <Link
@@ -349,26 +324,28 @@ const UniversityCard = memo(function UniversityCard({
             <motion.article
                 variants={variants}
                 whileHover={animationLevel === 'off' ? undefined : { y: -5, transition: { duration: 0.2 } }}
-                className={`group relative flex h-full flex-col overflow-hidden rounded-[24px] border border-white/20 bg-white/70 shadow-lg backdrop-blur-xl transition-all duration-300 hover:shadow-2xl dark:border-white/10 dark:bg-slate-900/60 ${className}`}
+                className={`group relative flex flex-col overflow-hidden rounded-[24px] border border-white/20 bg-white/70 shadow-lg backdrop-blur-xl transition-all duration-300 hover:shadow-2xl dark:border-white/10 dark:bg-slate-900/60 ${className}`}
                 data-university-card-id={id}
                 data-university-category={category}
                 data-university-cluster={clusterGroup}
                 data-university-card-variant="classic"
             >
                 <div
-                    className={`absolute right-4 top-4 z-[1] flex h-6 w-6 items-center justify-center rounded-full shadow-sm ring-1 backdrop-blur-sm ${classicStatusIndicatorTone}`}
+                    className={`pointer-events-none absolute right-4 top-4 z-[1] flex h-6 w-6 items-center justify-center rounded-full shadow-sm ring-1 backdrop-blur-sm ${classicStatusIndicatorTone}`}
                     title={classicStatusLabel}
                     data-testid="university-card-status-indicator"
                     data-university-status={appMeta.urgencyState}
                 >
                     <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-55" />
+                        {showStatusPulse ? (
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-55" />
+                        ) : null}
                         <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
                     </span>
                 </div>
                 <div className="space-y-4 p-5">
-                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-4">
-                        <div className="relative flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:h-[4.5rem] sm:w-[4.5rem] sm:rounded-[1.4rem] sm:p-2.5">
+                    <div className="flex items-start gap-4">
+                        <div className="relative flex h-[4.75rem] w-[4.75rem] shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white p-2.5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                             <UniversityLogo
                                 name={name}
                                 shortForm={shortForm}
@@ -378,192 +355,125 @@ const UniversityCard = memo(function UniversityCard({
                             />
                         </div>
 
-                        <div className="min-w-0 space-y-3 pr-8 sm:pr-10">
-                            <h3 className={`${universityNameSizeClass} line-clamp-2 min-h-[2.95rem] break-words font-bold text-slate-900 dark:text-white sm:min-h-[3.15rem]`} title={name}>
+                        <div className="min-w-0 flex-1 pr-8 sm:pr-10">
+                            <Link
+                                to={detailsUrl}
+                                onClick={() => sendEvent('university_details_click', { universityId: id, slug, via: 'title' })}
+                                className={`block ${universityNameSizeClass} line-clamp-2 font-bold leading-tight text-slate-900 transition hover:text-primary dark:text-white dark:hover:text-cyan-300`}
+                                title={name}
+                            >
                                 {name}
-                            </h3>
+                            </Link>
 
-                            <div className="grid grid-cols-2 gap-2">
-                                <span className={`inline-flex min-h-[2rem] min-w-0 items-center justify-center rounded-full bg-slate-100 px-2.5 py-1 text-center ${shortFormClass} font-bold uppercase tracking-[0.14em] text-slate-700 dark:bg-slate-800 dark:text-slate-200`} title={shortForm && shortForm !== 'N/A' ? shortForm : 'Short form unavailable'}>
-                                    <span className="truncate">{shortForm && shortForm !== 'N/A' ? shortForm : 'Short N/A'}</span>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {shortForm && shortForm !== 'N/A' && (
+                                    <span className={`inline-flex rounded-full bg-slate-100 px-2.5 py-1 ${shortFormClass} font-bold uppercase tracking-[0.16em] text-slate-700 dark:bg-slate-800 dark:text-slate-200`} title={shortForm}>
+                                        {shortForm}
+                                    </span>
+                                )}
+                                <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold ${classicStatusTone}`}>
+                                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                                    {classicStatusLabel}
                                 </span>
-                                <span className="inline-flex min-h-[2rem] min-w-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
-                                    <span className="truncate">{establishedYear ? `Est. ${establishedYear}` : 'Est. N/A'}</span>
+                                {establishedYear ? (
+                                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+                                        Est. {establishedYear}
+                                    </span>
+                                ) : null}
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+                                    {category}
                                 </span>
+                                {clusterGroup ? (
+                                    clusterUrl ? (
+                                        <Link
+                                            to={clusterUrl}
+                                            className="inline-flex items-center gap-1 rounded-full border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-purple-700 transition hover:bg-purple-500/20 dark:text-purple-200"
+                                        >
+                                            <Layers3 className="h-3 w-3" />
+                                            <span className="max-w-[13rem] truncate">{clusterGroup}</span>
+                                        </Link>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-200">
+                                            <Layers3 className="h-3 w-3" />
+                                            <span className="max-w-[13rem] truncate">{clusterGroup}</span>
+                                        </span>
+                                    )
+                                ) : null}
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid gap-3">
-                        <div className="grid grid-cols-2 gap-2">
-                            <span
-                                className="inline-flex min-h-[3rem] min-w-0 items-center rounded-2xl border border-blue-500/15 bg-blue-50/90 px-3 py-2 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200"
-                                title={category}
-                            >
-                                <span className={`line-clamp-2 break-words ${categoryTextClass} font-bold uppercase tracking-[0.08em]`}>{category}</span>
-                            </span>
-                            {clusterGroup ? (
-                                clusterUrl ? (
-                                    <Link
-                                        to={clusterUrl}
-                                        className="inline-flex min-h-[3rem] min-w-0 items-center gap-1.5 rounded-2xl border border-purple-500/20 bg-purple-500/10 px-3 py-2 text-purple-700 transition hover:bg-purple-500/20 dark:text-purple-200"
-                                        title={clusterGroup}
-                                    >
-                                        <Layers3 className="h-3.5 w-3.5 shrink-0" />
-                                        <span className={`line-clamp-2 break-words ${clusterTextClass} font-bold uppercase tracking-[0.08em]`}>{clusterGroup}</span>
-                                    </Link>
-                                ) : (
-                                    <span
-                                        className="inline-flex min-h-[3rem] min-w-0 items-center gap-1.5 rounded-2xl border border-purple-500/20 bg-purple-500/10 px-3 py-2 text-purple-700 dark:text-purple-200"
-                                        title={clusterGroup}
-                                    >
-                                        <Layers3 className="h-3.5 w-3.5 shrink-0" />
-                                        <span className={`line-clamp-2 break-words ${clusterTextClass} font-bold uppercase tracking-[0.08em]`}>{clusterGroup}</span>
-                                    </span>
-                                )
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-[1.35rem] border border-slate-200/80 bg-white/90 px-3.5 py-3 dark:border-slate-800 dark:bg-slate-950/40">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Location</p>
+                            {mergedConfig.showAddress && rawAddress ? (
+                                <button
+                                    type="button"
+                                    onClick={copyAddress}
+                                    className="mt-2 flex w-full items-start gap-2 text-left text-[13px] text-slate-600 transition hover:text-primary dark:text-slate-300 dark:hover:text-cyan-300"
+                                    title="Copy address"
+                                >
+                                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                    <span className="line-clamp-2 break-words">{address}</span>
+                                </button>
                             ) : (
-                                <span className="inline-flex min-h-[3rem] min-w-0 items-center rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-slate-400 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-500">
-                                    <span className={`line-clamp-2 break-words ${clusterTextClass} font-semibold uppercase tracking-[0.14em]`}>Cluster N/A</span>
-                                </span>
+                                <div className="mt-2 flex items-start gap-2 text-[13px] text-slate-600 dark:text-slate-300">
+                                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                    <span className="line-clamp-2">N/A</span>
+                                </div>
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                type="button"
-                                onClick={copyAddress}
-                                disabled={!mergedConfig.showAddress || !fullAddress}
-                                className="group/contact col-span-2 flex min-h-[4.25rem] min-w-0 items-start gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 text-left transition hover:border-primary/30 hover:bg-slate-50 disabled:cursor-default disabled:opacity-75 disabled:hover:border-slate-200/80 disabled:hover:bg-white/90 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-primary/40 dark:hover:bg-slate-950/60"
-                                title={mergedConfig.showAddress && fullAddress ? `${fullAddress} (click to copy)` : 'Address unavailable'}
-                            >
-                                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 transition group-hover/contact:text-primary dark:text-slate-500 group-hover/contact:dark:text-primary" />
-                                <span className="min-w-0">
-                                    <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Address</span>
-                                    <span className={`mt-1 block line-clamp-2 break-words font-medium text-slate-600 dark:text-slate-300 ${addressValueClass}`}>{displayAddress}</span>
-                                </span>
-                            </button>
-
-                            {phoneHref ? (
-                                <a
-                                    href={phoneHref}
-                                    className="group/contact flex min-h-[4.1rem] min-w-0 items-start gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 transition hover:border-primary/30 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-primary/40 dark:hover:bg-slate-950/60"
-                                    title={contactNumber}
-                                >
-                                    <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 transition group-hover/contact:text-primary dark:text-slate-500 group-hover/contact:dark:text-primary" />
-                                    <span className="min-w-0">
-                                        <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Call</span>
-                                        <span className={`mt-1 block line-clamp-2 break-all font-medium text-slate-600 dark:text-slate-300 ${phoneValueClass}`}>{contactNumber}</span>
-                                    </span>
-                                </a>
-                            ) : (
-                                <span className="flex min-h-[4.1rem] min-w-0 items-start gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 text-slate-400 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-500">
-                                    <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                    <span className="min-w-0">
-                                        <span className="block text-[10px] font-bold uppercase tracking-[0.16em]">Call</span>
-                                        <span className={`mt-1 block line-clamp-2 break-all font-medium ${phoneValueClass}`}>N/A</span>
-                                    </span>
-                                </span>
-                            )}
-
-                            {mergedConfig.showEmail ? (
-                                emailHref ? (
+                        <div className="rounded-[1.35rem] border border-slate-200/80 bg-white/90 px-3.5 py-3 dark:border-slate-800 dark:bg-slate-950/40">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Contact</p>
+                            <div className="mt-2 space-y-1.5 text-[12px] text-slate-600 dark:text-slate-300">
+                                {phoneLink ? (
                                     <a
-                                        href={emailHref}
-                                        className="group/contact flex min-h-[4.1rem] min-w-0 items-start gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 transition hover:border-primary/30 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-primary/40 dark:hover:bg-slate-950/60"
-                                        title={email}
+                                        href={phoneLink}
+                                        className="flex min-h-[1rem] items-center gap-1.5 transition hover:text-primary dark:hover:text-cyan-300"
+                                        onClick={() => sendEvent('university_phone_click', { universityId: id, slug, phone: contactNumber })}
                                     >
-                                        <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 transition group-hover/contact:text-primary dark:text-slate-500 group-hover/contact:dark:text-primary" />
-                                        <span className="min-w-0">
-                                            <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Email</span>
-                                            <span className={`mt-1 block line-clamp-2 break-all font-medium text-slate-500 dark:text-slate-400 ${emailValueClass}`}>{email}</span>
-                                        </span>
+                                        <Phone className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">{contactNumber}</span>
                                     </a>
                                 ) : (
-                                    <span className="flex min-h-[4.1rem] min-w-0 items-start gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 text-slate-400 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-500">
-                                        <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                        <span className="min-w-0">
-                                            <span className="block text-[10px] font-bold uppercase tracking-[0.16em]">Email</span>
-                                            <span className={`mt-1 block line-clamp-2 break-all font-medium ${emailValueClass}`}>N/A</span>
-                                        </span>
-                                    </span>
-                                )
-                            ) : null}
+                                    <div className="flex min-h-[1rem] items-center gap-1.5">
+                                        <Phone className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">N/A</span>
+                                    </div>
+                                )}
+                                {mergedConfig.showEmail && email ? (
+                                    <a
+                                        href={emailLink}
+                                        className="flex min-h-[1rem] items-center gap-1.5 text-slate-500 transition hover:text-primary dark:text-slate-400 dark:hover:text-cyan-300"
+                                        onClick={() => sendEvent('university_email_click', { universityId: id, slug, email })}
+                                    >
+                                        <Mail className="h-3 w-3 shrink-0" />
+                                        <span className="break-all">{email}</span>
+                                    </a>
+                                ) : (
+                                    <div className="text-slate-500 dark:text-slate-400">Email N/A</div>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-950/35">
-                            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
-                                <div className="min-w-0">
+                        <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/90 px-3.5 py-3 dark:border-slate-800 dark:bg-slate-950/35 sm:col-span-2">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
                                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Application</p>
-                                    <p className="mt-1 line-clamp-2 text-[13px] font-semibold text-slate-700 dark:text-slate-100">
+                                    <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-100">
                                         {appMeta.windowLabel}
-                                        {appDurationDays !== null ? <span className="ml-1 text-slate-400">({appDurationDays} days)</span> : ''}
+                                        {appDurationDays !== null ? ` (${appDurationDays} days)` : ''}
                                     </p>
                                 </div>
-                                <div className="min-w-[5rem] text-right">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Nearest Exam</p>
-                                    <p className="mt-1 text-[13px] font-semibold text-slate-700 dark:text-slate-100">
-                                        {nearestExam ? formatUniversityDate(nearestExam, 'en-GB', { day: '2-digit', month: 'short' }) : 'N/A'}
-                                    </p>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Status</p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-100">{appMeta.deadlineLabel}</p>
                                 </div>
                             </div>
-
-                            {mergedConfig.showApplicationProgress ? (
-                                (() => {
-                                    let pct = 0;
-                                    let text = '';
-                                    if (startRaw && endRaw) {
-                                        const s = parseUniversityDate(startRaw);
-                                        const e = parseUniversityDate(endRaw);
-                                        if (s && e) {
-                                            const total = e.getTime() - s.getTime();
-                                            if (total > 0) {
-                                                const elapsed = Math.max(0, Math.min(Date.now() - s.getTime(), total));
-                                                pct = Math.round((elapsed / total) * 100);
-                                            }
-                                        }
-                                    }
-                                    
-                                    if (appMeta.urgencyState === 'closed') {
-                                        pct = 100;
-                                        text = 'Closed';
-                                    } else if (appMeta.urgencyState === 'upcoming') {
-                                        pct = 0;
-                                        text = `Starts in ${appMeta.daysLeft} days`;
-                                    } else if (appMeta.daysLeft === 0) {
-                                        text = 'Closes today';
-                                    } else {
-                                        text = `${appMeta.daysLeft} days left`;
-                                    }
-
-                                    const getProgressTone = () => {
-                                        if (appMeta.urgencyState === 'closed') return 'bg-rose-500 dark:bg-rose-600';
-                                        if (appMeta.urgencyState === 'closing_soon') return 'bg-amber-500 dark:bg-amber-500';
-                                        if (appMeta.urgencyState === 'upcoming') return 'bg-sky-500 dark:bg-sky-600';
-                                        return 'bg-emerald-500 dark:bg-emerald-600';
-                                    };
-
-                                    return (
-                                        <div className="mt-4 overflow-hidden rounded-full border border-slate-200/50 bg-slate-200/80 shadow-inner dark:border-slate-800/80 dark:bg-slate-800/50">
-                                            <div className="relative h-6 w-full">
-                                                <div
-                                                    className={`absolute left-0 top-0 h-full transition-all duration-500 ${getProgressTone()}`}
-                                                    style={{ width: `${pct}%` }}
-                                                />
-                                                <div className="absolute inset-0 flex items-center justify-center text-[11px] font-extrabold tracking-wide text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.5)]">
-                                                    {text}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })()
-                            ) : null}
-
-                            {mergedConfig.showExamCentersPreview && examCenterPreview.length > 0 ? (
-                                <p className="mt-3 flex min-w-0 items-start gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                    <MapPin className="h-3 w-3 shrink-0" />
-                                    <span className="line-clamp-2 break-words">Centers: {examCenterPreview.join(', ')}</span>
-                                </p>
-                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -594,39 +504,35 @@ const UniversityCard = memo(function UniversityCard({
                         </div>
                     </div>
                 </div>
-                {mergedConfig.showExamDates ? (
-                    <>
-                        <div className="px-5">
-                            <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-800" />
+                <div className="px-5">
+                    <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-800" />
+                </div>
+                <div className="flex-1 p-5">
+                    <div className="mb-3 flex items-center gap-2">
+                        <div className="h-1 w-4 rounded-full bg-amber-500" />
+                        <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">Upcoming Exams</span>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-slate-600 dark:text-slate-400">Science Unit</span>
+                            <span className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                {formatUniversityDate(university.scienceExamDate || university.examDateScience, 'en-GB', { day: '2-digit', month: 'short' })}
+                            </span>
                         </div>
-                        <div className="flex-1 p-5">
-                            <div className="mb-3 flex items-center gap-2">
-                                <div className="h-1 w-4 rounded-full bg-amber-500" />
-                                <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">Upcoming Exams</span>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm text-slate-600 dark:text-slate-400">Science Unit</span>
-                                    <span className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                        {formatUniversityDate(university.scienceExamDate || university.examDateScience, 'en-GB', { day: '2-digit', month: 'short' })}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm text-slate-600 dark:text-slate-400">Arts Unit</span>
-                                    <span className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                        {formatUniversityDate(university.artsExamDate || university.examDateArts, 'en-GB', { day: '2-digit', month: 'short' })}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm text-slate-600 dark:text-slate-400">Commerce Unit</span>
-                                    <span className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                        {formatUniversityDate(university.businessExamDate || university.examDateBusiness, 'en-GB', { day: '2-digit', month: 'short' })}
-                                    </span>
-                                </div>
-                            </div>
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-slate-600 dark:text-slate-400">Arts Unit</span>
+                            <span className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                {formatUniversityDate(university.artsExamDate || university.examDateArts, 'en-GB', { day: '2-digit', month: 'short' })}
+                            </span>
                         </div>
-                    </>
-                ) : null}
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-slate-600 dark:text-slate-400">Commerce Unit</span>
+                            <span className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                {formatUniversityDate(university.businessExamDate || university.examDateBusiness, 'en-GB', { day: '2-digit', month: 'short' })}
+                            </span>
+                        </div>
+                    </div>
+                </div>
                 <div className="mt-auto grid grid-cols-1 gap-2 p-5 pt-0 sm:grid-cols-2">
                     {actionVariant === 'exam' ? (
                         <>
@@ -761,45 +667,47 @@ const UniversityCard = memo(function UniversityCard({
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-3">
-                    <div className="min-w-0">
-                        <h3 className={`${universityNameSizeClass} line-clamp-3 min-h-[4em] text-balance font-bold text-slate-900 dark:text-white`} title={name}>
-                            {name}
-                        </h3>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                            {shortForm && shortForm !== 'N/A' && (
-                                <span className={`inline-flex min-w-0 max-w-full rounded-full border border-cyan-500/15 bg-cyan-500/10 px-2.5 py-1 ${shortFormClass} font-bold uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-200`} title={shortForm}>
-                                    <span className="truncate">{shortForm}</span>
-                                </span>
-                            )}
-                            {establishedYear ? (
-                                <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
-                                    Est. {establishedYear}
-                                </span>
-                            ) : null}
-                            <span className={`ml-auto shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${classicStatusTone}`}>
-                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                {classicStatusLabel}
-                            </span>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                            <h3 className={`${universityNameSizeClass} line-clamp-2 font-bold leading-tight text-slate-900 dark:text-white`} title={name}>
+                                {name}
+                            </h3>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {shortForm && shortForm !== 'N/A' && (
+                                    <span className={`inline-flex rounded-full border border-cyan-500/15 bg-cyan-500/10 px-2.5 py-1 ${shortFormClass} font-bold uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-200`} title={shortForm}>
+                                        {shortForm}
+                                    </span>
+                                )}
+                                {establishedYear ? (
+                                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+                                        Est. {establishedYear}
+                                    </span>
+                                ) : null}
+                            </div>
                         </div>
+                        <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${classicStatusTone}`}>
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            {classicStatusLabel}
+                        </span>
                     </div>
 
-                    <div className="flex min-w-0 items-center gap-2">
-                        <span className="shrink-0 rounded-lg border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-200">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-lg border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-200">
                             {category}
                         </span>
                         {clusterGroup && (
                             clusterUrl ? (
                                 <Link
                                     to={clusterUrl}
-                                    className="inline-flex min-w-0 items-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-purple-700 transition hover:bg-purple-500/20 dark:text-purple-200"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-purple-700 transition hover:bg-purple-500/20 dark:text-purple-200"
                                 >
-                                    <Layers3 className="h-3 w-3 shrink-0" />
-                                    <span className="truncate">{clusterGroup}</span>
+                                    <Layers3 className="h-3 w-3" />
+                                    <span className="max-w-[10rem] truncate">{clusterGroup}</span>
                                 </Link>
                             ) : (
-                                <span className="inline-flex min-w-0 items-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-200">
-                                    <Layers3 className="h-3 w-3 shrink-0" />
-                                    <span className="truncate">{clusterGroup}</span>
+                                <span className="inline-flex items-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-200">
+                                    <Layers3 className="h-3 w-3" />
+                                    <span className="max-w-[10rem] truncate">{clusterGroup}</span>
                                 </span>
                             )
                         )}
@@ -807,22 +715,22 @@ const UniversityCard = memo(function UniversityCard({
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
                         {address && address !== 'N/A' && (
-                            <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                            <span className="inline-flex min-w-0 items-center gap-1">
                                 <MapPin className="h-3.5 w-3.5 shrink-0" />
                                 <span className="truncate">{address}</span>
                             </span>
                         )}
                         {contactNumber && (
-                            <a href={phoneHref} className="inline-flex min-w-0 max-w-full items-center gap-1 transition hover:text-primary-600 dark:hover:text-primary-300">
+                            <span className="inline-flex min-w-0 items-center gap-1">
                                 <Phone className="h-3.5 w-3.5 shrink-0" />
                                 <span className="truncate">{contactNumber}</span>
-                            </a>
+                            </span>
                         )}
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 space-y-3 px-4 pb-4">
+            <div className="space-y-3 px-4 pb-4">
                 <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700/80 dark:bg-slate-950/55">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="space-y-1">

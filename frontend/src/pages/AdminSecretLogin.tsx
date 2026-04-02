@@ -16,7 +16,7 @@ export default function AdminSecretLoginPage() {
     const [submitting, setSubmitting] = useState(false);
 
     if (!isLoading && isAuthenticated && user && ADMIN_ROLES.has(user.role)) {
-        return <Navigate to="/__cw_admin__/dashboard" replace />;
+        return <Navigate to={user.mustChangePassword ? "/__cw_admin__/settings/admin-profile" : "/__cw_admin__/dashboard"} replace />;
     }
 
     async function onSubmit(event: FormEvent) {
@@ -29,7 +29,7 @@ export default function AdminSecretLoginPage() {
                 navigate('/otp-verify?from=admin', { replace: true });
                 return;
             }
-            navigate('/__cw_admin__/dashboard', { replace: true });
+            navigate(response?.user?.mustChangePassword ? '/__cw_admin__/settings/admin-profile' : '/__cw_admin__/dashboard', { replace: true });
         } catch (err: any) {
             setError(String(err?.response?.data?.message || 'Admin login failed'));
         } finally {

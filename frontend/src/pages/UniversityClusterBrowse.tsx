@@ -118,7 +118,7 @@ export default function UniversityClusterBrowsePage() {
                         university={university}
                         config={DEFAULT_UNIVERSITY_CARD_CONFIG}
                         animationLevel="minimal"
-                        cardVariant="modern"
+                        cardVariant="classic"
                     />
                 ))}
             </div>

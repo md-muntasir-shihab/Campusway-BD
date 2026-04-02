@@ -125,31 +125,72 @@ export async function adminSetPassword(opts: AdminSetPasswordOpts): Promise<Admi
         return { success: false, message: 'Student not found.' };
     }
 
-    await applyInviteOnlyPasswordState(user, opts.adminId);
-    await user.save();
+    const providedPassword = String(opts.newPassword || '').trim();
+    const useDirectPassword = providedPassword.length > 0;
+
+    if (useDirectPassword) {
+        const security = await getSecurityConfig(true);
+        const policy = security.passwordPolicies.student;
+        const passwordCheck = {
+            ok:
+                providedPassword.length >= policy.minLength &&
+                (!policy.requireUppercase || /[A-Z]/.test(providedPassword)) &&
+                (!policy.requireLowercase || /[a-z]/.test(providedPassword)) &&
+                (!policy.requireNumber || /\d/.test(providedPassword)) &&
+                (!policy.requireSpecial || /[^A-Za-z0-9]/.test(providedPassword)),
+            message: 'Password does not meet student password policy.',
+        };
+        if (!passwordCheck.ok) {
+            return { success: false, message: passwordCheck.message };
+        }
+
+        const nextPasswordHash = await bcrypt.hash(providedPassword, 12);
+        const previousHistory = Array.isArray(user.passwordHistory) ? user.passwordHistory.slice(0, 24) : [];
+        if (user.password) {
+            previousHistory.unshift({
+                hash: user.password,
+                createdAt: new Date(),
+                source: 'admin',
+            });
+        }
+        user.password = nextPasswordHash;
+        user.passwordHistory = previousHistory.slice(0, Math.max(0, policy.preventReuseCount || 0));
+        user.passwordSetByAdminId = new mongoose.Types.ObjectId(opts.adminId);
+        user.passwordLastChangedAtUTC = new Date();
+        user.passwordChangedByType = 'admin';
+        user.forcePasswordResetRequired = false;
+        user.mustChangePassword = false;
+        user.passwordResetRequired = false;
+        user.password_updated_at = new Date();
+        user.passwordExpiresAt = null;
+        await user.save();
+    } else {
+        await applyInviteOnlyPasswordState(user, opts.adminId);
+        await user.save();
+    }
 
     if (opts.revokeExistingSessions !== false) {
         await terminateSessionsForUser(String(user._id), 'admin_password_reset', {
             initiatedBy: opts.adminId,
-            meta: { trigger: 'admin_set_password' },
+            meta: { trigger: useDirectPassword ? 'admin_set_password' : 'admin_reset_student_password' },
         });
     }
 
     await AuditLog.create({
         actor_id: new mongoose.Types.ObjectId(opts.adminId),
         actor_role: 'admin',
-        action: 'admin_reset_student_password',
+        action: useDirectPassword ? 'admin_set_student_password' : 'admin_reset_student_password',
         target_id: user._id,
         target_type: 'User',
         ip_address: opts.ipAddress,
         details: {
             revokedSessions: opts.revokeExistingSessions !== false,
-            flow: 'invite_only',
+            flow: useDirectPassword ? 'direct_password' : 'invite_only',
         },
     });
 
     let sendResult: { sent: number; failed: number } | undefined;
-    if (!opts.sendVia || opts.sendVia.includes('email')) {
+    if (!useDirectPassword && (!opts.sendVia || opts.sendVia.includes('email'))) {
         const inviteSent = await issueSetPasswordInvite(user, opts.adminId);
         sendResult = { sent: inviteSent ? 1 : 0, failed: inviteSent ? 0 : 1 };
         user.accountInfoLastSentAtUTC = inviteSent ? new Date() : user.accountInfoLastSentAtUTC;
@@ -160,7 +201,11 @@ export async function adminSetPassword(opts: AdminSetPasswordOpts): Promise<Admi
 
     return {
         success: true,
-        message: sendResult?.sent ? 'Password reset link issued successfully.' : 'Password reset prepared. No invite was delivered.',
+        message: useDirectPassword
+            ? 'Password updated successfully.'
+            : sendResult?.sent
+                ? 'Password reset link issued successfully.'
+                : 'Password reset prepared. No invite was delivered.',
         sendResult,
     };
 }

@@ -15,7 +15,31 @@ import { toSlug, type UniversityCategoryDetail } from '../../lib/apiClient';
 import type { UniversityCardVisualVariant } from './UniversityCard';
 
 function sortCategories(items: UniversityCategoryDetail[]): UniversityCategoryDetail[] {
-    return [...items].sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+    const deduped = new Map<string, UniversityCategoryDetail>();
+    items.forEach((item) => {
+        const key = String(item.categorySlug || toSlug(item.categoryName || '')).trim() || String(item.categoryName || '').trim();
+        if (!key) return;
+        const existing = deduped.get(key);
+        if (!existing) {
+            deduped.set(key, {
+                ...item,
+                categorySlug: item.categorySlug || toSlug(item.categoryName || ''),
+                clusterGroups: Array.from(new Set((item.clusterGroups || []).filter(Boolean))),
+            });
+            return;
+        }
+        deduped.set(key, {
+            ...existing,
+            order: Math.min(Number(existing.order || 0), Number(item.order || 0)) || Number(existing.order || item.order || 0),
+            count: Math.max(Number(existing.count || 0), Number(item.count || 0)),
+            clusterGroups: Array.from(new Set([...(existing.clusterGroups || []), ...(item.clusterGroups || [])].filter(Boolean))),
+        });
+    });
+    return [...deduped.values()].sort((a, b) => {
+        const orderDiff = Number(a.order || 0) - Number(b.order || 0);
+        if (orderDiff !== 0) return orderDiff;
+        return String(a.categoryName || '').localeCompare(String(b.categoryName || ''));
+    });
 }
 
 const UNIVERSITY_SORT_OPTIONS: UniversityCardSort[] = [
@@ -35,12 +59,8 @@ function normalizeUniversitySort(value: string, fallback: UniversityCardSort = '
 
 function resolvePublicDefaultSort(value: string | undefined): UniversityCardSort {
     const normalized = normalizeUniversitySort(value || '', 'name_asc');
-    if (normalized === 'alphabetical') {
-        return 'name_asc';
-    }
-    if (normalized === 'nearest_deadline') {
-        return 'closing_soon';
-    }
+    if (normalized === 'alphabetical') return 'name_asc';
+    if (normalized === 'nearest_deadline') return 'closing_soon';
     return normalized;
 }
 
@@ -58,16 +78,52 @@ function resolveCategorySlug(value: string, categories: UniversityCategoryDetail
 }
 
 interface UniversityBrowseShellProps {
-    /** Lock category (category browse page) */
     fixedCategory?: string;
-    /** Lock cluster group (cluster browse page) */
     fixedCluster?: string;
-    /** Page header */
     title?: string;
     subtitle?: string;
-    /** Hide category chip tabs (e.g. on a category-specific page) */
     hideCategoryTabs?: boolean;
     cardVariant?: UniversityCardVisualVariant;
+}
+
+interface ParsedBrowseState {
+    category: string;
+    cluster: string;
+    search: string;
+    sort: UniversityCardSort;
+}
+
+function parseBrowseState(args: {
+    searchParams: URLSearchParams;
+    categories: UniversityCategoryDetail[];
+    fixedCategory?: string;
+    fixedCluster?: string;
+    adminDefaultCategory?: string;
+    adminDefaultSort: UniversityCardSort;
+}): ParsedBrowseState {
+    const {
+        searchParams,
+        categories,
+        fixedCategory,
+        fixedCluster,
+        adminDefaultCategory,
+        adminDefaultSort,
+    } = args;
+
+    const category = fixedCategory
+        ? resolveCategorySlug(fixedCategory, categories)
+        : searchParams.has('category')
+            ? resolveCategorySlug(searchParams.get('category') || 'all', categories)
+            : adminDefaultCategory
+                ? resolveCategorySlug(adminDefaultCategory, categories)
+                : 'all';
+
+    return {
+        category,
+        cluster: fixedCluster || searchParams.get('cluster') || '',
+        search: searchParams.get('q') || '',
+        sort: normalizeUniversitySort(searchParams.get('sort') || '', adminDefaultSort),
+    };
 }
 
 export default function UniversityBrowseShell({
@@ -79,10 +135,6 @@ export default function UniversityBrowseShell({
     cardVariant = 'modern',
 }: UniversityBrowseShellProps) {
     const [searchParams, setSearchParams] = useSearchParams();
-    const categoryFromUrl = searchParams.get('category') || '';
-    const clusterFromUrl = searchParams.get('cluster') || '';
-    const searchFromUrl = searchParams.get('q') || '';
-
     const homeSettingsQuery = usePublicHomeSettings();
     const browseSettingsQuery = usePublicUniversityBrowseSettings();
     const categoriesQuery = useUniversityCategories();
@@ -93,51 +145,79 @@ export default function UniversityBrowseShell({
     const adminDefaultSort: UniversityCardSort = resolvePublicDefaultSort(
         homeSettingsQuery.data?.universityCardConfig?.defaultSort,
     );
-    const sortFromUrl = normalizeUniversitySort(searchParams.get('sort') || '', adminDefaultSort);
+    const filtersReady = categoriesQuery.isFetched && homeSettingsQuery.isFetched && browseSettingsQuery.isFetched;
 
-    const [search, setSearch] = useState(searchFromUrl);
-    const [debouncedSearch, setDebouncedSearch] = useState(searchFromUrl);
-    const [selectedCluster, setSelectedCluster] = useState(fixedCluster || clusterFromUrl || '');
-    const [sort, setSort] = useState<UniversityCardSort>(sortFromUrl);
+    const parsedState = useMemo(() => {
+        if (!filtersReady) return null;
+        return parseBrowseState({
+            searchParams,
+            categories,
+            fixedCategory,
+            fixedCluster,
+            adminDefaultCategory: defaultCategoryFromAdmin,
+            adminDefaultSort,
+        });
+    }, [
+        adminDefaultSort,
+        categories,
+        defaultCategoryFromAdmin,
+        filtersReady,
+        fixedCategory,
+        fixedCluster,
+        searchParams,
+    ]);
+
+    const [activeCategory, setActiveCategory] = useState('all');
+    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [selectedCluster, setSelectedCluster] = useState('');
+    const [sort, setSort] = useState<UniversityCardSort>(adminDefaultSort);
     const [filterOpen, setFilterOpen] = useState(false);
+    const [isHydrated, setIsHydrated] = useState(false);
 
-    const resolvedCategorySlug = useMemo(() => {
-        if (fixedCategory) return resolveCategorySlug(fixedCategory, categories);
-        if (categoryFromUrl) return resolveCategorySlug(categoryFromUrl, categories);
-        if (defaultCategoryFromAdmin) return resolveCategorySlug(defaultCategoryFromAdmin, categories);
-        return 'all';
-    }, [categories, categoryFromUrl, defaultCategoryFromAdmin, fixedCategory]);
+    useEffect(() => {
+        if (!parsedState) return;
+        setActiveCategory((current) => (current === parsedState.category ? current : parsedState.category));
+        setSelectedCluster((current) => (current === parsedState.cluster ? current : parsedState.cluster));
+        setSearch((current) => (current === parsedState.search ? current : parsedState.search));
+        setDebouncedSearch((current) => (current === parsedState.search ? current : parsedState.search));
+        setSort((current) => (current === parsedState.sort ? current : parsedState.sort));
+        setIsHydrated(true);
+    }, [parsedState]);
 
-    const syncUrlState = useCallback((next: {
+    const updateUrlState = useCallback((next: {
         category?: string;
         cluster?: string;
         q?: string;
-        sort?: string;
+        sort?: UniversityCardSort;
+        replace?: boolean;
     }) => {
         const params = new URLSearchParams(searchParams);
-        const categoryValue = fixedCategory ? resolvedCategorySlug : (next.category ?? resolvedCategorySlug);
-        const clusterValue = fixedCluster ? fixedCluster : (next.cluster ?? selectedCluster);
-        const searchValue = next.q ?? search;
-        const sortValue = next.sort ?? sort;
 
-        if (!fixedCategory && categoryValue && categoryValue.toLowerCase() !== 'all') params.set('category', categoryValue);
-        else params.delete('category');
+        if (!fixedCategory) {
+            const nextCategory = next.category ?? activeCategory;
+            if (nextCategory) params.set('category', nextCategory);
+            else params.delete('category');
+        }
 
-        if (!fixedCluster && clusterValue) params.set('cluster', clusterValue);
-        else params.delete('cluster');
+        if (!fixedCluster) {
+            const nextCluster = next.cluster ?? selectedCluster;
+            if (nextCluster) params.set('cluster', nextCluster);
+            else params.delete('cluster');
+        }
 
-        if (searchValue.trim()) params.set('q', searchValue.trim());
+        const nextSearch = String(next.q ?? debouncedSearch).trim();
+        if (nextSearch) params.set('q', nextSearch);
         else params.delete('q');
 
-        if (sortValue && sortValue !== adminDefaultSort) params.set('sort', sortValue);
+        const nextSort = next.sort ?? sort;
+        if (nextSort && nextSort !== adminDefaultSort) params.set('sort', nextSort);
         else params.delete('sort');
 
         const nextParams = params.toString();
-        const currentParams = searchParams.toString();
-        if (nextParams === currentParams) return;
-
-        setSearchParams(params, { replace: true });
-    }, [adminDefaultSort, fixedCategory, fixedCluster, resolvedCategorySlug, searchParams, selectedCluster, search, sort, setSearchParams]);
+        if (nextParams === searchParams.toString()) return;
+        setSearchParams(params, { replace: Boolean(next.replace) });
+    }, [activeCategory, adminDefaultSort, debouncedSearch, fixedCategory, fixedCluster, searchParams, selectedCluster, setSearchParams, sort]);
 
     useEffect(() => {
         const timeout = window.setTimeout(() => {
@@ -147,44 +227,31 @@ export default function UniversityBrowseShell({
     }, [search]);
 
     useEffect(() => {
-        setSearch((current) => current === searchFromUrl ? current : searchFromUrl);
-    }, [searchFromUrl]);
+        if (!isHydrated) return;
+        const currentSearch = String(searchParams.get('q') || '').trim();
+        const nextSearch = debouncedSearch.trim();
+        if (currentSearch === nextSearch) return;
+        updateUrlState({ q: nextSearch, replace: true });
+    }, [debouncedSearch, isHydrated, searchParams, updateUrlState]);
 
-    useEffect(() => {
-        setSort((current) => current === sortFromUrl ? current : sortFromUrl);
-    }, [sortFromUrl]);
-
-    useEffect(() => {
-        if (fixedCluster) {
-            setSelectedCluster((current) => current === fixedCluster ? current : fixedCluster);
-            return;
-        }
-        setSelectedCluster((current) => current === clusterFromUrl ? current : clusterFromUrl);
-    }, [clusterFromUrl, fixedCluster]);
-
-    const handleCategoryChange = useCallback((categorySlug: string) => {
-        if (fixedCategory) return;
-        setSelectedCluster('');
-        syncUrlState({ category: categorySlug, cluster: '' });
-    }, [syncUrlState, fixedCategory]);
-
-    const activeCategory = resolvedCategorySlug;
     const activeCategoryMeta = useMemo(
-        () => activeCategory === 'all' ? null : categories.find((item) => item.categorySlug === activeCategory || item.categoryName === activeCategory) || null,
+        () => activeCategory === 'all'
+            ? null
+            : categories.find((item) => item.categorySlug === activeCategory || item.categoryName === activeCategory) || null,
         [categories, activeCategory],
     );
+
     const activeCategoryQueryValue = activeCategory === 'all'
         ? 'all'
         : activeCategoryMeta?.categoryName || activeCategory;
+
     const clusters = useMemo(() => {
         if (activeCategory === 'all') {
             return Array.from(
-                new Set(
-                    categories.flatMap((item) => item.clusterGroups || []).filter(Boolean),
-                ),
+                new Set(categories.flatMap((item) => item.clusterGroups || []).filter(Boolean)),
             ).sort((left, right) => left.localeCompare(right));
         }
-        return (activeCategoryMeta?.clusterGroups || []).filter(Boolean);
+        return Array.from(new Set((activeCategoryMeta?.clusterGroups || []).filter(Boolean)));
     }, [activeCategory, activeCategoryMeta, categories]);
 
     const effectiveCluster = useMemo(() => {
@@ -194,55 +261,74 @@ export default function UniversityBrowseShell({
     }, [clusters, fixedCluster, selectedCluster]);
 
     useEffect(() => {
-        if (!selectedCluster || fixedCluster) return;
+        if (!isHydrated || fixedCluster || !selectedCluster) return;
         if (!effectiveCluster) {
             setSelectedCluster('');
+            updateUrlState({ cluster: '', replace: true });
         }
-    }, [effectiveCluster, fixedCluster, selectedCluster]);
+    }, [effectiveCluster, fixedCluster, isHydrated, selectedCluster, updateUrlState]);
 
     useEffect(() => {
-        if (showClusterFilter) return;
+        if (showClusterFilter || !isHydrated || !selectedCluster) return;
         setSelectedCluster('');
-    }, [showClusterFilter]);
+        updateUrlState({ cluster: '', replace: true });
+    }, [isHydrated, selectedCluster, showClusterFilter, updateUrlState]);
 
-    useEffect(() => {
-        syncUrlState({});
-    }, [search, selectedCluster, sort, activeCategory, syncUrlState]);
+    const handleCategoryChange = useCallback((categorySlug: string) => {
+        if (fixedCategory) return;
+        const nextCategory = resolveCategorySlug(categorySlug || 'all', categories);
+        setActiveCategory(nextCategory);
+        setSelectedCluster('');
+        updateUrlState({ category: nextCategory, cluster: '' });
+    }, [categories, fixedCategory, updateUrlState]);
+
+    const handleClusterChange = useCallback((nextCluster: string) => {
+        setSelectedCluster(nextCluster);
+        updateUrlState({ cluster: nextCluster });
+    }, [updateUrlState]);
+
+    const handleSortChange = useCallback((nextSort: UniversityCardSort) => {
+        setSort(nextSort);
+        updateUrlState({ sort: nextSort });
+    }, [updateUrlState]);
 
     const universitiesQuery = useUniversities({
         category: activeCategoryQueryValue,
         clusterGroup: effectiveCluster || undefined,
         q: debouncedSearch.trim() || undefined,
         sort,
+        enabled: filtersReady && isHydrated && Boolean(activeCategoryQueryValue),
     });
 
-    const mappedItems = useMemo(
-        () => {
-            const seen = new Set<string>();
-            return (universitiesQuery.data || []).filter((item) => {
-                const candidate = item as unknown as { id?: string; _id?: string; slug?: string; title?: string };
-                const key = String(candidate.id || candidate._id || candidate.slug || candidate.title || '').trim();
-                if (!key) return true;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
-        },
-        [universitiesQuery.data],
-    );
+    const mappedItems = useMemo(() => {
+        const seen = new Set<string>();
+        return (universitiesQuery.data || []).filter((item) => {
+            const candidate = item as unknown as { id?: string; _id?: string; slug?: string; title?: string };
+            const key = String(candidate.id || candidate._id || candidate.slug || candidate.title || '').trim();
+            if (!key) return true;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }, [universitiesQuery.data]);
+
     const animationLevel = homeSettingsQuery.data?.ui?.animationLevel || 'minimal';
     const cardConfig = homeSettingsQuery.data?.universityCardConfig;
-    const hasActiveFilters = Boolean(search.trim() || effectiveCluster);
+    const hasActiveFilters = Boolean(search.trim() || effectiveCluster || sort !== adminDefaultSort);
+    const loading = !isHydrated
+        || categoriesQuery.isLoading
+        || homeSettingsQuery.isLoading
+        || browseSettingsQuery.isLoading
+        || universitiesQuery.isLoading
+        || (universitiesQuery.isFetching && universitiesQuery.isPlaceholderData);
 
     return (
         <div className="section-container py-6 sm:py-8 overflow-x-hidden">
-            {/* Page title */}
             <div className="mb-4">
                 <h1 className="text-2xl sm:text-3xl font-heading font-extrabold text-text dark:text-dark-text">{title}</h1>
                 <p className="mt-1 text-xs sm:text-sm text-text-muted dark:text-dark-text/70">{subtitle}</p>
             </div>
 
-            {/* Filter bar */}
             <UniversityFilterBar
                 categories={categories}
                 activeCategory={activeCategory}
@@ -250,23 +336,23 @@ export default function UniversityBrowseShell({
                 search={search}
                 setSearch={setSearch}
                 sort={sort}
-                setSort={setSort}
+                setSort={handleSortChange}
                 clusters={clusters}
                 showClusterFilter={showClusterFilter}
                 selectedCluster={effectiveCluster}
-                setSelectedCluster={setSelectedCluster}
+                setSelectedCluster={handleClusterChange}
                 hasActiveFilters={hasActiveFilters}
                 onOpenMobileFilters={() => setFilterOpen(true)}
                 onClearFilters={() => {
                     setSearch('');
+                    setDebouncedSearch('');
                     setSelectedCluster('');
                     setSort(adminDefaultSort);
-                    syncUrlState({ cluster: '', q: '', sort: adminDefaultSort });
+                    updateUrlState({ cluster: '', q: '', sort: adminDefaultSort, replace: true });
                 }}
                 hideCategoryTabs={hideCategoryTabs}
             />
 
-            {/* University grid */}
             <div className="mt-5 sm:mt-6">
                 {universitiesQuery.isError ? (
                     <div className="mb-4 card-flat p-4 text-sm">
@@ -288,25 +374,24 @@ export default function UniversityBrowseShell({
                     items={mappedItems as unknown as Record<string, unknown>[]}
                     config={cardConfig}
                     animationLevel={animationLevel}
-                    loading={universitiesQuery.isLoading || (universitiesQuery.isFetching && universitiesQuery.isPlaceholderData)}
+                    loading={loading}
                     emptyText="No universities in this category."
                     sort={sort}
                     cardVariant={cardVariant}
                 />
             </div>
 
-            {/* Mobile bottom sheet */}
             <FilterBottomSheet
                 open={filterOpen}
                 onClose={() => setFilterOpen(false)}
                 search={search}
                 setSearch={setSearch}
                 sort={sort}
-                setSort={setSort}
+                setSort={handleSortChange}
                 clusters={clusters}
                 showClusterFilter={showClusterFilter}
                 selectedCluster={effectiveCluster}
-                setSelectedCluster={setSelectedCluster}
+                setSelectedCluster={handleClusterChange}
             />
         </div>
     );

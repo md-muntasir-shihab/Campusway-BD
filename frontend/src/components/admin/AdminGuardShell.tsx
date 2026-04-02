@@ -56,6 +56,7 @@ export default function AdminGuardShell({
     const { hasAccess } = useModuleAccess();
     const isNestedInsideAdminShell = useContext(AdminShellNestingContext);
     const location = useLocation();
+    const forceResetPath = '/__cw_admin__/settings/admin-profile';
 
     if (isLoading) {
         return <div className="section-container py-16 text-sm text-text-muted dark:text-dark-text/70">Checking admin access...</div>;
@@ -67,6 +68,10 @@ export default function AdminGuardShell({
 
     if (!allowedRoles.includes(user.role as AdminAllowedRole)) {
         return <Navigate to="/__cw_admin__/access-denied" replace />;
+    }
+
+    if (user.mustChangePassword && location.pathname !== forceResetPath) {
+        return <Navigate to={forceResetPath} replace state={{ forcePasswordReset: true }} />;
     }
 
     if (requiredModule && !hasAccess(requiredModule, requiredAction)) {
