@@ -467,11 +467,21 @@ export async function seedContentPipeline(
         },
     ];
 
-    const planDocs = await Promise.all(planSeeds.map(async (seed) => SubscriptionPlan.findOneAndUpdate(
-        { code: String(seed.code) },
-        { $set: seed },
-        { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
-    )));
+    const planDocs = await Promise.all(planSeeds.map(async (seed) => {
+        const normalizedCode = toSlug(String(seed.code || seed.name || 'plan'));
+        const normalizedSlug = toSlug(String(seed.slug || seed.code || seed.name || 'plan'));
+        return SubscriptionPlan.findOneAndUpdate(
+            { code: normalizedCode },
+            {
+                $set: {
+                    ...seed,
+                    code: normalizedCode,
+                    slug: normalizedSlug,
+                },
+            },
+            { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
+        );
+    }));
     const planByCode = new Map<string, Record<string, unknown>>(
         planDocs.map((doc) => [String(doc.code), doc.toObject() as unknown as Record<string, unknown>]),
     );
@@ -1126,11 +1136,13 @@ export async function seedContentPipeline(
 
     const examDocs = await Promise.all(examSeeds.map(async (seed) => {
         const shareToken = `seed-${toSlug(seed.title)}`;
+        const examSlug = toSlug(seed.title) || `exam-${Date.now()}`;
         return Exam.findOneAndUpdate(
             { title: seed.title },
             {
                 $set: {
                 title: seed.title,
+                slug: examSlug,
                 subject: seed.subject,
                 subjectBn: seed.subject,
                 universityNameBn: seed.title,
