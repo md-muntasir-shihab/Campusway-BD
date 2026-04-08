@@ -210,9 +210,10 @@ function isAdminRole(role: string): boolean {
     return ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'].includes(role);
 }
 
-export function needsTwoFactor(user: IUser, security: SecurityConfig): boolean {
-    // 2FA is OFF by default unless explicitly enabled by the user or an admin
-    return user.twoFactorEnabled === true;
+export function needsTwoFactor(_user: IUser, _security: SecurityConfig): boolean {
+    // 2FA is globally disabled - users are never prompted for OTP.
+    // To re-enable per-user 2FA, return: _user.twoFactorEnabled === true
+    return false;
 }
 
 function shouldSendChallenge(method: TwoFactorMethod): boolean {
