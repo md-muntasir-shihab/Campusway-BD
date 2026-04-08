@@ -375,6 +375,7 @@ export default function App() {
                                 <Route path="/resources" element={<ResourcesPage />} />
                                 <Route path="/resources/:slug" element={<ResourceDetail />} />
                                 <Route path="/contact" element={<ContactPage />} />
+                                <Route path="/help" element={<Navigate to="/help-center" replace />} />
                                 <Route path="/help-center" element={<HelpCenterPage />} />
                                 <Route path="/help-center/:slug" element={<HelpArticlePage />} />
                                 <Route path="/pricing" element={<Navigate to="/subscription-plans" replace />} />
