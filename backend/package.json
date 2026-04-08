@@ -36,6 +36,7 @@
         "e2e:prepare:open-universities": "tsx src/scripts/e2e_prepare_open_universities.ts",
         "e2e:restore:deactivate": "tsx src/scripts/e2e_restore.ts --deactivate-users",
         "security:payload-smoke": "tsx src/scripts/security-payload-smoke.ts",
+        "migrate:disable-2fa": "tsx src/scripts/disable-2fa-all-users.ts",
         "test:home": "jest --config jest.config.cjs tests/home/home.api.test.ts",
         "test:team": "jest --config jest.config.cjs tests/team/",
         "test:team:defaults": "jest --config jest.config.cjs tests/team/team-defaults.test.ts",
