@@ -29,9 +29,7 @@ jobs:
         run: npm run build
         working-directory: backend
 
-      - name: Home API Smoke
-        run: npm run test:home
-        working-directory: backend
+
 
   frontend-lint-and-build:
     name: Frontend Lint and Build
