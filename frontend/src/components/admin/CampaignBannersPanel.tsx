@@ -543,7 +543,7 @@ export default function CampaignBannersPanel() {
 
                             {/* Link URL */}
                             <div>
-                                <label className="text-xs text-slate-400 mb-1 block flex items-center gap-1">
+                                <label className="text-xs text-slate-400 mb-1 flex items-center gap-1">
                                     <ExternalLink className="w-3 h-3" />
                                     Click Destination URL
                                 </label>
@@ -659,7 +659,7 @@ export default function CampaignBannersPanel() {
                             {/* Schedule */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block flex items-center gap-1">
+                                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1">
                                         <Clock className="w-3 h-3" /> Start Date
                                     </label>
                                     <input
@@ -670,7 +670,7 @@ export default function CampaignBannersPanel() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block flex items-center gap-1">
+                                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1">
                                         <Clock className="w-3 h-3" /> End Date
                                     </label>
                                     <input
