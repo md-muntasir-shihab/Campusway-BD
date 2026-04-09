@@ -145,6 +145,7 @@ export const teamApi = {
   resetMemberPassword: (id: string, payload?: TeamResetPasswordPayload) => api.post<{ inviteSent?: boolean; message?: string }>(`${BASE}/team/members/${id}/reset-password`, payload),
   revokeMemberSessions: (id: string) => api.post(`${BASE}/team/members/${id}/revoke-sessions`),
   resendMemberInvite: (id: string) => api.post(`${BASE}/team/members/${id}/resend-invite`),
+  toggleMember2FA: (id: string, enable: boolean) => api.post<{ twoFactorEnabled: boolean; message?: string }>(`${BASE}/team/members/${id}/toggle-2fa`, { enable }),
 
   getRoles: () => api.get<{ items: TeamRoleItem[] }>(`${BASE}/team/roles`),
   createRole: (payload: Record<string, unknown>) => api.post(`${BASE}/team/roles`, payload),

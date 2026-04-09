@@ -507,6 +507,7 @@ import {
     teamResetPassword,
     teamRevokeSessions,
     teamSuspendMember,
+    teamToggle2FA,
     teamUpdateApprovalRule,
     teamUpdateMember,
     teamUpdateMemberOverride,
@@ -689,6 +690,7 @@ router.post('/team/members/:id/activate', requirePermission('team_access_control
 router.post('/team/members/:id/reset-password', requirePermission('team_access_control', 'edit'), requireSecurityStepUp('team_access', 'member_reset_password'), teamResetPassword);
 router.post('/team/members/:id/revoke-sessions', requirePermission('team_access_control', 'edit'), requireSecurityStepUp('team_access', 'member_revoke_sessions'), teamRevokeSessions);
 router.post('/team/members/:id/resend-invite', requirePermission('team_access_control', 'create'), teamResendInvite);
+router.post('/team/members/:id/toggle-2fa', requirePermission('team_access_control', 'edit'), requireSecurityStepUp('team_access', 'member_toggle_2fa'), teamToggle2FA);
 
 router.get('/team/roles', requirePermission('team_access_control', 'view'), teamGetRoles);
 router.post('/team/roles', requirePermission('team_access_control', 'create'), requireSecurityStepUp('team_access', 'role_create'), teamCreateRole);

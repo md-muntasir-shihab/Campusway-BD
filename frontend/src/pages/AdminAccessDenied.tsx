@@ -37,7 +37,7 @@ export default function AdminAccessDeniedPage() {
                     <Link to="/" className="btn-outline text-sm">
                         Back to Home
                     </Link>
-                    <Link to="/login" className="btn-primary text-sm">
+                    <Link to="/__cw_admin__/login" className="btn-primary text-sm">
                         Login with another account
                     </Link>
                 </div>

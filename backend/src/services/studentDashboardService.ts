@@ -174,15 +174,26 @@ export async function getStudentDashboardHeader(studentId: string) {
             .lean(),
     ]);
 
-    if (!user || !profile) {
+    if (!user) {
         throw new Error('Student not found');
     }
 
-    const persistedCompletion = Number(profile.profile_completion_percentage);
+    // Auto-create profile on first dashboard visit if it doesn't exist yet
+    let resolvedProfile = profile;
+    if (!resolvedProfile) {
+        const created = await StudentProfile.create({
+            user_id: new mongoose.Types.ObjectId(studentId),
+            full_name: user.full_name || user.username || 'Student',
+            profile_completion_percentage: 0,
+        });
+        resolvedProfile = created.toObject() as unknown as LeanStudentProfile;
+    }
+
+    const persistedCompletion = Number(resolvedProfile.profile_completion_percentage);
     const completion = Number.isFinite(persistedCompletion) ? persistedCompletion : 0;
     const messageTemplate = String(config?.welcomeMessageTemplate || 'স্বাগতম, {{name}}!');
     const welcomeMessage = messageTemplate
-        .replace('{{name}}', String(profile.full_name || user.full_name || user.username))
+        .replace('{{name}}', String(resolvedProfile.full_name || user.full_name || user.username))
         .replace('{{completion}}', String(completion));
 
     const persistedSubscription = ((user.subscription as Record<string, unknown> | undefined) || {});
@@ -215,8 +226,8 @@ export async function getStudentDashboardHeader(studentId: string) {
 
     // Calculate Group Rank if student is in any groups
     let groupRank: number | null = null;
-    if (profile?.groupIds && Array.isArray(profile.groupIds) && profile.groupIds.length > 0) {
-        const groupId = profile.groupIds[0];
+    if (resolvedProfile?.groupIds && Array.isArray(resolvedProfile.groupIds) && resolvedProfile.groupIds.length > 0) {
+        const groupId = resolvedProfile.groupIds[0];
         const groupBoard = await ExamResult.aggregate([
             { $match: { status: 'evaluated' } },
             {
@@ -246,10 +257,10 @@ export async function getStudentDashboardHeader(studentId: string) {
 
     return {
         userId: String(user._id),
-        userUniqueId: profile.user_unique_id || '',
-        name: profile.full_name || user.full_name || user.username,
+        userUniqueId: resolvedProfile.user_unique_id || '',
+        name: resolvedProfile.full_name || user.full_name || user.username,
         email: user.email,
-        profilePicture: profile.profile_photo_url || (user as Record<string, unknown>).profile_photo || '',
+        profilePicture: resolvedProfile.profile_photo_url || (user as Record<string, unknown>).profile_photo || '',
         profileCompletionPercentage: completion,
         profileCompletionThreshold: profileThreshold,
         isProfileEligible: completion >= profileThreshold,
@@ -257,28 +268,28 @@ export async function getStudentDashboardHeader(studentId: string) {
         groupRank,
         welcomeMessage,
         subscription,
-        guardian_phone_verification_status: profile.guardianPhoneVerificationStatus || 'unverified',
-        guardian_phone_verified_at: profile.guardianPhoneVerifiedAt || null,
+        guardian_phone_verification_status: resolvedProfile.guardianPhoneVerificationStatus || 'unverified',
+        guardian_phone_verified_at: resolvedProfile.guardianPhoneVerifiedAt || null,
         profile: {
-            phone: profile.phone || profile.phone_number || '',
-            guardian_phone: profile.guardian_phone || '',
-            ssc_batch: profile.ssc_batch || '',
-            hsc_batch: profile.hsc_batch || '',
-            department: profile.department || '',
-            college_name: profile.college_name || '',
-            college_address: profile.college_address || '',
-            dob: profile.dob || null,
+            phone: resolvedProfile.phone || resolvedProfile.phone_number || '',
+            guardian_phone: resolvedProfile.guardian_phone || '',
+            ssc_batch: resolvedProfile.ssc_batch || '',
+            hsc_batch: resolvedProfile.hsc_batch || '',
+            department: resolvedProfile.department || '',
+            college_name: resolvedProfile.college_name || '',
+            college_address: resolvedProfile.college_address || '',
+            dob: resolvedProfile.dob || null,
         },
         missingFields: ((): string[] => {
             const missing: string[] = [];
-            if (!profile.profile_photo_url && !(user as Record<string, unknown>).profile_photo) missing.push('Profile Photo');
-            if (!profile.phone && !profile.phone_number) missing.push('Phone Number');
-            if (!profile.guardian_phone) missing.push('Guardian Phone');
-            if (!profile.dob) missing.push('Date of Birth');
-            if (!profile.ssc_batch) missing.push('SSC Batch');
-            if (!profile.hsc_batch) missing.push('HSC Batch');
-            if (!profile.department) missing.push('Department');
-            if (!profile.college_name) missing.push('College Name');
+            if (!resolvedProfile.profile_photo_url && !(user as Record<string, unknown>).profile_photo) missing.push('Profile Photo');
+            if (!resolvedProfile.phone && !resolvedProfile.phone_number) missing.push('Phone Number');
+            if (!resolvedProfile.guardian_phone) missing.push('Guardian Phone');
+            if (!resolvedProfile.dob) missing.push('Date of Birth');
+            if (!resolvedProfile.ssc_batch) missing.push('SSC Batch');
+            if (!resolvedProfile.hsc_batch) missing.push('HSC Batch');
+            if (!resolvedProfile.department) missing.push('Department');
+            if (!resolvedProfile.college_name) missing.push('College Name');
             return missing;
         })(),
         config: {

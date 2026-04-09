@@ -78,14 +78,14 @@ const FIELD_HEADER_ALIASES: Record<TargetField, string[]> = {
     websiteUrl: ['websiteUrl', 'website', 'Website'],
     admissionUrl: ['admissionUrl', 'admissionWebsite', 'admission site', 'Admission Site', 'Admission Website'],
     totalSeats: ['totalSeats', 'total seats', 'Total Seats'],
-    seatsScienceEng: ['seatsScienceEng', 'scienceSeats', 'science seats', 'Science Seats'],
-    seatsArtsHum: ['seatsArtsHum', 'artsSeats', 'arts seats', 'Arts Seats'],
-    seatsBusiness: ['seatsBusiness', 'businessSeats', 'business seats', 'Business Seats'],
-    applicationStartDate: ['applicationStartDate', 'application start date', 'App Start', 'applicationStart', 'start date'],
-    applicationEndDate: ['applicationEndDate', 'application end date', 'App End', 'applicationEnd', 'deadline'],
-    examDateScience: ['examDateScience', 'scienceExamDate', 'Science Exam', 'science exam'],
-    examDateArts: ['examDateArts', 'artsExamDate', 'Arts Exam', 'arts exam'],
-    examDateBusiness: ['examDateBusiness', 'businessExamDate', 'Business Exam', 'business exam', 'commerceExamDate', 'Commerce Exam'],
+    seatsScienceEng: ['seatsScienceEng', 'scienceSeats', 'science seats', 'Science Seats', 'Science'],
+    seatsArtsHum: ['seatsArtsHum', 'artsSeats', 'arts seats', 'Arts Seats', 'Arts', 'Humanities'],
+    seatsBusiness: ['seatsBusiness', 'businessSeats', 'business seats', 'Business Seats', 'Business', 'Commerce'],
+    applicationStartDate: ['applicationStartDate', 'application start date', 'App Start', 'applicationStart', 'start date', 'Online Application Starts'],
+    applicationEndDate: ['applicationEndDate', 'application end date', 'App End', 'applicationEnd', 'deadline', 'Online Application Ends'],
+    examDateScience: ['examDateScience', 'scienceExamDate', 'Science Exam', 'science exam', 'Exam Date: Science'],
+    examDateArts: ['examDateArts', 'artsExamDate', 'Arts Exam', 'arts exam', 'Exam Date: Arts'],
+    examDateBusiness: ['examDateBusiness', 'businessExamDate', 'Business Exam', 'business exam', 'commerceExamDate', 'Commerce Exam', 'Exam Date: Business'],
     examCenters: ['examCenters', 'exam centers', 'Exam Centers'],
     logoUrl: ['logoUrl', 'logo', 'Logo'],
     isActive: ['isActive', 'active', 'Active', 'status'],
@@ -187,6 +187,22 @@ function parseDate(raw: unknown): Date | null {
     const date = new Date(String(raw));
     if (Number.isNaN(date.getTime())) return null;
     return date;
+}
+
+function parseAndFormatTextDate(raw: unknown): string {
+    const rawStr = String(raw ?? '').trim();
+    if (!rawStr) return '';
+    const numericValue = typeof raw === 'number' ? raw : Number(rawStr);
+    if (Number.isFinite(numericValue) && numericValue > 30000 && numericValue < 100000) {
+        const d = parseDate(numericValue);
+        if (d) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    }
+    return rawStr;
 }
 
 function readImportRows(fileBuffer: Buffer, filename: string): Record<string, unknown>[] {
@@ -326,9 +342,9 @@ function validateAndNormalizeRows(rows: Record<string, unknown>[], mapping: Reco
             seatsBusiness: String(rawNormalized.seatsBusiness || 'N/A').trim() || 'N/A',
             applicationStartDate: appStartDate,
             applicationEndDate: appEndDate,
-            examDateScience: String(rawNormalized.examDateScience || '').trim(),
-            examDateArts: String(rawNormalized.examDateArts || '').trim(),
-            examDateBusiness: String(rawNormalized.examDateBusiness || '').trim(),
+            examDateScience: parseAndFormatTextDate(rawNormalized.examDateScience),
+            examDateArts: parseAndFormatTextDate(rawNormalized.examDateArts),
+            examDateBusiness: parseAndFormatTextDate(rawNormalized.examDateBusiness),
             examCenters: normalizeExamCenters(rawNormalized.examCenters),
             logoUrl: String(rawNormalized.logoUrl || '').trim(),
             isActive: rawNormalized.isActive,

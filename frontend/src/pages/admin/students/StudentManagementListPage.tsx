@@ -13,9 +13,10 @@ import { adminUi } from '../../../lib/appRoutes';
 type Student = {
   _id: string; full_name: string; email: string; phone_number?: string;
   status: string; role: string; createdAt: string; lastLogin?: string;
+  avatarUrl?: string;
   subscription?: { status?: string; planId?: { name?: string }; expiresAtUTC?: string };
   profile_completion_percentage?: number;
-  profile?: { profile_completion_percentage?: number; phone_number?: string };
+  profile?: { profile_completion_percentage?: number; phone_number?: string; profile_photo_url?: string };
   groups?: { _id: string; name: string; color?: string }[];
 };
 
@@ -248,7 +249,15 @@ export default function StudentManagementListPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400">
+                          {(s.avatarUrl || s.profile?.profile_photo_url) ? (
+                            <img
+                              src={s.avatarUrl || s.profile?.profile_photo_url}
+                              alt={s.full_name}
+                              className="h-8 w-8 rounded-full object-cover ring-2 ring-indigo-200 dark:ring-indigo-800"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                            />
+                          ) : null}
+                          <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 ${(s.avatarUrl || s.profile?.profile_photo_url) ? 'hidden' : ''}`}>
                             {s.full_name?.charAt(0).toUpperCase() || '?'}
                           </div>
                           <div>

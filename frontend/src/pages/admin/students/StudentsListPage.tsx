@@ -278,8 +278,30 @@ export default function StudentsListPage() {
                     <input type="checkbox" checked={selected.includes(s._id as string)} onChange={() => toggleSelect(s._id as string)} className="rounded" />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900 dark:text-gray-100">{(s.fullName || s.name) as string}</div>
-                    <div className="text-xs text-gray-400 font-mono">{(s.userId || (s._id as string)?.slice(-8)) as string}</div>
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const photoUrl = (s as Record<string, unknown>).avatarUrl as string || (s as Record<string, unknown>).profilePhotoUrl as string || '';
+                        if (photoUrl) {
+                          return (
+                            <img
+                              src={photoUrl}
+                              alt={(s.fullName || s.name) as string}
+                              className="h-8 w-8 rounded-full object-cover ring-2 ring-blue-200 dark:ring-blue-800 shrink-0"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          );
+                        }
+                        return (
+                          <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-400 shrink-0">
+                            {((s.fullName || s.name) as string)?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        );
+                      })()}
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{(s.fullName || s.name) as string}</div>
+                        <div className="text-xs text-gray-400 font-mono">{(s.userId || (s._id as string)?.slice(-8)) as string}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">{s.phone as string}</td>
                   <td className="px-4 py-3 hidden md:table-cell">

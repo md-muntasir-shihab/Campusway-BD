@@ -24,6 +24,15 @@ type SiteSettingsForm = {
     subscriptionDefaultBannerUrl: string;
     subscriptionLoggedOutCtaMode: 'login' | 'contact';
     staticPages: WebsiteStaticPagesConfig;
+    socialLinks: {
+        facebook: string;
+        whatsapp: string;
+        messenger: string;
+        telegram: string;
+        twitter: string;
+        youtube: string;
+        instagram: string;
+    };
 };
 
 const defaultSettings: SiteSettingsForm = {
@@ -38,6 +47,15 @@ const defaultSettings: SiteSettingsForm = {
     subscriptionDefaultBannerUrl: '',
     subscriptionLoggedOutCtaMode: 'contact',
     staticPages: createDefaultWebsiteStaticPages(),
+    socialLinks: {
+        facebook: '',
+        whatsapp: '',
+        messenger: '',
+        telegram: '',
+        twitter: '',
+        youtube: '',
+        instagram: '',
+    },
 };
 
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -71,6 +89,10 @@ export default function SiteSettingsPanel() {
             ...defaultSettings,
             ...data,
             staticPages: mergeWebsiteStaticPages(data.staticPages),
+            socialLinks: {
+                ...defaultSettings.socialLinks,
+                ...(data.socialLinks || {}),
+            },
         };
         originalSettingsRef.current = nextSettings;
         originalLogoRef.current = data.logo || '';
@@ -96,6 +118,7 @@ export default function SiteSettingsPanel() {
             formData.append('subscriptionDefaultBannerUrl', settings.subscriptionDefaultBannerUrl);
             formData.append('subscriptionLoggedOutCtaMode', settings.subscriptionLoggedOutCtaMode);
             formData.append('staticPages', JSON.stringify(settings.staticPages));
+            formData.append('socialLinks', JSON.stringify(settings.socialLinks));
 
             if (logoFile) formData.append('logo', logoFile);
             if (faviconFile) formData.append('favicon', faviconFile);
@@ -321,6 +344,23 @@ export default function SiteSettingsPanel() {
                                 <input value={settings.contactPhone} onChange={e => setSettings({ ...settings, contactPhone: e.target.value })}
                                     className="mt-1 w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white" />
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-6 space-y-4">
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2"><Globe className="w-4 h-4 text-indigo-400" /> Standard Social Links</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {['facebook', 'whatsapp', 'messenger', 'telegram', 'twitter', 'youtube', 'instagram'].map((platform) => (
+                                <div key={platform}>
+                                    <label className="text-xs text-slate-400 capitalize">{platform}</label>
+                                    <input 
+                                        value={settings.socialLinks[platform as keyof typeof settings.socialLinks] || ''} 
+                                        onChange={e => setSettings({ ...settings, socialLinks: { ...settings.socialLinks, [platform]: e.target.value }})}
+                                        className="mt-1 w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white" 
+                                        placeholder={['whatsapp', 'phone'].includes(platform) ? `Number or Link` : `https://${platform}.com/...`}
+                                    />
+                                </div>
+                            ))}
                         </div>
                     </div>
 

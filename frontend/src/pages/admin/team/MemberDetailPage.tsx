@@ -406,6 +406,26 @@ export default function MemberDetailPage() {
                         ? <button onClick={() => handleAction('activate')} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500"><UserCheck className="h-3.5 w-3.5" /> Activate Account</button>
                         : <button onClick={() => handleAction('suspend')} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-500"><UserX className="h-3.5 w-3.5" /> Suspend Account</button>
                       }
+                      {canManageMemberPasswords && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await teamApi.toggleMember2FA(id!, !member.twoFactorEnabled);
+                              toast.success(res.data.message || (member.twoFactorEnabled ? '2FA disabled' : '2FA enabled'));
+                              await loadMember();
+                            } catch (err: any) {
+                              toast.error(err?.response?.data?.message || 'Failed to toggle 2FA');
+                            }
+                          }}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white ${
+                            member.twoFactorEnabled
+                              ? 'bg-orange-600 hover:bg-orange-500'
+                              : 'bg-teal-600 hover:bg-teal-500'
+                          }`}
+                        >
+                          <Fingerprint className="h-3.5 w-3.5" /> {member.twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

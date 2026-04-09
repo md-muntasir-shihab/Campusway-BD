@@ -927,6 +927,7 @@ export default function TeamAccessConsolePage() {
                     <th className="px-3 py-2.5 text-left font-semibold">2FA</th>
                     <th className="px-3 py-2.5 text-left font-semibold">Reset Required</th>
                     <th className="px-3 py-2.5 text-left font-semibold">Failed Logins</th>
+                    <th className="px-3 py-2.5 text-left font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -948,6 +949,26 @@ export default function TeamAccessConsolePage() {
                       </td>
                       <td className="px-3 py-2">{member.forcePasswordResetRequired ? <span className="text-xs text-amber-600">Yes</span> : <span className="text-xs text-slate-400">No</span>}</td>
                       <td className="px-3 py-2">{(member as any).loginAttempts ?? '-'}</td>
+                      <td className="px-3 py-2">
+                        {canDeleteTeam && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await teamApi.toggleMember2FA(member._id, !member.twoFactorEnabled);
+                                toast.success(res.data.message || 'Done');
+                                await loadSecurity();
+                              } catch (err: any) {
+                                toast.error(err?.response?.data?.message || 'Failed to toggle 2FA');
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-white ${
+                              member.twoFactorEnabled ? 'bg-orange-600 hover:bg-orange-500' : 'bg-teal-600 hover:bg-teal-500'
+                            }`}
+                          >
+                            <Fingerprint className="h-3 w-3" /> {member.twoFactorEnabled ? 'Disable' : 'Enable'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

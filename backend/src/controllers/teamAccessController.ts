@@ -626,6 +626,46 @@ export async function teamRevokeSessions(req: Request, res: Response): Promise<v
     }
 }
 
+export async function teamToggle2FA(req: Request, res: Response): Promise<void> {
+    try {
+        const authReq = req as AuthRequest;
+        if (!canManageTeamPasswords(authReq.user?.role)) {
+            res.status(403).json({ message: 'Only admin or super admin can manage 2FA for team members' });
+            return;
+        }
+
+        const member = await User.findById(req.params.id).select('+twoFactorSecret');
+        if (!member) {
+            res.status(404).json({ message: 'Member not found' });
+            return;
+        }
+
+        const body = req.body as Record<string, unknown>;
+        const enable = body.enable !== undefined ? Boolean(body.enable) : !member.twoFactorEnabled;
+
+        const oldState = { twoFactorEnabled: member.twoFactorEnabled };
+
+        member.twoFactorEnabled = enable;
+        if (!enable) {
+            // Clear the secret so the member can re-enroll later if needed
+            member.twoFactorSecret = undefined;
+        }
+        await member.save();
+
+        await writeAudit(req, enable ? '2fa_enabled_by_admin' : '2fa_disabled_by_admin', 'team_member', req.params.id, oldState, {
+            twoFactorEnabled: enable,
+        });
+
+        res.json({
+            message: enable ? '2FA enabled for member' : '2FA disabled for member',
+            twoFactorEnabled: enable,
+        });
+    } catch (error) {
+        console.error('teamToggle2FA error:', error);
+        res.status(500).json({ message: 'Failed to toggle 2FA' });
+    }
+}
+
 export async function teamResendInvite(req: Request, res: Response): Promise<void> {
     try {
         const invite = await TeamInvite.findOne({ memberId: asObjectId(req.params.id) }).sort({ createdAt: -1 });
