@@ -5,7 +5,7 @@ export interface INews extends Document {
     slug: string;
     displayType?: 'news' | 'update';
     shortSummary?: string;
-    shortDescription: string;
+    shortDescription?: string;
     fullContent?: string;
     content: string;
     coverImageUrl?: string;
@@ -154,7 +154,7 @@ const NewsSchema = new Schema<INews>({
     slug: { type: String, required: true, unique: true },
     displayType: { type: String, enum: ['news', 'update'], default: 'news' },
     shortSummary: { type: String, default: '' },
-    shortDescription: { type: String, required: true },
+    shortDescription: { type: String, default: '' },
     fullContent: { type: String, default: '' },
     content: { type: String, required: true },
     coverImageUrl: { type: String, default: '' },

@@ -34,6 +34,7 @@ import {
     adminNewsV2UploadMedia,
     SensitiveActionProof,
 } from '../../../services/api';
+import { buildMediaUrl } from '../../../utils/mediaUrl';
 
 interface Props {
     status: ApiNews['status'] | 'all';
@@ -1047,7 +1048,7 @@ export default function AdminNewsItemsSection({
                                 </label>
                                 {editing.coverImageUrl || editing.coverImage || editing.featuredImage ? (
                                     <img
-                                        src={String(editing.coverImageUrl || editing.coverImage || editing.featuredImage || '')}
+                                        src={buildMediaUrl(String(editing.coverImageUrl || editing.coverImage || editing.featuredImage || ''))}
                                         alt="cover preview"
                                         className="h-12 w-20 rounded-md border border-slate-300/70 object-cover dark:border-slate-700/70"
                                     />

@@ -14,6 +14,7 @@ import { invalidateQueryGroup, invalidationGroups, queryKeys } from '../../lib/q
 import { useAdminRuntimeFlags } from '../../hooks/useAdminRuntimeFlags';
 import { showConfirmDialog, showPromptDialog } from '../../lib/appDialog';
 import InfoHint from '../ui/InfoHint';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 type Placement = 'header' | 'footer' | 'home' | 'news' | 'contact';
 
@@ -182,7 +183,7 @@ export default function SocialLinksManager() {
                     <div className="mt-1 flex items-center gap-2">
                         <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-indigo-500/20 bg-slate-950/65 flex items-center justify-center">
                             {draft.iconUploadOrUrl ? (
-                                <img src={draft.iconUploadOrUrl} alt={draft.platformName || 'icon'} className="h-full w-full object-cover" />
+                                    <img src={buildMediaUrl(draft.iconUploadOrUrl)} alt={draft.platformName || 'icon'} className="h-full w-full object-cover" />
                             ) : (
                                 <span className="text-[11px] text-slate-500">Icon</span>
                             )}
@@ -283,7 +284,7 @@ export default function SocialLinksManager() {
                                 <div className="flex items-center gap-2">
                                     <div className="h-6 w-6 shrink-0 overflow-hidden rounded-md border border-indigo-500/20 bg-slate-900 flex items-center justify-center">
                                         {item.iconUploadOrUrl ? (
-                                            <img src={item.iconUploadOrUrl} alt={item.platformName} className="h-full w-full object-cover" />
+                                            <img src={buildMediaUrl(item.iconUploadOrUrl)} alt={item.platformName} className="h-full w-full object-cover" />
                                         ) : (
                                             <span className="text-[10px] text-slate-400">{(item.platformName || '?').slice(0, 1).toUpperCase()}</span>
                                         )}

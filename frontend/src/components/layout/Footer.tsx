@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { getHome, type HomeApiResponse } from '../../services/api';
 import { useWebsiteSettings } from '../../hooks/useWebsiteSettings';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 const iconByPlatform = {
     facebook: Facebook,
@@ -237,7 +238,7 @@ export default function Footer() {
         .filter((item) => Boolean(item.url));
 
     const socialItems = normalizedManagedSocialItems.length > 0 ? normalizedManagedSocialItems : fallbackSocialItems;
-    const brandLogoUrl = '/logo.png?v=1.1';
+    const brandLogoUrl = buildMediaUrl(websiteSettings?.logoUrl || '/logo.svg');
     const brandName = home?.globalSettings?.websiteName || websiteSettings?.websiteName || 'CampusWay';
     const brandMotto = home?.globalSettings?.motto || websiteSettings?.motto || '';
     const footerAboutText = footer?.aboutText || 'CampusWay helps students manage admissions, exams, and resources in one place.';

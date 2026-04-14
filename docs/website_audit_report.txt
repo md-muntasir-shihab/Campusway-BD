@@ -1,0 +1,926 @@
+Website Intelligence Report: CampusWay
+Audit Date: 2026-04-14
+Audit Scope: Repository-only (frontend, frontend-next, backend, docs). No live URL/session logs/screenshots were provided in this pass.
+Evidence Legend: Observed = directly visible in repository files. Inferred = derived from route wiring, naming, model shape, or workflow documentation.
+
+1. WEBSITE IDENTITY
+- Website name: CampusWay
+- Website purpose: Multi-surface education platform combining public discovery, student exam operations, and admin operations.
+- Target audience:
+  - Public visitors looking for universities, resources, notices/news, subscription plans.
+  - Students using exam, result, payment, profile, and support flows.
+  - Admin/staff running academic content, exam operations, subscriptions, finance, communication, and security settings.
+- Platform type: Role-based web platform (public site + student portal + admin control plane).
+- Business model:
+  - Subscription plans and manual payment handling are core.
+  - Secondary monetization/retention through exam ecosystem and recurring student engagement.
+- Core objective:
+  - Act as a centralized admission/exam readiness platform with structured admin governance.
+
+2. TECHNICAL PROFILE
+- Frontend stack (Observed):
+  - Primary app: Vite + React + React Router + React Query + Tailwind.
+  - Secondary app: Next.js hybrid app with smaller route coverage.
+  - Auth client behavior: JWT access token bootstrap, refresh flow via backend, EventSource session checks.
+- Backend stack (Observed):
+  - Express + TypeScript API.
+  - MongoDB via Mongoose models.
+  - Middleware: helmet, hpp, mongo sanitize, request sanitizer, rate limiting, role guards.
+- Database type (Observed): MongoDB document model with large multi-domain schema inventory.
+- Hosting/deployment clues (Observed):
+  - Frontend hosted on Firebase.
+  - Backend targeted to Azure App Service.
+  - Dockerfile exists for backend.
+- UI framework clues (Observed):
+  - Tailwind utility styling and custom component composition.
+  - Framer Motion used in exam runner interactions.
+- API style clues (Observed):
+  - REST-style JSON endpoints grouped by audience: public, student, admin, webhooks.
+  - Secret admin path and legacy alias paths both supported.
+- Real-time/async/sync clues (Observed):
+  - SSE used for auth/session and admin user stream.
+  - Cron jobs for exams, news, subscriptions, notifications, retention, finance recurring.
+  - Async import/export and workflow jobs exist in multiple domains.
+
+3. FULL MODULE INVENTORY
+Authentication and Session
+- What it does: JWT login, refresh, role-based routing, optional 2FA, forced logout/session invalidation handling.
+- Where: backend auth endpoints and frontend login/otp flows.
+- Roles: guest, student, admin/staff, chairman.
+- Completeness: Mostly complete.
+- Activity: Active.
+
+Student Management
+- What it does: Student CRUD, grouping, timelines, weak-topic analytics, profile requests, import/export.
+- Where: admin student-management route family and backend admin student controllers.
+- Roles: superadmin/admin/moderator/support_agent (varies).
+- Completeness: High but complex.
+- Activity: Active.
+
+Admin Panel and Settings
+- What it does: Core operations shell for all privileged modules, security center, logs, layout/settings.
+- Where: /__cw_admin__ routes and admin API.
+- Roles: superadmin/admin/moderator/editor/viewer/support_agent/finance_agent.
+- Completeness: High with some duplicated legacy navigation.
+- Activity: Active.
+
+Exam System
+- What it does: Exam creation, scheduling, delivery, autosave, submission, results publication, event streaming.
+- Where: student exam pages, admin exam console, exam/session/result models.
+- Roles: students and admin/staff.
+- Completeness: High in breadth; high complexity risk.
+- Activity: Active.
+
+Question Bank
+- What it does: Question CRUD, import, revisions, media, analytics.
+- Where: admin question bank routes/controllers/models.
+- Roles: admin/moderator/editor.
+- Completeness: High, with legacy-modern overlap.
+- Activity: Active.
+
+Subscription System
+- What it does: Plan catalog, assignment, renewal tracking, eligibility checks, support/payment gating.
+- Where: public plans pages, student payment pages, admin subscription pages.
+- Roles: student and admin/finance.
+- Completeness: Good for manual operations; external payment automation unclear.
+- Activity: Active.
+
+Finance and Payment Accounting
+- What it does: Transactions, invoices, budgets, recurring, refunds, vendors, exports/imports.
+- Where: admin finance route tree and finance controllers/models.
+- Roles: finance_agent/admin/superadmin.
+- Completeness: Broad feature set but likely uneven runtime maturity.
+- Activity: Active.
+
+Services Section
+- What it does: Service listing/category/pricing structures in data model and controllers.
+- Where: backend service controllers/models; public UX merged into subscription-plans routes.
+- Roles: public and admin.
+- Completeness: Partial and somewhat merged into plan module.
+- Activity: Partial.
+
+News and Notices
+- What it does: RSS ingestion, dedupe, optional AI draft assist, moderation, scheduling, publishing, audit trail.
+- Where: public /news pages and admin news-v2 console.
+- Roles: public readers, admin moderators/editors.
+- Completeness: Strong workflow design.
+- Activity: Active.
+
+Live Monitor / Real-time
+- What it does: User stream events, session probes, realtime dashboard refresh hooks.
+- Where: SSE endpoints, frontend realtime hooks, exam/session runtime.
+- Roles: admin and students.
+- Completeness: Functional baseline.
+- Activity: Active.
+
+Support and Ticketing
+- What it does: Student ticket create/thread, admin support center, support data timelines.
+- Where: /support and admin support center routes plus models.
+- Roles: students and support/admin.
+- Completeness: Good core; assignment/escalation maturity unclear.
+- Activity: Active.
+
+Profile and Security
+- What it does: Student profile and security center, admin profile security settings, forced password change.
+- Where: /profile, /profile/security, admin settings/security/profile routes.
+- Roles: student and admin/staff.
+- Completeness: Good.
+- Activity: Active.
+
+Analytics and Reports
+- What it does: Exam, finance, and admin analytics summaries and exports.
+- Where: admin reports and finance dashboards.
+- Roles: admin/chairman/viewer.
+- Completeness: Partial to moderate; heavy dashboard claims exceed documented test evidence.
+- Activity: Active but confidence moderate.
+
+Upload/Media/Banner
+- What it does: Secure upload registration, visibility controls, banner and media management.
+- Where: secure upload service/controller + admin banner/news/resource media tools.
+- Roles: admins and students (limited uploads in profile/exam/support).
+- Completeness: Strong metadata model; content validation depth is mixed.
+- Activity: Active.
+
+Communication/Campaign Center
+- What it does: Notification templates/providers/jobs, campaign console, contact center segmentation.
+- Where: admin campaigns and notification routes/controllers/models.
+- Roles: admin/moderator/support/finance (depending on policy).
+- Completeness: Partial by project docs (runtime verification still pending).
+- Activity: Active but risk flagged.
+
+Team Access Control
+- What it does: Team members, roles, overrides, invites, approval rules, audit logs.
+- Where: admin team routes and role/permission-related models.
+- Roles: superadmin/admin.
+- Completeness: Partial to mixed (UI broad, enforcement consistency uncertain).
+- Activity: Active but uneven.
+
+4. PAGE-BY-PAGE BREAKDOWN
+Global route behavior notes
+- Public shell: navbar + footer + popup manager.
+- Full-screen shell: admin, exam runtime, login, chairman pages avoid public shell.
+- Legacy redirects are extensive and hide route history debt.
+- Responsive design is broadly present via Tailwind breakpoints; admin dense tables are desktop-first.
+
+4.1 Public routes
+- Route: /
+  - Purpose: Landing and content aggregation.
+  - Main UI: Hero/content cards/university-news-plan sections.
+  - Actions: Navigate to modules, engagement CTAs.
+  - Data: Home settings/content blocks/news/university highlights.
+  - Conditional: Live home updates hook enabled on non-fullscreen routes.
+  - Mobile: Responsive but content-heavy.
+  - State quality: Active.
+
+- Route: /universities
+  - Purpose: University directory browse.
+  - UI: Search/filter/list/grid.
+  - Actions: open details, category/cluster filtering.
+  - Data: University collection and categorization.
+  - Hidden logic: Alias route /universities/:slug points to details page.
+  - Mobile: Usable; filter density can crowd small screens.
+  - State quality: Active.
+
+- Route: /universities/category/:categorySlug
+  - Purpose: Category-specific listing.
+  - Data dependency: University category metadata.
+  - State quality: Active.
+
+- Route: /universities/cluster/:clusterSlug
+  - Purpose: Cluster-specific listing.
+  - Data dependency: University cluster metadata.
+  - State quality: Active.
+
+- Route: /university/:slug and /universities/:slug
+  - Purpose: University details.
+  - UI: Profile/program/admission-related blocks.
+  - State quality: Active.
+
+- Route: /news and /news/:slug
+  - Purpose: Public news feed and article detail.
+  - UI: Lists, article body, metadata/share actions.
+  - Data: Published news only.
+  - Hidden logic: Cover fallback behavior tied to settings defaults.
+  - State quality: Active.
+
+- Route: /exams
+  - Purpose: Public exam discovery and student entry point.
+  - UI: Exam list/filter cards.
+  - State quality: Active.
+
+- Route: /exam/:examId
+  - Purpose: Runtime exam-taking experience.
+  - UI: Timer, question palette, autosave, submission controls, rule modal.
+  - Actions: select answer, mark for review, submit.
+  - Data: Exam detail + session questions + session answers.
+  - Hidden logic: local storage session pointers/cache, offline queue, autosubmit on timeout.
+  - Mobile: Works, but high cognitive load; long exam sessions on small screens are stressful.
+  - State quality: Active, high complexity risk.
+
+- Route: /exam/:examId/result and /exam/:examId/solutions
+  - Purpose: Result and solution review.
+  - Data: session-bound results and explanation data.
+  - State quality: Active.
+
+- Route: /certificate/verify/:certificateId
+  - Purpose: Certificate verification.
+  - State quality: Active.
+
+- Route: /resources and /resources/:slug
+  - Purpose: Resource listing and detail.
+  - State quality: Active but richness varies by content.
+
+- Route: /contact
+  - Purpose: Contact form.
+  - Inputs: name/email/subject/message style fields.
+  - Security note: anonymous write endpoint, App Check optional.
+  - State quality: Active.
+
+- Route: /help-center and /help-center/:slug
+  - Purpose: Help category and article detail.
+  - State quality: Active.
+
+- Route: /subscription-plans, /subscription-plans/:planId, /subscription-plans/checkout/:slug
+  - Purpose: Plan browse/detail/checkout.
+  - Actions: request payment or continue into configured checkout mode.
+  - Risk: true payment orchestration appears partly backend/manual.
+  - State quality: Active with partial automation confidence.
+
+- Route: /about, /terms, /privacy
+  - Purpose: Static policy/info pages.
+  - State quality: Active.
+
+- Route: /login and /otp-verify
+  - Purpose: Student login and OTP verification.
+  - State quality: Active.
+
+- Route: /chairman/login and /chairman/dashboard
+  - Purpose: Chairman role entry and oversight dashboard.
+  - State quality: Exists; usage depth appears limited.
+
+4.2 Student routes (protected shell)
+- Route: /dashboard and /student/dashboard
+  - Purpose: Student command center.
+  - UI: many widgets (status, progress, subscriptions, alerts, exams, results, weak topics, leaderboard, watchlist, resources, security, dates).
+  - Hidden logic: celebration popup tracking in local storage; realtime hook controlled by config.
+  - Failure points: overfetch and render load; stale config can hide/show wrong sections.
+  - State quality: Active but heavy.
+
+- Route: /profile and /student/profile
+  - Purpose: student profile editing.
+  - Actions: profile update, photo/docs handling.
+  - State quality: Active.
+
+- Route: /profile/security and /student/security
+  - Purpose: account security management.
+  - State quality: Active.
+
+- Route: /student/exams-hub
+  - Purpose: exam hub view for student.
+  - State quality: Active/bridge route.
+
+- Route: /exams/:examId
+  - Purpose: student exam detail/start context.
+  - State quality: Active.
+
+- Route: /results and /results/:examId
+  - Purpose: student result list and detail.
+  - State quality: Active.
+
+- Route: /payments
+  - Purpose: student payment/subscription history.
+  - State quality: Active.
+
+- Route: /notifications
+  - Purpose: student notification inbox.
+  - State quality: Active.
+
+- Route: /student/resources
+  - Purpose: student-facing resource access.
+  - State quality: Active.
+
+- Route: /support and /support/:ticketId
+  - Purpose: ticket create/list/thread.
+  - Conditional: some flows depend on subscription eligibility.
+  - State quality: Active.
+
+- Route: /student/applications
+  - Purpose: student applications area.
+  - State quality: Appears thin/partial in current repository context.
+
+4.3 Student auth helper routes
+- /student/register
+- /student/forgot-password
+- /student/reset-password
+- /student/login, /student-login (redirect aliases)
+- State quality: Active.
+
+4.4 Admin routes (under /__cw_admin__)
+Shared admin behavior
+- Guarded by role checks, optional module/action checks, forced password reset redirection.
+- Dense control plane with many redirects for legacy and renamed paths.
+- Desktop-first UX; mobile support exists but productivity on phone is poor.
+
+Core
+- /__cw_admin__/login, /__cw_admin__/access-denied, /__cw_admin__/dashboard
+
+Universities
+- /__cw_admin__/universities and import/export/edit subpaths routed to same page component.
+
+News
+- /__cw_admin__/news and /__cw_admin__/news/*
+
+Exams and Question Bank
+- /__cw_admin__/exams
+- /__cw_admin__/question-bank and /__cw_admin__/question-bank/*
+
+Student Management
+- /__cw_admin__/student-management/list
+- /__cw_admin__/student-management/create
+- /__cw_admin__/student-management/import-export
+- /__cw_admin__/student-management/groups
+- /__cw_admin__/student-management/groups/:id
+- /__cw_admin__/student-management/audiences
+- /__cw_admin__/student-management/crm-timeline
+- /__cw_admin__/student-management/weak-topics
+- /__cw_admin__/student-management/profile-requests
+- /__cw_admin__/student-management/notifications
+- /__cw_admin__/student-management/settings
+- /__cw_admin__/student-management/students/:id
+
+Subscriptions
+- /__cw_admin__/subscriptions/plans and sub-routes for create/edit/detail
+- /__cw_admin__/subscriptions-v2
+
+Finance
+- /__cw_admin__/finance/dashboard
+- /__cw_admin__/finance/transactions
+- /__cw_admin__/finance/invoices
+- /__cw_admin__/finance/expenses
+- /__cw_admin__/finance/budgets
+- /__cw_admin__/finance/recurring
+- /__cw_admin__/finance/vendors
+- /__cw_admin__/finance/refunds
+- /__cw_admin__/finance/export
+- /__cw_admin__/finance/import
+- /__cw_admin__/finance/audit-log
+- /__cw_admin__/finance/settings
+
+Reports and resources/support/help/contact
+- /__cw_admin__/reports
+- /__cw_admin__/resources
+- /__cw_admin__/support-center
+- /__cw_admin__/help-center
+- /__cw_admin__/contact
+
+Settings
+- /__cw_admin__/settings
+- /__cw_admin__/settings/home-control
+- /__cw_admin__/settings/university-settings
+- /__cw_admin__/settings/site-settings
+- /__cw_admin__/settings/banner-manager
+- /__cw_admin__/settings/security-center
+- /__cw_admin__/settings/system-logs
+- /__cw_admin__/settings/reports
+- /__cw_admin__/settings/notifications
+- /__cw_admin__/settings/analytics
+- /__cw_admin__/settings/news
+- /__cw_admin__/settings/resource-settings
+- /__cw_admin__/settings/admin-profile
+- /__cw_admin__/settings/student-settings
+- alias redirects for /settings/home, /site, /banners, /security, /logs, /profile
+
+Campaigns and Contact Center
+- /__cw_admin__/campaigns/dashboard
+- /__cw_admin__/campaigns/list
+- /__cw_admin__/campaigns/new
+- /__cw_admin__/campaigns/templates
+- /__cw_admin__/campaigns/settings
+- /__cw_admin__/campaigns/logs
+- /__cw_admin__/subscription-contact-center
+
+Team and approvals
+- /__cw_admin__/team/members
+- /__cw_admin__/team/members/:id
+- /__cw_admin__/team/roles
+- /__cw_admin__/team/roles/:id
+- /__cw_admin__/team/permissions
+- /__cw_admin__/team/approval-rules
+- /__cw_admin__/team/activity
+- /__cw_admin__/team/security
+- /__cw_admin__/team/invites
+- /__cw_admin__/approvals
+
+Other admin pages
+- /__cw_admin__/campaign-banners
+- /__cw_admin__/notification-center (redirects into campaigns dashboard)
+- /__cw_admin__/notifications/test-send (redirect)
+- /__cw_admin__/notifications/triggers (redirect)
+
+4.5 Legacy/redirect routes still detectable
+- /campusway-secure-admin, /campusway-secure-admin/*
+- /admin-dashboard
+- /admin/*
+- /student and several /student/* aliases
+- /exam-portal and /exams/landing
+- /services and /services/:slug
+- /subscription and /subscriptions
+- Assessment: Redirect network is functional but indicates long-lived route debt.
+
+4.6 Next hybrid app routes
+- /, /news, /news/[slug], /student, /admin-dashboard
+- Observed status: hybrid app is explicitly narrower and not a full migration target yet.
+
+5. USER ROLES AND PERMISSIONS
+Superadmin
+- Allowed: all modules and all actions in matrix.
+- Restricted: effectively none.
+- Visibility: full system.
+- Risk: single point of complete power.
+
+Admin
+- Allowed: broad module access including publish/approve/export/bulk; some delete scopes.
+- Restricted: fewer destructive privileges than superadmin.
+- Visibility: almost full.
+- Risk: high operational impact, needs strong audit discipline.
+
+Moderator
+- Allowed: content-heavy modules and partial support/notifications/report views.
+- Restricted: limited destructive and system-level settings.
+- Visibility: medium-high.
+- Risk: mixed action scopes can create confusion if UI does not explain denied operations.
+
+Editor
+- Allowed: news/resources/question-bank and selective home control edits.
+- Restricted: finance/security/team high-control actions.
+- Visibility: content domain.
+
+Viewer
+- Allowed: view-only across admin modules.
+- Restricted: no create/edit/delete/publish/approve.
+- Visibility: broad read.
+
+Support_agent
+- Allowed: support center heavy actions and some report view.
+- Restricted: finance/exam/content admin in general.
+
+Finance_agent
+- Allowed: payments and finance center operations including bulk/export.
+- Restricted: most content and security modules.
+
+Chairman
+- Allowed: reports analytics view/export and security logs view.
+- Restricted: broad operational controls.
+- Visibility: oversight slice only.
+- Concern: chairman surface appears present but low evidence of deep feature maturity.
+
+Student
+- Allowed: student and public protected flows only.
+- Restricted: all admin modules and privileged APIs.
+
+Guest
+- Allowed: public pages and anonymous write endpoints.
+- Restricted: all protected features.
+
+Suspicious permission leak vectors
+- Frontend permission checks rely on permissionsV2 presence; if stale payloads occur, UI can render actions that backend later denies.
+- Legacy permission bridge and permissionsV2 coexistence increases mismatch risk during migrations.
+
+6. FEATURE-BY-FEATURE EXPLANATION
+Login/logout
+- Purpose: controlled role access.
+- Flow: client login endpoint by portal type -> token + user -> auth/me verification -> route redirect.
+- Backend dependency: auth controllers/session models.
+- DB dependency: User, ActiveSession, LoginActivity.
+- Edge cases: session invalidated, idle timeout, force logout events.
+- Failure points: insecure fallback secrets in production mode warning path; auth bootstrap failures can force silent logout.
+- Status: Working with security caveats.
+
+Account creation
+- Purpose: student onboarding.
+- Flow: register endpoint -> profile baseline -> login/verification path.
+- DB: User + StudentProfile.
+- Failure points: anti-abuse relies partly on optional App Check.
+- Status: Working.
+
+Password change/reset
+- Purpose: account recovery/security hygiene.
+- Flow: forgot-password -> reset token -> set new password; admin can force resets.
+- DB: PasswordReset and user password history fields.
+- Failure points: email delivery and token expiry edge handling not fully visible.
+- Status: Working.
+
+Subscription purchase/request
+- Purpose: monetize and gate exam/support features.
+- Flow: plan browse -> checkout/request payment -> admin/finance verification -> user subscription update.
+- DB: SubscriptionPlan, UserSubscription, ManualPayment.
+- Edge cases: stale subscription snapshot inside user document.
+- Failure points: external payment automation not strongly evidenced in frontend.
+- Status: Partially automated, operationally working.
+
+Manual approval flow
+- Purpose: controlled high-risk actions and payment proofs.
+- Flow: create pending actions/payment evidence -> admin approval/rejection.
+- DB: ActionApproval, payment-related models.
+- Failure points: reviewer throughput and inconsistent context in UI.
+- Status: Working but process-heavy.
+
+Payments
+- Purpose: recording and reconciling student payments.
+- Flow: student request/upload proof -> admin verify -> finance records -> invoice/ledger updates.
+- DB: ManualPayment, FinanceTransaction, FinanceInvoice, StudentDueLedger.
+- Failure points: proof authenticity checks are weak without OCR/bank verification.
+- Status: Working baseline.
+
+Expiry alerts
+- Purpose: retention and access gating.
+- Flow: subscription cron and notification system generate alerts.
+- Failure points: notification provider reliability unknown.
+- Status: Working with delivery confidence gaps.
+
+Exam creation
+- Purpose: author and schedule assessment products.
+- Flow: admin exam form -> question linking -> publish states -> student access.
+- DB: Exam + question bank + exam center/import profiles.
+- Edge cases: internal vs external delivery mode conflict, many legacy aliases.
+- Failure points: field duplication can cause drift in behavior.
+- Status: Working, complex.
+
+Exam taking
+- Purpose: session-based assessment.
+- Flow: start session -> fetch questions -> local+server autosave -> submit manual/timeout.
+- DB: ExamSession with answer history and anti-cheat fields.
+- Edge cases: offline mode, queue flush timing, timeout auto-submit failure.
+- Failure points: local storage corruption, large answer state, unstable network.
+- Status: Working with high operational complexity.
+
+Question bank usage
+- Purpose: reusable question assets and governance.
+- Flow: create/import/revise/approve questions -> attach to exams.
+- DB: Question, QuestionBankQuestion, set/usage/revision/media models.
+- Failure points: dual legacy/new model pathways.
+- Status: Working with technical debt.
+
+Banner upload
+- Purpose: controlled media publishing.
+- Flow: upload -> secure upload registration -> banner manager references.
+- DB: SecureUpload and Banner.
+- Failure points: file type trust still partially extension-based.
+- Status: Working.
+
+Live alerts and notifications
+- Purpose: timely user/admin communication.
+- Flow: notification jobs/templates/providers -> user inbox and optional channel delivery.
+- DB: Notification, NotificationTemplate, NotificationProvider, NotificationJob, NotificationDeliveryLog.
+- Failure points: campaign/provider runtime verification documented as pending.
+- Status: Partially validated.
+
+Finance dashboards
+- Purpose: operational and executive finance visibility.
+- Flow: transactional models -> dashboard queries -> charts/exports.
+- Failure points: heavy query surfaces, export/import stress.
+- Status: Active but runtime quality uneven.
+
+Export features
+- Purpose: reporting and operational transfer.
+- Flow: module exports to files (results, students, finance, news, etc).
+- Failure points: broad export surfaces increase data leak and performance risk.
+- Status: Working with control risk.
+
+Support tickets
+- Purpose: student issue handling.
+- Flow: create ticket -> thread replies -> admin support processing.
+- Failure points: SLA/escalation mechanics not clearly visible.
+- Status: Working baseline.
+
+Audit logs
+- Purpose: trace privileged actions and workflow changes.
+- Flow: middleware/service events -> audit collections.
+- Failure points: not all sensitive flows guarantee uniform logging depth.
+- Status: Working but consistency unclear.
+
+Notifications inbox behavior
+- Purpose: user-facing visibility of system messages.
+- Flow: delivery records -> student/admin read models.
+- Failure points: duplicates or delayed states possible if jobs/providers lag.
+- Status: Working.
+
+Image upload/link handling
+- Purpose: media management in news/banner/resource/profile contexts.
+- Flow: upload or URL -> secure upload metadata -> served via /uploads.
+- Failure points: URL-based content trust and legacy orphan files.
+- Status: Working with review risk.
+
+7. DATA MODEL / INFORMATION FLOW
+Input to output data flow
+- User input:
+  - Public forms (contact/help feedback/events/share tracking).
+  - Student forms (profile, support, exam answers, subscription requests).
+  - Admin forms (exams, question bank, news moderation, settings, finance records).
+- Admin action:
+  - Approval, publish, schedule, verification, role/permission control.
+- Backend processing:
+  - Validation, role/action checks, dedupe/normalization, cron orchestration.
+- Database save:
+  - Multi-collection writes by domain models.
+- Frontend rendering:
+  - React Query-driven fetches and role-conditional shells.
+- Notification/update flow:
+  - notification jobs/providers/delivery logs + SSE for some live events.
+
+Main collections by domain (Observed)
+- Identity/access: User, StudentProfile, AdminProfile, ActiveSession, SecurityToken, PasswordReset, OtpVerification, TeamRole, MemberPermissionOverride.
+- Content/public: HomeSettings, WebsiteSettings, Banner, ContentBlock, Resource, HelpArticle.
+- Universities: University, UniversityCategory, UniversityCluster.
+- News: News, NewsSource, NewsFetchJob, NewsAuditEvent, NewsSystemSettings.
+- Exams: Exam, ExamSession, ExamResult, QuestionBankQuestion, QuestionRevision, ExamImport* models.
+- Subscription/finance: SubscriptionPlan, UserSubscription, ManualPayment, FinanceTransaction, FinanceInvoice, FinanceBudget, FinanceRecurringRule, StudentDueLedger.
+- Communication/support: Notification*, ContactMessage, SupportTicket, SupportTicketMessage.
+- Ops/security: AuditLog, SecurityAlertLog, SecurityRateLimitEvent, ImportExportLog, BackupJob, SecureUpload.
+
+Key relationships and dependencies (Inferred from models and routes)
+- User -> UserSubscription and denormalized user.subscription cache.
+- Exam -> ExamSession -> ExamResult with optional profile sync/import overlays.
+- NewsSource -> News items via ingestion workflows.
+- Notification templates/providers -> Notification jobs -> delivery logs -> read receipts.
+- StudentGroup memberships influence exam audience and communication targeting.
+
+Repeated/duplicated fields and likely stale patterns
+- Exam includes both legacy and newer naming for access/subscription/payment controls.
+- User has both legacy permissions and permissionsV2.
+- Model folder contains legacy lowercase model files and active PascalCase models.
+- Route layer keeps many legacy aliases that preserve behavior but increase drift risk.
+
+Likely foreign keys/references
+- ObjectId references across user, plan, exam, center, group, role, and audit entities.
+- Many denormalized snapshots (for performance/history) imply sync risk when source changes.
+
+8. UI / UX STRUCTURE
+Navigation structure
+- Public: navbar + footer + route-level SEO.
+- Student: protected layout with dashboard-centric shortcuts.
+- Admin: guarded shell with module tabs and nested route trees.
+
+Layout patterns
+- Card-heavy surfaces for student dashboard and public pages.
+- Table-heavy surfaces for admin operations (students, finance, imports).
+- Modal/overlay usage in profile popup, confirmations, exam runtime prompts.
+
+Responsive behavior
+- Tailwind breakpoints are present across major pages.
+- Public and student pages are generally responsive.
+- Admin data grids are usable but clearly desktop-first.
+
+Loading, empty, error states
+- Loading skeletons and spinner use are present in several key pages.
+- Empty and error states exist but depth/consistency varies by module.
+- Save and submit errors surfaced with toasts in runtime exam flow.
+
+Consistency issues
+- Mixed style token usage (hardcoded shades plus semantic tokens).
+- Repeated route aliases and duplicated pages add UX confusion.
+- Permission-denied UX is blunt (access-denied redirects) with limited guidance.
+
+Design quality level
+- Mid-level product UX with good functional coverage.
+- Not yet a fully unified design system experience across all admin modules.
+
+9. OLD / UNUSED / REDUNDANT / DEAD CONTENT
+Legacy directories: client/, server/, CAMPUSWAY001-main/
+- Classification: REVIEW
+- Why: Not active runtime, but may contain migration references. Move to archive or remove after validation.
+
+Dual model naming (legacy lowercase plus PascalCase models)
+- Classification: REVIEW
+- Why: Risky to delete blindly; must confirm runtime ownership before removal.
+
+Extensive legacy redirects (/admin*, /campusway-secure-admin*, /student aliases, /services, /subscription aliases)
+- Classification: KEEP (short term), REVIEW (mid term)
+- Why: They preserve backward compatibility now, but route debt should be reduced after telemetry confirms low usage.
+
+students-v2 and student-groups-v2 paths redirecting to current management routes
+- Classification: REMOVE (after release notes)
+- Why: Adds complexity with little value if not truly separate UI.
+
+Chairman dashboard surface
+- Classification: REVIEW
+- Why: Role exists, but feature depth appears limited. Keep only if governance use case is real.
+
+Student applications page
+- Classification: REVIEW
+- Why: Appears thin/partial compared to other mature modules.
+
+Next hybrid app as broad replacement assumption
+- Classification: KEEP as migration track, REMOVE as primary-frontend claim
+- Why: It is explicitly narrow; do not treat as complete product surface.
+
+Service routes redirecting to subscription plans
+- Classification: REVIEW
+- Why: If service domain is intentionally merged, remove stale conceptual split from IA and docs.
+
+Potential dead controls in campaigns/analytics sections
+- Classification: REVIEW
+- Why: Docs explicitly say deeper runtime verification is pending.
+
+10. BROKEN FLOW / ISSUE LIST
+1) Backend cloud health currently reported unhealthy (503) while frontend is live.
+- Impact: production API reliability risk.
+
+2) Startup guardrails suppress process exits for missing env and DB failures.
+- Impact: app may run in degraded/insecure mode instead of failing fast.
+
+3) JWT fallback secret warnings exist for production resilience path.
+- Impact: severe security risk if production env is misconfigured.
+
+4) Legacy permission bridge + permissionsV2 coexistence.
+- Impact: inconsistent authorization outcomes during migration edge cases.
+
+5) Exam runtime complexity (offline queue, autosave intervals, timeout submit).
+- Impact: race conditions and user confusion under poor network conditions.
+
+6) Subscription cache denormalization in User document.
+- Impact: stale access decisions and confusing student UI if sync jobs fail.
+
+7) Campaign/provider flows are documented as not fully runtime-verified.
+- Impact: communication promises may not match actual delivery reliability.
+
+8) Redirect-heavy route map.
+- Impact: long-term maintainability and analytics clarity degradation.
+
+9) Admin UX on mobile for dense tables.
+- Impact: poor operational usability outside desktop.
+
+10) Upload validation relies in part on extension/mime heuristics.
+- Impact: medium risk of unsafe file handling unless downstream scanning is present.
+
+11) Legacy directories and duplicated model layers still present.
+- Impact: onboarding confusion and accidental edits to non-authoritative code.
+
+12) Some pages acknowledged as thin/stub.
+- Impact: user flow dead ends and expectation mismatch.
+
+11. SECURITY / CONTROL REVIEW
+Password and token handling clues
+- JWT session architecture is active and mature in shape.
+- Security risk exists because production fallback warnings indicate insecure fallback path if env is missing.
+
+Admin visibility and permission risks
+- Superadmin has unrestricted power.
+- Broad admin surfaces require strict auditing and role hygiene.
+- Dual permission systems increase chance of policy mismatch.
+
+Data exposure risks
+- Many export endpoints across finance/students/exams/news raise exfiltration risk if access review is weak.
+- Public write endpoints are only conditionally App Check protected.
+
+Upload/content safety
+- SecureUpload metadata and visibility controls are good.
+- URL/content ingestion (especially RSS external content) must rely on sanitization quality and source trust.
+
+Session risks
+- ActiveSession checks, SSE force logout, and idle timeout are positives.
+- In-memory rate limiting and optional bypass flags weaken distributed production hardening if not controlled.
+
+Open access areas
+- Contact/help feedback/event tracking/share tracking are intentionally public and need anti-abuse controls always enabled in production.
+
+Audit and logging presence
+- Strong model presence for audit/security logs.
+- Coverage consistency across every sensitive action is not fully proven in this pass.
+
+Overall security verdict
+- Architecture is security-aware but not fully hardened operationally.
+- Main risk is configuration discipline, not missing primitives.
+
+12. PERFORMANCE / STABILITY REVIEW
+Heavy pages
+- Student dashboard and admin exams are large, state-heavy pages.
+- Campaign and finance surfaces likely expensive when data grows.
+
+Likely slow sections
+- Multi-widget dashboard aggregation and admin all-in-one screens.
+- Import/export and analytics aggregation endpoints.
+
+Repeated rendering and state pressure
+- Exam runner and dashboard carry significant local/reactive state.
+- Frequent autosave and realtime updates can increase render churn.
+
+Likely slow queries
+- Multi-join/filter reporting on payments, results, and notifications.
+- Legacy plus modern data paths in exam/question workflows.
+
+Large media/data loads
+- News/media/resources and exports can create large payloads.
+- Bulk import/export workflows can spike memory and response time.
+
+Caching opportunities
+- Formal distributed caching is not visible in this pass.
+- In-memory controls exist but do not solve multi-instance scale.
+
+Scalability concerns
+- In-memory rate limiting state is non-distributed.
+- Route and model legacy complexity slows future scaling/refactor efforts.
+
+13. WHAT THE WEBSITE CURRENTLY IS
+- Category: Mid-level multi-role education operations platform.
+- Maturity feel: Functional and broad, but not fully hardened SaaS-grade in deployment and operational consistency.
+- Current core job: Deliver public education content and run student exam/subscription workflows with heavy admin tooling.
+- What it is trying to become: A more enterprise-style, policy-driven education SaaS with stronger campaign automation, team governance, and cloud security posture.
+
+14. WHAT IS MISSING
+Only relevant missing capabilities for this system
+- End-to-end production hardening completion (Key Vault references, strict secret discipline, cloud WAF/Front Door posture, enforced App Check where needed).
+- Distributed rate limiting and reliability primitives for multi-instance deployment.
+- Full runtime verification for campaign/provider delivery outcomes and alert traceability.
+- Unified permission strategy finalization (deprecate legacy permission bridge when safe).
+- Route and model debt cleanup to reduce duplicate logic.
+- Better admin mobile/compact usability for high-density operational tables.
+- Stronger observability for failed jobs/imports/exports and user-facing actionable errors.
+- Complete and explicit lifecycle policy for thin/stub pages (finish or remove).
+
+15. FINAL SYSTEM SUMMARY
+Strongest parts
+- Broad module coverage with clear domain separation.
+- Rich exam lifecycle and student portal feature depth.
+- Advanced news ingestion/moderation workflow with audit awareness.
+- Comprehensive admin surface and data model breadth.
+
+Weakest parts
+- Technical debt from legacy routes/models/permission bridge.
+- Operational hardening and cloud-runtime reliability gaps.
+- Uneven runtime confidence in campaigns/automation-heavy modules.
+- Complexity concentration in key pages and controllers.
+
+Most important current dependencies
+- MongoDB model health and index discipline.
+- Auth/session integrity and role-permission correctness.
+- Cron/job reliability for subscriptions/news/notifications.
+- Environment configuration quality in deployment.
+
+Biggest structural problems
+- Coexistence of old and new representations in routes, permissions, and models.
+- Very large page/controller surfaces that are hard to reason about and test deeply.
+- Documented production gap where backend health is currently unhealthy while frontend remains accessible.
+
+Most important cleanup needs
+- Remove or archive inactive directories and stale aliases after usage confirmation.
+- Resolve model/permission dual-stack ambiguity.
+- Enforce secure production config and fail-fast where appropriate.
+- Simplify admin IA by removing redundant route wrappers.
+
+Biggest future upgrade opportunities
+- Complete Next migration only after parity planning and shared component contracts.
+- Introduce stronger operational observability and reliability SLOs.
+- Convert current broad feature set into a cleaner productized workflow with fewer aliases and clearer ownership boundaries.
+
+16. DEVELOPER-READY EXTRACTION SUMMARY
+Modules
+- Auth/session, Public content, Universities, News, Exams, Question bank, Student management, Subscriptions, Payments/Finance, Support, Notifications/Campaigns, Team access, Security center, Reports/Analytics, Resources, Upload/Media.
+
+Pages
+- Public: home, universities (list/category/cluster/detail), news (list/detail), exams, exam runtime/result/solutions, resources (list/detail), contact, help center (list/detail), subscription plans (list/detail/checkout), about/terms/privacy, login/otp.
+- Student: dashboard, profile, security, exams hub/detail, results/list/detail, payments, notifications, support/list/thread, resources, applications, register/forgot/reset.
+- Admin: dashboard, universities, news console, exams, question bank, student management suite, subscriptions/plans, finance suite, reports, resources, support center, help center, contact inbox, settings suite, campaigns suite, team suite, approvals.
+- Hybrid Next: root/news/student/admin-dashboard (limited migration track).
+
+Roles
+- guest, student, chairman, viewer, editor, moderator, support_agent, finance_agent, admin, superadmin.
+
+Data types
+- Identity/session/security tokens.
+- Content/news/media.
+- University taxonomy.
+- Exam/session/result/question assets.
+- Subscription/payment/finance accounting.
+- Communication/notification/support records.
+- Team permissions and audit logs.
+
+Old/unused items
+- Legacy directories and route aliases.
+- Model naming duplication.
+- Thin/stub pages and migration placeholders.
+- Potentially redundant v2 path wrappers.
+
+Broken/high-risk items
+- Backend cloud health mismatch (frontend up, backend unhealthy).
+- Security fallback behavior if envs are incomplete.
+- Permission migration ambiguity.
+- Heavy runtime complexity in exam/dashboard/admin-exam surfaces.
+- Incomplete runtime confidence for campaign/provider flows.
+
+Priority cleanup list
+1. Fix backend production health and enforce secure environment readiness.
+2. Finalize permission strategy and reduce legacy bridge dependence.
+3. Resolve model and route duplication with usage-based retirement.
+4. Add stronger observability for jobs/imports/exports/campaign delivery.
+5. Rationalize admin route architecture and remove redundant wrappers.
+6. Define keep/remove decision for thin/stub pages and chairman depth.
+
+Priority improvement list
+1. Improve admin UX density handling and mobile fallback for key tables.
+2. Harden exam runtime reliability under unstable network conditions.
+3. Improve subscription/payment state consistency and user messaging clarity.
+4. Expand end-to-end quality gates for communication and finance critical flows.
+5. Plan a disciplined Next migration only with parity milestones and deprecation policy.
+
+End of report.

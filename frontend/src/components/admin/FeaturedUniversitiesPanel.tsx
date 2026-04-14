@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { Star, GripVertical, Save, Search, AlertCircle, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import { ApiUniversity, adminGetUniversitySettings, adminUpdateUniversitySettings } from '../../services/api';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 const ADMIN_API_PATH = (
     String(import.meta.env.VITE_ADMIN_PATH || 'campusway-secure-admin').trim().replace(/^\/+|\/+$/g, '')
@@ -195,7 +196,7 @@ export default function FeaturedUniversitiesPanel() {
                                         </div>
                                         <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center flex-shrink-0 border border-indigo-500/20">
                                             {u.logoUrl ? (
-                                                <img src={u.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-full" />
+                                                <img src={buildMediaUrl(u.logoUrl)} alt="Logo" className="w-full h-full object-cover rounded-full" />
                                             ) : (
                                                 <span className="text-[10px] font-bold text-indigo-300">{u.shortForm?.slice(0, 2) || 'UN'}</span>
                                             )}
@@ -238,7 +239,7 @@ export default function FeaturedUniversitiesPanel() {
                                     <div className="flex items-center gap-3 overflow-hidden">
                                         <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0 border border-slate-700">
                                             {u.logoUrl ? (
-                                                <img src={u.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-full" />
+                                                <img src={buildMediaUrl(u.logoUrl)} alt="Logo" className="w-full h-full object-cover rounded-full" />
                                             ) : (
                                                 <span className="text-[10px] font-bold text-slate-400">{u.shortForm?.slice(0, 2) || 'UN'}</span>
                                             )}

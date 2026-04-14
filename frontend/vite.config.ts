@@ -92,6 +92,7 @@ export default defineConfig(({ mode }) => {
         appType: 'spa',  // Enable SPA routing fallback for frontend routes like /universities
         plugins: [react()],
         server: {
+            host: '127.0.0.1',
             port: frontendPort,
             strictPort: true,
             proxy: {

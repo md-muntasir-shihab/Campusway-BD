@@ -44,15 +44,13 @@ function extractToken(req: AuthRequest): string | null {
         return authHeader.split(' ')[1];
     }
 
-    // EventSource cannot set custom Authorization headers.
-    const accepts = String(req.headers.accept || '');
-    const isSseRequest = accepts.includes('text/event-stream');
-    if (isSseRequest) {
-        const queryToken = req.query.token;
-        if (typeof queryToken === 'string' && queryToken.trim()) {
-            return queryToken.trim();
-        }
+    const cookieToken = String(req.cookies?.access_token || '').trim();
+    if (cookieToken) {
+        return cookieToken;
     }
+
+    // SSE auth must use secure cookies (or Authorization for non-SSE requests),
+    // never query-string tokens to avoid bearer leakage in URLs/logs.
 
     return null;
 }

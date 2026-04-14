@@ -1,6 +1,7 @@
 import { ApiExam, ApiExamSession } from '../../services/api';
 import { useWebsiteSettings } from '../../hooks/useWebsiteSettings';
 import { CheckCircle, AlertTriangle, Maximize, Clock } from 'lucide-react';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 import screenfull from 'screenfull';
 
 interface Props {
@@ -41,7 +42,7 @@ export default function ExamHeader({ exam, timeLeftFormatted, isTimeUp, isSaving
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3">
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                        <img src={settings?.logoUrl || settings?.logo || '/logo.png'} alt="Logo" className="h-7 sm:h-8 w-auto object-contain shrink-0" />
+                        <img src={buildMediaUrl(settings?.logoUrl || settings?.logo || '/logo.svg')} alt="Logo" className="h-7 sm:h-8 w-auto object-contain shrink-0" />
                         <div className="min-w-0">
                             <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{exam.title}</h1>
                             <p className="text-[11px] text-slate-500 truncate">

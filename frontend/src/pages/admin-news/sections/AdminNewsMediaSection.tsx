@@ -11,6 +11,7 @@ import {
     adminNewsV2MediaFromUrl,
     adminNewsV2UploadMedia,
 } from '../../../services/api';
+import { buildMediaUrl } from '../../../utils/mediaUrl';
 
 export default function AdminNewsMediaSection() {
     const queryClient = useQueryClient();
@@ -215,7 +216,7 @@ function MediaCard({ item, onDelete, deleting }: { item: ApiNewsV2Media; onDelet
     return (
         <div className="overflow-hidden rounded-2xl border border-slate-300/60 bg-slate-100/70 dark:border-slate-700/60 dark:bg-slate-950/50">
             <div className="aspect-[4/3] overflow-hidden bg-slate-200 dark:bg-slate-900">
-                <img src={item.url} alt={item.altText || 'news media'} className="h-full w-full object-cover" loading="lazy" />
+                <img src={buildMediaUrl(item.url)} alt={item.altText || 'news media'} className="h-full w-full object-cover" loading="lazy" />
             </div>
             <div className="space-y-2 p-3">
                 <p className="line-clamp-2 text-xs text-slate-700 dark:text-slate-200">{item.altText || 'No alt text'}</p>

@@ -1,0 +1,907 @@
+CampusWay Phase-1 Full System Audit (Read-Only)
+Date: 2026-04-14
+Scope: Repository-only audit, local implementation planning support
+Mode: Strict read-only (no code changes, no deletions, no dependency installs)
+Baseline: docs/website_audit_report.txt
+
+Evidence legend:
+- [Observed] Directly found in repository files.
+- [Inferred] Derived from route wiring, naming, or documented intent.
+
+Severity legend:
+- Blocker, Critical, Major, Minor
+
+============================================================
+1. SYSTEM OVERVIEW
+============================================================
+[Observed] CampusWay is a multi-surface education platform with:
+- Public site (universities, news, resources, plans, contact, help)
+- Student portal (dashboard, profile, exams, results, payments, support)
+- Admin control plane (content, academics, operations, finance, security)
+
+[Observed] Active runtime apps:
+- backend (Express + TypeScript + MongoDB)
+- frontend (Vite + React primary app)
+- frontend-next (hybrid partial surface)
+
+[Observed] Backend entry and route wiring are in backend/src/server.ts.
+[Observed] Primary route and UI composition are in frontend/src/App.tsx.
+
+[Inferred] System is feature-rich but has migration debt:
+- legacy redirects
+- duplicate/legacy model files
+- dual permission pathways (legacy and v2)
+
+============================================================
+2. FULL MODULE INVENTORY
+============================================================
+Status labels: Working, Partial, Risk-Flagged, Legacy-Adjacent
+
+1) Authentication and Session
+- Scope: login, refresh, logout, OTP/2FA, session stream/check, security sessions
+- Status: Working, Risk-Flagged (policy and migration complexity)
+
+2) Public Content Platform
+- Scope: home, universities, categories, clusters, resources, news, help, static pages
+- Status: Working
+
+3) Student Workspace
+- Scope: dashboard, profile/security, exams, results, notifications, payments, support, watchlist
+- Status: Working, Partial in some thin surfaces
+
+4) Exam Delivery and Evaluation
+- Scope: exam CRUD, runtime sessions, autosave, submit, result publish, imports, centers, sync logs
+- Status: Working, Risk-Flagged (high complexity)
+
+5) Question Bank
+- Scope: question CRUD, approval, import/export, revisions, media
+- Status: Working, Legacy-Adjacent overlap
+
+6) Student Management
+- Scope: students-v2, import/commit, groups, memberships, weak topics, CRM timeline, profile requests
+- Status: Working, Risk-Flagged (broad blast radius)
+
+7) Subscription and Plan Management
+- Scope: plan CRUD/toggle/reorder, assignment, extension, expire, auto-renew, student subscription state
+- Status: Working
+
+8) Finance and Payment Operations
+- Scope: transactions, invoices, budgets, recurring, expenses, vendors, refunds, imports/exports, due ledger
+- Status: Working, Risk-Flagged (financial integrity sensitivity)
+
+9) News and Notice Operations
+- Scope: RSS sources, fetch-now, moderation, scheduling, media, export, notices
+- Status: Working
+
+10) Communication and Campaign Center
+- Scope: campaigns, previews, sends, retry, delivery logs, templates, providers, triggers, contact center/data hub
+- Status: Partial confidence, Risk-Flagged
+
+11) Support Center
+- Scope: tickets, replies, statuses, notices, student support eligibility/tickets
+- Status: Working
+
+12) Team Access Control and Approvals
+- Scope: members, roles, permissions, overrides, invites, approval rules, activity, pending approvals
+- Status: Working, Risk-Flagged (authorization complexity)
+
+13) Security and Audit Stack
+- Scope: security settings, force logout, admin panel lock, 2FA admin controls, audit logs, sensitive-action/step-up gates
+- Status: Working, Risk-Flagged (high impact)
+
+14) Upload/Media Services
+- Scope: secure upload serving, banner/media/image/file uploads, subscription proof, student docs, question/news media
+- Status: Working, Partial verification confidence
+
+15) Background Automation
+- Scope: exam jobs, dashboard jobs, finance recurring jobs, news jobs, notification jobs, retention, subscription expiry
+- Status: Working, Risk-Flagged in multi-instance behavior
+
+============================================================
+3. FULL ROUTE INVENTORY
+============================================================
+A. Public frontend routes
+- /
+- /universities
+- /university/:slug
+- /universities/:slug
+- /universities/category/:categorySlug
+- /universities/cluster/:clusterSlug
+- /categories
+- /clusters
+- /news
+- /news/:slug
+- /resources
+- /resources/:slug
+- /help-center
+- /help-center/:slug
+- /subscription-plans
+- /subscription-plans/:planId
+- /subscription-plans/checkout/:slug
+- /contact
+- /about
+- /terms
+- /privacy
+- /login
+- /otp-verify
+- /exams
+- /exam/:examId
+- /exam/:examId/result
+- /exam/:examId/solutions
+- /certificate/verify/:certificateId
+
+B. Student/frontend protected and role surfaces
+- /dashboard
+- /profile
+- /profile/security
+- /results
+- /results/:examId
+- /payments
+- /notifications
+- /support
+- /support/:ticketId
+- /student/dashboard
+- /student/profile
+- /student/security
+- /student/resources
+- /student/exams-hub
+- /student/exams/:id
+- /student/results/:examId
+- /student/applications
+
+C. Admin/frontend routes (canonical prefix /__cw_admin__)
+Core:
+- /__cw_admin__/login
+- /__cw_admin__/dashboard
+- /__cw_admin__/universities
+- /__cw_admin__/news/*
+- /__cw_admin__/exams
+- /__cw_admin__/question-bank/*
+- /__cw_admin__/student-management/*
+- /__cw_admin__/subscriptions/plans
+- /__cw_admin__/subscriptions/contact-center
+- /__cw_admin__/finance/*
+- /__cw_admin__/resources
+- /__cw_admin__/reports
+- /__cw_admin__/support-center
+- /__cw_admin__/contact
+- /__cw_admin__/help-center
+- /__cw_admin__/campaigns/*
+- /__cw_admin__/team/*
+- /__cw_admin__/approvals
+
+Settings center:
+- /__cw_admin__/settings
+- /__cw_admin__/settings/home-control
+- /__cw_admin__/settings/site-settings
+- /__cw_admin__/settings/university-settings
+- /__cw_admin__/settings/banner-manager
+- /__cw_admin__/settings/security-center
+- /__cw_admin__/settings/system-logs
+- /__cw_admin__/settings/notifications
+- /__cw_admin__/settings/analytics
+- /__cw_admin__/settings/news
+- /__cw_admin__/settings/resource-settings
+- /__cw_admin__/settings/admin-profile
+
+D. Chairman routes
+- /chairman/login
+- /chairman/dashboard
+
+E. Legacy/redirect route surfaces
+- /campusway-secure-admin
+- /campusway-secure-admin/*
+- /admin
+- /admin/*
+- /admin-dashboard
+- /student
+- /student/login
+- /__cw_admin__/notification-center (redirect to campaign console area)
+- /__cw_admin__/notifications/test-send (redirect style usage)
+- /__cw_admin__/notifications/triggers (redirect style usage)
+
+F. Backend route group mount points
+- /api (publicRoutes)
+- /api/student (studentRoutes)
+- /api/admin + /api/{ADMIN_SECRET_PATH} (admin and admin sub-route groups)
+- /api/exams (student exam session routes)
+- /api/webhooks and /api/payments (webhook routes)
+- /api/health and /health
+
+============================================================
+4. FULL API INVENTORY
+============================================================
+Note: Inventory grouped by domain and path families. Representative endpoint list is based on route declarations in:
+- backend/src/routes/publicRoutes.ts
+- backend/src/routes/studentRoutes.ts
+- backend/src/routes/adminRoutes.ts
+- backend/src/routes/adminStudentMgmtRoutes.ts
+- backend/src/routes/adminNotificationRoutes.ts
+- backend/src/routes/webhookRoutes.ts
+
+A. Auth and account APIs
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/admin/login
+- POST /api/auth/chairman/login
+- POST /api/auth/refresh
+- POST /api/auth/logout
+- GET /api/auth/me
+- POST /api/auth/change-password
+- POST /api/auth/forgot-password
+- POST /api/auth/reset-password
+- POST /api/auth/verify-2fa
+- POST /api/auth/resend-otp
+- GET /api/auth/session-check
+- GET /api/auth/session-stream
+- GET /api/auth/security/sessions
+- DELETE /api/auth/security/sessions/:sessionId
+- POST /api/auth/security/logout-all
+- POST /api/auth/security/2fa/setup
+- POST /api/auth/security/2fa/confirm
+- POST /api/auth/security/2fa/backup-codes
+- POST /api/auth/security/2fa/disable
+
+B. Public content and discovery APIs
+- GET /api/home
+- GET /api/home/stream
+- GET /api/home/alerts
+- GET /api/settings/public
+- GET /api/settings/site
+- GET /api/settings/analytics
+- GET /api/universities
+- GET /api/university-categories
+- GET /api/universities/categories
+- GET /api/university-categories/with-clusters
+- GET /api/home/clusters/featured
+- GET /api/home/clusters/:slug/members
+- GET /api/universities/:slug
+- GET /api/resources
+- GET /api/resources/:slug
+- POST /api/resources/:id/view
+- POST /api/resources/:id/download
+- GET /api/news
+- GET /api/news/:slug
+- GET /api/news/settings
+- GET /api/news/sources
+- GET /api/news/appearance
+- GET /api/news/widgets
+- GET /api/news/featured
+- GET /api/news/trending
+- GET /api/news/categories
+- GET /api/help-center
+- GET /api/help-center/search
+- GET /api/help-center/:slug
+- POST /api/help-center/:slug/feedback
+- POST /api/contact
+- GET /api/content-blocks
+- POST /api/content-blocks/:id/impression
+- POST /api/content-blocks/:id/click
+- GET /api/services
+- GET /api/services/:id
+- GET /api/service-categories
+
+C. Student-facing APIs
+- GET /api/student/profile
+- PUT /api/student/profile
+- POST /api/student/profile/documents
+- GET /api/student/dashboard
+- GET /api/student/dashboard/stream
+- GET /api/student/upcoming-exams
+- GET /api/student/exam-history
+- GET /api/student/notifications
+- GET /api/student/live-alerts
+- GET /api/student/notices
+- GET /api/student/support/eligibility
+- POST /api/student/support-tickets
+- GET /api/student/support-tickets
+- GET /api/student/support-tickets/:id
+- POST /api/student/support-tickets/:id/reply
+- GET /api/student/me
+- GET /api/student/me/exams
+- GET /api/student/me/exams/:examId
+- GET /api/student/me/results
+- GET /api/student/me/results/:examId
+- GET /api/student/me/payments
+- POST /api/student/me/payments/proof
+- GET /api/student/me/notifications
+- POST /api/student/me/notifications/mark-read
+- GET /api/student/me/resources
+- GET /api/student/applications
+- POST /api/student/applications
+- GET /api/student/watchlist
+- POST /api/student/watchlist/toggle
+- GET /api/student/watchlist/summary
+- GET /api/student/watchlist/check
+- GET /api/student/me/weak-topics
+
+D. Student exam session APIs
+- GET /api/exams/public-list
+- GET /api/exams
+- GET /api/exams/my-visible
+- GET /api/exams/landing
+- GET /api/exams/:id
+- GET /api/exams/:id/details
+- POST /api/exams/:id/start
+- PUT /api/exams/:id/autosave
+- POST /api/exams/:id/submit
+- GET /api/exams/:id/result
+- GET /api/exams/:examId/questions
+- GET /api/exams/:examId/attempt/:attemptId
+- GET /api/exams/:examId/attempt/:attemptId/stream
+- POST /api/exams/:examId/attempt/:attemptId/answer
+- POST /api/exams/:examId/attempt/:attemptId/event
+- POST /api/exams/:examId/attempt/:attemptId/submit
+- GET /api/exams/:id/certificate
+- GET /api/certificates/:certificateId/verify
+- POST /api/exams/upload-written-answer
+
+E. Admin team/access/security/report APIs
+- GET /api/admin/permissions/matrix
+- GET/POST/PUT team members and roles under /api/admin/team/*
+- GET/PUT permissions and overrides under /api/admin/team/permissions/*
+- GET/POST/PUT/DELETE approval rules under /api/admin/team/approval-rules*
+- GET /api/admin/team/activity and detail
+- GET /api/admin/team/security
+- GET /api/admin/team/invites
+- GET /api/admin/approvals/pending
+- POST /api/admin/approvals/:id/approve
+- POST /api/admin/approvals/:id/reject
+- GET /api/admin/jobs/runs
+- GET /api/admin/jobs/health
+- GET /api/admin/dashboard/summary
+- GET /api/admin/openapi/exam-console.json
+- GET /api/admin/openapi/question-bank.json
+- GET /api/admin/openapi/news-system.json
+- GET /api/admin/security-settings
+- PUT /api/admin/security-settings
+- POST /api/admin/security-settings/reset-defaults
+- POST /api/admin/security-settings/force-logout-all
+- POST /api/admin/security-settings/admin-panel-lock
+- GET /api/admin/security/sessions
+- POST /api/admin/security/force-logout
+- GET /api/admin/security/2fa/users
+- PATCH /api/admin/security/2fa/users/:id
+- POST /api/admin/security/2fa/users/:id/reset
+- GET /api/admin/security/2fa/failures
+- GET /api/admin/security/dashboard
+- GET /api/admin/audit-logs
+- GET /api/admin/reports/summary
+- GET /api/admin/reports/export
+- GET /api/admin/reports/analytics
+- GET /api/admin/reports/events/export
+- GET /api/admin/reports/exams/:examId/insights
+- GET /api/admin/reports/exams/:examId/insights/export
+
+F. Admin exam/question-bank/university/news APIs
+Exam and question:
+- /api/admin/exams* (CRUD, publish, result publish, force submit, evaluate, analytics, export)
+- /api/admin/exams/:id/results/import* and import logs
+- /api/admin/exam-import-templates*
+- /api/admin/exam-mapping-profiles*
+- /api/admin/exam-centers*
+- /api/admin/question-bank* (CRUD, approve, lock, revert, bulk import/export, media)
+
+Universities:
+- /api/admin/universities* (CRUD, import init/validate/commit, export, template, bulk ops)
+- /api/admin/university-categories*
+- /api/admin/university-clusters*
+
+News:
+- /api/admin/news/dashboard
+- /api/admin/news/fetch-now
+- /api/admin/news (CRUD-like operations by status/action)
+- /api/admin/news/settings*
+- /api/admin/news/media* (upload, URL, delete)
+- /api/admin/news/export
+- /api/admin/news/notices*
+
+G. Admin students/subscriptions/notification APIs
+Student management and groups:
+- /api/admin/students-v2* (metrics, list, detail, create, update, suspend/activate, reset-password)
+- /api/admin/students-v2/import/preview
+- /api/admin/students-v2/import/commit
+- /api/admin/students-v2/template.xlsx
+- /api/admin/students-v2/export
+- /api/admin/students-v2/bulk-delete
+- /api/admin/students-v2/bulk-update
+- /api/admin/student-groups* (CRUD, bulk, members add/remove/move/import/export/metrics/can-delete)
+- /api/admin/student-contact-timeline/*
+- /api/admin/audience-segments*
+- /api/admin/students-v2/:id/finance-adjustment
+- /api/admin/students-v2/:id/payments
+- /api/admin/students-v2/:id/finance-statement
+
+Subscriptions:
+- /api/admin/subscriptions-v2
+- /api/admin/subscriptions-v2/users/:studentId/assign
+- /api/admin/subscriptions-v2/users/:studentId/extend
+- /api/admin/subscriptions-v2/users/:studentId/expire-now
+- /api/admin/subscriptions-v2/users/:studentId/toggle-auto-renew
+
+Notifications/campaign/contact center:
+- /api/admin/notifications/campaigns*
+- /api/admin/notifications/delivery-logs
+- /api/admin/notifications/templates*
+- /api/admin/notifications/settings*
+- /api/admin/notifications/dashboard-summary
+- /api/admin/notifications/trigger
+- /api/admin/notifications/triggers*
+- /api/admin/subscription-contact-center/*
+- /api/admin/data-hub/export
+- /api/admin/data-hub/history
+- /api/admin/notification-providers*
+- /api/admin/notification-templates*
+- /api/admin/notifications-v2/*
+
+H. Webhooks and payment callbacks
+- /api/webhooks/* (payment event ingestion families)
+- /api/payments/* (legacy-compatible webhook path family)
+
+============================================================
+5. FULL DATABASE / MODEL INVENTORY
+============================================================
+Source: docs/DATA_MODEL_SUMMARY.md plus backend model ownership patterns
+
+Core identity and access
+- User
+- StudentProfile
+- AdminProfile
+- ActiveSession
+- RolePermissionSet
+- TeamRole
+- MemberPermissionOverride
+- TeamInvite
+- TeamAuditLog
+- LoginActivity
+- SecurityToken
+- PasswordReset
+- OtpVerification
+
+Public website and content
+- HomeSettings
+- HomeConfig
+- HomePage
+- WebsiteSettings
+- Banner
+- ContentBlock
+- HomeAlert
+- Service
+- ServiceCategory
+- ServicePricingPlan
+- ServicePageConfig
+- Resource
+- ResourceSettings
+- HelpCategory
+- HelpArticle
+
+Universities and academic catalog
+- University
+- UniversityCategory
+- UniversityCluster
+- UniversitySettings
+- UniversityImportJob
+
+News and notices
+- News
+- NewsCategory
+- NewsMedia
+- NewsSource
+- NewsFetchJob
+- NewsAuditEvent
+- NewsSystemSettings
+- AnnouncementNotice
+
+Exams and question bank
+- Exam
+- ExamSession
+- ExamResult
+- ExamCertificate
+- ExamCenter
+- ExamEvent
+- ExamImportJob
+- ExamImportRowIssue
+- ExamImportTemplate
+- ExamMappingProfile
+- ExamProfileSyncLog
+- Question
+- QuestionBankQuestion
+- QuestionBankSet
+- QuestionBankAnalytics
+- QuestionBankSettings
+- QuestionBankUsage
+- QuestionImportJob
+- QuestionMedia
+- QuestionRevision
+
+Subscription, payment, finance
+- SubscriptionPlan
+- UserSubscription
+- SubscriptionSettings
+- SubscriptionAutomationLog
+- SubscriptionContactPreset
+- ManualPayment
+- PaymentWebhookEvent
+- FinanceTransaction
+- FinanceInvoice
+- FinanceBudget
+- FinanceRefund
+- FinanceRecurringRule
+- FinanceVendor
+- FinanceSettings
+- ExpenseEntry
+- ChartOfAccounts
+- StaffPayout
+- StudentDueLedger
+
+Communication and notifications
+- Notification
+- StudentNotificationRead
+- AdminNotificationRead
+- NotificationTemplate
+- NotificationProvider
+- NotificationSettings
+- NotificationJob
+- NotificationDeliveryLog
+- LiveAlertAck
+- EventLog
+- JobRunLog
+
+Support and operational workflows
+- ContactMessage
+- SupportTicket
+- SupportTicketMessage
+- ProfileUpdateRequest
+- ActionApproval
+- StudentContactTimeline
+- ImportExportLog
+- BackupJob
+- SecureUpload
+- SecurityAlertLog
+- SecurityRateLimitEvent
+- SecuritySettings
+
+Student enrichment
+- StudentGroup
+- GroupMembership
+- StudentBadge
+- Badge
+- StudentWatchlist
+- StudentDashboardConfig
+- StudentApplication
+
+Model risks
+- [Observed] legacy lowercase .model.ts files still coexist with active PascalCase models.
+- [Inferred] ownership cleanup must happen in a dedicated migration-safe pass.
+
+============================================================
+6. FULL UPLOAD / IMPORT / EXPORT INVENTORY
+============================================================
+A. Upload families
+1) General secure media/file serving
+- GET /uploads/:storedName through secure controller
+- Model: SecureUpload
+
+2) Student profile document upload
+- POST /api/student/profile/documents
+
+3) Subscription payment proof upload
+- POST /api/subscriptions/:planId/upload-proof
+- POST /api/student/me/payments/proof
+
+4) Exam written answer upload
+- POST /api/exams/upload-written-answer
+
+5) News media upload and URL mode
+- POST /api/admin/news/media/upload
+- POST /api/admin/news/media/from-url
+
+6) Question media
+- POST /api/admin/question-bank/media/sign-upload
+- POST /api/admin/question-bank/media
+
+7) Banner and site-setting image uploads
+- Site settings endpoint supports logo and favicon multipart fields
+
+B. Import systems
+1) Student import pipeline
+- preview then commit flow (/students-v2/import/preview, /students-v2/import/commit)
+- template and logs available
+
+2) Group member import pipeline
+- /student-groups/:id/members/import/preview
+- /student-groups/:id/members/import/commit
+- template endpoint available
+
+3) University import pipeline
+- init/validate/commit with job tracking and error CSV
+
+4) Exam result import pipeline
+- template download + import endpoints
+
+5) Question bulk import
+- /question-bank/bulk-import
+- /exams/:examId/questions/import-excel
+
+C. Export systems
+- student exports, group exports, group member exports
+- report exports
+- exam exports and events exports
+- question bank export
+- university export
+- news export
+- contact-center/data-hub exports
+
+Upload/import/export risks
+- [Critical][Inferred] multi-step import transactional consistency and session continuity need runtime proof.
+- [Major][Observed] sensitive export tracking is present, but consistency must be validated endpoint-by-endpoint in runtime phase.
+
+============================================================
+7. FULL ADMIN MATRIX / CARD / METRIC INVENTORY
+============================================================
+Source: frontend admin route map, admin menu structure, settings bindings map, dashboard summary endpoints
+
+A. Admin matrix/modules by navigation group
+1) Dashboard
+2) Website Control
+3) Universities
+4) News Management
+5) Exams
+6) Question Bank
+7) Student Management
+8) Subscription and Payments
+9) Resources
+10) Support and Communication
+11) Team Access Control
+12) Security and Logs
+13) Reports and Analytics
+
+B. Card/widget classes observed or mapped
+- Dashboard summary cards (students, exams, support unread, financial summaries)
+- Section visibility/home control cards
+- News pipeline status cards (pending, scheduled, published, duplicates)
+- Exam operational cards (live sessions, imports, sync logs, centers)
+- Question bank analytics cards
+- Student management metrics and weak-topic summaries
+- Finance dashboard cards and chart panels
+- Notification/campaign delivery and queue summaries
+- Security dashboard cards and session/2FA metrics
+
+C. Editable vs read-only status
+- Editable: most settings, plans, templates, providers, triggers, entities
+- Read-only: many audit/log and summary panels
+- Mixed: dashboards with links to editable modules
+
+D. Live vs placeholder confidence
+- [Observed] substantial endpoint linkage exists for major cards
+- [Inferred] some cards may be stale/partial where docs mark thin or pending verification
+
+============================================================
+8. FULL ROLE / PERMISSION INVENTORY
+============================================================
+Roles discovered
+- superadmin
+- admin
+- moderator
+- editor
+- viewer
+- support_agent
+- finance_agent
+- chairman
+- student
+- guest (unauthenticated surface)
+
+Permission model signals
+- [Observed] module-action permission checks with requirePermission(module, action)
+- [Observed] role-based allowlists with authorize(...) in selected routes
+- [Observed] sensitive action guards and step-up middleware for destructive/export/security actions
+- [Observed] permission matrix baseline in docs/architecture/PERMISSIONS_MATRIX.md
+- [Observed] frontend role gating in admin route/menu structures
+
+High-level role behavior
+- superadmin: full control
+- admin: broad control with selected destructive restrictions
+- moderator/editor: constrained operational and content scopes
+- viewer: read-only admin views
+- support_agent: support-focused scopes
+- finance_agent: payments/finance/reports-focused scopes
+- chairman: oversight/analytics limited scope
+- student: student-only protected routes and self-service APIs
+- guest: public read and selected anonymous writes (protected by app-check/rate limits where wired)
+
+Permission mismatch risks
+- [Major][Inferred] coexistence of legacy permission flags and v2 permission matrix can create drift.
+- [Major][Observed] inferred module mapping for standalone admin paths in server can become fragile after path changes.
+
+============================================================
+9. FULL CONNECTION MAP
+============================================================
+Connection format: Source -> Destination -> Reflection Surface
+
+1) Student profile -> Student dashboard -> student summary cards
+2) Student -> Group membership -> eligibility and segmentation surfaces
+3) Student -> Subscription -> plan visibility/gating and payment status
+4) Subscription/payment -> Finance transactions -> finance dashboard metrics
+5) Exam -> Question bank -> exam composition and delivery
+6) Exam session -> Result -> student result and admin result panels
+7) News source -> News item moderation -> public news list/detail
+8) Support ticket student thread -> Admin support center -> unread/support counters
+9) Home/site settings -> Public home/navbar/footer widgets
+10) Social link manager -> Site settings/public placements
+11) Security settings -> auth/session/admin panel policy behavior
+12) Notification templates/providers/triggers -> campaign send -> delivery logs
+13) Contact center segmentation -> export/data hub -> communication operations
+
+Connection risk notes
+- [Critical][Inferred] payment/subscription/finance linkage must be runtime-verified for accounting consistency.
+- [Major][Inferred] campaign delivery and trigger chains require runtime verification for end-to-end reliability.
+
+============================================================
+10. LEGACY / UNUSED / DUPLICATE / DEAD PARTS
+============================================================
+Classification tags: KEEP, REVIEW, DEPRECATE, REMOVE LATER
+
+1) Legacy directories (client, server, CAMPUSWAY001-main)
+- Class: REVIEW
+- Reason: contributor confusion risk
+
+2) Legacy model duplication (.model.ts with active PascalCase models)
+- Class: REVIEW
+- Reason: possible schema ownership ambiguity
+
+3) Admin legacy route aliases and redirect map
+- Class: KEEP (compatibility) then DEPRECATE
+- Reason: migration bridge still active
+
+4) Duplicate social-links writer (quick social map) in settings
+- Class: DEPRECATE (already removed from primary UI according to docs)
+- Reason: single-writer policy required
+
+5) frontend-next partial scope (not full replacement)
+- Class: KEEP (hybrid) with REVIEW
+- Reason: intentional limited migration surface
+
+6) Thin/stub pages in public/student areas
+- Class: REVIEW
+- Reason: product completeness gap, not immediate deletion target
+
+7) middleware vs middlewares layout split
+- Class: REVIEW
+- Reason: structural inconsistency and maintenance overhead
+
+============================================================
+11. BROKEN / PARTIAL / RISKY PARTS
+============================================================
+Blocker/Critical
+1) [Critical][Inferred] High-risk data integrity paths:
+- student import commit pipeline
+- payment/subscription/finance reflection chain
+- exam result publish and forced actions
+Risk: inconsistent state if failure happens mid-flow.
+
+2) [Critical][Inferred] Multi-instance cron duplication risk for notification/news/recurring jobs without explicit distributed lock evidence in this audit.
+
+Major
+3) [Major][Observed] Communication/campaign domain still marked for deeper runtime verification in known gaps.
+4) [Major][Observed] Legacy/v2 permission coexistence raises access regression risk.
+5) [Major][Observed] Legacy route compatibility layer indicates unresolved migration debt.
+6) [Major][Observed] Duplicate model/layout debt remains unresolved and can trigger future drift.
+
+Minor
+7) [Minor][Observed] Some pages are intentionally thin and need product-level implementation depth.
+8) [Minor][Observed] frontend-next limited route scope may confuse scope assumptions.
+
+============================================================
+12. SAFETY RATING PER MODULE
+============================================================
+Rating set: SAFE, NEEDS REVIEW, RISKY, DO NOT TOUCH YET
+
+- Authentication and Session: RISKY
+- Public Content Platform: SAFE
+- Student Workspace: NEEDS REVIEW
+- Exam Delivery and Evaluation: RISKY
+- Question Bank: NEEDS REVIEW
+- Student Management: RISKY
+- Subscription and Plan Management: NEEDS REVIEW
+- Finance and Payment Operations: RISKY
+- News and Notice Operations: NEEDS REVIEW
+- Communication and Campaign Center: RISKY
+- Support Center: NEEDS REVIEW
+- Team Access Control and Approvals: RISKY
+- Security and Audit Stack: RISKY
+- Upload/Media Services: NEEDS REVIEW
+- Background Automation: RISKY
+- frontend-next hybrid surface: NEEDS REVIEW
+- Legacy compatibility surfaces: DO NOT TOUCH YET (until targeted migration strategy)
+
+============================================================
+13. WHAT MUST NOT BE TOUCHED YET
+============================================================
+1) Permission architecture consolidation (legacy + v2) without a dedicated migration plan
+2) Legacy route compatibility layer removal without route-level consumer validation
+3) Payment/subscription/finance core write logic without transactional regression pack
+4) Security-center enforcement and admin panel lock workflows without role-regression tests
+5) Cron scheduling behavior in production-like multi-instance environments without locking strategy
+6) Model ownership cleanup across duplicate files without usage trace confirmation
+7) frontend-next scope expansion assumptions without explicit parity plan
+
+============================================================
+14. WHAT IS SAFE TO WORK ON LATER
+============================================================
+1) Documentation consolidation and stale doc cleanup
+2) Legacy inventory tagging and explicit ownership notes
+3) Route-map and menu-map consistency documentation
+4) Non-critical UI thin-page improvements with no contract changes
+5) Read-only observability/reporting enhancements (additional diagnostics pages)
+6) Test-case enrichment for campaign and finance flows
+7) Controlled cleanup plan drafting for duplicate model and middleware layout
+
+============================================================
+15. PHASE-2 READINESS CHECKLIST
+============================================================
+Go/No-Go checklist for next phase (runtime verification/fix loops)
+
+A. Preconditions
+- MCP/browser context healthy and reproducible
+- Local backend/frontend endpoints reachable
+- seed credentials validated for admin and student
+- test data mutation boundaries documented
+
+B. Execution map
+1) Runtime gate and auth sanity
+2) Public route deep pass
+3) Student route deep pass
+4) Admin route deep pass
+5) Cross-role connected flows
+6) Upload/import/export runtime proof
+7) API-response-to-DB reflection proof
+8) responsive/theme matrix pass
+9) targeted fix/retest loops
+10) regression pack and release verdict
+
+C. Must-preserve dependencies
+- auth/session contracts
+- permission enforcement middleware and role guards
+- plan/subscription/payment/finance linkage
+- exam/question/result linkage and publish semantics
+- notification templates/providers/triggers and delivery logs
+- home/site settings bindings to public rendering
+
+D. Must-test-before-any-fix list
+- /login, /dashboard, /__cw_admin__/login, /__cw_admin__/dashboard
+- student payments/proof upload flows
+- exam start/autosave/submit/result flows
+- students-v2 import preview/commit
+- campaign preview/send/logs and contact-center export
+- finance dashboard and transaction posting/reflection
+- security settings and force-logout/admin-lock actions
+
+E. Gate decision
+- Phase-2 can start with controlled risk.
+- Required caution level: High.
+- Recommended initial verdict before runtime evidence: PARTIALLY READY for active debugging phase.
+
+============================================================
+FINAL DELIVERABLE SUMMARY
+============================================================
+Concise audit summary
+- CampusWay has broad functional coverage with strong route and model foundations.
+- Highest risks cluster around authorization complexity, financial consistency chains, and background automation behavior.
+- Legacy compatibility and model duplication create migration debt but are manageable with staged cleanup.
+
+Safe execution map for Phase-2
+- Start with runtime gate, then role-based passes (public -> student -> admin), then cross-role and reflection checks.
+- Apply strict reproduce -> root cause -> minimal fix -> retest -> regression loop.
+
+Dependencies that must be preserved
+- API contracts used across Vite primary app, hybrid Next surface, and admin panel
+- Role guard behavior and sensitive-action policies
+- Data relations across student/subscription/payment/finance and exam/question/result
+
+Connected components that must not break
+- Admin settings to public reflection
+- Campaign send to delivery logs
+- Student profile and support workflows
+- University/news/resource public consumption paths
+
+End of Phase-1 read-only audit report.

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { globalSearch } from '../controllers/globalSearchController';
 import {
     beginTotpSetup,
     confirmTotpSetup,
@@ -169,6 +170,9 @@ router.post('/auth/security/2fa/disable', authenticate, disableTwoFactor);
 router.get('/auth/oauth/providers', getOauthProviders);
 router.get('/auth/oauth/:provider/start', startOauth);
 router.get('/auth/oauth/:provider/callback', oauthCallback);
+
+/* ── Public — Global Search ── */
+router.get('/search', globalSearch);
 
 /* ── Public — Universities ── */
 router.get('/universities', getUniversities);

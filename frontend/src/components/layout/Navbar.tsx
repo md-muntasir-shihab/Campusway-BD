@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useWebsiteSettings } from '../../hooks/useWebsiteSettings';
 import ThemeSwitchPro from '../ui/ThemeSwitchPro';
 import { getStudentMeNotifications } from '../../services/api';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 const BASE_LINKS = [
     { name: 'Home', path: '/' },
@@ -23,9 +24,12 @@ export default function Navbar() {
     const location = useLocation();
     const navigate = useNavigate();
     const { data: settings, isLoading: isSettingsLoading } = useWebsiteSettings();
-    const brandName = String(settings?.websiteName || 'CampusWay').trim() || 'CampusWay';
-    // Use a cache-buster (?v=1.1) to force the browser to reload the new logo.png
-    const brandLogo = '/logo.png?v=1.1';
+    const hasResolvedSettings = Boolean(settings) || !isSettingsLoading;
+    const brandName = hasResolvedSettings
+        ? (String(settings?.websiteName || 'CampusWay').trim() || 'CampusWay')
+        : '';
+    // Build media URL that supports both local and production deployments
+    const brandLogo = buildMediaUrl(settings?.logoUrl || '/logo.svg');
     const brandMotto = String(settings?.motto || settings?.metaDescription || '').trim();
     const isStudentUser = user?.role === 'student';
     const isAdminUser = Boolean(user && user.role !== 'student' && user.role !== 'chairman');
@@ -59,31 +63,48 @@ export default function Navbar() {
         return () => window.removeEventListener('keydown', onEscape);
     }, [mobileOpen]);
 
+    useEffect(() => {
+        setLogoLoadFailed(false);
+    }, [brandLogo]);
+
     return (
         <header className="sticky top-0 z-50 bg-surface/85 dark:bg-dark-surface/85 backdrop-blur-xl border-b border-card-border/70 dark:border-dark-border/70">
             <nav className="section-container h-16 flex items-center justify-between gap-3">
                 <Link to="/" className="flex items-center gap-2.5 min-w-0 flex-1 lg:flex-none">
                     <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 overflow-hidden rounded-lg flex items-center justify-center">
-                        {!logoLoadFailed ? (
+                        {!logoLoadFailed && hasResolvedSettings ? (
                             <img
                                 src={brandLogo}
                                 alt={brandName}
                                 className="h-full w-full object-contain"
                                 onError={() => setLogoLoadFailed(true)}
                             />
-                        ) : (
+                        ) : hasResolvedSettings ? (
                             <span className="text-xs font-heading font-bold text-text dark:text-dark-text">
                                 {brandName.slice(0, 2).toUpperCase()}
                             </span>
+                        ) : (
+                            <div className="h-full w-full animate-pulse rounded-lg bg-card-border/70 dark:bg-dark-border/70" />
                         )}
                     </div>
                     <div className="min-w-0">
-                        <p className="truncate text-sm sm:text-base font-heading font-semibold text-text dark:text-dark-text">
-                            {brandName}
-                        </p>
-                        <p className="truncate text-[10px] sm:text-[11px] text-text-muted dark:text-dark-text/70">
-                            {brandMotto || 'Plan. Explore. Achieve.'}
-                        </p>
+                        {hasResolvedSettings ? (
+                            <>
+                                <p className="truncate text-sm sm:text-base font-heading font-semibold text-text dark:text-dark-text">
+                                    {brandName}
+                                </p>
+                                {brandMotto ? (
+                                    <p className="truncate text-[10px] sm:text-[11px] text-text-muted dark:text-dark-text/70">
+                                        {brandMotto}
+                                    </p>
+                                ) : null}
+                            </>
+                        ) : (
+                            <div className="space-y-1">
+                                <div className="h-3 w-24 animate-pulse rounded bg-card-border/70 dark:bg-dark-border/70" />
+                                <div className="h-2.5 w-32 animate-pulse rounded bg-card-border/60 dark:bg-dark-border/60" />
+                            </div>
+                        )}
                     </div>
                 </Link>
 

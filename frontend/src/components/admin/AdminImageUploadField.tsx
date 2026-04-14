@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { ExternalLink, Image as ImageIcon, ImageUp, Loader2, Trash2 } from 'lucide-react';
 import { adminUploadMedia } from '../../services/api';
 import { compressImage } from '../../utils/imageCompressor';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 type UploadCategory = 'profile_photo' | 'admin_upload';
 
@@ -116,7 +117,7 @@ export default function AdminImageUploadField({
                 </label>
                 {hasValue ? (
                     <a
-                        href={currentValue}
+                        href={buildMediaUrl(currentValue)}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-500 hover:text-indigo-400 dark:text-indigo-300"
@@ -136,7 +137,7 @@ export default function AdminImageUploadField({
                     >
                         {hasValue ? (
                             <img
-                                src={currentValue}
+                                src={buildMediaUrl(currentValue)}
                                 alt={previewAlt || label}
                                 className={`h-full w-full ${fit === 'contain' ? 'object-contain p-4' : 'object-cover'}`}
                             />

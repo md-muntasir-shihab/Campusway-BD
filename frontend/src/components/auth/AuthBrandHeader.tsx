@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useWebsiteSettings } from '../../hooks/useWebsiteSettings';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 type AuthBrandHeaderProps = {
     subtitle: string;
@@ -11,9 +12,9 @@ export default function AuthBrandHeader({ subtitle, homeHref = '/' }: AuthBrandH
     const siteName = String(
         settings?.websiteName || (settings as Record<string, unknown> | null)?.siteName || 'CampusWay'
     ).trim() || 'CampusWay';
-    const logo = String(
-        settings?.logo || (settings as Record<string, unknown> | null)?.logoUrl || '/logo.png'
-    ).trim() || '/logo.png';
+    const logo = buildMediaUrl(
+        String(settings?.logo || (settings as Record<string, unknown> | null)?.logoUrl || '/logo.svg').trim() || '/logo.svg'
+    );
 
     return (
         <Link to={homeHref} className="mx-auto mb-8 flex w-fit flex-col items-center gap-2">
@@ -23,8 +24,9 @@ export default function AuthBrandHeader({ subtitle, homeHref = '/' }: AuthBrandH
                 className="h-14 w-auto max-w-[220px] object-contain"
                 onError={(event) => {
                     const target = event.currentTarget;
-                    if (target.src.endsWith('/logo.png')) return;
-                    target.src = '/logo.png';
+                    const fallback = buildMediaUrl(null);
+                    if (target.src === fallback) return;
+                    target.src = fallback;
                 }}
             />
             <div className="text-center">

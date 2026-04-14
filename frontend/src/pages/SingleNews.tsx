@@ -69,7 +69,7 @@ function getArticleImage(news: ApiNews, settings: ApiNewsPublicSettings): string
         settings.defaultBannerUrl
         || settings.defaultThumbUrl
         || settings.appearance.thumbnailFallbackUrl
-        || '/logo.png';
+        || '/logo.svg';
     const forceDefault = String(news.coverImageSource || news.coverSource || '').toLowerCase() === 'default';
     if (forceDefault) return fallback;
     return (

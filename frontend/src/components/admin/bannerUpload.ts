@@ -1,7 +1,20 @@
-import { adminSignBannerUpload } from '../../services/api';
+import { adminSignBannerUpload, adminUploadMedia } from '../../services/api';
 
 export async function uploadSignedBannerAsset(file: File): Promise<string> {
     const { data: signed } = await adminSignBannerUpload(file.name, file.type || 'application/octet-stream');
+
+    if (signed.provider === 'local') {
+        const response = await adminUploadMedia(file, {
+            visibility: 'public',
+            category: 'admin_upload',
+        });
+        const payload = response.data as { url?: string; absoluteUrl?: string };
+        const uploadedUrl = String(payload?.absoluteUrl || payload?.url || signed.publicUrl || '').trim();
+        if (!uploadedUrl) {
+            throw new Error('Local upload failed');
+        }
+        return uploadedUrl;
+    }
 
     if (signed.provider === 's3' && signed.method === 'PUT') {
         const response = await fetch(signed.uploadUrl, {

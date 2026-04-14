@@ -15,6 +15,7 @@ import {
 import { showConfirmDialog } from '../../lib/appDialog';
 import AdminImageUploadField from './AdminImageUploadField';
 import { uploadSignedBannerAsset } from './bannerUpload';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 /* ── Types ── */
 interface PopupConfig {
@@ -355,7 +356,7 @@ export default function CampaignBannersPanel() {
                                     <div className="w-full md:w-56 h-28 rounded-xl overflow-hidden bg-slate-950/60 shrink-0">
                                         {banner.imageUrl ? (
                                             <img
-                                                src={banner.imageUrl}
+                                                src={buildMediaUrl(banner.imageUrl)}
                                                 alt={banner.altText || banner.title || 'Banner'}
                                                 className="w-full h-full object-cover"
                                             />

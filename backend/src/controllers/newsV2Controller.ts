@@ -2459,7 +2459,7 @@ function resolveDefaultNewsBanner(settings: NewsV2SettingsConfig): string {
         settings.defaultBannerUrl
         || settings.defaultThumbUrl
         || settings.appearance.thumbnailFallbackUrl
-        || '/logo.png'
+        || '/logo.svg'
     ).trim();
 }
 

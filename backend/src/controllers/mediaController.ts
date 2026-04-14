@@ -13,6 +13,18 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+/**
+ * Build absolute URL for uploaded files.
+ * Uses environment variable BACKEND_URL if available, otherwise falls back to request origin.
+ */
+function buildAbsoluteUploadUrl(relativeUrl: string, requestOrigin: string): string {
+    const backendUrl = String(process.env.BACKEND_URL || '').trim();
+    const baseUrl = backendUrl || requestOrigin;
+    const normalizedBase = baseUrl.replace(/\/+$/, '');
+    const normalizedPath = relativeUrl.startsWith('/') ? relativeUrl : `/${relativeUrl}`;
+    return `${normalizedBase}${normalizedPath}`;
+}
+
 const ALLOWED_MIME_TYPES = new Set([
     'image/jpeg',
     'image/png',
@@ -134,7 +146,7 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
         // Construct the public URL for the uploaded file
         // For development, it will be served from the local Node server e.g. /uploads/filename.ext
         const fileUrl = `/uploads/${req.file.filename}`;
-        const absoluteUrl = `${origin}${fileUrl}`;
+        const absoluteUrl = buildAbsoluteUploadUrl(fileUrl, origin);
 
         res.status(201).json({
             message: 'File uploaded successfully.',

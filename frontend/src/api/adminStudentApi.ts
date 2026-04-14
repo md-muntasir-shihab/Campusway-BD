@@ -1,4 +1,8 @@
-import api, { buildSensitiveActionHeaders, type SensitiveActionProof } from '../services/api';
+import api, {
+  buildSensitiveActionHeaders,
+  resolveSensitiveActionHeaders,
+  type SensitiveActionProof,
+} from '../services/api';
 import type { AdminStudentUnifiedPayload } from '../types/studentManagement';
 
 // ─── Unified Student Detail (Student Management OS) ──────────────────────
@@ -49,8 +53,19 @@ export const bulkDeleteStudents = (ids: string[]) =>
 export const bulkUpdateStudents = (ids: string[], update: Record<string, unknown>) =>
   api.post('/admin/students-v2/bulk-update', { ids, update }).then(r => r.data);
 
-export const exportStudents = (filters: Record<string, unknown>, format: 'csv' | 'xlsx') =>
-  api.get('/admin/students-v2/export', { params: { ...filters, format }, responseType: 'blob' }).then(r => r.data as Blob);
+export const exportStudents = async (filters: Record<string, unknown>, format: 'csv' | 'xlsx') => {
+  const headers = await resolveSensitiveActionHeaders({
+    actionLabel: 'export student records',
+    defaultReason: 'Student records export',
+    requireOtpHint: true,
+  });
+
+  return api.get('/admin/students-v2/export', {
+    params: { ...filters, format },
+    responseType: 'blob',
+    headers,
+  }).then(r => r.data as Blob);
+};
 
 export const importStudentsPreview = (formData: FormData) =>
   api.post('/admin/students-v2/import/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);

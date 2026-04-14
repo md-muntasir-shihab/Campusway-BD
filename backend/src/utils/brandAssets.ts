@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 export const PUBLIC_BRAND_ASSETS = {
-    logo: '/logo.png',
+    logo: '/logo.svg',
     favicon: '/favicon.ico',
 } as const;
 
@@ -10,6 +10,7 @@ export type BrandAssetKind = keyof typeof PUBLIC_BRAND_ASSETS;
 
 const RETIRED_BRAND_ASSET_PATHS = new Set<string>([
     '',
+    '/logo.png',
     '/uploads/logo-1773555868748-118876447.webp',
     '/uploads/favicon-1773555868749-501330119.webp',
 ]);

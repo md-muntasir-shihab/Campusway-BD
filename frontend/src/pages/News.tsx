@@ -71,7 +71,7 @@ function getArticleImage(news: ApiNews, settings: ApiNewsPublicSettings): string
         settings.defaultBannerUrl
         || settings.defaultThumbUrl
         || settings.appearance.thumbnailFallbackUrl
-        || '/logo.png';
+        || '/logo.svg';
     const forceDefault = String(news.coverImageSource || news.coverSource || '').toLowerCase() === 'default';
     if (forceDefault) return fallback;
     return (
@@ -387,10 +387,10 @@ async function handleShare(news: ApiNews, channel: 'whatsapp' | 'facebook' | 'me
                                             <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted dark:text-dark-text/75">
                                                 {settings.appearance.showSourceIcons && (
                                                     <img
-                                                        src={news.sourceIconUrl || settings.defaultSourceIconUrl || '/logo.png'}
+                                                        src={news.sourceIconUrl || settings.defaultSourceIconUrl || '/logo.svg'}
                                                         alt={news.sourceName || 'Source'}
                                                         className="h-4 w-4 rounded-full object-cover"
-                                                        onError={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }}
+                                                        onError={(e) => { (e.target as HTMLImageElement).src = '/logo.svg'; }}
                                                     />
                                                 )}
                                                 <span className="inline-flex items-center gap-1">

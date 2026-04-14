@@ -473,7 +473,6 @@ async function resolveRouteManifest(page: import('@playwright/test').Page): Prom
     ];
 
     for (const dynamic of dynamicDefinitions) {
-        // eslint-disable-next-line no-await-in-loop
         const route = await resolveDynamicRoute(page, dynamic.endpoint, dynamic.routeTemplate);
         canonical.push(route);
     }
@@ -534,20 +533,15 @@ test.describe('Admin Button/Font Micro Coverage', () => {
         const fontDiffs: FontDiffEntry[] = [];
 
         for (const viewport of VIEWPORTS) {
-            // eslint-disable-next-line no-await-in-loop
             await page.setViewportSize(viewport);
 
             for (const theme of THEMES) {
                 for (const route of selectedRoutes) {
                     let routeLoadError: string | null = null;
                     try {
-                        // eslint-disable-next-line no-await-in-loop
                         await page.goto(route, { waitUntil: 'domcontentloaded' });
-                        // eslint-disable-next-line no-await-in-loop
                         await setThemeMode(page, theme);
-                        // eslint-disable-next-line no-await-in-loop
                         await page.goto(route, { waitUntil: 'domcontentloaded' });
-                        // eslint-disable-next-line no-await-in-loop
                         await page.waitForTimeout(250);
                     } catch (error) {
                         routeLoadError = String(error instanceof Error ? error.message : error);
@@ -556,7 +550,6 @@ test.describe('Admin Button/Font Micro Coverage', () => {
                     if (routeLoadError) {
                         const shotName = `${slugify(route)}-${viewport.width}x${viewport.height}-${theme}-route-load.png`;
                         const absolute = path.join(issueDir, shotName);
-                        // eslint-disable-next-line no-await-in-loop
                         await page.screenshot({ path: absolute, fullPage: true }).catch(() => undefined);
                         coverageEntries.push({
                             route,
@@ -597,9 +590,7 @@ test.describe('Admin Button/Font Micro Coverage', () => {
                     const consoleBefore = consoleErrors.length;
                     const responsesBefore = apiResponses.length;
 
-                    // eslint-disable-next-line no-await-in-loop
                     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-                    // eslint-disable-next-line no-await-in-loop
                     const visibleButtons = await collectButtonDescriptors(page);
 
                     const seen = new Set<string>();
@@ -655,11 +646,8 @@ test.describe('Admin Button/Font Micro Coverage', () => {
                             continue;
                         }
 
-                        // eslint-disable-next-line no-await-in-loop
                         await page.goto(route, { waitUntil: 'domcontentloaded' });
-                        // eslint-disable-next-line no-await-in-loop
                         await page.waitForTimeout(150);
-                        // eslint-disable-next-line no-await-in-loop
                         const freshButtons = await collectButtonDescriptors(page);
                         const target = freshButtons.find((item) => item.signature === original.signature) || freshButtons[i];
 
@@ -673,9 +661,7 @@ test.describe('Admin Button/Font Micro Coverage', () => {
                         }
 
                         const locator = page.locator(`[data-e2e-micro-id="${target.microId}"]`).first();
-                        // eslint-disable-next-line no-await-in-loop
                         const visualBefore = await getVisualSnapshot(page);
-                        // eslint-disable-next-line no-await-in-loop
                         const fontBefore = await getFontSnapshot(page, target.microId);
                         const errorsBefore = healthTracker.pageErrors.length;
                         const api5xxBefore = healthTracker.criticalApiFailures.length;
@@ -684,17 +670,13 @@ test.describe('Admin Button/Font Micro Coverage', () => {
 
                         let clickError: string | null = null;
                         try {
-                            // eslint-disable-next-line no-await-in-loop
                             await locator.scrollIntoViewIfNeeded();
-                            // eslint-disable-next-line no-await-in-loop
                             await locator.click({ timeout: 8_000 });
                         } catch (error) {
                             clickError = String(error instanceof Error ? error.message : error);
                         }
 
-                        // eslint-disable-next-line no-await-in-loop
                         await page.waitForTimeout(350);
-                        // eslint-disable-next-line no-await-in-loop
                         const visualAfter = await getVisualSnapshot(page);
 
                         const routeChanged = visualAfter.routePath !== visualBefore.routePath;
@@ -707,7 +689,6 @@ test.describe('Admin Button/Font Micro Coverage', () => {
                             || visualAfter.modalCount !== visualBefore.modalCount
                             || visualAfter.markerCount !== visualBefore.markerCount;
 
-                        // eslint-disable-next-line no-await-in-loop
                         const fontAfter = await getFontSnapshot(page, target.microId);
                         let fontCheck = { allowed: true, reason: 'not checked' };
                         let fontChecked = false;
@@ -740,7 +721,6 @@ test.describe('Admin Button/Font Micro Coverage', () => {
                         if (status === 'fail') {
                             const name = `${slugify(route)}-${viewport.width}x${viewport.height}-${theme}-${slugify(target.signature)}.png`;
                             const absolute = path.join(issueDir, name);
-                            // eslint-disable-next-line no-await-in-loop
                             await page.screenshot({ path: absolute, fullPage: true }).catch(() => undefined);
                             screenshotPath = path.relative(artifactDir, absolute).replace(/\\/g, '/');
                         }

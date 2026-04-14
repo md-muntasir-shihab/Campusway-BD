@@ -6,7 +6,7 @@ import type {
 
 export const mockPublicContactSettings: PublicSettingsContactResponse = {
     siteName: "CampusWay",
-    logoUrl: "/logo.png",
+    logoUrl: "/logo.svg",
     siteDescription: "CampusWay support team is available for admission and exam guidance.",
     contactLinks: {
         phone: "+8801700000000",

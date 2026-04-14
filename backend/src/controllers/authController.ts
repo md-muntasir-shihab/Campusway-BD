@@ -206,6 +206,15 @@ function setRefreshCookie(res: Response, refreshToken: string, ttlDays = 7): voi
     });
 }
 
+function setAccessCookie(res: Response, accessToken: string, ttlMinutes = 15): void {
+    res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: Math.max(1, ttlMinutes) * 60 * 1000,
+    });
+}
+
 function isAdminRole(role: string): boolean {
     return ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'].includes(role);
 }
@@ -735,6 +744,7 @@ export async function login(req: Request, res: Response): Promise<void> {
             trigger: 'login_credentials',
         });
 
+        setAccessCookie(res, session.accessToken, security.session.accessTokenTTLMinutes);
         setRefreshCookie(res, session.refreshToken, security.session.refreshTokenTTLDays);
         const userPayload = await buildUserPayload(user);
 
@@ -803,6 +813,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
             );
         }
         setRefreshCookie(res, newRefreshToken, security.session.refreshTokenTTLDays);
+        setAccessCookie(res, token, security.session.accessTokenTTLMinutes);
         res.json({ token });
     } catch {
         res.status(403).json({ message: 'Invalid or expired refresh token' });
@@ -831,7 +842,16 @@ export async function logout(req: AuthRequest, res: Response): Promise<void> {
     } catch {
         // Ignore token decode errors on logout.
     }
-    res.clearCookie('refresh_token');
+    res.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+    });
+    res.clearCookie('access_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+    });
     res.json({ message: 'Logged out successfully' });
 }
 
@@ -952,6 +972,7 @@ export async function verify2fa(req: Request, res: Response): Promise<void> {
             trigger: 'login_2fa',
         });
 
+        setAccessCookie(res, session.accessToken, security.session.accessTokenTTLMinutes);
         setRefreshCookie(res, session.refreshToken, security.session.refreshTokenTTLDays);
         const userPayload = await buildUserPayload(user);
         res.json({ token: session.accessToken, user: userPayload });

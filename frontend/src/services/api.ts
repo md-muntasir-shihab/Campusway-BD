@@ -1952,7 +1952,7 @@ export interface ApiNews {
     title: string;
     slug: string;
     shortSummary?: string;
-    shortDescription: string;
+    shortDescription?: string;
     fullContent?: string;
     content: string;
     featuredImage?: string;
@@ -3127,6 +3127,46 @@ export interface PublicUniversityBrowseSettings {
 }
 export const getPublicUniversityBrowseSettings = () =>
     api.get<{ ok: boolean; settings: PublicUniversityBrowseSettings }>('/universities/settings/public');
+/* ── Global Search ── */
+export interface GlobalSearchUniversityResult {
+    _id: string;
+    name: string;
+    shortForm: string;
+    slug: string;
+    category: string;
+    logoUrl: string | null;
+    type: 'university';
+}
+export interface GlobalSearchExamResult {
+    _id: string;
+    title: string;
+    slug: string;
+    subject: string;
+    status: string;
+    groupCategory: string;
+    startDate: string | null;
+    endDate: string | null;
+    type: 'exam';
+}
+export interface GlobalSearchNewsResult {
+    _id: string;
+    title: string;
+    slug: string;
+    category: string;
+    coverImageUrl: string | null;
+    shortSummary: string;
+    publishDate: string | null;
+    type: 'news';
+}
+export interface GlobalSearchResponse {
+    ok: boolean;
+    universities: GlobalSearchUniversityResult[];
+    exams: GlobalSearchExamResult[];
+    news: GlobalSearchNewsResult[];
+}
+export const getGlobalSearch = (q: string) =>
+    api.get<GlobalSearchResponse>('/search', { params: { q } });
+
 export const getHomeSystem = () => api.get<HomeApiResponse>('/home');
 export const getHome = getHomeSystem;
 export const getHomeStats = () => api.get('/stats');
@@ -3221,24 +3261,20 @@ export const toggleStudentWatchlistItem = (data: { itemType: string; itemId: str
 export const getStudentWatchlistCheck = (itemType: string, itemId: string) =>
     api.get<{ saved: boolean }>('/student/watchlist/check', { params: { itemType, itemId } });
 export const getStudentDashboardStreamUrl = (token?: string) => {
-    const authToken = token || readAccessToken();
-    const query = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return resolveApiUrl(`/student/dashboard/stream${query}`);
+    void token;
+    return resolveApiUrl('/student/dashboard/stream');
 };
 export const getAuthSessionStreamUrl = (token?: string) => {
-    const authToken = token || readAccessToken();
-    const query = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return resolveApiUrl(`/auth/session-stream${query}`);
+    void token;
+    return resolveApiUrl('/auth/session-stream');
 };
 export const getExamAttemptStreamUrl = (examId: string, attemptId: string, token?: string) => {
-    const authToken = token || readAccessToken();
-    const query = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return resolveApiUrl(`/exams/${examId}/attempt/${attemptId}/stream${query}`);
+    void token;
+    return resolveApiUrl(`/exams/${examId}/attempt/${attemptId}/stream`);
 };
 export const getAdminLiveStreamUrl = (token?: string) => {
-    const authToken = token || readAccessToken();
-    const query = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return resolveApiUrl(`/${ADMIN_PATH}/live/stream${query}`);
+    void token;
+    return resolveApiUrl(`/${ADMIN_PATH}/live/stream`);
 };
 
 /* â”€â”€ Exams (auth-required) â”€â”€ */
@@ -3850,9 +3886,8 @@ export const adminGetUsers = (params?: {
     roll?: string;
 }) => api.get(`/${ADMIN_PATH}/users`, { params });
 export const getAdminUsersStreamUrl = (token?: string) => {
-    const authToken = token || readAccessToken();
-    const query = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return resolveApiUrl(`/${ADMIN_PATH}/users/stream${query}`);
+    void token;
+    return resolveApiUrl(`/${ADMIN_PATH}/users/stream`);
 };
 export const adminGetUserById = (id: string) => api.get(`/${ADMIN_PATH}/users/${id}`);
 export const adminCreateUser = (data: Record<string, unknown>) => api.post(`/${ADMIN_PATH}/users`, data);
@@ -4356,9 +4391,8 @@ export const adminGetFinanceTestBoard = (params?: { from?: string; to?: string }
     }>(`/${ADMIN_PATH}/finance/test-board`, { params });
 
 export const getAdminFinanceStreamUrl = (token?: string) => {
-    const authToken = token || readAccessToken();
-    const query = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    return resolveApiUrl(`/${ADMIN_PATH}/finance/stream${query}`);
+    void token;
+    return resolveApiUrl(`/${ADMIN_PATH}/finance/stream`);
 };
 
 export const adminGetDues = (params?: { page?: number; limit?: number; status?: 'due' | 'cleared' | '' }) =>

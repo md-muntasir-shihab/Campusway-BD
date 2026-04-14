@@ -12,6 +12,7 @@ import {
     adminNewsV2UploadMedia,
     adminNewsV2UpdateSource,
 } from '../../../services/api';
+import { buildMediaUrl } from '../../../utils/mediaUrl';
 
 const EMPTY_SOURCE: Partial<ApiNewsV2Source> = {
     name: '',
@@ -162,7 +163,7 @@ export default function AdminNewsSourcesSection() {
                                 />
                                 {uploadingIcon ? 'Uploading...' : 'Upload Icon'}
                             </label>
-                            {form.iconUrl ? <img src={form.iconUrl} alt="source icon" className="h-9 w-9 rounded-md border border-slate-300/70 object-cover dark:border-slate-700/70" /> : null}
+                            {form.iconUrl ? <img src={buildMediaUrl(form.iconUrl)} alt="source icon" className="h-9 w-9 rounded-md border border-slate-300/70 object-cover dark:border-slate-700/70" /> : null}
                         </div>
                     </div>
                     <input className="input-field" placeholder="Source Site URL (optional)" value={form.siteUrl || ''} onChange={(e) => setForm((prev) => ({ ...prev, siteUrl: e.target.value }))} />

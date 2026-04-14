@@ -11,6 +11,7 @@ import {
 import { showConfirmDialog } from '../../lib/appDialog';
 import AdminImageUploadField from './AdminImageUploadField';
 import { uploadSignedBannerAsset } from './bannerUpload';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 interface BannerItem {
     _id: string;
@@ -189,7 +190,7 @@ export default function BannerPanel() {
                                 grouped[slot].map((banner) => (
                                     <article key={banner._id} className="p-4 space-y-2">
                                         <div className="h-24 rounded-xl overflow-hidden bg-slate-950/65">
-                                            {banner.imageUrl ? <img src={banner.imageUrl} alt={banner.altText || banner.title || 'Banner'} className="w-full h-full object-cover" /> : <div className="h-full w-full flex items-center justify-center"><Image className="w-5 h-5 text-slate-500" /></div>}
+                                            {banner.imageUrl ? <img src={buildMediaUrl(banner.imageUrl)} alt={banner.altText || banner.title || 'Banner'} className="w-full h-full object-cover" /> : <div className="h-full w-full flex items-center justify-center"><Image className="w-5 h-5 text-slate-500" /></div>}
                                         </div>
                                         <div className="flex items-center justify-between gap-2">
                                             <div>

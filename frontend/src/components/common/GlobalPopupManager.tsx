@@ -32,7 +32,7 @@ interface PopupBanner {
 
 /* ── Constants ── */
 const LS_KEY = 'cw_popup_log';
-const API_URL = '/api/v1/public/banners?slot=popup';
+const API_URL = '/api/banners?slot=popup';
 
 /* ── Helpers ── */
 type PopupLog = Record<string, { timestamp: number }[]>;

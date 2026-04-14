@@ -9,7 +9,7 @@ import {
   importStudentsPreview,
   importStudentsCommit,
 } from '../../../api/adminStudentApi';
-import api from '../../../services/api';
+import api, { resolveSensitiveActionHeaders } from '../../../services/api';
 import { downloadFile } from '../../../utils/download';
 
 type LogEntry = {
@@ -60,8 +60,14 @@ export default function StudentImportExportPage() {
 
   const exportMutation = useMutation({
     mutationFn: async (format: string) => {
+      const headers = await resolveSensitiveActionHeaders({
+        actionLabel: 'export student records',
+        defaultReason: 'Student import/export page data export',
+        requireOtpHint: true,
+      });
       const res = await api.get(`/admin/students-v2/export?format=${format}`, {
         responseType: 'blob',
+        headers,
       });
       downloadFile(res, { filename: `students-export.${format}` });
     },

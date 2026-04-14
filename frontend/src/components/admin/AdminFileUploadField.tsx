@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ExternalLink, FileUp, Loader2, Trash2 } from 'lucide-react';
 import { adminUploadMedia } from '../../services/api';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 type UploadCategory = 'admin_upload';
 
@@ -100,7 +101,7 @@ export default function AdminFileUploadField({
                 </label>
                 {hasValue ? (
                     <a
-                        href={currentValue}
+                        href={buildMediaUrl(currentValue)}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-500 hover:text-indigo-400 dark:text-indigo-300"

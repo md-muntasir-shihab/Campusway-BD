@@ -3,6 +3,7 @@ import { adminGetExamAnalytics, adminEvaluateResult, adminForceSubmitSession } f
 import toast from 'react-hot-toast';
 import { Activity, X, AlertTriangle, CheckCircle, FileImage, ShieldAlert, StopCircle } from 'lucide-react';
 import { showConfirmDialog } from '../../lib/appDialog';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 
 type WrittenUploadItem = { url: string; type: 'image' | 'pdf' | 'file' };
 
@@ -230,12 +231,12 @@ export default function ExamAnalyticsPanel({ examId, onClose }: { examId: string
                                     extractWrittenUploads(evaluateStudent).map((item: WrittenUploadItem, i: number) => (
                                         <div key={i} className="border border-indigo-500/20 rounded-lg overflow-hidden group relative">
                                             {item.type === 'image' ? (
-                                                <a href={item.url} target="_blank" rel="noreferrer" className="block cursor-zoom-in">
-                                                    <img src={item.url} alt={`Upload ${i}`} className="w-full h-auto object-contain hover:scale-105 transition-transform" />
+                                                <a href={buildMediaUrl(item.url)} target="_blank" rel="noreferrer" className="block cursor-zoom-in">
+                                                    <img src={buildMediaUrl(item.url)} alt={`Upload ${i}`} className="w-full h-auto object-contain hover:scale-105 transition-transform" />
                                                 </a>
                                             ) : (
                                                 <div className="p-4 bg-slate-950/70">
-                                                    <a href={item.url} target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-200 text-sm font-medium underline">
+                                                    <a href={buildMediaUrl(item.url)} target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-200 text-sm font-medium underline">
                                                         {item.type === 'pdf' ? 'Open PDF Attachment' : 'Open Attachment'}
                                                     </a>
                                                     <p className="text-xs text-slate-400 mt-1 break-all">{item.url}</p>

@@ -240,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (stopped) return;
             closeSource();
 
-            source = new EventSource(getAuthSessionStreamUrl(token || undefined));
+            source = new EventSource(getAuthSessionStreamUrl(token || undefined), { withCredentials: true });
 
             source.addEventListener('session-connected', () => {
                 reconnectAttempt = 0;

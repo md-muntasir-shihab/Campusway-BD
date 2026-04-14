@@ -28,3 +28,5 @@ services:
         generateValue: true
       - key: ADMIN_ORIGIN
         value: https://campuswaybd.web.app
+      - key: BACKEND_URL
+        value: https://campusway-backend.onrender.com
