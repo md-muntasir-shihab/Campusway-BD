@@ -2,13 +2,16 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Newspaper } from 'lucide-react';
 import type { ApiNews } from '../../../services/api';
+import { buildMediaUrl } from '../../../utils/mediaUrl';
 
 interface NewsCardProps {
   item: ApiNews;
 }
 
 export default function NewsCard({ item }: NewsCardProps) {
-  const img = item.featuredImage || item.coverImage || item.coverImageUrl || item.thumbnailImage;
+  const imageCandidate = item.featuredImage || item.coverImage || item.coverImageUrl || item.thumbnailImage;
+  const img = imageCandidate ? buildMediaUrl(imageCandidate) : '';
+  const sourceIcon = buildMediaUrl(item.sourceIconUrl || '/logo.svg');
 
   return (
     <motion.div
@@ -21,12 +24,21 @@ export default function NewsCard({ item }: NewsCardProps) {
       >
         {/* Cover image */}
         <div className="h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
-          {img ? (
+          {imageCandidate ? (
             <img
               src={img}
               alt={item.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               loading="lazy"
+              onError={(event) => {
+                const target = event.currentTarget;
+                const fallback = buildMediaUrl('/logo.svg');
+                if (target.src !== fallback) {
+                  target.src = fallback;
+                  return;
+                }
+                target.style.display = 'none';
+              }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -55,7 +67,16 @@ export default function NewsCard({ item }: NewsCardProps) {
           {/* Source + date */}
           <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500 mt-auto">
             {item.sourceIconUrl && (
-              <img src={item.sourceIconUrl} alt="" className="w-4 h-4 rounded-full" />
+              <img
+                src={sourceIcon}
+                alt=""
+                className="w-4 h-4 rounded-full"
+                onError={(event) => {
+                  const target = event.currentTarget;
+                  const fallback = buildMediaUrl('/logo.svg');
+                  if (target.src !== fallback) target.src = fallback;
+                }}
+              />
             )}
             {item.sourceName && <span className="font-medium">{item.sourceName}</span>}
             {item.publishDate && (

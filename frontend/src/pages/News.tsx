@@ -23,6 +23,7 @@ import {
     getPublicNewsV2Widgets,
     trackPublicNewsV2Share,
 } from '../services/api';
+import { buildMediaUrl } from '../utils/mediaUrl';
 
 const DEFAULT_SETTINGS: ApiNewsPublicSettings = {
     pageTitle: 'Admission News & Updates',
@@ -73,8 +74,8 @@ function getArticleImage(news: ApiNews, settings: ApiNewsPublicSettings): string
         || settings.appearance.thumbnailFallbackUrl
         || '/logo.svg';
     const forceDefault = String(news.coverImageSource || news.coverSource || '').toLowerCase() === 'default';
-    if (forceDefault) return fallback;
-    return (
+    if (forceDefault) return buildMediaUrl(fallback);
+    return buildMediaUrl(
         news.coverImageUrl
         || news.coverImage
         || news.thumbnailImage
@@ -271,7 +272,7 @@ async function handleShare(news: ApiNews, channel: 'whatsapp' | 'facebook' | 'me
         <div className="min-h-screen bg-background dark:bg-[#081322]">
             <section
                 className="border-b border-card-border/80 bg-gradient-to-r from-cyan-500/10 via-sky-500/8 to-emerald-500/6 py-8 dark:border-dark-border/80 dark:from-cyan-500/8 dark:via-indigo-500/10 dark:to-transparent"
-                style={settings.headerBannerUrl ? { backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.72)), url(${settings.headerBannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+                style={settings.headerBannerUrl ? { backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.72)), url(${buildMediaUrl(settings.headerBannerUrl)})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
             >
                 <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4 px-4 sm:px-6 lg:px-8">
                     <div>
@@ -387,10 +388,10 @@ async function handleShare(news: ApiNews, channel: 'whatsapp' | 'facebook' | 'me
                                             <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted dark:text-dark-text/75">
                                                 {settings.appearance.showSourceIcons && (
                                                     <img
-                                                        src={news.sourceIconUrl || settings.defaultSourceIconUrl || '/logo.svg'}
+                                                        src={buildMediaUrl(news.sourceIconUrl || settings.defaultSourceIconUrl || '/logo.svg')}
                                                         alt={news.sourceName || 'Source'}
                                                         className="h-4 w-4 rounded-full object-cover"
-                                                        onError={(e) => { (e.target as HTMLImageElement).src = '/logo.svg'; }}
+                                                        onError={(e) => { (e.target as HTMLImageElement).src = buildMediaUrl('/logo.svg'); }}
                                                     />
                                                 )}
                                                 <span className="inline-flex items-center gap-1">
@@ -718,7 +719,7 @@ function FilterPanel({
                             }`}
                         >
                             <span className="inline-flex items-center gap-2">
-                                {item.iconUrl ? <img src={item.iconUrl} alt={item.name} className="h-4 w-4 rounded-full object-cover" /> : null}
+                                {item.iconUrl ? <img src={buildMediaUrl(item.iconUrl)} alt={item.name} className="h-4 w-4 rounded-full object-cover" /> : null}
                                 {item.name}
                             </span>
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] dark:bg-white/10">{item.count}</span>

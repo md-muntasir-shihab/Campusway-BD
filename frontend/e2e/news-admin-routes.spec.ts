@@ -31,7 +31,7 @@ test.describe('News admin routes', () => {
             { path: '/__cw_admin__/news/dashboard', marker: /Overview/i },
             { path: '/__cw_admin__/news/pending', marker: /Items to Review/i },
             { path: '/__cw_admin__/news/drafts', marker: /Saved Drafts/i },
-            { path: '/__cw_admin__/news/published', marker: /Live News/i },
+            { path: '/__cw_admin__/news/published', marker: /Published News/i },
             { path: '/__cw_admin__/news/scheduled', marker: /Scheduled/i },
             { path: '/__cw_admin__/news/rejected', marker: /Rejected/i },
             { path: '/__cw_admin__/news/ai-selected', marker: /AI Review/i },
@@ -57,7 +57,7 @@ test.describe('News admin routes', () => {
         await page.goto('/__cw_admin__/news/pending', { waitUntil: 'domcontentloaded' });
         await expect(page.getByRole('heading', { name: /Items to Review/i }).first()).toBeVisible();
         await expect(page.getByRole('button', { name: /More filters/i })).toBeVisible();
-        await expect(page.getByRole('button', { name: /Create Manual/i })).toBeVisible();
+        await expect(page.getByRole('button', { name: /Create Custom News/i })).toBeVisible();
         await expect(page.locator('button[aria-label*="Workflow Help"]')).toHaveCount(0);
 
         await page.goto('/__cw_admin__/news/dashboard', { waitUntil: 'domcontentloaded' });

@@ -1177,7 +1177,8 @@ export default function AdminNewsItemsSection({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {items.map((item) => {
-                        const coverImg = item.coverImageUrl || item.coverImage || item.featuredImage;
+                        const coverImageCandidate = item.coverImageUrl || item.coverImage || item.featuredImage;
+                        const coverImg = coverImageCandidate ? buildMediaUrl(coverImageCandidate) : '';
                         return (
                             <article key={item._id} className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/50 shadow-sm transition-all hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-md dark:border-slate-800/80 dark:bg-slate-900/40">
                                 {/* Image / Cover */}

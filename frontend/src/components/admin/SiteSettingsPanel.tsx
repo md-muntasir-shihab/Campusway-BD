@@ -12,6 +12,8 @@ import AdminImageUploadField from './AdminImageUploadField';
 import CompressedImageInput from '../common/CompressedImageInput';
 import { createDefaultWebsiteStaticPages, mergeWebsiteStaticPages } from '../../lib/websiteStaticPages';
 
+const WEBSITE_SETTINGS_CACHE_KEY = 'cw_public_website_settings_cache';
+
 type SiteSettingsForm = {
     websiteName: string;
     motto: string;
@@ -58,6 +60,12 @@ const defaultSettings: SiteSettingsForm = {
     },
 };
 
+function revokeBlobUrl(value: string) {
+    if (value && value.startsWith('blob:')) {
+        URL.revokeObjectURL(value);
+    }
+}
+
 function deepEqual(a: unknown, b: unknown): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
@@ -74,6 +82,8 @@ export default function SiteSettingsPanel() {
     const originalSettingsRef = useRef<SiteSettingsForm>(defaultSettings);
     const originalLogoRef = useRef('');
     const originalFaviconRef = useRef('');
+    const logoBlobUrlRef = useRef('');
+    const faviconBlobUrlRef = useRef('');
 
     const logoRef = useRef<HTMLInputElement>(null);
     const faviconRef = useRef<HTMLInputElement>(null);
@@ -85,6 +95,12 @@ export default function SiteSettingsPanel() {
     useEffect(() => {
         if (!settingsQuery.data) return;
         const data = settingsQuery.data;
+
+        revokeBlobUrl(logoBlobUrlRef.current);
+        revokeBlobUrl(faviconBlobUrlRef.current);
+        logoBlobUrlRef.current = '';
+        faviconBlobUrlRef.current = '';
+
         const nextSettings = {
             ...defaultSettings,
             ...data,
@@ -103,6 +119,11 @@ export default function SiteSettingsPanel() {
         setLogoFile(null);
         setFaviconFile(null);
     }, [settingsQuery.data]);
+
+    useEffect(() => () => {
+        revokeBlobUrl(logoBlobUrlRef.current);
+        revokeBlobUrl(faviconBlobUrlRef.current);
+    }, []);
 
     const saveMutation = useMutation({
         mutationFn: async () => {
@@ -126,6 +147,9 @@ export default function SiteSettingsPanel() {
         },
         onSuccess: async () => {
             toast.success('Website settings saved successfully');
+            if (typeof window !== 'undefined') {
+                window.localStorage.removeItem(WEBSITE_SETTINGS_CACHE_KEY);
+            }
             await invalidateQueryGroup(queryClient, invalidationGroups.siteSave);
             await invalidateQueryGroup(queryClient, invalidationGroups.plansSave);
             await settingsQuery.refetch();
@@ -138,11 +162,17 @@ export default function SiteSettingsPanel() {
     const handleFileChange = (file: File | null, type: 'logo' | 'favicon') => {
         if (!file) return;
         if (type === 'logo') {
+            revokeBlobUrl(logoBlobUrlRef.current);
             setLogoFile(file);
-            setPreviewLogo(URL.createObjectURL(file));
+            const nextBlobUrl = URL.createObjectURL(file);
+            logoBlobUrlRef.current = nextBlobUrl;
+            setPreviewLogo(nextBlobUrl);
         } else {
+            revokeBlobUrl(faviconBlobUrlRef.current);
             setFaviconFile(file);
-            setPreviewFavicon(URL.createObjectURL(file));
+            const nextBlobUrl = URL.createObjectURL(file);
+            faviconBlobUrlRef.current = nextBlobUrl;
+            setPreviewFavicon(nextBlobUrl);
         }
     };
 
@@ -151,6 +181,10 @@ export default function SiteSettingsPanel() {
     };
 
     const handleReset = () => {
+        revokeBlobUrl(logoBlobUrlRef.current);
+        revokeBlobUrl(faviconBlobUrlRef.current);
+        logoBlobUrlRef.current = '';
+        faviconBlobUrlRef.current = '';
         setSettings(originalSettingsRef.current);
         setPreviewLogo(originalLogoRef.current);
         setPreviewFavicon(originalFaviconRef.current);

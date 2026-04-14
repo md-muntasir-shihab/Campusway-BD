@@ -21,6 +21,7 @@ import {
     trackPublicNewsV2Share,
 } from '../services/api';
 import InfoHint from '../components/ui/InfoHint';
+import { buildMediaUrl } from '../utils/mediaUrl';
 
 const DEFAULT_SETTINGS: ApiNewsPublicSettings = {
     pageTitle: 'Admission News & Updates',
@@ -71,8 +72,8 @@ function getArticleImage(news: ApiNews, settings: ApiNewsPublicSettings): string
         || settings.appearance.thumbnailFallbackUrl
         || '/logo.svg';
     const forceDefault = String(news.coverImageSource || news.coverSource || '').toLowerCase() === 'default';
-    if (forceDefault) return fallback;
-    return (
+    if (forceDefault) return buildMediaUrl(fallback);
+    return buildMediaUrl(
         news.coverImageUrl
         || news.coverImage
         || news.thumbnailImage
@@ -361,7 +362,7 @@ export default function SingleNewsPage() {
                             >
                                 {settings.appearance.showSourceIcons ? (
                                     <img
-                                        src={newsItem.sourceIconUrl || settings.defaultSourceIconUrl || image}
+                                        src={buildMediaUrl(newsItem.sourceIconUrl || settings.defaultSourceIconUrl || image)}
                                         alt={sourceName}
                                         className="h-4 w-4 rounded-full object-cover"
                                     />

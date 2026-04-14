@@ -212,12 +212,19 @@ export const updateSettings = async (req: Request, res: Response) => {
     try {
         const payload = { ...req.body };
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const uploadedBrandAssets: string[] = [];
 
         console.log('Update Settings Body:', req.body);
         console.log('Update Settings Files:', files);
 
-        if (files?.logo?.[0]) payload.logo = `/uploads/${files.logo[0].filename}`;
-        if (files?.favicon?.[0]) payload.favicon = `/uploads/${files.favicon[0].filename}`;
+        if (files?.logo?.[0]) {
+            payload.logo = `/uploads/${files.logo[0].filename}`;
+            uploadedBrandAssets.push(payload.logo);
+        }
+        if (files?.favicon?.[0]) {
+            payload.favicon = `/uploads/${files.favicon[0].filename}`;
+            uploadedBrandAssets.push(payload.favicon);
+        }
 
         const current = await WebsiteSettings.findOne();
 
@@ -282,13 +289,22 @@ export const updateSettings = async (req: Request, res: Response) => {
         );
 
         if (settings) {
-            const { logo: nextLogo, favicon: nextFavicon } = await resolveBrandSettingsAssets(settings);
+            const uploadedLogo = uploadedBrandAssets.find((asset) => asset.startsWith('/uploads/logo')) || null;
+            const uploadedFavicon = uploadedBrandAssets.find((asset) => asset.startsWith('/uploads/favicon')) || null;
+
+            const [resolvedLogo, resolvedFavicon] = await Promise.all([
+                uploadedLogo ? Promise.resolve(uploadedLogo) : resolveStoredBrandAsset(settings.logo, 'logo'),
+                uploadedFavicon ? Promise.resolve(uploadedFavicon) : resolveStoredBrandAsset(settings.favicon, 'favicon'),
+            ]);
+
+            const nextLogo = resolvedLogo;
+            const nextFavicon = resolvedFavicon;
             if (settings.logo !== nextLogo || settings.favicon !== nextFavicon) {
                 settings.logo = nextLogo;
                 settings.favicon = nextFavicon;
                 await settings.save();
             }
-            await cleanupBrandLikeUploads([settings.logo, settings.favicon]);
+            await cleanupBrandLikeUploads([settings.logo, settings.favicon, ...uploadedBrandAssets]);
         }
 
         console.log('Settings updated in DB:', settings);
