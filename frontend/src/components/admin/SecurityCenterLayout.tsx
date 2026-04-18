@@ -14,6 +14,7 @@ import {
     Server as ServerIcon,
     Eye as EyeIcon,
     RotateCcw as ArrowPathIcon,
+    Crosshair as CrosshairIcon,
 } from 'lucide-react';
 import {
     adminGetSecurityDashboard,
@@ -29,12 +30,14 @@ import {
 } from '../../services/api';
 import SharedSecurityHelpButton, { type SecurityHelpButtonProps as SharedSecurityHelpButtonProps } from './SecurityHelpButton';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
+import SecurityAlertsPanel from './SecurityAlertsPanel';
+import ForensicsTimeline from './ForensicsTimeline';
 
 /* ═══════════════════════════════════════════════════════════════
    SECURITY HELP BUTTON — Reusable info/help popup for settings
    ═══════════════════════════════════════════════════════════════ */
 
-interface SecurityHelpButtonProps extends SharedSecurityHelpButtonProps {}
+interface SecurityHelpButtonProps extends SharedSecurityHelpButtonProps { }
 
 function SecurityHelpButton({
     title,
@@ -269,13 +272,12 @@ function SecurityDashboard() {
 
             {/* Last Backup */}
             {metrics.lastBackup && (
-                <div className={`rounded-2xl border p-4 flex items-center gap-3 ${
-                    metrics.lastBackup.status === 'completed'
-                        ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-200/70 dark:border-emerald-800/70'
-                        : metrics.lastBackup.status === 'failed'
+                <div className={`rounded-2xl border p-4 flex items-center gap-3 ${metrics.lastBackup.status === 'completed'
+                    ? 'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-200/70 dark:border-emerald-800/70'
+                    : metrics.lastBackup.status === 'failed'
                         ? 'bg-red-500/10 dark:bg-red-500/10 border-red-200/70 dark:border-red-800/70'
                         : 'bg-sky-500/10 dark:bg-sky-500/10 border-sky-200/70 dark:border-sky-800/70'
-                }`}>
+                    }`}>
                     <ServerIcon className="w-5 h-5 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-slate-50">
@@ -572,11 +574,10 @@ function SecurityAlertsTab() {
                                 key={alert._id}
                                 initial={{ opacity: 0, x: -8 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className={`rounded-xl border p-4 transition-colors ${
-                                    alert.isRead
-                                        ? 'bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
-                                        : 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800'
-                                }`}
+                                className={`rounded-xl border p-4 transition-colors ${alert.isRead
+                                    ? 'bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
+                                    : 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800'
+                                    }`}
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
@@ -640,16 +641,86 @@ function SecurityAlertsTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   FORENSICS LOOKUP — Wrapper for ForensicsTimeline with ID inputs
+   ═══════════════════════════════════════════════════════════════ */
+
+function ForensicsLookup() {
+    const [examId, setExamId] = useState('');
+    const [sessionId, setSessionId] = useState('');
+    const [activeExamId, setActiveExamId] = useState('');
+    const [activeSessionId, setActiveSessionId] = useState('');
+
+    const handleLookup = () => {
+        if (examId.trim() && sessionId.trim()) {
+            setActiveExamId(examId.trim());
+            setActiveSessionId(sessionId.trim());
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <CrosshairIcon className="w-5 h-5" /> Forensics
+                </h3>
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-end">
+                <div>
+                    <label htmlFor="forensics-exam-id" className="block text-[10px] font-medium text-gray-400 mb-1">Exam ID</label>
+                    <input
+                        id="forensics-exam-id"
+                        type="text"
+                        placeholder="Enter exam ID..."
+                        value={examId}
+                        onChange={(e) => setExamId(e.target.value)}
+                        className="text-xs border rounded-lg px-2 py-1.5 bg-slate-950/70 border-white/10 text-slate-200 w-56"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="forensics-session-id" className="block text-[10px] font-medium text-gray-400 mb-1">Session ID</label>
+                    <input
+                        id="forensics-session-id"
+                        type="text"
+                        placeholder="Enter session ID..."
+                        value={sessionId}
+                        onChange={(e) => setSessionId(e.target.value)}
+                        className="text-xs border rounded-lg px-2 py-1.5 bg-slate-950/70 border-white/10 text-slate-200 w-56"
+                    />
+                </div>
+                <button
+                    onClick={handleLookup}
+                    disabled={!examId.trim() || !sessionId.trim()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-400 transition hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    Load Timeline
+                </button>
+            </div>
+
+            {activeExamId && activeSessionId ? (
+                <ForensicsTimeline examId={activeExamId} sessionId={activeSessionId} />
+            ) : (
+                <div className="text-center py-12 text-gray-400 text-sm">
+                    Enter an Exam ID and Session ID to view the event timeline.
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    SECURITY CENTER LAYOUT — Tabbed Navigation Shell
    ═══════════════════════════════════════════════════════════════ */
 
-type SecurityTab = 'dashboard' | 'settings' | 'alerts' | 'audit-logs';
+type SecurityTab = 'dashboard' | 'settings' | 'alerts' | 'audit-logs' | 'anti-cheat-alerts' | 'forensics';
 
 const TABS: { id: SecurityTab; label: string; icon: React.ElementType }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: ChartBarIcon },
     { id: 'settings', label: 'Security Settings', icon: Cog6ToothIcon },
     { id: 'alerts', label: 'Alerts', icon: BellAlertIcon },
+    { id: 'anti-cheat-alerts', label: 'Anti-Cheat Alerts', icon: ShieldCheckIcon },
     { id: 'audit-logs', label: 'Audit Logs', icon: DocumentTextIcon },
+    { id: 'forensics', label: 'Forensics', icon: CrosshairIcon },
 ];
 
 export default function SecurityCenterLayout() {
@@ -665,6 +736,10 @@ export default function SecurityCenterLayout() {
                 return <SecurityAuditLogs />;
             case 'alerts':
                 return <SecurityAlertsTab />;
+            case 'anti-cheat-alerts':
+                return <SecurityAlertsPanel />;
+            case 'forensics':
+                return <ForensicsLookup />;
             default:
                 return null;
         }
@@ -682,11 +757,10 @@ export default function SecurityCenterLayout() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             data-testid={`security-tab-${tab.id}`}
-                            className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
-                                isActive
-                                    ? 'bg-white/10 text-white shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-100 hover:bg-white/6'
-                            }`}
+                            className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${isActive
+                                ? 'bg-white/10 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-100 hover:bg-white/6'
+                                }`}
                         >
                             <Icon className="w-4 h-4" />
                             {tab.label}

@@ -28,6 +28,7 @@ import { computeStudentProfileScore } from '../services/studentProfileScoreServi
 import { markExternalExamAttemptImported } from '../services/externalExamAttemptService';
 import { syncExamResultToStudentProfile } from '../services/examProfileSyncEngine';
 import { getCanonicalSubscriptionSnapshot } from '../services/subscriptionAccessService';
+import { VALID_POLICY_KEYS } from '../validators/adminSchemas';
 import { getClientIp, getDeviceInfo } from '../utils/requestMeta';
 import {
     adminCommitUniversityImport,
@@ -816,6 +817,24 @@ export async function adminCreateExam(req: AuthRequest, res: Response): Promise<
 export async function adminUpdateExam(req: AuthRequest, res: Response): Promise<void> {
     try {
         const payload = normalizeExamPayload(req.body as Record<string, unknown>);
+
+        // Validate antiCheatOverrides — reject unknown keys (Req 11.6)
+        if (payload.antiCheatOverrides !== undefined && payload.antiCheatOverrides !== null) {
+            if (typeof payload.antiCheatOverrides !== 'object' || Array.isArray(payload.antiCheatOverrides)) {
+                res.status(400).json({ message: 'antiCheatOverrides must be an object', code: 'VALIDATION_ERROR' });
+                return;
+            }
+            const overrideKeys = Object.keys(payload.antiCheatOverrides as Record<string, unknown>);
+            const unknownKeys = overrideKeys.filter((key) => !(VALID_POLICY_KEYS as readonly string[]).includes(key));
+            if (unknownKeys.length > 0) {
+                res.status(400).json({
+                    message: `Unknown antiCheatOverrides keys: ${unknownKeys.join(', ')}`,
+                    code: 'UNKNOWN_OVERRIDE_KEY',
+                });
+                return;
+            }
+        }
+
         if (payload.share_link !== undefined) {
             const requestedShareLink = String(payload.share_link || '').trim();
             payload.share_link = requestedShareLink

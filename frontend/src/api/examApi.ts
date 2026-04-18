@@ -233,57 +233,57 @@ function normalizeExamListPayload(raw: unknown): ExamListResponse {
     const itemsSource = isContractShape ? payload.items : payload.exams;
     const items: ExamListItem[] = Array.isArray(itemsSource)
         ? itemsSource.map((entry): ExamListItem => {
-              const row = asRecord(entry);
-              const lockReason = asString(row.lockReason);
-              const blockedReasons = normalizeBlockReasons(row.blockedReasons).length
-                  ? normalizeBlockReasons(row.blockedReasons)
-                  : mapLockReasonToBlockReason(lockReason);
-              const deliveryMode: ExamListItem["deliveryMode"] =
-                  asString(row.deliveryMode) === "external_link" ? "external_link" : "internal";
-              return {
-                  id: asString(row.id || row._id),
-                  serialNo:
-                      row.serialNo === undefined || row.serialNo === null
-                          ? undefined
-                          : asNumber(row.serialNo, 0),
-                  title: asString(row.title),
-                  title_bn: asString(row.title_bn) || undefined,
-                  examCategory: asString(row.examCategory || row.group_category) || "General",
-                  subject: asString(row.subject || row.groupName) || "General",
-                  bannerImageUrl: asString(row.bannerImageUrl || row.logoUrl) || undefined,
-                  examWindowStartUTC: asIso(row.examWindowStartUTC || row.startDate),
-                  examWindowEndUTC: asIso(row.examWindowEndUTC || row.endDate),
-                  durationMinutes: Math.max(1, asNumber(row.durationMinutes || row.duration, 1)),
-                  resultPublishAtUTC: asIso(
-                      row.resultPublishAtUTC || row.resultPublishDate || row.examWindowEndUTC || row.endDate,
-                  ),
-                  subscriptionRequired: Boolean(row.subscriptionRequired),
-                  paymentRequired: Boolean(
-                      row.paymentRequired !== undefined ? row.paymentRequired : row.paymentPending,
-                  ),
-                  priceBDT:
-                      row.priceBDT === undefined || row.priceBDT === null
-                          ? undefined
-                          : asNumber(row.priceBDT, 0),
-                  attemptLimit: Math.max(1, asNumber(row.attemptLimit, 1)),
-                  allowReAttempt:
-                      row.allowReAttempt !== undefined ? Boolean(row.allowReAttempt) : asNumber(row.attemptLimit, 1) > 1,
-                  status: normalizeStatus(row.status),
-                  myAttemptStatus: normalizeAttemptStatus(row.myAttemptStatus || row.status),
-                  deliveryMode,
-                  isLocked: Boolean(row.isLocked),
-                  lockReason: lockReason || undefined,
-                  canOpenDetails: row.canOpenDetails === undefined ? undefined : Boolean(row.canOpenDetails),
-                  canStart: row.canStart === undefined ? undefined : Boolean(row.canStart),
-                  joinUrl: asString(row.joinUrl) || null,
-                  contactAdmin: {
-                      phone: asString(asRecord(row.contactAdmin).phone) || undefined,
-                      whatsapp: asString(asRecord(row.contactAdmin).whatsapp) || undefined,
-                      messageTemplate: asString(asRecord(row.contactAdmin).messageTemplate) || undefined,
-                  },
-                  blockedReasons,
-              };
-          })
+            const row = asRecord(entry);
+            const lockReason = asString(row.lockReason);
+            const blockedReasons = normalizeBlockReasons(row.blockedReasons).length
+                ? normalizeBlockReasons(row.blockedReasons)
+                : mapLockReasonToBlockReason(lockReason);
+            const deliveryMode: ExamListItem["deliveryMode"] =
+                asString(row.deliveryMode) === "external_link" ? "external_link" : "internal";
+            return {
+                id: asString(row.id || row._id),
+                serialNo:
+                    row.serialNo === undefined || row.serialNo === null
+                        ? undefined
+                        : asNumber(row.serialNo, 0),
+                title: asString(row.title),
+                title_bn: asString(row.title_bn) || undefined,
+                examCategory: asString(row.examCategory || row.group_category) || "General",
+                subject: asString(row.subject || row.groupName) || "General",
+                bannerImageUrl: asString(row.bannerImageUrl || row.logoUrl) || undefined,
+                examWindowStartUTC: asIso(row.examWindowStartUTC || row.startDate),
+                examWindowEndUTC: asIso(row.examWindowEndUTC || row.endDate),
+                durationMinutes: Math.max(1, asNumber(row.durationMinutes || row.duration, 1)),
+                resultPublishAtUTC: asIso(
+                    row.resultPublishAtUTC || row.resultPublishDate || row.examWindowEndUTC || row.endDate,
+                ),
+                subscriptionRequired: Boolean(row.subscriptionRequired),
+                paymentRequired: Boolean(
+                    row.paymentRequired !== undefined ? row.paymentRequired : row.paymentPending,
+                ),
+                priceBDT:
+                    row.priceBDT === undefined || row.priceBDT === null
+                        ? undefined
+                        : asNumber(row.priceBDT, 0),
+                attemptLimit: Math.max(1, asNumber(row.attemptLimit, 1)),
+                allowReAttempt:
+                    row.allowReAttempt !== undefined ? Boolean(row.allowReAttempt) : asNumber(row.attemptLimit, 1) > 1,
+                status: normalizeStatus(row.status),
+                myAttemptStatus: normalizeAttemptStatus(row.myAttemptStatus || row.status),
+                deliveryMode,
+                isLocked: Boolean(row.isLocked),
+                lockReason: lockReason || undefined,
+                canOpenDetails: row.canOpenDetails === undefined ? undefined : Boolean(row.canOpenDetails),
+                canStart: row.canStart === undefined ? undefined : Boolean(row.canStart),
+                joinUrl: asString(row.joinUrl) || null,
+                contactAdmin: {
+                    phone: asString(asRecord(row.contactAdmin).phone) || undefined,
+                    whatsapp: asString(asRecord(row.contactAdmin).whatsapp) || undefined,
+                    messageTemplate: asString(asRecord(row.contactAdmin).messageTemplate) || undefined,
+                },
+                blockedReasons,
+            };
+        })
         : [];
 
     return {
@@ -320,8 +320,8 @@ function normalizeExamDetailPayload(raw: unknown, examId: string): ExamDetailRes
         explicitStatus === "allowed"
             ? true
             : explicitStatus === "blocked"
-              ? false
-              : eligibility.accessAllowed !== false;
+                ? false
+                : eligibility.accessAllowed !== false;
 
     return {
         id: asString(source.id || source._id) || examId,
@@ -378,8 +378,8 @@ function normalizeSessionQuestionsPayload(raw: unknown): ExamQuestionsResponse {
         sessionSource.isActive !== undefined
             ? Boolean(sessionSource.isActive)
             : submittedAtUTC
-              ? false
-              : asString(sessionSource.status).toLowerCase() !== "submitted";
+                ? false
+                : asString(sessionSource.status).toLowerCase() !== "submitted";
 
     const questionsRaw = Array.isArray(payload.questions) ? payload.questions : [];
     const questions = questionsRaw.map((entry, index) => normalizeQuestion(asRecord(entry), index));
@@ -396,21 +396,27 @@ function normalizeSessionQuestionsPayload(raw: unknown): ExamQuestionsResponse {
             durationMinutes: Math.max(1, asNumber(sourceExam.durationMinutes || sourceExam.duration, 1)),
             resultPublishAtUTC: asIso(
                 sourceExam.resultPublishAtUTC ||
-                    sourceExam.resultPublishDate ||
-                    sourceExam.examWindowEndUTC ||
-                    sourceExam.endDate,
+                sourceExam.resultPublishDate ||
+                sourceExam.examWindowEndUTC ||
+                sourceExam.endDate,
             ),
             rules: normalizeRules(sourceExam),
         },
         session: sessionId
             ? {
-                  sessionId,
-                  isActive,
-                  submittedAtUTC,
-              }
+                sessionId,
+                isActive,
+                submittedAtUTC,
+                attemptRevision: typeof sessionSource.attemptRevision === 'number'
+                    ? sessionSource.attemptRevision as number
+                    : 0,
+            }
             : undefined,
         questions,
         answers,
+        antiCheatPolicy: payload.antiCheatPolicy && typeof payload.antiCheatPolicy === 'object'
+            ? payload.antiCheatPolicy as ExamQuestionsResponse['antiCheatPolicy']
+            : undefined,
     };
 }
 
@@ -698,8 +704,8 @@ export const fetchExamSolutions = async (
         const answerRows = Array.isArray(result.detailedAnswers)
             ? result.detailedAnswers
             : Array.isArray(result.answers)
-              ? result.answers
-              : [];
+                ? result.answers
+                : [];
 
         return {
             status: "available",

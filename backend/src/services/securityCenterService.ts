@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import SiteSettings from '../models/Settings';
+import type { AntiCheatPolicy } from '../types/antiCheat';
+import { SAFE_DEFAULTS } from '../types/antiCheat';
 import SecuritySettings, {
     AccessControlSecuritySettings,
     AdminAccessSettings,
@@ -51,6 +53,7 @@ export type SecuritySettingsSnapshot = {
     exportSecurity: ExportSecuritySettings;
     backupRestore: BackupRestoreSecuritySettings;
     runtimeGuards: RuntimeGuardSettings;
+    antiCheatPolicy: AntiCheatPolicy;
     updatedBy?: string | null;
     updatedAt?: Date | null;
 };
@@ -87,6 +90,7 @@ export type SecuritySettingsUpdateInput = Partial<{
     exportSecurity: Partial<ExportSecuritySettings>;
     backupRestore: Partial<BackupRestoreSecuritySettings>;
     runtimeGuards: Partial<RuntimeGuardSettings>;
+    antiCheatPolicy: Partial<AntiCheatPolicy>;
 }>;
 
 export type PublicSecurityConfig = {
@@ -157,6 +161,7 @@ const DEFAULT_SECURITY_SETTINGS: SecuritySettingsSnapshot = {
     exportSecurity: { allowedRoles: ['superadmin', 'admin', 'finance_agent'], requireApproval: false, requireReason: true, logAllExports: true, maskSensitiveFields: true },
     backupRestore: { backupHealthWarnAfterHours: 24, requireRestoreApproval: true, archiveBeforeHardDelete: true, showStatusOnDashboard: true },
     runtimeGuards: { maintenanceMode: false, blockNewRegistrations: false, readOnlyMode: false, disableStudentLogins: false, disablePaymentWebhooks: false, disableExamStarts: false, adminPanelEnabled: true, testingAccessMode: false },
+    antiCheatPolicy: { ...SAFE_DEFAULTS },
     updatedBy: null,
     updatedAt: null,
 };
@@ -402,6 +407,24 @@ function normalizeSnapshotPayload(payload: Record<string, unknown>): SecuritySet
     };
     const admin2faRequired = ADMIN_ROLES.some((role) => twoFactor.requireForRoles.includes(role));
 
+    const antiCheatSource = isRecord(payload.antiCheatPolicy) ? payload.antiCheatPolicy : {};
+    const antiCheatPolicy: AntiCheatPolicy = {
+        tabSwitchLimit: asInt(antiCheatSource.tabSwitchLimit, defaults.antiCheatPolicy.tabSwitchLimit, 1, 100),
+        copyPasteViolationLimit: asInt(antiCheatSource.copyPasteViolationLimit, defaults.antiCheatPolicy.copyPasteViolationLimit, 1, 50),
+        requireFullscreen: asBool(antiCheatSource.requireFullscreen, defaults.antiCheatPolicy.requireFullscreen),
+        violationAction: (['warn', 'submit', 'lock'] as const).includes(String(antiCheatSource.violationAction || '').trim().toLowerCase() as 'warn' | 'submit' | 'lock')
+            ? (String(antiCheatSource.violationAction).trim().toLowerCase() as 'warn' | 'submit' | 'lock')
+            : defaults.antiCheatPolicy.violationAction,
+        warningCooldownSeconds: asInt(antiCheatSource.warningCooldownSeconds, defaults.antiCheatPolicy.warningCooldownSeconds, 0, 300),
+        maxFullscreenExitLimit: asInt(antiCheatSource.maxFullscreenExitLimit, defaults.antiCheatPolicy.maxFullscreenExitLimit, 1, 50),
+        enableClipboardBlock: asBool(antiCheatSource.enableClipboardBlock, defaults.antiCheatPolicy.enableClipboardBlock),
+        enableContextMenuBlock: asBool(antiCheatSource.enableContextMenuBlock, defaults.antiCheatPolicy.enableContextMenuBlock),
+        enableBlurTracking: asBool(antiCheatSource.enableBlurTracking, defaults.antiCheatPolicy.enableBlurTracking),
+        allowMobileRelaxedMode: asBool(antiCheatSource.allowMobileRelaxedMode, defaults.antiCheatPolicy.allowMobileRelaxedMode),
+        proctoringSignalsEnabled: asBool(antiCheatSource.proctoringSignalsEnabled, defaults.antiCheatPolicy.proctoringSignalsEnabled),
+        strictExamTabLock: asBool(antiCheatSource.strictExamTabLock, defaults.antiCheatPolicy.strictExamTabLock),
+    };
+
     return {
         passwordPolicy: toLegacyPasswordPolicy(passwordPolicies.default),
         loginProtection: { maxAttempts: authentication.loginAttemptsLimit, lockoutMinutes: authentication.lockDurationMinutes, recaptchaEnabled: authentication.recaptchaEnabled },
@@ -425,6 +448,7 @@ function normalizeSnapshotPayload(payload: Record<string, unknown>): SecuritySet
         exportSecurity,
         backupRestore,
         runtimeGuards,
+        antiCheatPolicy,
         updatedBy: payload.updatedBy ? String(payload.updatedBy) : null,
         updatedAt: payload.updatedAt ? new Date(String(payload.updatedAt)) : null,
     };
@@ -502,6 +526,7 @@ function mergeSecuritySettings(current: SecuritySettingsSnapshot, input: Securit
     if (input.exportSecurity) merged.exportSecurity = { ...current.exportSecurity, ...input.exportSecurity };
     if (input.backupRestore) merged.backupRestore = { ...current.backupRestore, ...input.backupRestore };
     if (input.runtimeGuards) merged.runtimeGuards = { ...current.runtimeGuards, ...input.runtimeGuards };
+    if (input.antiCheatPolicy) merged.antiCheatPolicy = { ...current.antiCheatPolicy, ...input.antiCheatPolicy };
     return normalizeSnapshotPayload(merged);
 }
 
@@ -529,6 +554,7 @@ function snapshotToPayload(settings: SecuritySettingsSnapshot): Record<string, u
         exportSecurity: settings.exportSecurity,
         backupRestore: settings.backupRestore,
         runtimeGuards: settings.runtimeGuards,
+        antiCheatPolicy: settings.antiCheatPolicy,
     };
 }
 

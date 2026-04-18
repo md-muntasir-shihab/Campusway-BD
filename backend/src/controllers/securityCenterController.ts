@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middlewares/auth';
+import type { AntiCheatPolicy } from '../types/antiCheat';
 import {
     SecuritySettingsUpdateInput,
     getDefaultSecuritySettings,
@@ -12,6 +13,8 @@ import {
 import { invalidateSecurityConfigCache } from '../services/securityConfigService';
 import { terminateSessions } from '../services/sessionSecurityService';
 import { getClientIp } from '../utils/requestMeta';
+import { logAdminAction } from '../services/securityAuditLogger';
+import { checkSuspiciousAdminActivity } from '../services/securityAlertService';
 
 const ALLOWED_ROOT_KEYS = [
     'passwordPolicy',
@@ -36,6 +39,7 @@ const ALLOWED_ROOT_KEYS = [
     'exportSecurity',
     'backupRestore',
     'runtimeGuards',
+    'antiCheatPolicy',
 ];
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -102,6 +106,24 @@ export async function updateAdminSecuritySettings(req: AuthRequest, res: Respons
             before,
             after: updated,
         });
+
+        // Structured audit log with before/after snapshot (Req 12.5)
+        const correlationId = (req as any).requestId || (req.headers['x-request-id'] as string) || '';
+        logAdminAction({
+            correlationId,
+            actorId: String(req.user?._id || ''),
+            actorRole: String(req.user?.role || ''),
+            ipAddress: getClientIp(req),
+            userAgent: req.headers['user-agent'] || '',
+            actionType: 'security_settings_updated',
+            before: before as unknown as Record<string, unknown>,
+            after: updated as unknown as Record<string, unknown>,
+        }).catch(() => { /* audit logging must never crash the request pipeline */ });
+
+        // Check for suspicious admin activity (Req 13.3)
+        if (req.user?._id) {
+            checkSuspiciousAdminActivity(String(req.user._id)).catch(() => { /* alert check must never crash */ });
+        }
 
         res.json({ message: 'Security settings updated', settings: updated });
     } catch (error) {
@@ -190,6 +212,57 @@ export async function getPublicSecurityConfigController(_req: Request, res: Resp
         res.json(config);
     } catch (error) {
         console.error('getPublicSecurityConfigController error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+export async function getAntiCheatPolicy(_req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const settings = await getSecuritySettingsSnapshot(true);
+        res.json({ policy: settings.antiCheatPolicy });
+    } catch (error) {
+        console.error('getAntiCheatPolicy error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+export async function updateAntiCheatPolicy(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const policyInput = req.body as Partial<AntiCheatPolicy>;
+
+        const before = await getSecuritySettingsSnapshot(true);
+        const updated = await updateSecuritySettingsSnapshot(
+            { antiCheatPolicy: policyInput } as SecuritySettingsUpdateInput,
+            req.user?._id,
+        );
+        invalidateSecurityConfigCache();
+
+        await logSecurityAudit(req, 'anti_cheat_policy_updated', {
+            before: before.antiCheatPolicy,
+            after: updated.antiCheatPolicy,
+        });
+
+        // Structured audit log with before/after snapshot (Req 11.3, 12.5)
+        const correlationId = (req as any).requestId || (req.headers['x-request-id'] as string) || '';
+        logAdminAction({
+            correlationId,
+            actorId: String(req.user?._id || ''),
+            actorRole: String(req.user?.role || ''),
+            ipAddress: getClientIp(req),
+            userAgent: req.headers['user-agent'] || '',
+            actionType: 'anti_cheat_policy_updated',
+            before: (before.antiCheatPolicy || {}) as unknown as Record<string, unknown>,
+            after: (updated.antiCheatPolicy || {}) as unknown as Record<string, unknown>,
+        }).catch(() => { /* audit logging must never crash the request pipeline */ });
+
+        // Check for suspicious admin activity (Req 13.3)
+        if (req.user?._id) {
+            checkSuspiciousAdminActivity(String(req.user._id)).catch(() => { /* alert check must never crash */ });
+        }
+
+        res.json({ policy: updated.antiCheatPolicy, updated: true });
+    } catch (error) {
+        console.error('updateAntiCheatPolicy error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 }

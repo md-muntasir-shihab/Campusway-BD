@@ -117,8 +117,11 @@ import {
     getStudentMeResults,
     markStudentNotificationsRead,
 } from '../controllers/studentHubController';
-import { contactRateLimiter } from '../middlewares/securityRateLimit';
+import { contactRateLimiter, otpVerificationLimit } from '../middlewares/securityRateLimit';
 import { uploadMedia, uploadMiddleware } from '../controllers/mediaController';
+import { validateBody } from '../validators/validateBody';
+import { loginSchema, registerSchema, passwordResetSchema } from '../validators/authSchemas';
+import { examSubmitSchema } from '../validators/examSchemas';
 import { submitPublicContactMessage } from '../controllers/contactController';
 import {
     getPublicFeaturedNews,
@@ -140,24 +143,25 @@ import {
 } from '../controllers/contentBlockController';
 import { getPublicSystemStatus } from '../controllers/securityAlertController';
 import { requireAppCheck } from '../middlewares/appCheck';
+import { csrfProtection } from '../middlewares/csrfGuard';
 
 const router = Router();
 const examAccessMiddlewares = [authenticate, requireAuthStudent] as const;
 
 /* ── Auth ── */
-router.post('/auth/register', requireAppCheck, loginRateLimiter, enforceRegistrationPolicy, register);
-router.post('/auth/login', loginRateLimiter, login);
-router.post('/auth/admin/login', adminLoginRateLimiter, loginAdmin);
-router.post('/auth/chairman/login', loginRateLimiter, loginChairman);
-router.post('/auth/refresh', refresh);
-router.post('/auth/logout', authenticate, logout);
+router.post('/auth/register', requireAppCheck, loginRateLimiter, enforceRegistrationPolicy, validateBody(registerSchema), register);
+router.post('/auth/login', loginRateLimiter, validateBody(loginSchema), login);
+router.post('/auth/admin/login', adminLoginRateLimiter, validateBody(loginSchema), loginAdmin);
+router.post('/auth/chairman/login', loginRateLimiter, validateBody(loginSchema), loginChairman);
+router.post('/auth/refresh', csrfProtection, refresh);
+router.post('/auth/logout', authenticate, csrfProtection, logout);
 router.get('/auth/verify', verifyEmail);
-router.post('/auth/forgot-password', requireAppCheck, forgotPassword);
-router.post('/auth/reset-password', resetPassword);
+router.post('/auth/forgot-password', requireAppCheck, validateBody(passwordResetSchema), forgotPassword);
+router.post('/auth/reset-password', validateBody(passwordResetSchema), resetPassword);
 router.get('/auth/me', authenticate, getMe);
 router.post('/auth/change-password', authenticate, changePassword);
-router.post('/auth/verify-2fa', requireAppCheck, verify2fa);
-router.post('/auth/resend-otp', requireAppCheck, resendOtp);
+router.post('/auth/verify-2fa', requireAppCheck, otpVerificationLimit, verify2fa);
+router.post('/auth/resend-otp', requireAppCheck, otpVerificationLimit, resendOtp);
 router.get('/auth/session-check', authenticate, checkSession);
 router.get('/auth/session-stream', authenticate, sessionStream);
 router.get('/auth/security/sessions', authenticate, getMySecuritySessions);
@@ -262,14 +266,14 @@ router.get('/exams/:id', ...examAccessMiddlewares, getStudentExamById);
 router.get('/exams/:id/details', ...examAccessMiddlewares, getStudentExamDetails);
 router.post('/exams/:id/start', ...examAccessMiddlewares, examStartRateLimiter, startExam);
 router.put('/exams/:id/autosave', ...examAccessMiddlewares, autosaveExam);
-router.post('/exams/:id/submit', ...examAccessMiddlewares, examSubmitRateLimiter, submitExam);
+router.post('/exams/:id/submit', ...examAccessMiddlewares, examSubmitRateLimiter, validateBody(examSubmitSchema), submitExam);
 router.get('/exams/:id/result', ...examAccessMiddlewares, getExamResult);
 router.get('/exams/:examId/questions', ...examAccessMiddlewares, getStudentExamQuestions);
 router.get('/exams/:examId/attempt/:attemptId', ...examAccessMiddlewares, getExamAttemptState);
 router.get('/exams/:examId/attempt/:attemptId/stream', ...examAccessMiddlewares, streamExamAttempt);
 router.post('/exams/:examId/attempt/:attemptId/answer', ...examAccessMiddlewares, saveExamAttemptAnswer);
 router.post('/exams/:examId/attempt/:attemptId/event', ...examAccessMiddlewares, logExamAttemptEvent);
-router.post('/exams/:examId/attempt/:attemptId/submit', ...examAccessMiddlewares, examSubmitRateLimiter, submitExamAttempt);
+router.post('/exams/:examId/attempt/:attemptId/submit', ...examAccessMiddlewares, examSubmitRateLimiter, validateBody(examSubmitSchema), submitExamAttempt);
 router.get('/exams/:id/certificate', ...examAccessMiddlewares, getExamCertificate);
 router.get('/certificates/:certificateId/verify', verifyExamCertificate);
 router.post('/exams/upload-written-answer', ...examAccessMiddlewares, uploadRateLimiter, uploadMiddleware.single('file'), uploadMedia);

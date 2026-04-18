@@ -45,6 +45,10 @@
       "env": {
         "MDB_MCP_CONNECTION_STRING": "mongodb://localhost:27017"
       }
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=vyrzdsraukuckorywzjm"
     }
   }
 }

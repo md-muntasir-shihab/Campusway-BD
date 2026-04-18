@@ -8,6 +8,7 @@ import { enforceAdminPanelPolicy, enforceAdminReadOnlyMode } from '../middleware
 import { subscriptionActionRateLimiter, financeExportRateLimiter, financeImportRateLimiter } from '../middlewares/securityRateLimit';
 import { requireSensitiveAction, trackSensitiveExport } from '../middlewares/sensitiveAction';
 import { requireTwoPersonApproval } from '../middlewares/twoPersonApproval';
+import { csrfProtection } from '../middlewares/csrfGuard';
 import {
     adminGetExams,
     adminGetExamById,
@@ -236,9 +237,11 @@ import {
 import {
     forceLogoutAllUsers,
     getAdminSecuritySettings,
+    getAntiCheatPolicy,
     lockAdminPanel,
     resetAdminSecuritySettings,
     updateAdminSecuritySettings,
+    updateAntiCheatPolicy,
 } from '../controllers/securityCenterController';
 import {
     getSecurityDashboardMetrics,
@@ -407,6 +410,8 @@ import {
     fcRestoreTransaction,
 } from '../controllers/financeCenterController';
 import { validate } from '../middlewares/validate';
+import { validateBody } from '../validators/validateBody';
+import { antiCheatPolicySchema } from '../validators/adminSchemas';
 import {
     createTransactionSchema, updateTransactionSchema, bulkIdsSchema,
     createInvoiceSchema, updateInvoiceSchema, markInvoicePaidSchema,
@@ -518,6 +523,14 @@ import {
     adminGetJobHealth,
     adminGetJobRuns,
 } from '../controllers/adminJobsController';
+import {
+    getForensicsTimeline,
+    getForensicsSummary,
+    getForensicsExport,
+    getStudentAntiCheatHistoryController,
+    getUnacknowledgedAlerts,
+    acknowledgeAlert,
+} from '../controllers/forensicsController';
 import {
     adminInitStudentImport,
     adminValidateStudentImport,
@@ -795,16 +808,18 @@ router.put('/settings/university', requirePermission('universities', 'edit'), up
 
 /* ── Security ── */
 router.get('/security-settings', requirePermission('security_logs', 'view'), getAdminSecuritySettings);
-router.put('/security-settings', requirePermission('security_logs', 'edit'), requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'settings_update' }), updateAdminSecuritySettings);
-router.post('/security-settings/reset-defaults', requirePermission('security_logs', 'edit'), requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'settings_reset' }), resetAdminSecuritySettings);
-router.post('/security-settings/force-logout-all', requirePermission('security_logs', 'edit'), requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'force_logout_all' }), forceLogoutAllUsers);
-router.post('/security-settings/admin-panel-lock', requirePermission('security_logs', 'edit'), requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'admin_panel_lock' }), lockAdminPanel);
+router.put('/security-settings', requirePermission('security_logs', 'edit'), csrfProtection, requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'settings_update' }), updateAdminSecuritySettings);
+router.post('/security-settings/reset-defaults', requirePermission('security_logs', 'edit'), csrfProtection, requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'settings_reset' }), resetAdminSecuritySettings);
+router.post('/security-settings/force-logout-all', requirePermission('security_logs', 'edit'), csrfProtection, requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'force_logout_all' }), forceLogoutAllUsers);
+router.post('/security-settings/admin-panel-lock', requirePermission('security_logs', 'edit'), csrfProtection, requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'admin_panel_lock' }), lockAdminPanel);
 router.get('/security/sessions', requirePermission('security_logs', 'view'), getActiveSessions);
-router.post('/security/force-logout', requirePermission('security_logs', 'edit'), requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'force_logout_user' }), forceLogoutUser);
+router.post('/security/force-logout', requirePermission('security_logs', 'edit'), csrfProtection, requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'force_logout_user' }), forceLogoutUser);
 router.get('/security/2fa/users', requirePermission('security_logs', 'view'), getTwoFactorUsers);
 router.patch('/security/2fa/users/:id', requirePermission('security_logs', 'edit'), requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'update_user_2fa' }), updateTwoFactorUser);
 router.post('/security/2fa/users/:id/reset', requirePermission('security_logs', 'edit'), requireSensitiveAction({ actionKey: 'security.settings_change', moduleName: 'security_center', actionName: 'reset_user_2fa' }), resetTwoFactorUser);
 router.get('/security/2fa/failures', requirePermission('security_logs', 'view'), getTwoFactorFailures);
+router.get('/security/anti-cheat-policy', requirePermission('security_logs', 'view'), getAntiCheatPolicy);
+router.put('/security/anti-cheat-policy', requirePermission('security_logs', 'edit'), csrfProtection, validateBody(antiCheatPolicySchema), updateAntiCheatPolicy);
 router.get('/security/dashboard', requirePermission('security_logs', 'view'), getSecurityDashboardMetrics);
 router.get('/audit-logs', requirePermission('security_logs', 'view'), getAuditLogsList);
 
@@ -1475,6 +1490,16 @@ router.post('/renewal/subscriptions/:id/reactivate', requirePermission('subscrip
 router.patch('/renewal/subscriptions/:id/auto-renew', requirePermission('subscription_plans', 'edit'), adminToggleAutoRenew);
 router.get('/renewal/logs', requirePermission('subscription_plans', 'view'), adminGetAutomationLogs);
 router.get('/renewal/students/:studentId/history', requirePermission('subscription_plans', 'view'), adminGetStudentSubscriptionHistory);
+
+/* ═══════════════════════════════════════════════════════════
+   FORENSICS & ANTI-CHEAT ALERTS
+   ═══════════════════════════════════════════════════════════ */
+router.get('/exams/:examId/forensics/timeline/:sessionId', requirePermission('exams', 'view'), getForensicsTimeline);
+router.get('/exams/:examId/forensics/summary', requirePermission('exams', 'view'), getForensicsSummary);
+router.get('/exams/:examId/forensics/export', requirePermission('exams', 'export'), getForensicsExport);
+router.get('/students/:studentId/anti-cheat-history', requirePermission('students_groups', 'view'), getStudentAntiCheatHistoryController);
+router.get('/security/alerts', requirePermission('security_logs', 'view'), getUnacknowledgedAlerts);
+router.put('/security/alerts/:alertId/acknowledge', requirePermission('security_logs', 'edit'), acknowledgeAlert);
 
 export default router;
 

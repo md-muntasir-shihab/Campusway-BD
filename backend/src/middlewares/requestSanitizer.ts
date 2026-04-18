@@ -3,7 +3,7 @@ import sanitizeHtml from 'sanitize-html';
 
 const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-function sanitizeStringValue(value: string): string {
+export function sanitizeStringValue(value: string): string {
     const trimmed = value.trim();
     if (!trimmed.includes('<') && !trimmed.includes('>')) {
         return value;
@@ -18,7 +18,7 @@ function sanitizeStringValue(value: string): string {
     });
 }
 
-function sanitizeObject<T>(input: T): T {
+export function sanitizeObject<T>(input: T): T {
     if (Array.isArray(input)) {
         return input.map((item) => sanitizeObject(item)) as T;
     }

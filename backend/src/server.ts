@@ -41,6 +41,8 @@ import {
 import { sanitizeRequestPayload } from './middlewares/requestSanitizer';
 import { adminRateLimiter } from './middlewares/securityRateLimit';
 import { requestIdMiddleware } from './middlewares/requestId';
+import { cspNonceMiddleware } from './middlewares/cspNonce';
+import { csrfTokenEndpoint } from './middlewares/csrfGuard';
 import { logger } from './utils/logger';
 import { runCommunicationCenterMigration } from './scripts/migrate-communication-center-v1';
 import {
@@ -223,25 +225,45 @@ const standaloneAdminApiHardening = [
 // Middleware
 // =============
 app.use(requestIdMiddleware);
-app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-    xssFilter: true,
-    hsts: IS_PRODUCTION
-        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
-        : false,
-    frameguard: { action: 'deny' },
-    contentSecurityPolicy: IS_PRODUCTION ? {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
-            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-            fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-            imgSrc: ["'self'", 'data:', 'https:'],
-            connectSrc: ["'self'", ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])],
+app.use(cspNonceMiddleware);
+app.use((req, res, next) => {
+    const nonce = res.locals.cspNonce || '';
+
+    // Build connect-src from CORS allowlist
+    const connectSources: string[] = ["'self'"];
+    for (const origin of allowedCorsOrigins) {
+        if (!connectSources.includes(origin)) {
+            connectSources.push(origin);
+        }
+    }
+
+    helmet({
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+        xssFilter: true,
+        hsts: IS_PRODUCTION
+            ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+            : false,
+        frameguard: { action: 'deny' },
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", `'nonce-${nonce}'`],
+                styleSrc: ["'self'", `'nonce-${nonce}'`, 'https://fonts.googleapis.com'],
+                fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+                imgSrc: ["'self'", 'data:', 'https:'],
+                connectSrc: connectSources,
+                frameAncestors: ["'none'"],
+                reportUri: '/api/csp-violation-report',
+                reportTo: 'csp-endpoint',
+            },
         },
-    } : false,
-    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-}));
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    })(req, res, () => {
+        // Set Permissions-Policy header manually (Helmet v8 doesn't include it)
+        res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        next();
+    });
+});
 app.use(compression());
 app.use(cookieParser());
 app.use(morgan(IS_PRODUCTION ? 'combined' : 'dev'));
@@ -273,12 +295,27 @@ app.use(cors({
             callback(null, true);
             return;
         }
+
+        // Always reject wildcard origin
+        if (origin === '*') {
+            logger.warn('[cors] rejected wildcard origin', undefined as any, { origin });
+            callback(new Error('CORS wildcard origin not allowed'));
+            return;
+        }
+
+        // Production: block loopback origins (localhost, 127.0.0.1, ::1)
+        if (IS_PRODUCTION && isLoopbackOrigin(origin)) {
+            logger.warn('[cors] blocked loopback origin in production', undefined as any, { origin });
+            callback(new Error('CORS loopback origin not allowed in production'));
+            return;
+        }
+
         const allowLoopback = !IS_PRODUCTION && isLoopbackOrigin(origin);
         if (allowedCorsOrigins.includes(origin) || allowLoopback) {
             callback(null, true);
             return;
         }
-        console.warn('[cors] blocked origin', origin);
+        logger.warn('[cors] blocked origin', undefined as any, { origin });
         callback(new Error('CORS origin not allowed'));
     },
     credentials: true,
@@ -306,6 +343,9 @@ app.use('/api/auth/login', authLimiter);
 // Routes
 // =============
 
+// CSRF token endpoint
+app.get('/api/auth/csrf-token', csrfTokenEndpoint);
+
 // Public API
 app.use('/api', publicRoutes);
 
@@ -329,6 +369,18 @@ app.use('/api', studentExamRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/payments', webhookRoutes);
 
+
+// CSP violation reporting endpoint
+app.post('/api/csp-violation-report', express.json({ type: 'application/csp-report' }), (req, res) => {
+    const report = req.body?.['csp-report'] || req.body;
+    logger.warn('CSP violation report', req, {
+        blockedUri: report?.['blocked-uri'],
+        violatedDirective: report?.['violated-directive'],
+        documentUri: report?.['document-uri'],
+        originalPolicy: report?.['original-policy'],
+    });
+    res.status(204).end();
+});
 
 // Health check - /health alias for Render's health checker, /api/health for API clients
 const healthHandler = (_req: express.Request, res: express.Response) => {
@@ -376,7 +428,7 @@ app.use((err: Error & { status?: number }, req: express.Request, res: express.Re
 async function start() {
     validateRequiredEnv();
     await connectDB();
-    
+
     try {
         console.log('[startup] Running one-time 2FA reset migration...');
         const result = await mongoose.connection.collection('users').updateMany(
@@ -394,7 +446,7 @@ async function start() {
     } catch (err) {
         console.error('[startup] Failed to run 2FA reset migration:', err);
     }
-    
+
     try {
         const communicationMigrationResult = await runCommunicationCenterMigration();
         console.log('[startup] communication migration completed', communicationMigrationResult);
@@ -414,7 +466,7 @@ async function start() {
 
         // Seed default Chart-of-Account entries (idempotent)
         await seedDefaultChartOfAccounts();
-    } catch(err) { console.error('[startup] Core data/cron sync failed. MongoDB might be down. Keeping container ALIVE:', err); }
+    } catch (err) { console.error('[startup] Core data/cron sync failed. MongoDB might be down. Keeping container ALIVE:', err); }
 
     const server = app.listen(Number(PORT), '0.0.0.0', () => {
         console.log(`🚀 CampusWay Backend running on port ${PORT}`);

@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { seededCreds } from './helpers';
 
-const baseApi = (process.env.E2E_API_BASE_URL || 'http://127.0.0.1:5003').replace(/\/$/, '');
+const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
+const baseApi = (env.E2E_API_BASE_URL || 'http://127.0.0.1:5003').replace(/\/$/, '');
 
 async function readAccessTokenFromSession(page: Page): Promise<string | null> {
     const result = await page.evaluate(async () => {
@@ -28,6 +29,23 @@ async function readAccessTokenFromSession(page: Page): Promise<string | null> {
     return result.status === 200 ? result.token : null;
 }
 
+async function loginStudentWithCreds(
+    page: Page,
+    creds: { email: string; password: string }
+): Promise<boolean> {
+    await page.goto('/login');
+    await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(creds.email);
+    await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(creds.password);
+    await page.getByRole('button', { name: /(Sign in|Access Dashboard)/i }).first().click();
+
+    try {
+        await expect(page).toHaveURL(/\/dashboard/, { timeout: 12000 });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 test.describe('Auth Session Security', () => {
     test('new login invalidates old student session', async ({ browser, request }) => {
         const context1 = await browser.newContext();
@@ -37,18 +55,6 @@ test.describe('Auth Session Security', () => {
             seededCreds.student.desktop,
             seededCreds.student.mobile,
         ];
-        const loginStudentWithCreds = async (page: typeof page1, creds: { email: string; password: string }) => {
-            await page.goto('/login');
-            await page.locator('input#identifier, input[name="identifier"], input[type="text"], input[type="email"]').first().fill(creds.email);
-            await page.locator('input#password, input[name="password"], input[type="password"]').first().fill(creds.password);
-            await page.getByRole('button', { name: /(Sign in|Access Dashboard)/i }).first().click();
-            try {
-                await expect(page).toHaveURL(/\/dashboard/, { timeout: 12000 });
-                return true;
-            } catch {
-                return false;
-            }
-        };
 
         let sessionCreds = studentCandidates[0];
         let loggedIn = false;
@@ -98,5 +104,54 @@ test.describe('Auth Session Security', () => {
 
         await context1.close();
         await context2.close();
+    });
+
+    test('cross-tab force-logout event signs out active student tab', async ({ browser }) => {
+        const context = await browser.newContext();
+        const page1 = await context.newPage();
+        const page2 = await context.newPage();
+        const studentCandidates = [
+            seededCreds.student.session,
+            seededCreds.student.desktop,
+            seededCreds.student.mobile,
+        ];
+
+        let sessionCreds = studentCandidates[0];
+        let loggedIn = false;
+        for (const candidate of studentCandidates) {
+            if (await loginStudentWithCreds(page1, candidate)) {
+                sessionCreds = candidate;
+                loggedIn = true;
+                break;
+            }
+        }
+        expect(loggedIn).toBeTruthy();
+
+        await page2.goto('/login');
+        const secondLogin = await loginStudentWithCreds(page2, sessionCreds);
+        expect(secondLogin).toBeTruthy();
+        await expect(page2).toHaveURL(/\/dashboard/);
+
+        await page1.evaluate(() => {
+            window.localStorage.setItem(
+                'campusway-auth-sync-event',
+                JSON.stringify({ type: 'force-logout', reason: 'SESSION_INVALIDATED', ts: Date.now() })
+            );
+        });
+
+        const terminatedHeading = page2.getByRole('heading', { name: /Session Terminated/i });
+        await Promise.race([
+            terminatedHeading.waitFor({ state: 'visible', timeout: 15000 }),
+            page2.waitForURL(/\/login/, { timeout: 15000 }),
+        ]);
+
+        if (await terminatedHeading.isVisible().catch(() => false)) {
+            await page2.getByRole('button', { name: /Acknowledge\s*&\s*Sign In/i }).click().catch(() => undefined);
+        }
+
+        await expect(page2).toHaveURL(/\/login/, { timeout: 15000 });
+        await expect(page2.getByRole('button', { name: /(Sign in|Access Dashboard)/i }).first()).toBeVisible({ timeout: 15000 });
+
+        await context.close();
     });
 });

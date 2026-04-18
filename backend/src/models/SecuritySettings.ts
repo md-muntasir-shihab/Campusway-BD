@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import type { AntiCheatPolicy } from '../types/antiCheat';
 
 export type SecurityLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -237,6 +238,7 @@ export interface ISecuritySettings extends Document {
     exportSecurity: ExportSecuritySettings;
     backupRestore: BackupRestoreSecuritySettings;
     runtimeGuards: RuntimeGuardSettings;
+    antiCheatPolicy: AntiCheatPolicy;
     updatedBy?: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
@@ -562,6 +564,24 @@ const runtimeGuardsSchema = new Schema<RuntimeGuardSettings>(
     { _id: false },
 );
 
+const antiCheatPolicySchema = new Schema<AntiCheatPolicy>(
+    {
+        tabSwitchLimit: { type: Number, default: 5, min: 1, max: 100 },
+        copyPasteViolationLimit: { type: Number, default: 3, min: 1, max: 50 },
+        requireFullscreen: { type: Boolean, default: false },
+        violationAction: { type: String, enum: ['warn', 'submit', 'lock'], default: 'warn' },
+        warningCooldownSeconds: { type: Number, default: 30, min: 0, max: 300 },
+        maxFullscreenExitLimit: { type: Number, default: 3, min: 1, max: 50 },
+        enableClipboardBlock: { type: Boolean, default: false },
+        enableContextMenuBlock: { type: Boolean, default: false },
+        enableBlurTracking: { type: Boolean, default: false },
+        allowMobileRelaxedMode: { type: Boolean, default: false },
+        proctoringSignalsEnabled: { type: Boolean, default: false },
+        strictExamTabLock: { type: Boolean, default: false },
+    },
+    { _id: false },
+);
+
 const SecuritySettingsSchema = new Schema<ISecuritySettings>(
     {
         key: { type: String, default: 'global', unique: true, index: true },
@@ -587,6 +607,7 @@ const SecuritySettingsSchema = new Schema<ISecuritySettings>(
         exportSecurity: { type: exportSecuritySchema, default: () => ({}) },
         backupRestore: { type: backupRestoreSchema, default: () => ({}) },
         runtimeGuards: { type: runtimeGuardsSchema, default: () => ({}) },
+        antiCheatPolicy: { type: antiCheatPolicySchema, default: () => ({}) },
         updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     },
     {

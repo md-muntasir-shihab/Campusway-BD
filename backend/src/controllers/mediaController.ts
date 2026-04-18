@@ -27,16 +27,64 @@ function buildAbsoluteUploadUrl(relativeUrl: string, requestOrigin: string): str
 
 const ALLOWED_MIME_TYPES = new Set([
     'image/jpeg',
+    'image/jpg',
     'image/png',
     'image/webp',
     'image/gif',
+    'image/svg+xml',
+    'image/heic',
+    'image/heif',
     'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/octet-stream',
     'text/csv',
+    'text/plain',
     'video/mp4',
     'video/webm',
+    'video/quicktime',
 ]);
+
+const ALLOWED_EXTENSIONS = new Set([
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.gif',
+    '.svg',
+    '.heic',
+    '.heif',
+    '.pdf',
+    '.doc',
+    '.docx',
+    '.xls',
+    '.xlsx',
+    '.ppt',
+    '.pptx',
+    '.csv',
+    '.txt',
+    '.zip',
+    '.mp4',
+    '.webm',
+    '.mov',
+]);
+
+function isAllowedUpload(file: Pick<Express.Multer.File, 'mimetype' | 'originalname'>): boolean {
+    const mimeType = String(file.mimetype || '').trim().toLowerCase();
+    const extension = path.extname(String(file.originalname || '')).trim().toLowerCase();
+
+    if (ALLOWED_MIME_TYPES.has(mimeType)) {
+        return true;
+    }
+
+    return ALLOWED_EXTENSIONS.has(extension);
+}
 const SECURE_CATEGORIES = new Set(['profile_photo', 'student_document', 'payment_proof', 'support_attachment', 'exam_upload', 'admin_upload']);
 
 // Configure multer storage
@@ -57,7 +105,7 @@ export const uploadMiddleware = multer({
     storage,
     limits: { fileSize: 25 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
-        if (!ALLOWED_MIME_TYPES.has(String(file.mimetype || '').toLowerCase())) {
+        if (!isAllowedUpload(file)) {
             cb(new Error('Unsupported file type'));
             return;
         }
@@ -77,7 +125,7 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
             return;
         }
 
-        if (!ALLOWED_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
+        if (!isAllowedUpload(req.file)) {
             res.status(400).json({ message: 'Unsupported file type.' });
             return;
         }

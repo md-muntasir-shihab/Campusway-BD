@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import type { AntiCheatOverrides } from '../types/antiCheat';
 
 /* ── Schedule Window sub-schema ── */
 export interface IScheduleWindow {
@@ -114,6 +115,7 @@ export interface IExam extends Document {
 
     /* ── Security / Advanced ── */
     written_upload_enabled?: boolean;
+    antiCheatOverrides?: AntiCheatOverrides;
     security_policies?: {
         tab_switch_limit: number;
         copy_paste_violations: number;
@@ -259,6 +261,7 @@ const ExamSchema = new Schema<IExam>({
     isActive: { type: Boolean, default: true },
 
     written_upload_enabled: { type: Boolean, default: false },
+    antiCheatOverrides: { type: Schema.Types.Mixed, default: undefined },
     security_policies: {
         tab_switch_limit: { type: Number, default: 3 },
         copy_paste_violations: { type: Number, default: 3 },

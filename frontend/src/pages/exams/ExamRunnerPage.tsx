@@ -12,10 +12,12 @@ import {
     RefreshCw,
     ScrollText,
     Send,
+    ShieldAlert,
     Timer,
     X,
 } from "lucide-react";
 import { useExamDetail, useSaveAnswers, useSessionQuestions, useStartSession, useSubmitExam } from "../../hooks/useExamQueries";
+import { useExamAntiCheat } from "../../hooks/useExamAntiCheat";
 import type { BlockReason, ExamAnswer, PendingAnswerRow, RunnerCache, SelectedOptionKey } from "../../types/exam";
 
 type SubmitMode = "manual" | "timeout";
@@ -130,6 +132,9 @@ export const ExamRunnerPage = () => {
     const [tick, setTick] = useState(Date.now());
     const [queueVersion, setQueueVersion] = useState(0);
 
+    // ── Anti-cheat state ─────────────────────────────────────────────────────
+    const [isSessionLocked, setIsSessionLocked] = useState(false);
+
     const detailQuery = useExamDetail(examId);
     const sessionQuery = useSessionQuestions(examId, sessionId);
     const startMutation = useStartSession(examId);
@@ -147,6 +152,71 @@ export const ExamRunnerPage = () => {
     const questions = sessionData?.questions ?? [];
     const rules = sessionData?.exam.rules ?? detail?.rules;
     const changeLimit = rules?.answerChangeLimit ?? null;
+
+    // ── Anti-cheat hook callbacks ────────────────────────────────────────────
+    const handleAntiCheatWarn = useCallback((message: string, remaining: number) => {
+        toast(
+            (t) => (
+                <div className="flex items-start gap-2">
+                    <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+                    <div>
+                        <p className="text-sm font-semibold text-text dark:text-dark-text">{message}</p>
+                        <p className="mt-0.5 text-xs text-text-muted dark:text-dark-text/70">
+                            আরও {remaining}টি লঙ্ঘনে সেশন লক/সাবমিট হতে পারে
+                        </p>
+                    </div>
+                    <button type="button" onClick={() => toast.dismiss(t.id)} className="ml-2 shrink-0">
+                        <X className="h-4 w-4 text-text-muted" />
+                    </button>
+                </div>
+            ),
+            { duration: 6000, position: "top-center" },
+        );
+    }, []);
+
+    const handleAntiCheatLock = useCallback(() => {
+        setIsSessionLocked(true);
+    }, []);
+
+    const handleAntiCheatForceSubmit = useCallback(() => {
+        if (!examId || !sessionId) return;
+        // Use the submit mutation directly for force submit to avoid circular dependency
+        // The submitSession function is defined later; we replicate the essential logic here
+        void (async () => {
+            try {
+                await submitMutation.mutateAsync();
+                clearSessionPointer(examId);
+                clearRunnerCache(examId, sessionId);
+                navigate(`/exam/${examId}/result?sessionId=${sessionId}`, { replace: true });
+                toast.success("পরীক্ষা স্বয়ংক্রিয়ভাবে সাবমিট হয়েছে।");
+            } catch {
+                // If force submit fails, lock the session UI as fallback
+                setIsSessionLocked(true);
+                toast.error("স্বয়ংক্রিয় সাবমিট ব্যর্থ। সেশন লক করা হয়েছে।");
+            }
+        })();
+    }, [examId, sessionId, submitMutation, navigate]);
+
+    // ── Anti-cheat hook integration ──────────────────────────────────────────
+    const antiCheatPolicy = sessionData?.antiCheatPolicy;
+    const attemptRevision = sessionData?.session?.attemptRevision ?? 0;
+    const antiCheatEnabled = Boolean(sessionId && sessionData?.session?.isActive);
+
+    const { queuedSignals: antiCheatQueuedSignals } = useExamAntiCheat({
+        examId: antiCheatEnabled ? examId : "",
+        sessionId: antiCheatEnabled ? (sessionId ?? "") : "",
+        attemptRevision,
+        policy: {
+            enableBlurTracking: antiCheatPolicy?.enableBlurTracking,
+            enableContextMenuBlock: antiCheatPolicy?.enableContextMenuBlock,
+            requireFullscreen: antiCheatPolicy?.requireFullscreen,
+            enableClipboardBlock: antiCheatPolicy?.enableClipboardBlock,
+            warningCooldownSeconds: antiCheatPolicy?.warningCooldownSeconds,
+        },
+        onWarn: handleAntiCheatWarn,
+        onLock: handleAntiCheatLock,
+        onForceSubmit: handleAntiCheatForceSubmit,
+    });
 
     const remainingSeconds = useMemo(() => {
         if (!sessionData?.exam.expiresAtUTC) return null;
@@ -455,7 +525,7 @@ export const ExamRunnerPage = () => {
     );
 
     const handleSelectOption = (questionId: string, selectedKey: SelectedOptionKey) => {
-        if (!sessionId || submitMutation.isPending) return;
+        if (!sessionId || submitMutation.isPending || isSessionLocked) return;
         if (!canSwitchOption(questionId, selectedKey)) {
             toast.error("Answer change limit reached for this question.");
             return;
@@ -637,8 +707,7 @@ export const ExamRunnerPage = () => {
                                 </li>
                                 <li>
                                     Attempt policy: {detail.attemptLimit
-                                        ? `Up to ${detail.attemptLimit} attempt(s), re-attempt ${
-                                            detail.allowReAttempt ? "allowed" : "disabled"
+                                        ? `Up to ${detail.attemptLimit} attempt(s), re-attempt ${detail.allowReAttempt ? "allowed" : "disabled"
                                         }`
                                         : "Configured by backend policy"}
                                 </li>
@@ -678,13 +747,12 @@ export const ExamRunnerPage = () => {
                 <div className="p-3">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                         {rules?.showTimer ? (
-                            <div className={`inline-flex min-h-[38px] items-center gap-2 rounded-xl border px-3 font-mono text-sm font-semibold transition-colors duration-300 ${
-                                timerUrgency === "critical"
-                                    ? "animate-pulse border-danger/50 bg-danger/10 text-danger"
-                                    : timerUrgency === "warning"
-                                        ? "border-warning/40 bg-warning/10 text-warning"
-                                        : "border-card-border text-text dark:text-dark-text"
-                            }`}>
+                            <div className={`inline-flex min-h-[38px] items-center gap-2 rounded-xl border px-3 font-mono text-sm font-semibold transition-colors duration-300 ${timerUrgency === "critical"
+                                ? "animate-pulse border-danger/50 bg-danger/10 text-danger"
+                                : timerUrgency === "warning"
+                                    ? "border-warning/40 bg-warning/10 text-warning"
+                                    : "border-card-border text-text dark:text-dark-text"
+                                }`}>
                                 <Timer className="h-4 w-4" />
                                 {formatDuration(remainingSeconds ?? 0)}
                             </div>
@@ -694,45 +762,51 @@ export const ExamRunnerPage = () => {
                             <span>{answeredCount}/{questions.length} answered</span>
                             <span className="text-text-muted/40 dark:text-dark-text/30">|</span>
                             <span>{saveStatusLabel}</span>
+                            {antiCheatQueuedSignals > 0 ? (
+                                <>
+                                    <span className="text-text-muted/40 dark:text-dark-text/30">|</span>
+                                    <span className="text-warning">{antiCheatQueuedSignals} queued</span>
+                                </>
+                            ) : null}
                         </div>
                         <div className="text-xs font-medium text-text-muted dark:text-dark-text/70 sm:hidden">{saveStatusLabel}</div>
 
-                    <div className="ml-auto flex items-center gap-2">
-                        <button type="button" onClick={() => setShowRulesSheet(true)} className="btn-secondary">
-                            Rules
-                        </button>
-                        {rules?.showQuestionPalette ? (
+                        <div className="ml-auto flex items-center gap-2">
+                            <button type="button" onClick={() => setShowRulesSheet(true)} className="btn-secondary">
+                                Rules
+                            </button>
+                            {rules?.showQuestionPalette ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMobilePalette(true)}
+                                    className="btn-secondary lg:hidden"
+                                >
+                                    Palette
+                                </button>
+                            ) : null}
                             <button
                                 type="button"
-                                onClick={() => setShowMobilePalette(true)}
-                                className="btn-secondary lg:hidden"
+                                onClick={() => setShowSubmitConfirm(true)}
+                                className="btn-primary"
+                                disabled={submitMutation.isPending}
                             >
-                                Palette
+                                <Send className="mr-1.5 h-4 w-4" />
+                                Submit
                             </button>
-                        ) : null}
-                        <button
-                            type="button"
-                            onClick={() => setShowSubmitConfirm(true)}
-                            className="btn-primary"
-                            disabled={submitMutation.isPending}
-                        >
-                            <Send className="mr-1.5 h-4 w-4" />
-                            Submit
-                        </button>
+                        </div>
                     </div>
-                </div>
-                {isOffline ? (
-                    <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        Offline mode: answers are queued locally and will sync on reconnect.
-                    </div>
-                ) : null}
-                {submitError ? (
-                    <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-danger/15 px-2.5 py-1 text-xs font-medium text-danger">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        {submitError}
-                    </div>
-                ) : null}
+                    {isOffline ? (
+                        <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            Offline mode: answers are queued locally and will sync on reconnect.
+                        </div>
+                    ) : null}
+                    {submitError ? (
+                        <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-danger/15 px-2.5 py-1 text-xs font-medium text-danger">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            {submitError}
+                        </div>
+                    ) : null}
                 </div>
                 {/* Progress bar */}
                 <div className="h-1 w-full bg-card-border/30 dark:bg-slate-800/50">
@@ -809,11 +883,10 @@ export const ExamRunnerPage = () => {
                                                     : "border-card-border bg-surface2/30 hover:border-primary/30 hover:bg-primary/4 dark:bg-dark-surface/30"}`}
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
-                                                        isSelected
-                                                            ? "border-primary bg-primary text-white"
-                                                            : "border-card-border text-text-muted group-hover/opt:border-primary/40 dark:text-dark-text/60"
-                                                    }`}>
+                                                    <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${isSelected
+                                                        ? "border-primary bg-primary text-white"
+                                                        : "border-card-border text-text-muted group-hover/opt:border-primary/40 dark:text-dark-text/60"
+                                                        }`}>
                                                         {option.key}
                                                     </span>
                                                     <div className="flex-1">
@@ -1014,6 +1087,35 @@ export const ExamRunnerPage = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            ) : null}
+
+            {/* ── Anti-cheat: Session Locked Overlay ──────────────────────────── */}
+            {isSessionLocked ? (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-full max-w-md rounded-2xl border border-danger/30 bg-surface p-6 text-center dark:bg-dark-surface"
+                    >
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-danger/10">
+                            <Lock className="h-8 w-8 text-danger" />
+                        </div>
+                        <h2 className="mt-4 text-lg font-bold text-text dark:text-dark-text">
+                            আপনার সেশন লক করা হয়েছে
+                        </h2>
+                        <p className="mt-2 text-sm text-text-muted dark:text-dark-text/70">
+                            একাধিক নিয়ম লঙ্ঘনের কারণে আপনার পরীক্ষা সেশন লক করা হয়েছে।
+                            অনুগ্রহ করে পরীক্ষা প্রশাসকের সাথে যোগাযোগ করুন।
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => navigate("/exams")}
+                            className="btn-secondary mt-5"
+                        >
+                            পরীক্ষা তালিকায় ফিরে যান
+                        </button>
+                    </motion.div>
                 </div>
             ) : null}
         </div>

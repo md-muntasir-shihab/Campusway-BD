@@ -1,6 +1,7 @@
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
+import security from 'eslint-plugin-security';
 
 export default tseslint.config(
     {
@@ -11,6 +12,7 @@ export default tseslint.config(
         plugins: {
             '@typescript-eslint': tseslint.plugin,
             'react-hooks': reactHooks,
+            security,
         },
         languageOptions: {
             parser: tseslint.parser,
@@ -24,7 +26,12 @@ export default tseslint.config(
                 ...globals.node,
             },
         },
-        rules: {},
+        rules: {
+            'security/detect-eval-with-expression': 'warn',
+            'security/detect-non-literal-regexp': 'warn',
+            'security/detect-possible-timing-attacks': 'warn',
+            'security/detect-no-csrf-before-method-override': 'warn',
+        },
     },
     {
         files: ['**/*.{js,jsx,mjs,cjs}'],

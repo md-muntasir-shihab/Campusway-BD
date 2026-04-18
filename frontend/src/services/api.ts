@@ -170,6 +170,8 @@ function isProtectedBootstrapPath(pathname: string): boolean {
         '/admin',
         '/admin-dashboard',
         '/chairman',
+        '/exam-portal',
+        '/exams',
         '/student/dashboard',
         '/student/profile',
         '/student/security',
@@ -385,8 +387,8 @@ api.interceptors.response.use(
             return api(originalConfig);
         }
 
-        if (status === 401 && hasToken) {
-            if (code === 'SESSION_INVALIDATED' || code === 'LEGACY_TOKEN_NOT_ALLOWED') {
+        if (status === 401) {
+            if (hasToken && (code === 'SESSION_INVALIDATED' || code === 'LEGACY_TOKEN_NOT_ALLOWED')) {
                 emitForceLogout(code);
                 return Promise.reject(error);
             }
@@ -407,7 +409,7 @@ api.interceptors.response.use(
             clearAccessToken();
             const path = window.location.pathname;
             const isLoginRoute = path.includes('/login');
-            if (!isLoginRoute) {
+            if (!isLoginRoute && (hasToken || shouldAttemptAuthBootstrap())) {
                 window.location.href = resolveLoginRedirectPath();
             }
         }
@@ -4534,6 +4536,47 @@ export const adminSetAdminPanelLockState = (adminPanelEnabled: boolean, proof?: 
         { headers: buildSensitiveActionHeaders(proof) },
     );
 
+// ── Anti-Cheat Policy API ────────────────────────────────────────────────────
+
+export interface AdminAntiCheatPolicy {
+    tabSwitchLimit: number;
+    copyPasteViolationLimit: number;
+    requireFullscreen: boolean;
+    violationAction: 'warn' | 'submit' | 'lock';
+    warningCooldownSeconds: number;
+    maxFullscreenExitLimit: number;
+    enableClipboardBlock: boolean;
+    enableContextMenuBlock: boolean;
+    enableBlurTracking: boolean;
+    allowMobileRelaxedMode: boolean;
+    proctoringSignalsEnabled: boolean;
+    strictExamTabLock: boolean;
+}
+
+function readCsrfCookie(): string {
+    if (typeof document === 'undefined') return '';
+    const match = document.cookie.match(/(?:^|;\s*)_csrf=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+function csrfHeaders(): Record<string, string> {
+    const token = readCsrfCookie();
+    return token ? { 'X-CSRF-Token': token } : {};
+}
+
+export const adminGetAntiCheatPolicy = () =>
+    api.get<{ policy: AdminAntiCheatPolicy }>(`/${ADMIN_PATH}/security/anti-cheat-policy`);
+
+export const adminUpdateAntiCheatPolicy = (data: Partial<AdminAntiCheatPolicy>) =>
+    api.put<{ policy: AdminAntiCheatPolicy; updated: boolean }>(
+        `/${ADMIN_PATH}/security/anti-cheat-policy`,
+        data,
+        { headers: csrfHeaders() },
+    );
+
+export const adminFetchCsrfToken = () =>
+    api.get<{ csrfToken: string }>('/auth/csrf-token');
+
 export const adminGetPendingApprovals = (params?: { limit?: number }) =>
     api.get<{ items: AdminActionApproval[]; total: number }>(`/${ADMIN_PATH}/approvals/pending`, { params });
 
@@ -5893,3 +5936,66 @@ export const adminMarkAllSecurityAlertsRead = () =>
 
 export const adminResolveSecurityAlert = (id: string) =>
     api.post<{ data: AdminSecurityAlertItem; message: string }>(`/${ADMIN_PATH}/security-alerts/${id}/resolve`);
+
+/* ── Forensics & Anti-Cheat Alerts ── */
+
+export interface ForensicsTimelineEvent {
+    _id: string;
+    eventType: string;
+    metadata: Record<string, unknown>;
+    ip: string;
+    userAgent?: string;
+    createdAt: string;
+}
+
+export interface AntiCheatSessionSummary {
+    _id: string;
+    student: { _id: string; full_name?: string; username?: string } | string;
+    tabSwitchCount: number;
+    copyAttemptCount: number;
+    fullscreenExitCount: number;
+    violationsCount: number;
+    sessionLocked: boolean;
+    lockReason?: string;
+    status: string;
+}
+
+export interface AntiCheatAlertItem {
+    _id: string;
+    alertType: string;
+    severity: 'info' | 'warning' | 'critical';
+    details: Record<string, unknown>;
+    acknowledged: boolean;
+    acknowledgedBy?: { _id: string; full_name?: string; username?: string } | string;
+    acknowledgedAt?: string;
+    createdAt: string;
+}
+
+export const adminGetForensicsTimeline = (examId: string, sessionId: string) =>
+    api.get<{ data: ForensicsTimelineEvent[] }>(`/${ADMIN_PATH}/exams/${examId}/forensics/timeline/${sessionId}`);
+
+export const adminGetForensicsSummary = (examId: string) =>
+    api.get<{ data: AntiCheatSessionSummary[] }>(`/${ADMIN_PATH}/exams/${examId}/forensics/summary`);
+
+export const adminGetForensicsExport = (examId: string) =>
+    api.get(`/${ADMIN_PATH}/exams/${examId}/forensics/export`);
+
+export const adminGetStudentAntiCheatHistory = (studentId: string, params?: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+    eventType?: string;
+}) =>
+    api.get(`/${ADMIN_PATH}/students/${studentId}/anti-cheat-history`, { params });
+
+export const adminGetAntiCheatAlerts = (params?: {
+    page?: number;
+    limit?: number;
+    alertType?: string;
+    severity?: string;
+}) =>
+    api.get<{ items: AntiCheatAlertItem[]; total: number; page: number; pages: number }>(`/${ADMIN_PATH}/security/alerts`, { params });
+
+export const adminAcknowledgeAntiCheatAlert = (alertId: string) =>
+    api.put<{ data: AntiCheatAlertItem; message: string }>(`/${ADMIN_PATH}/security/alerts/${alertId}/acknowledge`);

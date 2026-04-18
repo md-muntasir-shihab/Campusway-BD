@@ -387,14 +387,29 @@ export default function AdminNewsItemsSection({
         setSelected(items.map((item) => item._id));
     }
 
-    function onEdit(item?: ApiNews) {
+    async function onEdit(item?: ApiNews) {
         if (!item) {
             setEditing({ ...EMPTY_ARTICLE, status: 'draft' });
             setTagInput('');
             return;
         }
-        setEditing(item);
-        setTagInput((item.publicTags || item.tags || []).join(', '));
+
+        if (!item._id) {
+            setEditing(item);
+            setTagInput((item.publicTags || item.tags || []).join(', '));
+            return;
+        }
+
+        try {
+            const response = await adminNewsV2GetItemById(item._id);
+            const fullItem = response.data?.item || item;
+            setEditing(fullItem);
+            setTagInput((fullItem.publicTags || fullItem.tags || []).join(', '));
+        } catch {
+            setEditing(item);
+            setTagInput((item.publicTags || item.tags || []).join(', '));
+            toast.error('Unable to load full news details. Editing with available data.');
+        }
     }
 
     function updateAiEnrichmentField<K extends keyof NonNullable<ApiNews['aiEnrichment']>>(key: K, value: NonNullable<ApiNews['aiEnrichment']>[K]) {

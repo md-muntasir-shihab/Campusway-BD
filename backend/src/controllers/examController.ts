@@ -24,6 +24,8 @@ import { broadcastAdminLiveEvent } from '../realtime/adminLiveStream';
 import { getExamCardMetrics } from '../services/examCardMetricsService';
 import { getSecurityConfig } from '../services/securityConfigService';
 import { finalizeExamSession } from '../services/examFinalizationService';
+import SecuritySettings from '../models/SecuritySettings';
+import { mergeAntiCheatPolicy } from '../services/antiCheatEngine';
 import { getCanonicalSubscriptionSnapshot } from '../services/subscriptionAccessService';
 import {
     createExternalExamAttempt,
@@ -2202,6 +2204,19 @@ export async function getExamAttemptState(req: AuthRequest, res: Response): Prom
         const assignedQuestionIds = session.answers.map((answer) => String(answer.questionId)).filter(Boolean);
         const questions = await getQuestionsByIdsAndFormat(assignedQuestionIds, exam);
 
+        // ── Merge anti-cheat policy (global + per-exam overrides) ────────────
+        let mergedAntiCheatPolicy;
+        try {
+            const secSettings = await SecuritySettings.findOne({ key: 'global' }).lean();
+            const globalPolicy = secSettings?.antiCheatPolicy ?? {};
+            const examOverrides = (exam as any).antiCheatOverrides ?? undefined;
+            mergedAntiCheatPolicy = mergeAntiCheatPolicy(globalPolicy, examOverrides);
+        } catch {
+            // Fallback to safe defaults on error
+            const { SAFE_DEFAULTS } = await import('../types/antiCheat');
+            mergedAntiCheatPolicy = { ...SAFE_DEFAULTS };
+        }
+
         res.json({
             session: {
                 ...mapExamSessionForClient(session, examId, studentId),
@@ -2210,6 +2225,7 @@ export async function getExamAttemptState(req: AuthRequest, res: Response): Prom
             },
             exam: sanitizeExamForStudent(exam),
             questions,
+            antiCheatPolicy: mergedAntiCheatPolicy,
             serverNow: new Date().toISOString(),
         });
     } catch (err) {

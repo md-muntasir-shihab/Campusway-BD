@@ -96,6 +96,22 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+const AUTH_SYNC_EVENT_KEY = 'campusway-auth-sync-event';
+
+type AuthSyncEventType = 'logout' | 'force-logout';
+
+function broadcastAuthSyncEvent(type: AuthSyncEventType, reason?: string): void {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.setItem(
+            AUTH_SYNC_EVENT_KEY,
+            JSON.stringify({ type, reason: reason || null, ts: Date.now() }),
+        );
+    } catch {
+        // ignore storage failures
+    }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
     const [user, setUser] = useState<User | null>(null);
@@ -115,7 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [queryClient]);
 
     const triggerForcedLogout = useCallback((_reason?: string) => {
+        const reason = String(_reason || 'SESSION_INVALIDATED');
         const shouldShowAlert = Boolean(user);
+        broadcastAuthSyncEvent('force-logout', reason);
         clearAuthState();
         if (shouldShowAlert) {
             setForceLogoutAlert(true);
@@ -179,6 +197,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
     }, [triggerForcedLogout]);
 
+    // Cross-tab auth sync for sign-out and forced logout events.
+    useEffect(() => {
+        const onStorage = (event: StorageEvent) => {
+            if (event.key !== AUTH_SYNC_EVENT_KEY || !event.newValue) return;
+
+            let payload: { type?: AuthSyncEventType; reason?: string } | null = null;
+            try {
+                payload = JSON.parse(event.newValue) as { type?: AuthSyncEventType; reason?: string };
+            } catch {
+                return;
+            }
+
+            if (!payload || (payload.type !== 'logout' && payload.type !== 'force-logout')) {
+                return;
+            }
+
+            const shouldShowAlert = payload.type === 'force-logout' && Boolean(user);
+            clearAuthState();
+            if (shouldShowAlert) {
+                setForceLogoutAlert(true);
+            }
+        };
+
+        window.addEventListener('storage', onStorage);
+        return () => {
+            window.removeEventListener('storage', onStorage);
+        };
+    }, [clearAuthState, user]);
+
     // Session guard: SSE first, polling fallback with reconnect backoff
     useEffect(() => {
         if (!token || !user) return;
@@ -188,6 +235,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let pollId: number | null = null;
         let reconnectId: number | null = null;
         let reconnectAttempt = 0;
+
+        const isOnline = () => {
+            if (typeof navigator === 'undefined') return true;
+            return navigator.onLine;
+        };
 
         const stopPolling = () => {
             if (pollId !== null) {
@@ -258,11 +310,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             source.onerror = () => {
                 if (stopped) return;
-                if (document.visibilityState === 'hidden') return;
                 closeSource();
                 startPolling();
+                if (document.visibilityState === 'hidden' || !isOnline()) return;
                 scheduleReconnect();
             };
+        };
+
+        const reconnectNow = () => {
+            if (stopped) return;
+            if (document.visibilityState === 'hidden' || !isOnline()) return;
+            if (reconnectId !== null) {
+                window.clearTimeout(reconnectId);
+                reconnectId = null;
+            }
+            reconnectAttempt = 0;
+            connectSse();
         };
 
         connectSse();
@@ -271,13 +334,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             teardownStreams();
         };
 
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                reconnectNow();
+            }
+        };
+
+        const handleOnline = () => {
+            reconnectNow();
+        };
+
         window.addEventListener('pagehide', handlePageHide);
         window.addEventListener('beforeunload', handlePageHide);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('online', handleOnline);
 
         return () => {
             stopped = true;
             window.removeEventListener('pagehide', handlePageHide);
             window.removeEventListener('beforeunload', handlePageHide);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('online', handleOnline);
             teardownStreams();
         };
     }, [token, user?._id, triggerForcedLogout]);
@@ -334,6 +411,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // ignore logout API failure
             }
         }
+        broadcastAuthSyncEvent('logout');
         clearAuthState();
     }, [token, clearAuthState]);
 

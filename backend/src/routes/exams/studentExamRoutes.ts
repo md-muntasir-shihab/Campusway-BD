@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { AuthRequest } from "../../middlewares/auth";
 import { requireAuth, requireAuthStudent } from "../../middlewares/auth";
 import { examAutoSaveLimit, examSessionStartLimit, examSubmitLimit } from "../../middlewares/examRateLimit";
+import { antiCheatSignalLimit } from "../../middlewares/securityRateLimit";
 import {
   getExamAttemptResult,
   getExamAttemptSolutions,
@@ -10,7 +11,10 @@ import {
   startExam,
   submitExamAttempt,
 } from "../../controllers/examController";
+import { processSignalController } from "../../controllers/antiCheatController";
 import { generateAnswersPdf, generateQuestionsPdf, generateSolutionsPdf } from "../../controllers/examPdfController";
+import { validateBody } from "../../validators/validateBody";
+import { examSubmitSchema, antiCheatSignalSchema } from "../../validators/examSchemas";
 
 export const studentExamRoutes = Router();
 
@@ -38,7 +42,7 @@ studentExamRoutes.post("/exams/:examId/sessions/:sessionId/answers", requireAuth
   await saveExamAttemptAnswer(withLegacyExamId(req, String(req.params.examId || "")), res);
 });
 
-studentExamRoutes.post("/exams/:examId/sessions/:sessionId/submit", requireAuth, requireAuthStudent, examSubmitLimit, async (req, res) => {
+studentExamRoutes.post("/exams/:examId/sessions/:sessionId/submit", requireAuth, requireAuthStudent, examSubmitLimit, validateBody(examSubmitSchema), async (req, res) => {
   await submitExamAttempt(withLegacyExamId(req, String(req.params.examId || "")), res);
 });
 
@@ -53,3 +57,15 @@ studentExamRoutes.get("/exams/:examId/sessions/:sessionId/solutions", requireAut
 studentExamRoutes.get("/exams/:examId/pdf/questions", requireAuth, requireAuthStudent, generateQuestionsPdf);
 studentExamRoutes.get("/exams/:examId/pdf/solutions", requireAuth, requireAuthStudent, generateSolutionsPdf);
 studentExamRoutes.get("/exams/:examId/sessions/:sessionId/pdf/answers", requireAuth, requireAuthStudent, generateAnswersPdf);
+
+// Anti-cheat signal processing (Req 7.1, 7.2, 7.6, 7.8)
+studentExamRoutes.post(
+  "/exams/:examId/sessions/:sessionId/anti-cheat/signal",
+  requireAuth,
+  requireAuthStudent,
+  antiCheatSignalLimit,
+  validateBody(antiCheatSignalSchema),
+  async (req, res) => {
+    await processSignalController(req, res);
+  },
+);

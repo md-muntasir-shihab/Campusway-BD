@@ -4,7 +4,7 @@ export interface IExamEvent extends Document {
     attempt: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     exam: mongoose.Types.ObjectId;
-    eventType: 'save' | 'tab_switch' | 'fullscreen_exit' | 'copy_attempt' | 'submit' | 'error' | 'resume' | 'warn_sent' | 'admin_action' | 'message_sent';
+    eventType: 'save' | 'tab_switch' | 'fullscreen_exit' | 'copy_attempt' | 'submit' | 'error' | 'resume' | 'warn_sent' | 'admin_action' | 'message_sent' | 'blur' | 'client_error' | 'context_menu_blocked' | 'anti_cheat_decision';
     metadata: Record<string, any>;
     ip: string;
     userAgent: string;
@@ -17,7 +17,7 @@ const ExamEventSchema = new Schema<IExamEvent>({
     exam: { type: Schema.Types.ObjectId, ref: 'Exam', required: true },
     eventType: {
         type: String,
-        enum: ['save', 'tab_switch', 'fullscreen_exit', 'copy_attempt', 'submit', 'error', 'resume', 'warn_sent', 'admin_action', 'message_sent'],
+        enum: ['save', 'tab_switch', 'fullscreen_exit', 'copy_attempt', 'submit', 'error', 'resume', 'warn_sent', 'admin_action', 'message_sent', 'blur', 'client_error', 'context_menu_blocked', 'anti_cheat_decision'],
         required: true
     },
     metadata: { type: Schema.Types.Mixed, default: {} },

@@ -78,3 +78,132 @@ jobs:
       - name: Build Frontend Next
         run: npm run build
         working-directory: frontend-next
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+        working-directory: frontend
+
+      # Step 1: Dependency vulnerability scan
+      - name: Backend Dependency Audit
+        id: backend-audit
+        run: |
+          echo "## Backend Dependency Audit" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=high 2>&1 | tee audit-output.txt || true
+          cat audit-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        working-directory: backend
+
+      - name: Frontend Dependency Audit
+        id: frontend-audit
+        run: |
+          echo "## Frontend Dependency Audit" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=high 2>&1 | tee audit-output.txt || true
+          cat audit-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        working-directory: frontend
+
+      # Step 2: Secret scanning
+      - name: Secret Scanning
+        id: secret-scan
+        run: |
+          echo "## Secret Scanning Results" >> $GITHUB_STEP_SUMMARY
+          FOUND=0
+
+          # Scan for .env files committed to repo (exclude .env.example and .gitignore)
+          echo "### Committed .env files" >> $GITHUB_STEP_SUMMARY
+          ENV_FILES=$(find . -name '.env' -not -path './.git/*' -not -path '*/node_modules/*' -not -name '.env.example' 2>/dev/null || true)
+          if [ -n "$ENV_FILES" ]; then
+            echo "⚠️ Found .env files:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$ENV_FILES" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            FOUND=1
+          else
+            echo "✅ No .env files found in committed code" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Scan for API key patterns
+          echo "### API Key Patterns" >> $GITHUB_STEP_SUMMARY
+          API_KEYS=$(grep -rn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' \
+            -E '(AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|sk-[0-9a-zA-Z]{32,}|ghp_[0-9a-zA-Z]{36}|xox[bpoas]-[0-9a-zA-Z-]+)' \
+            --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist . 2>/dev/null || true)
+          if [ -n "$API_KEYS" ]; then
+            echo "⚠️ Potential API keys found:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$API_KEYS" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            FOUND=1
+          else
+            echo "✅ No API key patterns detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Scan for private key patterns
+          echo "### Private Key Patterns" >> $GITHUB_STEP_SUMMARY
+          PRIVATE_KEYS=$(grep -rn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.pem' --include='*.key' \
+            -E '(-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----)' \
+            --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist . 2>/dev/null || true)
+          if [ -n "$PRIVATE_KEYS" ]; then
+            echo "⚠️ Private key patterns found:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$PRIVATE_KEYS" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            FOUND=1
+          else
+            echo "✅ No private key patterns detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$FOUND" -eq 1 ]; then
+            echo "::warning::Potential secrets detected in committed files. Review the job summary for details."
+          fi
+
+      # Step 3: ESLint security plugin static analysis
+      - name: ESLint Security Analysis (Backend)
+        id: eslint-backend
+        run: |
+          echo "## ESLint Security Analysis — Backend" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npx eslint --no-eslintrc --plugin security --rule '{"security/detect-eval-with-expression": "warn", "security/detect-non-literal-regexp": "warn", "security/detect-possible-timing-attacks": "warn", "security/detect-no-csrf-before-method-override": "warn"}' \
+            'src/**/*.ts' 2>&1 | tee eslint-output.txt || true
+          cat eslint-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        working-directory: backend
+
+      - name: ESLint Security Analysis (Frontend)
+        id: eslint-frontend
+        run: |
+          echo "## ESLint Security Analysis — Frontend" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npx eslint --no-eslintrc --plugin security --rule '{"security/detect-eval-with-expression": "warn", "security/detect-non-literal-regexp": "warn", "security/detect-possible-timing-attacks": "warn"}' \
+            'src/**/*.{ts,tsx}' 2>&1 | tee eslint-output.txt || true
+          cat eslint-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        working-directory: frontend
+
+      - name: Security Scan Summary
+        if: always()
+        run: |
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "## Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Security scan completed in **report-only** mode. Review results above." >> $GITHUB_STEP_SUMMARY
+          echo "To enforce blocking on failures, remove \`continue-on-error: true\` from the job." >> $GITHUB_STEP_SUMMARY

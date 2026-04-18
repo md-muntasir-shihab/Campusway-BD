@@ -9,6 +9,10 @@ type BucketState = {
 
 const buckets = new Map<string, BucketState>();
 
+/** @internal Exported for property-based testing only */
+export { consume as _consumeForTesting, buckets as _bucketsForTesting };
+export type { BucketState as _BucketStateForTesting };
+
 function shouldBypassRateLimit(req: Request): boolean {
     if (process.env.DISABLE_SECURITY_RATE_LIMIT === 'true' || process.env.E2E_DISABLE_RATE_LIMIT === 'true') {
         return true;
@@ -224,6 +228,33 @@ export async function financeImportRateLimiter(req: Request, res: Response, next
         const result = consume(key, 5, 60 * 1000); // 5 per minute
         if (!result.allowed) {
             limiterResponse(res, 'Too many import requests. Please wait before retrying.', result.retryAfterSec);
+            return;
+        }
+        next();
+    } catch { next(); }
+}
+
+export async function otpVerificationLimit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        if (shouldBypassRateLimit(req)) { next(); return; }
+        const key = `otp_verify:${getClientIp(req)}`;
+        const result = consume(key, 10, 5 * 60 * 1000); // 10 req per 5 min per IP
+        if (!result.allowed) {
+            limiterResponse(res, 'Too many OTP verification attempts. Please wait before retrying.', result.retryAfterSec);
+            return;
+        }
+        next();
+    } catch { next(); }
+}
+
+export async function antiCheatSignalLimit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        if (shouldBypassRateLimit(req)) { next(); return; }
+        const sessionId = String(req.params.sessionId || req.params.attemptId || '');
+        const key = `anti_cheat_signal:${sessionId || getClientIp(req)}`;
+        const result = consume(key, 60, 60 * 1000); // 60 req per min per session
+        if (!result.allowed) {
+            limiterResponse(res, 'Too many anti-cheat signals. Please wait before retrying.', result.retryAfterSec);
             return;
         }
         next();

@@ -22,6 +22,8 @@ import { getRuntimeSettingsSnapshot } from '../services/runtimeSettingsService';
 import { calculatePasswordExpiryDate, getPasswordPolicyForRole, isPasswordCompliant } from '../services/securityCenterService';
 import { clearPersistentRateLimit, consumePersistentRateLimit } from '../services/securityRateLimitService';
 import { findValidSecurityToken, incrementSecurityTokenAttempts, invalidateSecurityTokens, issueSecurityToken, markSecurityTokenConsumed } from '../services/securityTokenService';
+import { logAuthFailure } from '../services/securityAuditLogger';
+import { checkAuthFailureSpike } from '../services/securityAlertService';
 
 const IS_PROD_AUTH = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-jwt-secret-for-production-please-change-immediately-cw';
@@ -202,6 +204,7 @@ function setRefreshCookie(res: Response, refreshToken: string, ttlDays = 7): voi
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
+        path: '/api/auth',
         maxAge: Math.max(1, ttlDays) * 24 * 60 * 60 * 1000,
     });
 }
@@ -643,6 +646,20 @@ export async function login(req: Request, res: Response): Promise<void> {
                 identifier,
                 reason: 'invalid_password',
             });
+
+            // Audit log auth failure and check for auth_failure_spike (Req 12.3, 13.1)
+            const failIp = getClientIp(req);
+            const correlationId = (req as any).requestId || (req.headers['x-request-id'] as string) || '';
+            logAuthFailure({
+                correlationId,
+                eventType: 'wrong_password',
+                actorId: String(user._id),
+                ipAddress: failIp,
+                userAgent: req.headers['user-agent'] || '',
+                details: { identifier },
+            }).catch(() => { /* audit logging must never crash */ });
+            checkAuthFailureSpike(failIp).catch(() => { /* alert check must never crash */ });
+
             res.status(401).json({ message: getGenericAuthMessage(security, 'Invalid credentials') });
             return;
         }
@@ -816,6 +833,17 @@ export async function refresh(req: Request, res: Response): Promise<void> {
         setAccessCookie(res, token, security.session.accessTokenTTLMinutes);
         res.json({ token });
     } catch {
+        // Audit log expired token failure and check for auth_failure_spike (Req 12.3, 13.1)
+        const refreshFailIp = getClientIp(req);
+        const refreshCorrelationId = (req as any).requestId || (req.headers['x-request-id'] as string) || '';
+        logAuthFailure({
+            correlationId: refreshCorrelationId,
+            eventType: 'expired_token',
+            ipAddress: refreshFailIp,
+            userAgent: req.headers['user-agent'] || '',
+        }).catch(() => { /* audit logging must never crash */ });
+        checkAuthFailureSpike(refreshFailIp).catch(() => { /* alert check must never crash */ });
+
         res.status(403).json({ message: 'Invalid or expired refresh token' });
     }
 }
@@ -846,6 +874,7 @@ export async function logout(req: AuthRequest, res: Response): Promise<void> {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
+        path: '/api/auth',
     });
     res.clearCookie('access_token', {
         httpOnly: true,
@@ -937,6 +966,20 @@ export async function verify2fa(req: Request, res: Response): Promise<void> {
                 reason: 'otp_invalid',
                 details: { attemptsRemaining },
             });
+
+            // Audit log OTP failure and check for auth_failure_spike (Req 12.3, 13.1)
+            const otpFailIp = getClientIp(req);
+            const otpCorrelationId = (req as any).requestId || (req.headers['x-request-id'] as string) || '';
+            logAuthFailure({
+                correlationId: otpCorrelationId,
+                eventType: 'invalid_otp',
+                actorId: String(user._id),
+                ipAddress: otpFailIp,
+                userAgent: req.headers['user-agent'] || '',
+                details: { attemptsRemaining, challengeMethod },
+            }).catch(() => { /* audit logging must never crash */ });
+            checkAuthFailureSpike(otpFailIp).catch(() => { /* alert check must never crash */ });
+
             const invalidOtpMessage = challengeMethod === 'authenticator'
                 ? 'Invalid authenticator or backup code. Ensure device time is automatic and try the latest 6-digit code.'
                 : 'Invalid OTP';

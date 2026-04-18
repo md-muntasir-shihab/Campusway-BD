@@ -5,6 +5,9 @@ import { ExamQuestionModel } from "../models/examQuestion.model";
 import { ExamSessionModel } from "../models/examSession.model";
 import { ResultModel } from "../models/result.model";
 import { buildAccessPayload } from "./examAccessService";
+import SecuritySettings from "../models/SecuritySettings";
+import { mergeAntiCheatPolicy } from "./antiCheatEngine";
+import { SAFE_DEFAULTS } from "../types/antiCheat";
 
 const shuffle = <T>(list: T[]) => [...list].sort(() => Math.random() - 0.5);
 
@@ -68,6 +71,18 @@ export const getSessionQuestions = async (examId: string, sessionId: string, use
   });
 
   const answers = await AnswerModel.find({ sessionId, userId }).lean();
+
+  // ── Merge anti-cheat policy (global + per-exam overrides) ────────────
+  let mergedAntiCheatPolicy;
+  try {
+    const secSettings = await SecuritySettings.findOne({ key: 'global' }).lean();
+    const globalPolicy = secSettings?.antiCheatPolicy ?? {};
+    const examOverrides = (exam as any).antiCheatOverrides ?? undefined;
+    mergedAntiCheatPolicy = mergeAntiCheatPolicy(globalPolicy, examOverrides);
+  } catch {
+    mergedAntiCheatPolicy = { ...SAFE_DEFAULTS };
+  }
+
   return {
     exam: {
       id: String(exam._id),
@@ -87,8 +102,14 @@ export const getSessionQuestions = async (examId: string, sessionId: string, use
         autoSubmitOnTimeout: exam.autoSubmitOnTimeout
       }
     },
+    session: {
+      sessionId: String(session._id),
+      isActive: true,
+      attemptRevision: Number((session as any).attemptRevision ?? 0),
+    },
     questions,
-    answers: answers.map((a) => ({ questionId: a.questionId, selectedKey: a.selectedKey, changeCount: a.changeCount, updatedAtUTC: a.updatedAtUTC }))
+    answers: answers.map((a) => ({ questionId: a.questionId, selectedKey: a.selectedKey, changeCount: a.changeCount, updatedAtUTC: a.updatedAtUTC })),
+    antiCheatPolicy: mergedAntiCheatPolicy,
   };
 };
 

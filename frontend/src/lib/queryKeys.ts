@@ -21,6 +21,7 @@ export const queryKeys = {
     studentMeLegacy: ['subscriptions.me'] as const,
     socialLinks: ['site-social-links'] as const,
     securitySettings: ['admin', 'security-settings'] as const,
+    antiCheatPolicy: ['admin', 'anti-cheat-policy'] as const,
     runtimeSettings: ['admin', 'runtime-settings'] as const,
     pendingApprovals: ['admin', 'pending-approvals'] as const,
     auditLogs: ['admin', 'audit-logs'] as const,

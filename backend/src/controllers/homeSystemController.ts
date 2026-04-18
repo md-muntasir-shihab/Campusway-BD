@@ -228,10 +228,18 @@ export const updateSettings = async (req: Request, res: Response) => {
 
         const current = await WebsiteSettings.findOne();
 
-        if (!files?.logo?.[0] && LEGACY_BRAND_PATHS.has(String(current?.logo || '').trim())) {
+        if (
+            !files?.logo?.[0] &&
+            (payload.logo === undefined || String(payload.logo).trim() === '') &&
+            LEGACY_BRAND_PATHS.has(String(current?.logo || '').trim())
+        ) {
             payload.logo = CANONICAL_BRAND_ASSETS.logo;
         }
-        if (!files?.favicon?.[0] && LEGACY_BRAND_PATHS.has(String(current?.favicon || '').trim())) {
+        if (
+            !files?.favicon?.[0] &&
+            (payload.favicon === undefined || String(payload.favicon).trim() === '') &&
+            LEGACY_BRAND_PATHS.has(String(current?.favicon || '').trim())
+        ) {
             payload.favicon = CANONICAL_BRAND_ASSETS.favicon;
         }
 

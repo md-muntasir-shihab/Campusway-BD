@@ -146,6 +146,21 @@ export interface PdfAvailability {
     answers: boolean;
 }
 
+export interface AntiCheatPolicyConfig {
+    enableBlurTracking?: boolean;
+    enableContextMenuBlock?: boolean;
+    requireFullscreen?: boolean;
+    enableClipboardBlock?: boolean;
+    warningCooldownSeconds?: number;
+    tabSwitchLimit?: number;
+    copyPasteViolationLimit?: number;
+    maxFullscreenExitLimit?: number;
+    violationAction?: 'warn' | 'submit' | 'lock';
+    allowMobileRelaxedMode?: boolean;
+    proctoringSignalsEnabled?: boolean;
+    strictExamTabLock?: boolean;
+}
+
 export interface ExamQuestionsResponse {
     exam: {
         id: string;
@@ -159,9 +174,11 @@ export interface ExamQuestionsResponse {
         sessionId: string;
         isActive: boolean;
         submittedAtUTC?: string;
+        attemptRevision?: number;
     };
     questions: ExamQuestion[];
     answers: ExamAnswer[];
+    antiCheatPolicy?: AntiCheatPolicyConfig;
 }
 
 export interface SaveAnswersPayload {
@@ -205,20 +222,20 @@ export type ResultResponse = ResultResponseLocked | ResultResponsePublished;
 
 export type SolutionsResponse =
     | {
-          status: "locked";
-          publishAtUTC: string;
-          serverNowUTC: string;
-          reason: string;
-      }
+        status: "locked";
+        publishAtUTC: string;
+        serverNowUTC: string;
+        reason: string;
+    }
     | {
-          status: "available";
-          items: Array<{
-              questionId: string;
-              questionText: string;
-              selectedKey: SelectedOptionKey;
-              correctKey: OptionKey;
-              explanationText?: string;
-              questionImageUrl?: string;
-              explanationImageUrl?: string;
-          }>;
-      };
+        status: "available";
+        items: Array<{
+            questionId: string;
+            questionText: string;
+            selectedKey: SelectedOptionKey;
+            correctKey: OptionKey;
+            explanationText?: string;
+            questionImageUrl?: string;
+            explanationImageUrl?: string;
+        }>;
+    };
