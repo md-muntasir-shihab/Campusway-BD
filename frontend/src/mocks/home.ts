@@ -213,6 +213,7 @@ export function mockHomeResponse(): HomeApiResponse {
                 quickLinks: [],
                 contactInfo: { email: 'support@campusway.local', phone: '', address: '' },
                 legalLinks: [],
+                showFounderButton: true,
             },
             ui: { animationLevel: 'minimal' },
         },

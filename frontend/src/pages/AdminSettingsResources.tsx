@@ -79,7 +79,7 @@ function SectionCard({
     children: ReactNode;
 }) {
     return (
-        <section className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-[0_18px_45px_rgba(8,15,40,0.18)]">
+        <section className="rounded-3xl border border-slate-700/40 bg-slate-900/60 p-6 shadow-[0_18px_45px_rgba(8,15,40,0.18)]">
             <div className="flex items-start gap-3">
                 <div className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-300">
                     <Icon className="h-5 w-5" />
@@ -112,7 +112,7 @@ function ToggleRow({
     disabled?: boolean;
 }) {
     return (
-        <label className={`flex items-start justify-between gap-4 rounded-2xl border border-white/8 bg-slate-950/45 px-4 py-3 ${disabled ? 'opacity-55' : 'cursor-pointer'}`}>
+        <label className={`flex items-start justify-between gap-4 rounded-2xl border border-slate-700/40 bg-slate-900/50 px-4 py-3 ${disabled ? 'opacity-55' : 'cursor-pointer hover:border-indigo-500/20 transition-colors'}`}>
             <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-100">{title}</p>
                 <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
@@ -223,7 +223,7 @@ function ResourceSettingsPanel() {
                             <input
                                 value={form.pageTitle}
                                 onChange={(event) => setField('pageTitle', event.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                                 placeholder="Student Resources"
                             />
                         </div>
@@ -233,7 +233,7 @@ function ResourceSettingsPanel() {
                                 value={form.pageSubtitle}
                                 onChange={(event) => setField('pageSubtitle', event.target.value)}
                                 rows={3}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                                 placeholder="Access curated study materials..."
                             />
                         </div>
@@ -242,7 +242,7 @@ function ResourceSettingsPanel() {
                             <input
                                 value={form.heroBadgeLabel}
                                 onChange={(event) => setField('heroBadgeLabel', event.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                                 placeholder="Study Smart"
                             />
                         </div>
@@ -251,7 +251,7 @@ function ResourceSettingsPanel() {
                             <input
                                 value={form.searchPlaceholder}
                                 onChange={(event) => setField('searchPlaceholder', event.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                                 placeholder="Search resources..."
                             />
                         </div>
@@ -302,7 +302,7 @@ function ResourceSettingsPanel() {
                                 max={24}
                                 value={form.featuredLimit}
                                 onChange={(event) => setField('featuredLimit', Number(event.target.value) || 0)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                             />
                         </div>
                         <div>
@@ -310,7 +310,7 @@ function ResourceSettingsPanel() {
                             <input
                                 value={form.featuredSectionTitle}
                                 onChange={(event) => setField('featuredSectionTitle', event.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                             />
                         </div>
                     </div>
@@ -329,7 +329,7 @@ function ResourceSettingsPanel() {
                             <select
                                 value={form.defaultSort}
                                 onChange={(event) => setField('defaultSort', event.target.value as ResourceSettingsSort)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                             >
                                 {SORT_OPTIONS.map((item) => (
                                     <option key={item.value} value={item.value}>
@@ -343,7 +343,7 @@ function ResourceSettingsPanel() {
                             <select
                                 value={form.defaultType}
                                 onChange={(event) => setField('defaultType', event.target.value as ResourceSettingsType)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                             >
                                 <option value="all">All Types</option>
                                 {TYPE_OPTIONS.filter((item) => form.allowedTypes.includes(item.value)).map((item) => (
@@ -358,7 +358,7 @@ function ResourceSettingsPanel() {
                             <input
                                 value={form.defaultCategory}
                                 onChange={(event) => setField('defaultCategory', event.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                                 placeholder="All"
                             />
                         </div>
@@ -370,7 +370,7 @@ function ResourceSettingsPanel() {
                                 max={48}
                                 value={form.itemsPerPage}
                                 onChange={(event) => setField('itemsPerPage', Number(event.target.value) || DEFAULT_RESOURCE_SETTINGS.itemsPerPage)}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                             />
                         </div>
                     </div>
@@ -424,7 +424,7 @@ function ResourceSettingsPanel() {
                                     'allowedCategories',
                                     event.target.value.split(',').map((item) => item.trim()).filter(Boolean),
                                 )}
-                                className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                                className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                                 placeholder="Question Banks, Study Materials, Official Links"
                             />
                         </div>
@@ -441,7 +441,7 @@ function ResourceSettingsPanel() {
                                         onClick={() => toggleAllowedType(item.value)}
                                         className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active
                                             ? 'border-indigo-400/60 bg-indigo-500/20 text-indigo-200'
-                                            : 'border-white/10 bg-slate-950/55 text-slate-400 hover:border-indigo-400/30 hover:text-slate-200'
+                                            : 'border-slate-700/40 bg-slate-950/55 text-slate-400 hover:border-indigo-400/30 hover:text-slate-200'
                                             }`}
                                     >
                                         {item.label}
@@ -465,11 +465,11 @@ function ResourceSettingsPanel() {
                             value={form.emptyStateMessage}
                             onChange={(event) => setField('emptyStateMessage', event.target.value)}
                             rows={3}
-                            className="w-full rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                            className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
                             placeholder="No resources found. Try adjusting your filters."
                         />
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
+                    <div className="rounded-2xl border border-slate-700/40 bg-slate-950/45 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Live summary</p>
                         <div className="mt-4 space-y-3 text-sm text-slate-300">
                             <p><span className="text-slate-500">Public page:</span> {form.publicPageEnabled ? 'Enabled' : 'Hidden'}</p>

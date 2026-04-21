@@ -1,6 +1,2 @@
-import StaticContentPage from '../components/layout/StaticContentPage';
-
-export default function TermsPage() {
-    return <StaticContentPage page="terms" />;
-}
-
+// Legacy redirect — now served by LegalPageView
+export { default } from './LegalPageView';

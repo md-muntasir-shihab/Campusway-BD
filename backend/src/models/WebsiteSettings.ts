@@ -29,11 +29,31 @@ export interface FounderContactLinkConfig {
     url: string;
 }
 
+export interface FounderEducationConfig {
+    degree: string;
+    institution: string;
+    department: string;
+    year: string;
+    result: string;
+    order: number;
+}
+
 export interface FounderProfileConfig {
     name: string;
     title: string;
     photoUrl: string;
     shortBio: string;
+    quote: string;
+    fatherName: string;
+    dateOfBirth: string;
+    gender: string;
+    phone: string;
+    emergencyPhone: string;
+    email: string;
+    address: string;
+    education: FounderEducationConfig[];
+    skills: string[];
+    experience: string;
     contactLinks: FounderContactLinkConfig[];
     enabled: boolean;
     order: number;
@@ -87,83 +107,102 @@ function asStringArray(value: unknown): string[] {
 export function createWebsiteStaticPagesDefaults(): WebsiteStaticPagesConfig {
     return {
         about: {
-            eyebrow: 'About CampusWay',
-            title: 'Empowering Students Across Bangladesh',
-            subtitle: 'CampusWay helps students navigate admissions, exams, scholarships, and university decisions with one reliable platform.',
-            lastUpdatedLabel: 'Updated regularly by the CampusWay admin team.',
+            eyebrow: 'ক্যাম্পাসওয়ে সম্পর্কে',
+            title: 'ক্যাম্পাসওয়েতে স্বাগতম',
+            subtitle: 'ক্যাম্পাসওয়ে বাংলাদেশের শিক্ষার্থীদের জন্য তৈরি একটি আধুনিক, নির্ভরযোগ্য এবং সমন্বিত শিক্ষা প্ল্যাটফর্ম। আমরা বিশ্বাস করি, ভালো রেজাল্ট শুধু মেধার উপর নির্ভর করে না; সঠিক পরিকল্পনা, নিয়মিত অনুশীলন, নির্ভুল তথ্য এবং সময়মতো গাইডলাইনও সমানভাবে জরুরি।',
+            lastUpdatedLabel: 'CampusWay Team কর্তৃক পরিচালিত',
             backLinkLabel: 'Back to Home',
             backLinkUrl: '/',
             sections: [
                 {
-                    title: 'Our Mission',
-                    body: 'We want every student to have equal access to clear, practical, and timely admission guidance so opportunity does not depend on guesswork.',
-                    bullets: [
-                        'Keep admission information easy to understand.',
-                        'Reduce confusion during university and scholarship applications.',
-                        'Give students one place for guidance, exams, and resources.',
-                    ],
-                    iconKey: 'target',
-                    tone: 'info',
-                    enabled: true,
-                    order: 1,
+                    title: 'আমাদের ভিশন',
+                    body: 'বাংলাদেশের প্রতিটি শিক্ষার্থীর জন্য মানসম্মত শিক্ষা সহায়তাকে সহজলভ্য, সাশ্রয়ী এবং বাস্তবমুখী করা। শহর বা গ্রাম, বাংলা মিডিয়াম বা ইংরেজি মিডিয়াম, অনলাইন বা অফলাইন ব্যাকগ্রাউন্ড—সব শিক্ষার্থী যেন সমান সুযোগ নিয়ে এগোতে পারে, সেটাই আমাদের মূল লক্ষ্য।',
+                    bullets: [], iconKey: 'globe', tone: 'success', enabled: true, order: 1,
                 },
                 {
-                    title: 'Our Vision',
-                    body: 'CampusWay aims to become the most trusted student platform for admission preparation and decision support in the region.',
+                    title: 'আমাদের মিশন',
+                    body: 'শিক্ষার্থীর একাডেমিক যাত্রাকে সহজ, সংগঠিত এবং ফলপ্রসূ করা।',
                     bullets: [
-                        'Connect students with verified university information.',
-                        'Support better academic planning with practical tools.',
-                        'Keep growth focused on clarity, trust, and student outcomes.',
-                    ],
-                    iconKey: 'globe',
-                    tone: 'success',
-                    enabled: true,
-                    order: 2,
+                        'শিক্ষার্থীর একাডেমিক যাত্রাকে সহজ ও সংগঠিত করা',
+                        'নির্ভুল তথ্যের ভিত্তিতে সিদ্ধান্ত নেওয়ার সুযোগ তৈরি করা',
+                        'অনুশীলনভিত্তিক শেখার সংস্কৃতি গড়ে তোলা',
+                        'ভর্তি, পরীক্ষা ও ভবিষ্যৎ পরিকল্পনায় আত্মবিশ্বাস বাড়ানো',
+                        'প্রযুক্তির মাধ্যমে শেখাকে আরও ব্যক্তিগত, দ্রুত এবং ফলপ্রসূ করা',
+                    ], iconKey: 'target', tone: 'info', enabled: true, order: 2,
                 },
                 {
-                    title: 'Built With Care',
-                    body: 'The platform is shaped around real student problems: deadline pressure, scattered information, and the need for better preparation support.',
+                    title: 'কারা ক্যাম্পাসওয়ে ব্যবহার করতে পারবে',
+                    body: 'ক্যাম্পাসওয়ে সকল স্তরের শিক্ষার্থীদের জন্য উন্মুক্ত।',
                     bullets: [
-                        'Designed for quick scanning on mobile and desktop.',
-                        'Built to connect guidance, exams, results, and communication.',
-                    ],
-                    iconKey: 'heart',
-                    tone: 'accent',
-                    enabled: true,
-                    order: 3,
+                        'স্কুল ও কলেজ শিক্ষার্থী',
+                        'বিশ্ববিদ্যালয় ভর্তি পরীক্ষার্থী',
+                        'প্রতিযোগিতামূলক পরীক্ষার প্রস্তুতিমূলক শিক্ষার্থী',
+                        'যারা এক জায়গায় পরীক্ষা, রিসোর্স, গাইডলাইন ও অগ্রগতি ট্র্যাকিং চায়',
+                    ], iconKey: 'users', tone: 'accent', enabled: true, order: 3,
+                },
+                {
+                    title: 'একজন শিক্ষার্থীর জন্য ক্যাম্পাসওয়ে কেন জরুরি',
+                    body: 'ক্যাম্পাসওয়ে শিক্ষার্থীর প্রতিটি পদক্ষেপে সহায়তা করে।',
+                    bullets: [
+                        'দিকনির্দেশনা স্পষ্ট করে',
+                        'সময় বাঁচায়',
+                        'অনুশীলনকে কার্যকর করে',
+                        'অগ্রগতি বুঝতে সাহায্য করে',
+                        'ভর্তি প্রস্তুতিতে বাস্তব সহায়তা দেয়',
+                        'আপডেটেড থাকতে সাহায্য করে',
+                        'একাডেমিক আত্মবিশ্বাস বাড়ায়',
+                    ], iconKey: 'heart', tone: 'warning', enabled: true, order: 4,
+                },
+                {
+                    title: 'আমাদের প্রতিশ্রুতি',
+                    body: 'ক্যাম্পাসওয়ে তোমার একাডেমিক যাত্রার প্রতিটি ধাপে একজন নির্ভরযোগ্য সঙ্গী।\n\nতোমার লক্ষ্য, তোমার গতি, তোমার ভবিষ্যৎ — ক্যাম্পাসওয়ে আছে তোমার পাশে।',
+                    bullets: [
+                        'শিক্ষার্থীকে কেন্দ্র করে প্রতিটি ফিচার উন্নয়ন',
+                        'তথ্যকে আরও নির্ভুল, আপডেটেড ও প্রাসঙ্গিক রাখা',
+                        'শেখাকে শুধু কনটেন্ট-ভিত্তিক নয়, ফলাফল-ভিত্তিক করা',
+                        'বাংলাদেশি শিক্ষার্থীর বাস্তব চাহিদা অনুযায়ী সেবা উন্নত করা',
+                    ], iconKey: 'heart', tone: 'accent', enabled: true, order: 5,
                 },
             ],
             featureCards: [
+                { title: 'পাবলিক একাডেমিক কনটেন্ট', description: 'বিশ্ববিদ্যালয়, রিসোর্স, নিউজ ও গুরুত্বপূর্ণ তথ্য থেকে নির্ভরযোগ্য ধারণা পান।', iconKey: 'graduation-cap', enabled: true, order: 1 },
+                { title: 'এক্সাম ও প্রস্তুতি সাপোর্ট', description: 'অনুশীলন, মূল্যায়ন, রেজাল্ট ভিউ — শেখা হয় পরিমাপযোগ্য।', iconKey: 'book-open', enabled: true, order: 2 },
+                { title: 'স্টুডেন্ট ড্যাশবোর্ড', description: 'পরীক্ষা, ফলাফল, নোটিফিকেশন ও একাডেমিক অ্যাকশন এক জায়গায়।', iconKey: 'users', enabled: true, order: 3 },
+                { title: 'রিসোর্স ও জ্ঞানভান্ডার', description: 'বিষয়ভিত্তিক শেখার উপকরণ ও ব্যবহারযোগ্য রিসোর্স।', iconKey: 'file-text', enabled: true, order: 4 },
+                { title: 'নিউজ ও আপডেট', description: 'সময়োপযোগী একাডেমিক আপডেট সহজভাবে পৌঁছে দিই।', iconKey: 'bell', enabled: true, order: 5 },
+                { title: 'হেল্প সেন্টার ও সাপোর্ট', description: 'সমস্যা থাকলে দ্রুত সহায়তা পান।', iconKey: 'shield', enabled: true, order: 6 },
+            ],
+            founderProfiles: [
                 {
-                    title: 'University Database',
-                    description: 'Track institutions, categories, deadlines, and application details from one place.',
-                    iconKey: 'graduation-cap',
+                    name: 'মোঃ মুনতাসির শিহাব (MD Muntasir Shihab)',
+                    title: 'Founder & CEO',
+                    photoUrl: '',
+                    shortBio: 'CampusWay-এর প্রতিষ্ঠাতা ও পরিচালক। শিক্ষার্থীদের ভর্তি প্রস্তুতি ও একাডেমিক সহায়তায় একটি নির্ভরযোগ্য প্ল্যাটফর্ম গড়ে তোলার লক্ষ্যে কাজ করছেন।',
+                    quote: 'Learn, Create, Deliver excellence',
+                    fatherName: 'মোঃ মকবুলার রহমান',
+                    dateOfBirth: '১২ অক্টোবর ২০০৫',
+                    gender: 'পুরুষ',
+                    phone: '01317138570',
+                    emergencyPhone: '01516553350',
+                    email: 'mm.xihab@gmail.com',
+                    address: 'গ্রাম: ডাঙ্গাবাড়ী, ডাকঘর: ফুটকিবাড়ী-৫০৪১, ইউনিয়ন: গরিনাবাড়ী (ওয়ার্ড নং- ৭), উপজেলা: পঞ্চগড় সদর, জেলা: পঞ্চগড়।',
+                    education: [
+                        { degree: 'B.Sc. (স্নাতক)', institution: 'খুলনা বিশ্ববিদ্যালয়', department: 'পরিসংখ্যান (Statistics)', year: '২০২৬ — বর্তমান', result: 'অধ্যয়নরত', order: 5 },
+                        { degree: 'HSC (উচ্চ মাধ্যমিক)', institution: 'মকবুলার রহমান সরকারি কলেজ', department: 'বিজ্ঞান', year: '২০২৪', result: 'GPA 4.92', order: 4 },
+                        { degree: 'SSC (মাধ্যমিক)', institution: 'আমেনা-বাকি রেসিডেন্সিয়াল মডেল স্কুল অ্যান্ড কলেজ', department: 'বিজ্ঞান', year: '২০২২', result: 'GPA 5.00 (গোল্ডেন)', order: 3 },
+                        { degree: 'JSC', institution: 'আমেনা-বাকি রেসিডেন্সিয়াল মডেল স্কুল অ্যান্ড কলেজ', department: 'সাধারণ', year: '২০১৯', result: 'GPA 5.00 (গোল্ডেন)', order: 2 },
+                        { degree: 'PSC (প্রাথমিক)', institution: 'আমেনা-বাকি রেসিডেন্সিয়াল মডেল স্কুল অ্যান্ড কলেজ', department: 'সাধারণ', year: '২০১৬', result: 'GPA 5.00 (গোল্ডেন)', order: 1 },
+                    ],
+                    skills: ['গ্রাফিক ডিজাইন', 'ব্র্যান্ডিং', 'লোগো ডিজাইন', 'ওয়েব ডেভেলপমেন্ট (HTML, CSS)', 'ডিজিটাল মার্কেটিং'],
+                    experience: 'সদর শাখা সভাপতি, রংধনু ফাউন্ডেশন (২০২৩ থেকে বর্তমান)',
+                    contactLinks: [
+                        { label: 'Email', url: 'mailto:mm.xihab@gmail.com' },
+                        { label: 'CampusWay', url: '/' },
+                    ],
                     enabled: true,
                     order: 1,
                 },
-                {
-                    title: 'Practice Exams',
-                    description: 'Prepare with guided tests, question banks, and exam performance insights.',
-                    iconKey: 'book-open',
-                    enabled: true,
-                    order: 2,
-                },
-                {
-                    title: 'Student Guidance',
-                    description: 'Support students with practical workflows, alerts, and communication tools.',
-                    iconKey: 'users',
-                    enabled: true,
-                    order: 3,
-                },
-                {
-                    title: 'Scholarship Support',
-                    description: 'Surface useful opportunities and simplify decision-making around next steps.',
-                    iconKey: 'award',
-                    enabled: true,
-                    order: 4,
-                },
             ],
-            founderProfiles: [],
         },
         terms: {
             eyebrow: 'Legal',
@@ -317,6 +356,18 @@ function normalizeFounderContactLink(value: unknown): FounderContactLinkConfig |
     };
 }
 
+function normalizeFounderEducation(value: unknown, fallback: FounderEducationConfig): FounderEducationConfig {
+    const source = asRecord(value);
+    return {
+        degree: asString(source.degree, fallback.degree),
+        institution: asString(source.institution, fallback.institution),
+        department: asString(source.department, fallback.department),
+        year: asString(source.year, fallback.year),
+        result: asString(source.result, fallback.result),
+        order: asNumber(source.order, fallback.order),
+    };
+}
+
 function normalizeFounderProfile(value: unknown, fallback: FounderProfileConfig): FounderProfileConfig {
     const source = asRecord(value);
     const normalizedLinks = Array.isArray(source.contactLinks)
@@ -325,11 +376,27 @@ function normalizeFounderProfile(value: unknown, fallback: FounderProfileConfig)
             .filter((item): item is FounderContactLinkConfig => Boolean(item))
         : fallback.contactLinks;
 
+    const fallbackEducation = Array.isArray(fallback.education) ? fallback.education : [];
+    const normalizedEducation = Array.isArray(source.education)
+        ? source.education.map((item, idx) => normalizeFounderEducation(item, fallbackEducation[idx] || { degree: '', institution: '', department: '', year: '', result: '', order: idx + 1 }))
+        : fallbackEducation;
+
     return {
         name: asString(source.name, fallback.name),
         title: asString(source.title, fallback.title),
         photoUrl: asString(source.photoUrl, fallback.photoUrl),
         shortBio: asString(source.shortBio, fallback.shortBio),
+        quote: asString(source.quote, fallback.quote),
+        fatherName: asString(source.fatherName, fallback.fatherName),
+        dateOfBirth: asString(source.dateOfBirth, fallback.dateOfBirth),
+        gender: asString(source.gender, fallback.gender),
+        phone: asString(source.phone, fallback.phone),
+        emergencyPhone: asString(source.emergencyPhone, fallback.emergencyPhone),
+        email: asString(source.email, fallback.email),
+        address: asString(source.address, fallback.address),
+        education: normalizedEducation,
+        skills: source.skills !== undefined ? asStringArray(source.skills) : fallback.skills,
+        experience: asString(source.experience, fallback.experience),
         contactLinks: normalizedLinks,
         enabled: asBoolean(source.enabled, fallback.enabled),
         order: asNumber(source.order, fallback.order),
@@ -383,6 +450,17 @@ function normalizeAboutStaticPage(value: unknown, fallback: AboutStaticPageConfi
             title: '',
             photoUrl: '',
             shortBio: '',
+            quote: '',
+            fatherName: '',
+            dateOfBirth: '',
+            gender: '',
+            phone: '',
+            emergencyPhone: '',
+            email: '',
+            address: '',
+            education: [],
+            skills: [],
+            experience: '',
             contactLinks: [],
             enabled: true,
             order: index + 1,

@@ -144,6 +144,8 @@ import {
     trackContentBlockClick,
 } from '../controllers/contentBlockController';
 import { getPublicSystemStatus } from '../controllers/securityAlertController';
+import { getPublicLegalPage } from '../controllers/legalPageController';
+import { getPublicFounder } from '../controllers/founderController';
 import { requireAppCheck } from '../middlewares/appCheck';
 import { csrfProtection } from '../middlewares/csrfGuard';
 
@@ -250,6 +252,12 @@ router.post('/content-blocks/:id/click', requireAppCheck, trackContentBlockClick
 
 /* ── Public — System Status ── */
 router.get('/system/status', getPublicSystemStatus as any);
+
+/* ── Public — Legal Pages ── */
+router.get('/legal-pages/:slug', getPublicLegalPage);
+
+/* ── Public — Founder ── */
+router.get('/founder', getPublicFounder);
 
 /* ── Public — Services ── */
 router.get('/services', getServices);

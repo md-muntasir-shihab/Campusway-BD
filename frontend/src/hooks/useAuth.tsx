@@ -173,16 +173,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initial auth bootstrap from refresh cookie
     useEffect(() => {
         let cancelled = false;
+        let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
+
+        // Bootstrap deadline: if auth bootstrap hasn't completed within 6s,
+        // treat user as unauthenticated to prevent indefinite loading state.
+        deadlineTimer = setTimeout(() => {
+            if (!cancelled) {
+                clearAuthState();
+                setIsLoading(false);
+            }
+        }, 6000);
 
         (async () => {
             if (!shouldAttemptAuthBootstrap()) {
                 clearAuthState();
                 setIsLoading(false);
+                if (deadlineTimer) clearTimeout(deadlineTimer);
                 return;
             }
 
             // Guard: skip if another bootstrap is already in flight
+            // BUT keep the deadline timer running so isLoading eventually resolves
             if (bootstrapInFlight) {
+                // Don't clear deadline — let it fire to prevent stuck loading
                 return;
             }
             bootstrapInFlight = true;
@@ -193,12 +206,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (!nextToken) {
                     clearAuthState();
                     setIsLoading(false);
+                    if (deadlineTimer) clearTimeout(deadlineTimer);
                     return;
                 }
 
                 setToken(nextToken);
                 try {
-                    const res = await api.get('/auth/me');
+                    const res = await api.get('/auth/me', { timeout: 10000 });
                     if (!cancelled) {
                         const fetchedUser = res.data.user;
                         setUser(fetchedUser);
@@ -215,6 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if (!cancelled) clearAuthState();
                 } finally {
                     if (!cancelled) setIsLoading(false);
+                    if (deadlineTimer) clearTimeout(deadlineTimer);
                 }
             } finally {
                 bootstrapInFlight = false;
@@ -223,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return () => {
             cancelled = true;
+            if (deadlineTimer) clearTimeout(deadlineTimer);
         };
     }, [clearAuthState]);
 

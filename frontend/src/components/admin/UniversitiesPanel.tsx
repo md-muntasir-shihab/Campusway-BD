@@ -1385,46 +1385,28 @@ export default function UniversitiesPanel() {
                             </td>
                           );
                         })}
-                        <td className="px-3 py-2.5 sticky right-0 bg-slate-900/90 backdrop-blur-md shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.3)] z-10">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {homeFeaturedOrderMap.has(u._id) ? (
-                              <>
-                                <span className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-200">
-                                  Home #{homeFeaturedOrderMap.get(u._id)}
+                        <td className="px-2 py-2 sticky right-0 bg-slate-900/90 backdrop-blur-md shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.3)] z-10">
+                          <div className="flex flex-col gap-1 min-w-[90px]">
+                            <div className="flex items-center gap-1">
+                              {homeFeaturedOrderMap.has(u._id) ? (
+                                <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan-200">
+                                  #{homeFeaturedOrderMap.get(u._id)}
                                 </span>
-                                <button
-                                  type="button"
-                                  disabled={savingHomeFeaturedSelection || (homeFeaturedOrderMap.get(u._id) || 0) <= 1}
-                                  onClick={() => void moveUniversityHomeFeatured(u._id, 'up')}
-                                  className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-2.5 py-1 text-[11px] font-semibold text-cyan-200 disabled:opacity-40"
-                                >
-                                  Move Up
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={savingHomeFeaturedSelection || (homeFeaturedOrderMap.get(u._id) || 0) >= featuredHomeUniversities.length}
-                                  onClick={() => void moveUniversityHomeFeatured(u._id, 'down')}
-                                  className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-2.5 py-1 text-[11px] font-semibold text-cyan-200 disabled:opacity-40"
-                                >
-                                  Move Down
-                                </button>
-                              </>
-                            ) : (
-                              <span className="rounded-lg border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-[11px] font-semibold text-slate-400">
-                                Not on Home
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              disabled={savingHomeFeaturedSelection}
-                              onClick={() => void toggleUniversityHomeFeatured(u)}
-                              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-all disabled:opacity-40 ${homeFeaturedOrderMap.has(u._id) ? 'bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20' : 'bg-sky-500/10 text-sky-300 hover:bg-sky-500/20'}`}
-                            >
-                              {homeFeaturedOrderMap.has(u._id) ? 'Hide Home' : 'Show Home'}
-                            </button>
-                            <button type="button" onClick={() => openEdit(u)} className="rounded-full bg-indigo-500/15 px-2.5 py-1 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-all">Edit</button>
-                            <button type="button" onClick={() => void adminToggleUniversityStatus(u._id).then(async () => { await invalidateUniversityQueries(); await loadUniversities(); })} className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-all ${u.isActive ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/20' : 'bg-amber-500/15 text-amber-300 hover:bg-amber-500/20'}`}>{u.isActive ? 'Disable' : 'Enable'}</button>
-                            <button type="button" onClick={() => void deleteOne(u._id)} className="rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-all">Delete</button>
+                              ) : null}
+                              <button
+                                type="button"
+                                disabled={savingHomeFeaturedSelection}
+                                onClick={() => void toggleUniversityHomeFeatured(u)}
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:opacity-40 ${homeFeaturedOrderMap.has(u._id) ? 'bg-cyan-500/10 text-cyan-300' : 'bg-sky-500/10 text-sky-300'}`}
+                              >
+                                {homeFeaturedOrderMap.has(u._id) ? 'Hide' : 'Show'}
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => openEdit(u)} className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">Edit</button>
+                              <button type="button" onClick={() => void adminToggleUniversityStatus(u._id).then(async () => { await invalidateUniversityQueries(); await loadUniversities(); })} className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${u.isActive ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{u.isActive ? 'Off' : 'On'}</button>
+                              <button type="button" onClick={() => void deleteOne(u._id)} className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">Del</button>
+                            </div>
                           </div>
                         </td>
                       </tr>

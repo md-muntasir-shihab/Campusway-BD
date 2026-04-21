@@ -2028,31 +2028,37 @@ export function AdminExamsPage() {
                         {renderFormField('Attempt Limit', 'attemptLimit', 'number')}
                         {renderFormField('Result Publish At (UTC)', 'resultPublishAtUTC', 'datetime-local')}
                     </div>
-                    <div className="flex flex-wrap gap-6">
-                        {renderFormField('Allow Re-attempt', 'allowReAttempt', 'checkbox')}
-                        {renderFormField('Payment Required', 'paymentRequired', 'checkbox')}
-                        {renderFormField('Subscription Required', 'subscriptionRequired', 'checkbox')}
-                    </div>
-                    {formData.paymentRequired ? renderFormField('Price (BDT)', 'priceBDT', 'number') : null}
-                    {formData.subscriptionRequired ? renderFormField('Subscription Plan ID', 'subscriptionPlanId') : null}
                 </div>
 
                 <div className="admin-panel-bg rounded-xl p-5 space-y-4">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-text-muted">Rules</h3>
-                    <div className="flex flex-wrap gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {renderFormField('Negative Marking', 'negativeMarkingEnabled', 'checkbox')}
                         {renderFormField('Shuffle Questions', 'shuffleQuestions', 'checkbox')}
                         {renderFormField('Shuffle Options', 'shuffleOptions', 'checkbox')}
-                        {renderFormField('Show Timer', 'showTimer', 'checkbox')}
-                        {renderFormField('Show Palette', 'showQuestionPalette', 'checkbox')}
                         {renderFormField('Auto-submit on Timeout', 'autoSubmitOnTimeout', 'checkbox')}
-                        {renderFormField('Solutions Enabled', 'solutionsEnabled', 'checkbox')}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {formData.negativeMarkingEnabled ? renderFormField('Negative Per Wrong', 'negativePerWrong', 'number') : null}
-                        {renderFormField('Answer Change Limit', 'answerChangeLimit', 'number')}
-                        {renderFormField('Solution Release Rule', 'solutionReleaseRule', 'select', ['after_result_publish', 'immediately', 'never'])}
-                    </div>
+                    {formData.negativeMarkingEnabled && (
+                        <div className="max-w-xs">
+                            {renderFormField('Negative Per Wrong', 'negativePerWrong', 'number')}
+                        </div>
+                    )}
+                    <details className="group">
+                        <summary className="cursor-pointer text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors select-none">
+                            Advanced Rules ▸
+                        </summary>
+                        <div className="mt-3 space-y-3 pl-2 border-l-2 border-indigo-500/20">
+                            <div className="flex flex-wrap gap-4">
+                                {renderFormField('Show Timer', 'showTimer', 'checkbox')}
+                                {renderFormField('Show Palette', 'showQuestionPalette', 'checkbox')}
+                                {renderFormField('Solutions Enabled', 'solutionsEnabled', 'checkbox')}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {renderFormField('Answer Change Limit', 'answerChangeLimit', 'number')}
+                                {renderFormField('Solution Release Rule', 'solutionReleaseRule', 'select', ['after_result_publish', 'immediately', 'never'])}
+                            </div>
+                        </div>
+                    </details>
                 </div>
 
                 {/* ── Visibility & Audience ── */}
@@ -2063,7 +2069,6 @@ export function AdminExamsPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {renderFormField('Visibility Mode', 'visibilityMode', 'select', ['all_students', 'group_only', 'subscription_only', 'custom'])}
-                        {renderFormField('Min Profile Score (0-100)', 'minimumProfileScore', 'number')}
                     </div>
 
                     {/* Target Groups Selector */}
@@ -2072,7 +2077,7 @@ export function AdminExamsPage() {
                             <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Target Groups</span>
                             <div className="flex flex-wrap gap-1.5 mt-1 mb-2">
                                 {(Array.isArray(formData.targetGroupIds) ? formData.targetGroupIds as string[] : []).map((gId) => {
-                                    const allGroups = Array.isArray(groupsQuery.data) ? groupsQuery.data as Array<Record<string, unknown>> : [];
+                                    const allGroups = (Array.isArray((groupsQuery.data as any)?.items) ? (groupsQuery.data as any).items : Array.isArray(groupsQuery.data) ? groupsQuery.data : []) as Array<Record<string, unknown>> : [];
                                     const g = allGroups.find((x) => String(x._id) === gId);
                                     const color = String(g?.color || '#6366f1');
                                     return (
@@ -2091,7 +2096,7 @@ export function AdminExamsPage() {
                             </div>
                             {groupSearch.trim() && (
                                 <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-card-border bg-white dark:bg-slate-800 divide-y divide-card-border/50">
-                                    {(Array.isArray(groupsQuery.data) ? groupsQuery.data as Array<Record<string, unknown>> : [])
+                                    {((Array.isArray((groupsQuery.data as any)?.items) ? (groupsQuery.data as any).items : Array.isArray(groupsQuery.data) ? groupsQuery.data : []) as Array<Record<string, unknown>> : [])
                                         .filter((g) => {
                                             const selected = Array.isArray(formData.targetGroupIds) ? formData.targetGroupIds as string[] : [];
                                             return !selected.includes(String(g._id)) && String(g.name || '').toLowerCase().includes(groupSearch.toLowerCase());
@@ -2121,28 +2126,26 @@ export function AdminExamsPage() {
                         </div>
                     )}
 
-                    <div className="flex flex-wrap gap-6">
+                    <div className="flex flex-wrap gap-4">
                         {renderFormField('Active', 'isActive', 'checkbox')}
-                        {renderFormField('Requires Subscription', 'requiresActiveSubscription', 'checkbox')}
-                        {renderFormField('Requires Payment', 'requiresPayment', 'checkbox')}
+                        {renderFormField('Show on Dashboard', 'displayOnDashboard', 'checkbox')}
+                        {renderFormField('Show on Public List', 'displayOnPublicList', 'checkbox')}
                     </div>
 
-                    <div className="flex flex-wrap gap-8">
-                        <ModernToggle
-                            label="Show on Dashboard"
-                            helper="Display this exam prominently to active students"
-                            checked={Boolean(formData.displayOnDashboard)}
-                            onChange={(v) => setField('displayOnDashboard', v)}
-                            size="sm"
-                        />
-                        <ModernToggle
-                            label="Show on Public List"
-                            helper="Allow non-logged in users to see this exam"
-                            checked={Boolean(formData.displayOnPublicList)}
-                            onChange={(v) => setField('displayOnPublicList', v)}
-                            size="sm"
-                        />
-                    </div>
+                    <details className="group">
+                        <summary className="cursor-pointer text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors select-none">
+                            Advanced Access ▸
+                        </summary>
+                        <div className="mt-3 space-y-3 pl-2 border-l-2 border-indigo-500/20">
+                            <div className="flex flex-wrap gap-4">
+                                {renderFormField('Requires Subscription', 'requiresActiveSubscription', 'checkbox')}
+                                {renderFormField('Requires Payment', 'requiresPayment', 'checkbox')}
+                            </div>
+                            <div className="max-w-xs">
+                                {renderFormField('Min Profile Score (0-100)', 'minimumProfileScore', 'number')}
+                            </div>
+                        </div>
+                    </details>
                 </div>
 
                 <div className="flex gap-2">

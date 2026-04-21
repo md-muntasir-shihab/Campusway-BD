@@ -198,6 +198,11 @@ export default function SingleNewsPage() {
         queryKey: ['newsDetail', slug],
         queryFn: async () => (await getPublicNewsV2BySlug(slug)).data,
         enabled: Boolean(slug),
+        retry: (failureCount, error: any) => {
+            // Don't retry on 404 — article doesn't exist
+            if (error?.response?.status === 404) return false;
+            return failureCount < 2;
+        },
     });
 
     const settings = settingsQuery.data || DEFAULT_SETTINGS;
@@ -279,7 +284,7 @@ export default function SingleNewsPage() {
         );
     }
 
-    if (!newsItem) {
+    if (!newsItem || itemQuery.isError) {
         return (
             <div className="min-h-screen bg-slate-50 dark:bg-[#060f23] px-4 py-16 text-center sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-black text-slate-900 dark:text-white">Article not found</h1>
@@ -322,7 +327,7 @@ export default function SingleNewsPage() {
                 <title>{newsItem.seoTitle || newsItem.title} | CampusWay News</title>
                 <meta property="og:title" content={(newsItem as any).ogTitle || newsItem.seoTitle || newsItem.title} />
                 <meta property="og:description" content={(newsItem as any).ogDescription || newsItem.seoDescription || newsItem.shortSummary || newsItem.shortDescription || ''} />
-                <meta property="og:image" content={(newsItem as any).ogImage || resolveNewsImage(newsItem, settings)} />
+                <meta property="og:image" content={(newsItem as any).ogImage || getArticleImage(newsItem, settings)} />
                 <meta property="og:url" content={`${window.location.origin}/news/${newsItem.slug || newsItem._id}`} />
                 <meta property="og:type" content="article" />
                 <meta name="description" content={newsItem.seoDescription || newsItem.shortSummary || newsItem.shortDescription || ''} />

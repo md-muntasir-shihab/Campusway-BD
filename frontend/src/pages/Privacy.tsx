@@ -1,6 +1,2 @@
-import StaticContentPage from '../components/layout/StaticContentPage';
-
-export default function PrivacyPage() {
-    return <StaticContentPage page="privacy" />;
-}
-
+// Legacy redirect — now served by LegalPageView
+export { default } from './LegalPageView';

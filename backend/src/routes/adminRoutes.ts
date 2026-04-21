@@ -99,6 +99,17 @@ import {
 } from '../controllers/bannerController';
 import { getHomeConfig, updateHomeConfig } from '../controllers/homeConfigController';
 import {
+    listLegalPages,
+    getAdminLegalPage,
+    createLegalPage,
+    updateLegalPage,
+    deleteLegalPage,
+} from '../controllers/legalPageController';
+import {
+    getAdminFounder,
+    upsertFounder,
+} from '../controllers/founderController';
+import {
     adminGetAlerts,
     adminCreateAlert,
     adminUpdateAlert,
@@ -582,6 +593,8 @@ function inferModuleFromPath(pathname: string): PermissionModule | null {
     if (clean.startsWith('/team')) return 'team_access_control';
     if (clean.startsWith('/help-center')) return 'support_center';
     if (clean.startsWith('/content-blocks')) return 'site_settings';
+    if (clean.startsWith('/legal-pages')) return 'site_settings';
+    if (clean.startsWith('/founder')) return 'site_settings';
     if (clean.startsWith('/analytics/weak-topics')) return 'reports_analytics';
     if (clean.startsWith('/notification-center')) return 'site_settings';
     if (clean.startsWith('/renewal')) return 'subscription_plans';
@@ -1460,6 +1473,21 @@ router.post('/content-blocks', requirePermission('home_control', 'create'), admi
 router.put('/content-blocks/:id', requirePermission('home_control', 'edit'), adminUpdateContentBlock);
 router.delete('/content-blocks/:id', requirePermission('home_control', 'delete'), requireDestructiveStepUp('content_blocks', 'content_block_delete'), adminDeleteContentBlock);
 router.patch('/content-blocks/:id/toggle', requirePermission('home_control', 'edit'), adminToggleContentBlock);
+
+/* ═══════════════════════════════════════════════════════════
+   LEGAL PAGES (CMS-driven legal content)
+   ═══════════════════════════════════════════════════════════ */
+router.get('/legal-pages', requirePermission('site_settings', 'view'), listLegalPages);
+router.get('/legal-pages/:slug', requirePermission('site_settings', 'view'), getAdminLegalPage);
+router.post('/legal-pages', requirePermission('site_settings', 'create'), createLegalPage);
+router.put('/legal-pages/:slug', requirePermission('site_settings', 'edit'), updateLegalPage);
+router.delete('/legal-pages/:slug', requirePermission('site_settings', 'delete'), requireDestructiveStepUp('site_settings', 'legal_page_delete'), deleteLegalPage);
+
+/* ═══════════════════════════════════════════════════════════
+   FOUNDER PROFILE (Singleton founder details)
+   ═══════════════════════════════════════════════════════════ */
+router.get('/founder', requirePermission('site_settings', 'view'), getAdminFounder);
+router.put('/founder', requirePermission('site_settings', 'edit'), upsertFounder);
 
 /* ═══════════════════════════════════════════════════════════
    WEAK TOPIC DETECTION (Analytics)

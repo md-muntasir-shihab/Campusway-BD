@@ -1,6 +1,7 @@
 import { FileText, Plus, Trash2, UserRound } from 'lucide-react';
 import type {
     ApiFounderContactLink,
+    ApiFounderEducation,
     ApiFounderProfile,
     ApiStaticFeatureCard,
     ApiStaticPageSection,
@@ -50,8 +51,30 @@ function makeEmptyFounder(order: number): ApiFounderProfile {
         title: '',
         photoUrl: '',
         shortBio: '',
+        quote: '',
+        fatherName: '',
+        dateOfBirth: '',
+        gender: '',
+        phone: '',
+        emergencyPhone: '',
+        email: '',
+        address: '',
+        education: [],
+        skills: [],
+        experience: '',
         contactLinks: [],
         enabled: true,
+        order,
+    };
+}
+
+function makeEmptyEducation(order: number): ApiFounderEducation {
+    return {
+        degree: '',
+        institution: '',
+        department: '',
+        year: '',
+        result: '',
         order,
     };
 }
@@ -487,6 +510,225 @@ export default function StaticPagesEditor({ value, onChange }: StaticPagesEditor
                                 className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
                             />
                         </div>
+                    </div>
+
+                    {/* Quote / বাণী */}
+                    <div>
+                        <label className="text-xs text-slate-400">বাণী / Quote</label>
+                        <textarea
+                            rows={2}
+                            value={founder.quote}
+                            onChange={(event) => updatePage('about', (current) => ({
+                                ...current,
+                                founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, quote: event.target.value } : item),
+                            }))}
+                            placeholder="e.g. Learn, Create, Deliver excellence"
+                            className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                        />
+                    </div>
+
+                    {/* Personal Details */}
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                            <label className="text-xs text-slate-400">Father's Name</label>
+                            <input
+                                value={founder.fatherName}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, fatherName: event.target.value } : item),
+                                }))}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-slate-400">Date of Birth</label>
+                            <input
+                                value={founder.dateOfBirth}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, dateOfBirth: event.target.value } : item),
+                                }))}
+                                placeholder="e.g. ১২ অক্টোবর ২০০৫"
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-slate-400">Gender</label>
+                            <input
+                                value={founder.gender}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, gender: event.target.value } : item),
+                                }))}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-slate-400">Phone</label>
+                            <input
+                                value={founder.phone}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, phone: event.target.value } : item),
+                                }))}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-slate-400">Emergency Phone</label>
+                            <input
+                                value={founder.emergencyPhone}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, emergencyPhone: event.target.value } : item),
+                                }))}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-slate-400">Email</label>
+                            <input
+                                value={founder.email}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, email: event.target.value } : item),
+                                }))}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs text-slate-400">Address</label>
+                            <textarea
+                                rows={2}
+                                value={founder.address}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, address: event.target.value } : item),
+                                }))}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs text-slate-400">Experience</label>
+                            <textarea
+                                rows={2}
+                                value={founder.experience}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, experience: event.target.value } : item),
+                                }))}
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs text-slate-400">Skills (comma separated)</label>
+                            <input
+                                value={(founder.skills || []).join(', ')}
+                                onChange={(event) => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index ? { ...item, skills: event.target.value.split(',').map((s) => s.trim()).filter(Boolean) } : item),
+                                }))}
+                                placeholder="e.g. Graphic Design, Web Development, Digital Marketing"
+                                className="mt-1 w-full rounded-xl border border-indigo-500/15 bg-slate-950/65 px-3 py-2.5 text-sm text-white"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Education */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <label className="text-xs text-slate-400">Education</label>
+                            <button
+                                type="button"
+                                onClick={() => updatePage('about', (current) => ({
+                                    ...current,
+                                    founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index
+                                        ? { ...item, education: [...(item.education || []), makeEmptyEducation((item.education || []).length + 1)] }
+                                        : item),
+                                }))}
+                                className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/15 px-2.5 py-1.5 text-xs text-indigo-200 hover:bg-indigo-500/10"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Add Education
+                            </button>
+                        </div>
+
+                        {(founder.education || []).map((edu, eduIndex) => (
+                            <div key={`founder-${index}-edu-${eduIndex}`} className="grid grid-cols-1 gap-2 rounded-xl border border-indigo-500/10 bg-slate-950/30 p-3 md:grid-cols-6">
+                                <input
+                                    value={edu.degree}
+                                    onChange={(event) => updatePage('about', (current) => ({
+                                        ...current,
+                                        founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index
+                                            ? { ...item, education: (item.education || []).map((e, ei) => ei === eduIndex ? { ...e, degree: event.target.value } : e) }
+                                            : item),
+                                    }))}
+                                    placeholder="Degree (e.g. B.Sc.)"
+                                    className="rounded-lg border border-indigo-500/15 bg-slate-950/65 px-2.5 py-1.5 text-xs text-white"
+                                />
+                                <input
+                                    value={edu.institution}
+                                    onChange={(event) => updatePage('about', (current) => ({
+                                        ...current,
+                                        founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index
+                                            ? { ...item, education: (item.education || []).map((e, ei) => ei === eduIndex ? { ...e, institution: event.target.value } : e) }
+                                            : item),
+                                    }))}
+                                    placeholder="Institution"
+                                    className="md:col-span-2 rounded-lg border border-indigo-500/15 bg-slate-950/65 px-2.5 py-1.5 text-xs text-white"
+                                />
+                                <input
+                                    value={edu.department}
+                                    onChange={(event) => updatePage('about', (current) => ({
+                                        ...current,
+                                        founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index
+                                            ? { ...item, education: (item.education || []).map((e, ei) => ei === eduIndex ? { ...e, department: event.target.value } : e) }
+                                            : item),
+                                    }))}
+                                    placeholder="Department"
+                                    className="rounded-lg border border-indigo-500/15 bg-slate-950/65 px-2.5 py-1.5 text-xs text-white"
+                                />
+                                <input
+                                    value={edu.year}
+                                    onChange={(event) => updatePage('about', (current) => ({
+                                        ...current,
+                                        founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index
+                                            ? { ...item, education: (item.education || []).map((e, ei) => ei === eduIndex ? { ...e, year: event.target.value } : e) }
+                                            : item),
+                                    }))}
+                                    placeholder="Year"
+                                    className="rounded-lg border border-indigo-500/15 bg-slate-950/65 px-2.5 py-1.5 text-xs text-white"
+                                />
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        value={edu.result}
+                                        onChange={(event) => updatePage('about', (current) => ({
+                                            ...current,
+                                            founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index
+                                                ? { ...item, education: (item.education || []).map((e, ei) => ei === eduIndex ? { ...e, result: event.target.value } : e) }
+                                                : item),
+                                        }))}
+                                        placeholder="Result"
+                                        className="w-full rounded-lg border border-indigo-500/15 bg-slate-950/65 px-2.5 py-1.5 text-xs text-white"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => updatePage('about', (current) => ({
+                                            ...current,
+                                            founderProfiles: current.founderProfiles.map((item, itemIndex) => itemIndex === index
+                                                ? { ...item, education: (item.education || []).filter((_, ei) => ei !== eduIndex) }
+                                                : item),
+                                        }))}
+                                        className="flex-shrink-0 text-xs text-rose-300 hover:text-rose-200"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {!(founder.education || []).length && (
+                            <p className="text-xs text-slate-500">No education entries added yet.</p>
+                        )}
                     </div>
 
                     <div className="space-y-3">

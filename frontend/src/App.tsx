@@ -69,6 +69,8 @@ import {
     CampaignSettingsPage,
     ExamFormPage,
     ExamPreviewPage,
+    AdminLegalPagesPage,
+    AdminFounderDetailsPage,
     FinanceAuditLogPage,
     FinanceBudgetsPage,
     FinanceDashboardPage,
@@ -89,7 +91,6 @@ import {
     TeamAccessConsolePage,
 } from './adminRouteComponents';
 import {
-    AboutPage,
     CertificateVerifyPage,
     ChairmanDashboardPage,
     ChairmanLoginPage,
@@ -100,8 +101,9 @@ import {
     ExamsListPage,
     HelpArticlePage,
     HelpCenterPage,
+    LegalPageView,
+    StaticContentPage,
     NewsPage,
-    PrivacyPage,
     ProfilePage,
     ResourceDetail,
     ResourcesPage,
@@ -126,7 +128,6 @@ import {
     SubscriptionPlanCheckoutPage,
     SubscriptionPlanDetailPage,
     SubscriptionPlansPage,
-    TermsPage,
     UniversitiesPage,
     UniversityCategoryBrowsePage,
     UniversityClusterBrowsePage,
@@ -168,6 +169,10 @@ function resolveRouteTitle(pathname: string, siteName: string, defaultTitle: str
     if (pathname === '/resources') return withSite('Resources');
     if (pathname.startsWith('/resources/')) return null;
     if (pathname === '/contact') return withSite('Contact');
+    if (pathname === '/about' || pathname === '/terms' || pathname === '/privacy') {
+        const label = pathname === '/about' ? 'About' : pathname === '/terms' ? 'Terms' : 'Privacy';
+        return withSite(label);
+    }
     if (pathname === '/help-center') return withSite('Help Center');
     if (pathname.startsWith('/help-center/')) return null;
     if (pathname === '/pricing') return withSite('Subscription Plans');
@@ -373,7 +378,7 @@ export default function App() {
                                         <Route path="/news/:slug" element={<SingleNewsPage />} />
                                         <Route path="/exam-portal" element={<Navigate to="/exams" replace />} />
                                         <Route path="/exams/landing" element={<Navigate to="/exams" replace />} />
-                                        <Route path="/exams" element={<ProtectedRoute returnTo={true}><ExamsListPage /></ProtectedRoute>} />
+                                        <Route path="/exams" element={<ExamsListPage />} />
                                         <Route path="/exams/:examId/start" element={<LegacyStudentExamStartRedirect />} />
                                         <Route path="/exam/:examId" element={<ProtectedRoute returnTo={true}><ExamRunnerPage /></ProtectedRoute>} />
                                         <Route path="/exam/:examId/result" element={<ProtectedRoute returnTo={true}><ExamResultPage /></ProtectedRoute>} />
@@ -398,9 +403,9 @@ export default function App() {
                                         <Route path={CHAIRMAN_DASHBOARD} element={<ChairmanDashboardPage />} />
                                         <Route path="/otp-verify" element={<OtpVerificationPage />} />
                                         <Route path="/profile-center" element={<ProtectedRoute returnTo={true}><ProfilePage /></ProtectedRoute>} />
-                                        <Route path="/about" element={<AboutPage />} />
-                                        <Route path="/terms" element={<TermsPage />} />
-                                        <Route path="/privacy" element={<PrivacyPage />} />
+                                        <Route path="/about" element={<StaticContentPage page="about" />} />
+                                        <Route path="/terms" element={<StaticContentPage page="terms" />} />
+                                        <Route path="/privacy" element={<StaticContentPage page="privacy" />} />
                                         <Route path="/campusway-secure-admin" element={<Navigate to={ADMIN_DASHBOARD} replace />} />
                                         <Route path="/campusway-secure-admin/*" element={<LegacyAdminRedirect />} />
                                         <Route path="/admin-dashboard" element={<Navigate to={ADMIN_DASHBOARD} replace />} />
@@ -520,6 +525,8 @@ export default function App() {
                                         <Route path={ADMIN_PATHS.teamInvites} element={<TeamAccessConsolePage />} />
                                         <Route path={ADMIN_PATHS.approvals} element={<ActionApprovalsPage />} />
                                         <Route path={adminUi('settings/student-settings')} element={<AdminStudentSettingsPage />} />
+                                        <Route path={ADMIN_PATHS.legalPages} element={<AdminLegalPagesPage />} />
+                                        <Route path={ADMIN_PATHS.founderDetails} element={<AdminFounderDetailsPage />} />
                                         {Object.entries(LEGACY_ADMIN_PATH_REDIRECTS).map(([legacyPath, targetPath]) => (
                                             <Route key={legacyPath} path={legacyPath} element={<Navigate to={targetPath} replace />} />
                                         ))}

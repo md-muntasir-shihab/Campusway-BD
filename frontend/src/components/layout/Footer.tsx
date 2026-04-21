@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -13,11 +13,14 @@ import {
     Phone,
     Send,
     Twitter,
+    User,
     Youtube,
 } from 'lucide-react';
 import { getHome, type HomeApiResponse } from '../../services/api';
 import { useWebsiteSettings } from '../../hooks/useWebsiteSettings';
 import { buildMediaUrl } from '../../utils/mediaUrl';
+
+const FounderPanel = lazy(() => import('./FounderPanel'));
 
 const iconByPlatform = {
     facebook: Facebook,
@@ -162,9 +165,8 @@ function FooterSocialButtons({
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={label}
-                        className={`inline-flex items-center justify-center border border-white/15 bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white ${
-                            compact ? 'h-8 w-8 rounded-lg md:h-9 md:w-9 md:rounded-xl lg:h-10 lg:w-10 lg:rounded-2xl' : 'h-9 w-9 rounded-xl sm:h-10 sm:w-10 sm:rounded-2xl'
-                        }`}
+                        className={`inline-flex items-center justify-center border border-white/15 bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white ${compact ? 'h-8 w-8 rounded-lg md:h-9 md:w-9 md:rounded-xl lg:h-10 lg:w-10 lg:rounded-2xl' : 'h-9 w-9 rounded-xl sm:h-10 sm:w-10 sm:rounded-2xl'
+                            }`}
                     >
                         {iconUrl ? (
                             <img src={iconUrl} alt={label} className="h-4 w-4 object-contain" />
@@ -182,6 +184,7 @@ function FooterSocialButtons({
 
 export default function Footer() {
     const [openSection, setOpenSection] = useState<FooterAccordionKey | null>(null);
+    const [founderPanelOpen, setFounderPanelOpen] = useState(false);
     const { data: websiteSettings } = useWebsiteSettings();
     const homeQuery = useQuery<HomeApiResponse>({
         queryKey: ['home'],
@@ -242,6 +245,7 @@ export default function Footer() {
     const brandName = home?.globalSettings?.websiteName || websiteSettings?.websiteName || 'CampusWay';
     const brandMotto = home?.globalSettings?.motto || websiteSettings?.motto || '';
     const footerAboutText = footer?.aboutText || 'CampusWay helps students manage admissions, exams, and resources in one place.';
+    const showFounderButton = footer?.showFounderButton ?? true;
 
     const toggleSection = (key: FooterAccordionKey) => {
         setOpenSection((current) => (current === key ? null : key));
@@ -404,10 +408,31 @@ export default function Footer() {
                         &copy; {new Date().getFullYear()} {brandName}. All rights reserved.
                     </p>
                     <div className="flex flex-wrap items-center gap-1.5 md:justify-end md:gap-2">
+                        {showFounderButton && (
+                            <button
+                                type="button"
+                                onClick={() => setFounderPanelOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/80 transition hover:bg-white/20 hover:text-white md:text-xs"
+                            >
+                                <User className="h-3.5 w-3.5" />
+                                Founder
+                            </button>
+                        )}
                         <FooterSocialButtons socialItems={socialItems} compact />
                     </div>
                 </div>
             </div>
+
+            {showFounderButton && (
+                <Suspense fallback={null}>
+                    {founderPanelOpen && (
+                        <FounderPanel
+                            open={founderPanelOpen}
+                            onClose={() => setFounderPanelOpen(false)}
+                        />
+                    )}
+                </Suspense>
+            )}
         </footer>
     );
 }

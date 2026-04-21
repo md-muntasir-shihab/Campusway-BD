@@ -478,12 +478,12 @@ function CategoryPreviewCard({ category }: { category: ApiCategoryCardPreview })
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Highlighted Category</p>
-                                <h3 className="mt-1 truncate text-base font-bold leading-snug text-slate-900 dark:text-white" title={category.name}>{category.name}</h3>
+                                <h3 className="mt-1 text-sm font-bold leading-snug text-slate-900 dark:text-white line-clamp-2" title={category.name}>{category.name}</h3>
                             </div>
-                            <span className="shrink-0 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2 py-0.5 text-[10px] font-bold text-cyan-700 shadow-sm dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-                                {category.memberCount} universities
+                            <span className="shrink-0 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2 py-0.5 text-[10px] font-bold text-cyan-700 shadow-sm dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200 whitespace-nowrap">
+                                {category.memberCount} uni
                             </span>
                         </div>
                         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -797,7 +797,7 @@ export default function HomeModern() {
                                         </div>
                                         <PremiumCarousel ariaLabel="Featured category spotlights">
                                             {filteredFeaturedCategories.map(category => (
-                                                <div key={category.id} className="snap-start shrink-0 w-[280px] sm:w-[316px]">
+                                                <div key={category.id} className="snap-start shrink-0 w-[300px] sm:w-[340px]">
                                                     <CategoryPreviewCard category={category} />
                                                 </div>
                                             ))}
@@ -1253,11 +1253,11 @@ export default function HomeModern() {
         return (
             <SectionWrap>
                 <div className="px-4 md:px-0">
-                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900/95 dark:to-gray-800/90 border border-gray-200/80 dark:border-gray-700/60 p-8 md:p-12 shadow-card">
+                    <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900/95 dark:to-gray-800/90 border border-gray-200/80 dark:border-gray-700/60 p-5 sm:p-8 md:p-12 shadow-card">
                         {/* Decorative background pattern */}
                         <div className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '40px 40px' }} />
                         <SectionHeader title={hs?.stats?.title || 'Platform Overview'} subtitle={hs?.stats?.subtitle || 'CampusWay at a glance'} icon={BarChart3} />
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 md:gap-6">
                             {enabled.map((stat, idx) => (
                                 <motion.div
                                     key={stat.key}
@@ -1265,12 +1265,12 @@ export default function HomeModern() {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.5, delay: idx * 0.1 }}
                                     whileHover={{ scale: 1.04, y: -2 }}
-                                    className={`relative text-center p-5 md:p-6 rounded-2xl bg-gradient-to-br ${statGradients[idx % 4]} border border-gray-100/80 dark:border-gray-700/40 backdrop-blur-sm transition-shadow duration-300 hover:shadow-lg`}
+                                    className={`relative text-center p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br ${statGradients[idx % 4]} border border-gray-100/80 dark:border-gray-700/40 backdrop-blur-sm transition-shadow duration-300 hover:shadow-lg`}
                                 >
-                                    <p className={`text-3xl md:text-4xl font-extrabold ${statTextColors[idx % 4]} tracking-tight`}>
+                                    <p className={`text-2xl sm:text-3xl md:text-4xl font-extrabold ${statTextColors[idx % 4]} tracking-tight`}>
                                         {(stat.value ?? 0).toLocaleString()}
                                     </p>
-                                    <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-2 font-semibold uppercase tracking-wider">{stat.label}</p>
+                                    <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1.5 sm:mt-2 font-semibold uppercase tracking-wider">{stat.label}</p>
                                 </motion.div>
                             ))}
                         </div>

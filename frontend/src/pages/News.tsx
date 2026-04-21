@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
+    AlertCircle,
     Filter,
+    RefreshCw,
     Search,
     Share2,
     Tag,
@@ -12,6 +14,7 @@ import {
     Sparkles,
 } from 'lucide-react';
 import PageHeroBanner from '../components/common/PageHeroBanner';
+import HeroSearchInput from '../components/common/HeroSearchInput';
 import { usePageHeroSettings } from '../hooks/usePageHeroSettings';
 import toast from 'react-hot-toast';
 import {
@@ -283,7 +286,14 @@ export default function NewsPage() {
                     gradientTo={hero.gradientTo}
                     primaryCTA={hero.primaryCTA}
                     secondaryCTA={hero.secondaryCTA}
-                />
+                >
+                    <HeroSearchInput
+                        value={search}
+                        onChange={setSearch}
+                        placeholder="নিউজ খুঁজুন..."
+                        className="mt-2"
+                    />
+                </PageHeroBanner>
             )}
             <div className="min-h-screen bg-background dark:bg-[#081322]">
 
@@ -326,6 +336,26 @@ export default function NewsPage() {
                                 {Array.from({ length: 6 }).map((_, idx) => (
                                     <div key={idx} className="skeleton h-36 w-full rounded-2xl" />
                                 ))}
+                            </div>
+                        )}
+
+                        {!isLoading && (listQuery.isError || settingsQuery.isError) && (
+                            <div className="rounded-2xl border border-dashed border-card-border bg-white px-6 py-10 text-center dark:border-dark-border dark:bg-dark-surface/55">
+                                <AlertCircle className="mx-auto h-10 w-10 text-red-400 dark:text-red-300" />
+                                <p className="mt-3 text-sm font-medium text-text-muted dark:text-dark-text/75">
+                                    Failed to load news
+                                </p>
+                                <button
+                                    type="button"
+                                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                                    onClick={() => {
+                                        listQuery.refetch();
+                                        settingsQuery.refetch();
+                                    }}
+                                >
+                                    <RefreshCw className="h-4 w-4" />
+                                    Retry
+                                </button>
                             </div>
                         )}
 

@@ -842,11 +842,31 @@ export interface ApiFounderContactLink {
     url: string;
 }
 
+export interface ApiFounderEducation {
+    degree: string;
+    institution: string;
+    department: string;
+    year: string;
+    result: string;
+    order: number;
+}
+
 export interface ApiFounderProfile {
     name: string;
     title: string;
     photoUrl: string;
     shortBio: string;
+    quote: string;
+    fatherName: string;
+    dateOfBirth: string;
+    gender: string;
+    phone: string;
+    emergencyPhone: string;
+    email: string;
+    address: string;
+    education: ApiFounderEducation[];
+    skills: string[];
+    experience: string;
     contactLinks: ApiFounderContactLink[];
     enabled: boolean;
     order: number;
@@ -1167,6 +1187,7 @@ export interface HomeSettingsConfig {
         quickLinks: HomeLinkItem[];
         contactInfo: { email: string; phone: string; address: string };
         legalLinks: HomeLinkItem[];
+        showFounderButton: boolean;
     };
     campaignBanners?: {
         enabled: boolean;

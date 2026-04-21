@@ -556,6 +556,26 @@ export default function SiteSettingsPanel() {
             <SocialLinksManager />
 
             <PageHeroSettingsEditor />
+
+            {/* ── Custom Legal Pages (merged from separate page) ── */}
+            <div className="bg-slate-900/50 rounded-2xl border border-slate-700/30 ring-1 ring-white/[0.03] p-6 space-y-5">
+                <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-indigo-400" />
+                        Custom Legal Pages
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                        About, Terms ও Privacy উপরের Static Pages থেকে ম্যানেজ হয়। এখানে অতিরিক্ত legal pages (Refund Policy, Cookie Policy ইত্যাদি) তৈরি করতে পারবেন।
+                    </p>
+                    <a
+                        href="/__cw_admin__/legal-pages"
+                        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-2.5 text-xs font-semibold text-indigo-200 hover:bg-indigo-500/20 transition-colors"
+                    >
+                        <FileText className="h-3.5 w-3.5" />
+                        Open Legal Pages Editor
+                    </a>
+                </div>
+            </div>
         </div>
     );
 }

@@ -23,7 +23,10 @@
         "security:enable-testing-access-mode": "tsx src/scripts/enable-testing-access-mode.ts",
         "security:disable-testing-access-mode": "tsx src/scripts/disable-testing-access-mode.ts",
         "security:payload-smoke": "tsx src/scripts/security-payload-smoke.ts",
-        "release:cleanup-public-surface": "tsx src/scripts/release-cleanup-public-surface.ts"
+        "release:cleanup-public-surface": "tsx src/scripts/release-cleanup-public-surface.ts",
+        "seed": "tsx src/seeds/index.ts",
+        "seed:legal-pages": "tsx src/seeds/seedLegalPages.ts",
+        "seed:founder": "tsx src/seeds/seedFounderProfile.ts"
     },
     "dependencies": {
         "@google/generative-ai": "^0.24.1",

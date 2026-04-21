@@ -238,6 +238,7 @@ const FALLBACK_HOME_SETTINGS: HomeSettingsConfig = {
         quickLinks: [],
         contactInfo: { email: '', phone: '', address: '' },
         legalLinks: [],
+        showFounderButton: true,
     },
     ui: {
         animationLevel: 'normal',
@@ -567,11 +568,10 @@ function SectionReorderPanel() {
                     </button>
                 </div>
             </div>
-            <div className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[11px] ${
-                hasUnsavedChanges
-                    ? 'border-amber-500/20 bg-amber-500/10 text-amber-200'
-                    : 'border-emerald-500/15 bg-emerald-500/10 text-emerald-200'
-            }`}>
+            <div className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[11px] ${hasUnsavedChanges
+                ? 'border-amber-500/20 bg-amber-500/10 text-amber-200'
+                : 'border-emerald-500/15 bg-emerald-500/10 text-emerald-200'
+                }`}>
                 <span className="inline-flex items-center gap-2 font-medium">
                     {hasUnsavedChanges ? <AlertTriangle className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                     {hasUnsavedChanges
@@ -597,11 +597,10 @@ function SectionReorderPanel() {
                             setSections(next.map((s, i) => ({ ...s, order: i })));
                             setDragIdx(null);
                         }}
-                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-grab active:cursor-grabbing transition-colors ${
-                            section.isActive
-                                ? 'border-indigo-500/20 bg-slate-950/50'
-                                : 'border-slate-700/30 bg-slate-950/20 opacity-50'
-                        }`}
+                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-grab active:cursor-grabbing transition-colors ${section.isActive
+                            ? 'border-indigo-500/20 bg-slate-950/50'
+                            : 'border-slate-700/30 bg-slate-950/20 opacity-50'
+                            }`}
                     >
                         <GripVertical className="w-4 h-4 text-slate-500 shrink-0" />
                         <span className="text-[10px] text-slate-500 w-5">{idx + 1}</span>
@@ -612,11 +611,11 @@ function SectionReorderPanel() {
                             <button type="button" onClick={() => move(idx, 1)} disabled={idx === sections.length - 1}
                                 className="text-[10px] px-1.5 py-0.5 rounded border border-indigo-500/20 text-indigo-300 disabled:opacity-30 hover:bg-indigo-500/10">▼</button>
                         </div>
-                        <ModernToggle 
-                            checked={section.isActive} 
-                            onChange={() => toggleActive(idx)} 
-                            size="sm" 
-                         />
+                        <ModernToggle
+                            checked={section.isActive}
+                            onChange={() => toggleActive(idx)}
+                            size="sm"
+                        />
                     </div>
                 ))}
             </div>
@@ -1042,488 +1041,488 @@ export default function HomeSettingsPanel() {
 
                 {SHOW_LEGACY_UNIVERSITY_HOME_CONTROLS ? (
                     <>
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <h3 className="text-sm font-bold text-white">Featured Clusters Quick Switch</h3>
-                            <p className="text-xs text-slate-400 mt-1">Single Featured section toggle stays in Home Section Order. Use this list to quickly show/hide clusters on Home and set order.</p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => void saveQuickClusters()}
-                            disabled={savingQuickClusters || !hasQuickClusterChanges}
-                            className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
-                        >
-                            {savingQuickClusters ? <span className="inline-flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />Saving...</span> : 'Save Cluster Switches'}
-                        </button>
-                    </div>
-
-                    {homeDiagnostics.length > 0 && (
-                        <div className="mt-4 space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
-                            {homeDiagnostics.map((message, index) => (
-                                <div key={`${message}-${index}`} className="flex items-start gap-2 text-xs text-amber-100">
-                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-                                    <span>{message}</span>
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-bold text-white">Featured Clusters Quick Switch</h3>
+                                    <p className="text-xs text-slate-400 mt-1">Single Featured section toggle stays in Home Section Order. Use this list to quickly show/hide clusters on Home and set order.</p>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="mt-4 space-y-2">
-                        {clusterQuickQuery.isLoading && (
-                            <div className="flex justify-center py-5">
-                                <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" />
+                                <button
+                                    type="button"
+                                    onClick={() => void saveQuickClusters()}
+                                    disabled={savingQuickClusters || !hasQuickClusterChanges}
+                                    className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                                >
+                                    {savingQuickClusters ? <span className="inline-flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />Saving...</span> : 'Save Cluster Switches'}
+                                </button>
                             </div>
-                        )}
-                        {!clusterQuickQuery.isLoading && quickClusters.length === 0 && (
-                            <p className="text-xs text-slate-500">No active clusters found.</p>
-                        )}
-                        {quickClusters.map((cluster) => (
-                            <div key={cluster._id} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-medium text-white">{cluster.name}</p>
-                                    <span className="rounded-full border border-indigo-500/25 px-2 py-0.5 text-[10px] text-indigo-200">
-                                        {cluster.memberCount} members
-                                    </span>
-                                    <span className={`rounded-full border px-2 py-0.5 text-[10px] ${cluster.homeVisible ? 'border-emerald-500/30 text-emerald-200' : 'border-slate-600 text-slate-400'}`}>
-                                        {cluster.homeVisible ? 'Visible on Home' : 'Hidden on Home'}
-                                    </span>
+
+                            {homeDiagnostics.length > 0 && (
+                                <div className="mt-4 space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
+                                    {homeDiagnostics.map((message, index) => (
+                                        <div key={`${message}-${index}`} className="flex items-start gap-2 text-xs text-amber-100">
+                                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                                            <span>{message}</span>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="mt-3 grid grid-cols-1 md:grid-cols-[auto,140px] gap-3">
-                                    <Toggle
-                                        label="Home Visible"
-                                        value={cluster.homeVisible}
-                                        onChange={(value) => updateQuickCluster(cluster._id, { homeVisible: value })}
-                                    />
-                                    <NumberInput
-                                        label="Home Order"
-                                        value={cluster.homeOrder}
-                                        onChange={(value) => updateQuickCluster(cluster._id, { homeOrder: value })}
-                                    />
-                                </div>
+                            )}
+
+                            <div className="mt-4 space-y-2">
+                                {clusterQuickQuery.isLoading && (
+                                    <div className="flex justify-center py-5">
+                                        <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" />
+                                    </div>
+                                )}
+                                {!clusterQuickQuery.isLoading && quickClusters.length === 0 && (
+                                    <p className="text-xs text-slate-500">No active clusters found.</p>
+                                )}
+                                {quickClusters.map((cluster) => (
+                                    <div key={cluster._id} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-sm font-medium text-white">{cluster.name}</p>
+                                            <span className="rounded-full border border-indigo-500/25 px-2 py-0.5 text-[10px] text-indigo-200">
+                                                {cluster.memberCount} members
+                                            </span>
+                                            <span className={`rounded-full border px-2 py-0.5 text-[10px] ${cluster.homeVisible ? 'border-emerald-500/30 text-emerald-200' : 'border-slate-600 text-slate-400'}`}>
+                                                {cluster.homeVisible ? 'Visible on Home' : 'Hidden on Home'}
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 grid grid-cols-1 md:grid-cols-[auto,140px] gap-3">
+                                            <Toggle
+                                                label="Home Visible"
+                                                value={cluster.homeVisible}
+                                                onChange={(value) => updateQuickCluster(cluster._id, { homeVisible: value })}
+                                            />
+                                            <NumberInput
+                                                label="Home Order"
+                                                value={cluster.homeOrder}
+                                                onChange={(value) => updateQuickCluster(cluster._id, { homeOrder: value })}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </section>
+                        </section>
 
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="Section Visibility" section="sectionVisibility" onReset={resetSection} resetting={resettingSection === 'sectionVisibility'} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {visibilityToggles.map((item) => (
-                            <Toggle
-                                key={item.key}
-                                label={item.label}
-                                value={draft.sectionVisibility[item.key]}
-                                onChange={(value) => updateDraft((prev) => ({ ...prev, sectionVisibility: { ...prev.sectionVisibility, [item.key]: value } }))}
-                            />
-                        ))}
-                    </div>
-                </section>
-
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="Hero" section="hero" onReset={resetSection} resetting={resettingSection === 'hero'} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Input label="Pill Text" value={draft.hero.pillText} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, pillText: value } }))} />
-                        <AdminImageUploadField
-                            label="Hero Image"
-                            value={draft.hero.heroImageUrl}
-                            onChange={(nextValue) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, heroImageUrl: nextValue } }))}
-                            helper="Primary visual shown in the home hero section."
-                            category="admin_upload"
-                            previewAlt="Home hero image"
-                            previewClassName="min-h-[190px]"
-                            panelClassName="bg-slate-950/30 dark:bg-slate-950/55"
-                        />
-                    </div>
-                    <div className="mt-3 space-y-3">
-                        <Input label="Title" value={draft.hero.title} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, title: value } }))} />
-                        <Input label="Subtitle" value={draft.hero.subtitle} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, subtitle: value } }))} />
-                        <Input label="Search Placeholder" value={draft.hero.searchPlaceholder} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, searchPlaceholder: value } }))} />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Input label="Primary CTA Label" value={draft.hero.primaryCTA.label} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, primaryCTA: { ...prev.hero.primaryCTA, label: value } } }))} />
-                            <Input label="Primary CTA URL" value={draft.hero.primaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, primaryCTA: { ...prev.hero.primaryCTA, url: value } } }))} />
-                            <Input label="Secondary CTA Label" value={draft.hero.secondaryCTA.label} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, secondaryCTA: { ...prev.hero.secondaryCTA, label: value } } }))} />
-                            <Input label="Secondary CTA URL" value={draft.hero.secondaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, secondaryCTA: { ...prev.hero.secondaryCTA, url: value } } }))} />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <Toggle label="Show Search Box" value={draft.hero.showSearch} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showSearch: value } }))} />
-                            <Toggle label="Show Next Deadline Card" value={draft.hero.showNextDeadlineCard} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showNextDeadlineCard: value } }))} />
-                        </div>
-                    </div>
-                </section>
-
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="Subscription Banner" section="subscriptionBanner" onReset={resetSection} resetting={resettingSection === 'subscriptionBanner'} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Input label="Title" value={draft.subscriptionBanner.title} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, title: value } }))} />
-                        <Input label="Subtitle" value={draft.subscriptionBanner.subtitle} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, subtitle: value } }))} />
-                        <Input label="Login Message" value={draft.subscriptionBanner.loginMessage} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, loginMessage: value } }))} />
-                        <Input label="No Plan Message" value={draft.subscriptionBanner.noPlanMessage} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, noPlanMessage: value } }))} />
-                        <Input label="Primary CTA Label" value={draft.subscriptionBanner.primaryCTA.label} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, primaryCTA: { ...prev.subscriptionBanner.primaryCTA, label: value } } }))} />
-                        <Input label="Primary CTA URL" value={draft.subscriptionBanner.primaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, primaryCTA: { ...prev.subscriptionBanner.primaryCTA, url: value } } }))} />
-                    </div>
-                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <Toggle label="Banner Enabled" value={draft.subscriptionBanner.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, enabled: value } }))} />
-                        <Toggle label="Show Plan Cards" value={draft.subscriptionBanner.showPlanCards} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, showPlanCards: value } }))} />
-                    </div>
-                    <div className="mt-3">
-                        <p className="text-xs text-slate-400 mb-2">Plans to show on Home banner (recommended 2-3)</p>
-                        {subscriptionPlanOptions.length === 0 ? (
-                            <p className="text-xs text-slate-500">No subscription plans found yet. Create plans first.</p>
-                        ) : (
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="Section Visibility" section="sectionVisibility" onReset={resetSection} resetting={resettingSection === 'sectionVisibility'} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {subscriptionPlanOptions.map((plan) => {
-                                    const checked = draft.subscriptionBanner.planIdsToShow.includes(plan.id);
-                                    return (
-                                        <label key={plan.id} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 px-3 py-2 text-xs text-slate-200 inline-flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={(event) => updateDraft((prev) => {
-                                                    const current = prev.subscriptionBanner.planIdsToShow || [];
-                                                    const next = event.target.checked
-                                                        ? Array.from(new Set([...current, plan.id]))
-                                                        : current.filter((id) => id !== plan.id);
-                                                    return {
-                                                        ...prev,
-                                                        subscriptionBanner: {
-                                                            ...prev.subscriptionBanner,
-                                                            planIdsToShow: next,
-                                                        },
-                                                    };
-                                                })}
-                                            />
-                                            <span>{plan.label}</span>
-                                        </label>
-                                    );
-                                })}
+                                {visibilityToggles.map((item) => (
+                                    <Toggle
+                                        key={item.key}
+                                        label={item.label}
+                                        value={draft.sectionVisibility[item.key]}
+                                        onChange={(value) => updateDraft((prev) => ({ ...prev, sectionVisibility: { ...prev.sectionVisibility, [item.key]: value } }))}
+                                    />
+                                ))}
                             </div>
-                        )}
-                    </div>
-                </section>
+                        </section>
 
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="Timeline + Widgets" section="timeline" onReset={resetSection} resetting={resettingSection === 'timeline'} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <NumberInput label="Closing Soon Days" value={draft.timeline.closingSoonDays} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, closingSoonDays: value } }))} />
-                        <NumberInput label="Exam Soon Days" value={draft.timeline.examSoonDays} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, examSoonDays: value } }))} />
-                        <NumberInput label="Timeline Max Closing" value={draft.timeline.maxClosingItems} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, maxClosingItems: value } }))} />
-                        <NumberInput label="Timeline Max Exams" value={draft.timeline.maxExamItems} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, maxExamItems: value } }))} />
-                        <NumberInput label="Widget Max Closing" value={draft.closingExamWidget.maxClosing} onChange={(value) => updateDraft((prev) => ({ ...prev, closingExamWidget: { ...prev.closingExamWidget, maxClosing: value } }))} />
-                        <NumberInput label="Widget Max Exams/Week" value={draft.closingExamWidget.maxExamsThisWeek} onChange={(value) => updateDraft((prev) => ({ ...prev, closingExamWidget: { ...prev.closingExamWidget, maxExamsThisWeek: value } }))} />
-                    </div>
-                </section>
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="Hero" section="hero" onReset={resetSection} resetting={resettingSection === 'hero'} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Input label="Pill Text" value={draft.hero.pillText} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, pillText: value } }))} />
+                                <AdminImageUploadField
+                                    label="Hero Image"
+                                    value={draft.hero.heroImageUrl}
+                                    onChange={(nextValue) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, heroImageUrl: nextValue } }))}
+                                    helper="Primary visual shown in the home hero section."
+                                    category="admin_upload"
+                                    previewAlt="Home hero image"
+                                    previewClassName="min-h-[190px]"
+                                    panelClassName="bg-slate-950/30 dark:bg-slate-950/55"
+                                />
+                            </div>
+                            <div className="mt-3 space-y-3">
+                                <Input label="Title" value={draft.hero.title} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, title: value } }))} />
+                                <Input label="Subtitle" value={draft.hero.subtitle} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, subtitle: value } }))} />
+                                <Input label="Search Placeholder" value={draft.hero.searchPlaceholder} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, searchPlaceholder: value } }))} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <Input label="Primary CTA Label" value={draft.hero.primaryCTA.label} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, primaryCTA: { ...prev.hero.primaryCTA, label: value } } }))} />
+                                    <Input label="Primary CTA URL" value={draft.hero.primaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, primaryCTA: { ...prev.hero.primaryCTA, url: value } } }))} />
+                                    <Input label="Secondary CTA Label" value={draft.hero.secondaryCTA.label} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, secondaryCTA: { ...prev.hero.secondaryCTA, label: value } } }))} />
+                                    <Input label="Secondary CTA URL" value={draft.hero.secondaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, secondaryCTA: { ...prev.hero.secondaryCTA, url: value } } }))} />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <Toggle label="Show Search Box" value={draft.hero.showSearch} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showSearch: value } }))} />
+                                    <Toggle label="Show Next Deadline Card" value={draft.hero.showNextDeadlineCard} onChange={(value) => updateDraft((prev) => ({ ...prev, hero: { ...prev.hero, showNextDeadlineCard: value } }))} />
+                                </div>
+                            </div>
+                        </section>
 
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="University Preview Windows" section="universityPreview" onReset={resetSection} resetting={resettingSection === 'universityPreview'} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Toggle label="University Preview Enabled" value={draft.universityPreview.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enabled: value } }))} />
-                        <NumberInput label="Featured Max Items" value={draft.universityPreview.maxFeaturedItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxFeaturedItems: value } }))} />
-                        <NumberInput label="Deadline Max Items" value={draft.universityPreview.maxDeadlineItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxDeadlineItems: value } }))} />
-                        <NumberInput label="Exam Max Items" value={draft.universityPreview.maxExamItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxExamItems: value } }))} />
-                        <NumberInput label="Deadline Within Days" value={draft.universityPreview.deadlineWithinDays} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, deadlineWithinDays: value } }))} />
-                        <NumberInput label="Exam Within Days" value={draft.universityPreview.examWithinDays} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, examWithinDays: value } }))} />
-                    </div>
-                    <div className="mt-3 rounded-xl border border-indigo-500/15 bg-indigo-500/5 px-4 py-3 text-xs leading-6 text-indigo-200/80">
-                        Default category and cluster-filter visibility are now managed from <strong>University Settings</strong> to avoid duplicate controls.
-                        This section only controls home preview windows and item limits.
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs text-slate-400 mb-1 block">Featured Mode</label>
-                            <select
-                                value={draft.universityPreview.featuredMode}
-                                onChange={(event) => updateDraft((prev) => ({
-                                    ...prev,
-                                    universityPreview: {
-                                        ...prev.universityPreview,
-                                        featuredMode: event.target.value as HomeSettingsConfig['universityPreview']['featuredMode'],
-                                    },
-                                }))}
-                                className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
-                            >
-                                <option value="manual">Manual</option>
-                                <option value="auto">Auto</option>
-                            </select>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="University Dashboard" section="universityDashboard" onReset={resetSection} resetting={resettingSection === 'universityDashboard'} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Toggle
-                            label="Show Dashboard Filters"
-                            value={draft.universityDashboard.showFilters}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showFilters: value } }))}
-                           
-                        />
-                        <Toggle
-                            label="Show Placeholder Note"
-                            value={draft.universityDashboard.showPlaceholderText}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showPlaceholderText: value } }))}
-                           
-                        />
-                        <Toggle
-                            label="Enable All Universities Tab"
-                            value={Boolean(draft.universityDashboard.showAllCategories)}
-                            helper="Default is OFF. When OFF, public universities page requires a selected category."
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showAllCategories: value } }))}
-                           
-                        />
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Input label="Dashboard Title" value={draft.universityDashboard.title} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, title: value } }))} />
-                        <Input label="Dashboard Subtitle" value={draft.universityDashboard.subtitle} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, subtitle: value } }))} />
-                        <Input label="Default Category" value={draft.universityDashboard.defaultCategory} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, defaultCategory: value } }))} />
-                        <Input label="Placeholder Note" value={draft.universityDashboard.placeholderNote} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, placeholderNote: value } }))} />
-                    </div>
-                </section>
-
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="Highlighted Categories" section="highlightedCategories" onReset={resetSection} resetting={resettingSection === 'highlightedCategories'} />
-                    <p className="mb-3 text-xs text-slate-400">Select ordered categories for Home highlights. These appear as highlighted filter chips.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                        <select
-                            value={categoryToAdd}
-                            onChange={(event) => setCategoryToAdd(event.target.value)}
-                            className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
-                        >
-                            <option value="">Select category to add</option>
-                            {categoryOptions.map((category) => (
-                                <option key={category} value={category}>{category}</option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            onClick={addHighlightedCategory}
-                            disabled={!categoryToAdd.trim()}
-                            className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
-                        >
-                            Add
-                        </button>
-                    </div>
-                    {draft.highlightedCategories.length === 0 ? (
-                        <p className="mt-3 text-xs text-slate-500">No highlighted categories selected.</p>
-                    ) : (
-                        <div className="mt-3 space-y-2">
-                            {draft.highlightedCategories
-                                .sort((a, b) => a.order - b.order)
-                                .map((item, index) => (
-                                    <div key={item.category} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-200">#{index + 1}</span>
-                                            <p className="text-sm font-medium text-white">{item.category}</p>
-                                            <div className="ml-auto flex items-center gap-2">
-                                                <button type="button" onClick={() => moveHighlightedCategory(index, -1)} disabled={index === 0} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Up</button>
-                                                <button type="button" onClick={() => moveHighlightedCategory(index, 1)} disabled={index === draft.highlightedCategories.length - 1} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Down</button>
-                                                <button type="button" onClick={() => removeHighlightedCategory(item.category)} className="rounded-lg border border-rose-500/25 px-2 py-1 text-xs text-rose-200">Remove</button>
-                                            </div>
-                                        </div>
-                                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                            <Input
-                                                label="Badge Text"
-                                                value={item.badgeText || ''}
-                                                onChange={(value) => updateDraft((prev) => ({
-                                                    ...prev,
-                                                    highlightedCategories: prev.highlightedCategories.map((entry) => entry.category === item.category ? { ...entry, badgeText: value } : entry),
-                                                }))}
-                                            />
-                                            <Toggle
-                                                label="Enabled"
-                                                value={item.enabled !== false}
-                                                onChange={(value) => updateDraft((prev) => ({
-                                                    ...prev,
-                                                    highlightedCategories: prev.highlightedCategories.map((entry) => entry.category === item.category ? { ...entry, enabled: value } : entry),
-                                                }))}
-                                               
-                                            />
-                                        </div>
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="Subscription Banner" section="subscriptionBanner" onReset={resetSection} resetting={resettingSection === 'subscriptionBanner'} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Input label="Title" value={draft.subscriptionBanner.title} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, title: value } }))} />
+                                <Input label="Subtitle" value={draft.subscriptionBanner.subtitle} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, subtitle: value } }))} />
+                                <Input label="Login Message" value={draft.subscriptionBanner.loginMessage} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, loginMessage: value } }))} />
+                                <Input label="No Plan Message" value={draft.subscriptionBanner.noPlanMessage} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, noPlanMessage: value } }))} />
+                                <Input label="Primary CTA Label" value={draft.subscriptionBanner.primaryCTA.label} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, primaryCTA: { ...prev.subscriptionBanner.primaryCTA, label: value } } }))} />
+                                <Input label="Primary CTA URL" value={draft.subscriptionBanner.primaryCTA.url} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, primaryCTA: { ...prev.subscriptionBanner.primaryCTA, url: value } } }))} />
+                            </div>
+                            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <Toggle label="Banner Enabled" value={draft.subscriptionBanner.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, enabled: value } }))} />
+                                <Toggle label="Show Plan Cards" value={draft.subscriptionBanner.showPlanCards} onChange={(value) => updateDraft((prev) => ({ ...prev, subscriptionBanner: { ...prev.subscriptionBanner, showPlanCards: value } }))} />
+                            </div>
+                            <div className="mt-3">
+                                <p className="text-xs text-slate-400 mb-2">Plans to show on Home banner (recommended 2-3)</p>
+                                {subscriptionPlanOptions.length === 0 ? (
+                                    <p className="text-xs text-slate-500">No subscription plans found yet. Create plans first.</p>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {subscriptionPlanOptions.map((plan) => {
+                                            const checked = draft.subscriptionBanner.planIdsToShow.includes(plan.id);
+                                            return (
+                                                <label key={plan.id} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 px-3 py-2 text-xs text-slate-200 inline-flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={(event) => updateDraft((prev) => {
+                                                            const current = prev.subscriptionBanner.planIdsToShow || [];
+                                                            const next = event.target.checked
+                                                                ? Array.from(new Set([...current, plan.id]))
+                                                                : current.filter((id) => id !== plan.id);
+                                                            return {
+                                                                ...prev,
+                                                                subscriptionBanner: {
+                                                                    ...prev.subscriptionBanner,
+                                                                    planIdsToShow: next,
+                                                                },
+                                                            };
+                                                        })}
+                                                    />
+                                                    <span>{plan.label}</span>
+                                                </label>
+                                            );
+                                        })}
                                     </div>
-                                ))}
-                        </div>
-                    )}
-                </section>
+                                )}
+                            </div>
+                        </section>
 
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="Featured Universities" section="featuredUniversities" onReset={resetSection} resetting={resettingSection === 'featuredUniversities'} />
-                    <p className="mb-3 text-xs text-slate-400">Select ordered universities for Home featured block. Changes are reflected on Home after save.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                        <select
-                            value={featuredUniversityToAdd}
-                            onChange={(event) => setFeaturedUniversityToAdd(event.target.value)}
-                            className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
-                        >
-                            <option value="">Select university to add</option>
-                            {universityOptions.map((item) => (
-                                <option key={item.id} value={item.id}>{item.name} ({item.shortForm})</option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            onClick={addFeaturedUniversity}
-                            disabled={!featuredUniversityToAdd.trim()}
-                            className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
-                        >
-                            Add
-                        </button>
-                    </div>
-                    {draft.featuredUniversities.length === 0 ? (
-                        <p className="mt-3 text-xs text-slate-500">No featured universities selected.</p>
-                    ) : (
-                        <div className="mt-3 space-y-2">
-                            {draft.featuredUniversities
-                                .sort((a, b) => a.order - b.order)
-                                .map((item, index) => (
-                                    <div key={item.universityId} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-200">#{index + 1}</span>
-                                            <p className="text-sm font-medium text-white">{universityLabelMap.get(item.universityId) || item.universityId}</p>
-                                            <div className="ml-auto flex items-center gap-2">
-                                                <button type="button" onClick={() => moveFeaturedUniversity(index, -1)} disabled={index === 0} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Up</button>
-                                                <button type="button" onClick={() => moveFeaturedUniversity(index, 1)} disabled={index === draft.featuredUniversities.length - 1} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Down</button>
-                                                <button type="button" onClick={() => removeFeaturedUniversity(item.universityId)} className="rounded-lg border border-rose-500/25 px-2 py-1 text-xs text-rose-200">Remove</button>
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="Timeline + Widgets" section="timeline" onReset={resetSection} resetting={resettingSection === 'timeline'} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <NumberInput label="Closing Soon Days" value={draft.timeline.closingSoonDays} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, closingSoonDays: value } }))} />
+                                <NumberInput label="Exam Soon Days" value={draft.timeline.examSoonDays} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, examSoonDays: value } }))} />
+                                <NumberInput label="Timeline Max Closing" value={draft.timeline.maxClosingItems} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, maxClosingItems: value } }))} />
+                                <NumberInput label="Timeline Max Exams" value={draft.timeline.maxExamItems} onChange={(value) => updateDraft((prev) => ({ ...prev, timeline: { ...prev.timeline, maxExamItems: value } }))} />
+                                <NumberInput label="Widget Max Closing" value={draft.closingExamWidget.maxClosing} onChange={(value) => updateDraft((prev) => ({ ...prev, closingExamWidget: { ...prev.closingExamWidget, maxClosing: value } }))} />
+                                <NumberInput label="Widget Max Exams/Week" value={draft.closingExamWidget.maxExamsThisWeek} onChange={(value) => updateDraft((prev) => ({ ...prev, closingExamWidget: { ...prev.closingExamWidget, maxExamsThisWeek: value } }))} />
+                            </div>
+                        </section>
+
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="University Preview Windows" section="universityPreview" onReset={resetSection} resetting={resettingSection === 'universityPreview'} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Toggle label="University Preview Enabled" value={draft.universityPreview.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, enabled: value } }))} />
+                                <NumberInput label="Featured Max Items" value={draft.universityPreview.maxFeaturedItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxFeaturedItems: value } }))} />
+                                <NumberInput label="Deadline Max Items" value={draft.universityPreview.maxDeadlineItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxDeadlineItems: value } }))} />
+                                <NumberInput label="Exam Max Items" value={draft.universityPreview.maxExamItems} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, maxExamItems: value } }))} />
+                                <NumberInput label="Deadline Within Days" value={draft.universityPreview.deadlineWithinDays} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, deadlineWithinDays: value } }))} />
+                                <NumberInput label="Exam Within Days" value={draft.universityPreview.examWithinDays} onChange={(value) => updateDraft((prev) => ({ ...prev, universityPreview: { ...prev.universityPreview, examWithinDays: value } }))} />
+                            </div>
+                            <div className="mt-3 rounded-xl border border-indigo-500/15 bg-indigo-500/5 px-4 py-3 text-xs leading-6 text-indigo-200/80">
+                                Default category and cluster-filter visibility are now managed from <strong>University Settings</strong> to avoid duplicate controls.
+                                This section only controls home preview windows and item limits.
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs text-slate-400 mb-1 block">Featured Mode</label>
+                                    <select
+                                        value={draft.universityPreview.featuredMode}
+                                        onChange={(event) => updateDraft((prev) => ({
+                                            ...prev,
+                                            universityPreview: {
+                                                ...prev.universityPreview,
+                                                featuredMode: event.target.value as HomeSettingsConfig['universityPreview']['featuredMode'],
+                                            },
+                                        }))}
+                                        className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
+                                    >
+                                        <option value="manual">Manual</option>
+                                        <option value="auto">Auto</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="University Dashboard" section="universityDashboard" onReset={resetSection} resetting={resettingSection === 'universityDashboard'} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Toggle
+                                    label="Show Dashboard Filters"
+                                    value={draft.universityDashboard.showFilters}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showFilters: value } }))}
+
+                                />
+                                <Toggle
+                                    label="Show Placeholder Note"
+                                    value={draft.universityDashboard.showPlaceholderText}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showPlaceholderText: value } }))}
+
+                                />
+                                <Toggle
+                                    label="Enable All Universities Tab"
+                                    value={Boolean(draft.universityDashboard.showAllCategories)}
+                                    helper="Default is OFF. When OFF, public universities page requires a selected category."
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, showAllCategories: value } }))}
+
+                                />
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Input label="Dashboard Title" value={draft.universityDashboard.title} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, title: value } }))} />
+                                <Input label="Dashboard Subtitle" value={draft.universityDashboard.subtitle} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, subtitle: value } }))} />
+                                <Input label="Default Category" value={draft.universityDashboard.defaultCategory} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, defaultCategory: value } }))} />
+                                <Input label="Placeholder Note" value={draft.universityDashboard.placeholderNote} onChange={(value) => updateDraft((prev) => ({ ...prev, universityDashboard: { ...prev.universityDashboard, placeholderNote: value } }))} />
+                            </div>
+                        </section>
+
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="Highlighted Categories" section="highlightedCategories" onReset={resetSection} resetting={resettingSection === 'highlightedCategories'} />
+                            <p className="mb-3 text-xs text-slate-400">Select ordered categories for Home highlights. These appear as highlighted filter chips.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                <select
+                                    value={categoryToAdd}
+                                    onChange={(event) => setCategoryToAdd(event.target.value)}
+                                    className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
+                                >
+                                    <option value="">Select category to add</option>
+                                    {categoryOptions.map((category) => (
+                                        <option key={category} value={category}>{category}</option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={addHighlightedCategory}
+                                    disabled={!categoryToAdd.trim()}
+                                    className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                            {draft.highlightedCategories.length === 0 ? (
+                                <p className="mt-3 text-xs text-slate-500">No highlighted categories selected.</p>
+                            ) : (
+                                <div className="mt-3 space-y-2">
+                                    {draft.highlightedCategories
+                                        .sort((a, b) => a.order - b.order)
+                                        .map((item, index) => (
+                                            <div key={item.category} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-200">#{index + 1}</span>
+                                                    <p className="text-sm font-medium text-white">{item.category}</p>
+                                                    <div className="ml-auto flex items-center gap-2">
+                                                        <button type="button" onClick={() => moveHighlightedCategory(index, -1)} disabled={index === 0} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Up</button>
+                                                        <button type="button" onClick={() => moveHighlightedCategory(index, 1)} disabled={index === draft.highlightedCategories.length - 1} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Down</button>
+                                                        <button type="button" onClick={() => removeHighlightedCategory(item.category)} className="rounded-lg border border-rose-500/25 px-2 py-1 text-xs text-rose-200">Remove</button>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    <Input
+                                                        label="Badge Text"
+                                                        value={item.badgeText || ''}
+                                                        onChange={(value) => updateDraft((prev) => ({
+                                                            ...prev,
+                                                            highlightedCategories: prev.highlightedCategories.map((entry) => entry.category === item.category ? { ...entry, badgeText: value } : entry),
+                                                        }))}
+                                                    />
+                                                    <Toggle
+                                                        label="Enabled"
+                                                        value={item.enabled !== false}
+                                                        onChange={(value) => updateDraft((prev) => ({
+                                                            ...prev,
+                                                            highlightedCategories: prev.highlightedCategories.map((entry) => entry.category === item.category ? { ...entry, enabled: value } : entry),
+                                                        }))}
+
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                            <Input
-                                                label="Badge Text"
-                                                value={item.badgeText || ''}
-                                                onChange={(value) => updateDraft((prev) => ({
-                                                    ...prev,
-                                                    featuredUniversities: prev.featuredUniversities.map((entry) => entry.universityId === item.universityId ? { ...entry, badgeText: value } : entry),
-                                                }))}
-                                            />
-                                            <Toggle
-                                                label="Enabled"
-                                                value={item.enabled !== false}
-                                                onChange={(value) => updateDraft((prev) => ({
-                                                    ...prev,
-                                                    featuredUniversities: prev.featuredUniversities.map((entry) => entry.universityId === item.universityId ? { ...entry, enabled: value } : entry),
-                                                }))}
-                                               
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                        </div>
-                    )}
-                </section>
+                                        ))}
+                                </div>
+                            )}
+                        </section>
 
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="Scrollable Ads" section="adsSection" onReset={resetSection} resetting={resettingSection === 'adsSection'} />
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Toggle
-                                label="Ads Section Enabled"
-                                value={draft.adsSection.enabled}
-                                onChange={(value) => updateDraft((prev) => ({ ...prev, adsSection: { ...prev.adsSection, enabled: value } }))}
-                                helper="Toggle the scrollable ad section on Home page."
-                               
-                            />
-                            <Input
-                                label="Section Title (Optional)"
-                                value={draft.adsSection.title}
-                                onChange={(value) => updateDraft((prev) => ({ ...prev, adsSection: { ...prev.adsSection, title: value } }))}
-                                helper="Headline displayed above ads."
-                            />
-                        </div>
-                        <div className="rounded-xl bg-indigo-500/5 border border-indigo-500/10 p-4">
-                            <p className="text-xs text-indigo-200/70 leading-relaxed mb-3">
-                                This section displays banners from the <strong>Home Ads (Scrollable)</strong> slot.
-                                You can manage these banners in the Banner Management panel.
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const bannerTab = document.querySelector('[data-tab-id="banners"]') as HTMLElement;
-                                    if (bannerTab) bannerTab.click();
-                                }}
-                                className="inline-flex items-center gap-2 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-                            >
-                                <Eye className="w-3.5 h-3.5" />
-                                Go to Banner Management
-                            </button>
-                        </div>
-                    </div>
-                </section>
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="Featured Universities" section="featuredUniversities" onReset={resetSection} resetting={resettingSection === 'featuredUniversities'} />
+                            <p className="mb-3 text-xs text-slate-400">Select ordered universities for Home featured block. Changes are reflected on Home after save.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                <select
+                                    value={featuredUniversityToAdd}
+                                    onChange={(event) => setFeaturedUniversityToAdd(event.target.value)}
+                                    className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
+                                >
+                                    <option value="">Select university to add</option>
+                                    {universityOptions.map((item) => (
+                                        <option key={item.id} value={item.id}>{item.name} ({item.shortForm})</option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={addFeaturedUniversity}
+                                    disabled={!featuredUniversityToAdd.trim()}
+                                    className="rounded-xl border border-cyan-500/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                            {draft.featuredUniversities.length === 0 ? (
+                                <p className="mt-3 text-xs text-slate-500">No featured universities selected.</p>
+                            ) : (
+                                <div className="mt-3 space-y-2">
+                                    {draft.featuredUniversities
+                                        .sort((a, b) => a.order - b.order)
+                                        .map((item, index) => (
+                                            <div key={item.universityId} className="rounded-xl border border-indigo-500/15 bg-slate-950/55 p-3">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-200">#{index + 1}</span>
+                                                    <p className="text-sm font-medium text-white">{universityLabelMap.get(item.universityId) || item.universityId}</p>
+                                                    <div className="ml-auto flex items-center gap-2">
+                                                        <button type="button" onClick={() => moveFeaturedUniversity(index, -1)} disabled={index === 0} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Up</button>
+                                                        <button type="button" onClick={() => moveFeaturedUniversity(index, 1)} disabled={index === draft.featuredUniversities.length - 1} className="rounded-lg border border-indigo-500/25 px-2 py-1 text-xs text-indigo-200 disabled:opacity-40">Down</button>
+                                                        <button type="button" onClick={() => removeFeaturedUniversity(item.universityId)} className="rounded-lg border border-rose-500/25 px-2 py-1 text-xs text-rose-200">Remove</button>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    <Input
+                                                        label="Badge Text"
+                                                        value={item.badgeText || ''}
+                                                        onChange={(value) => updateDraft((prev) => ({
+                                                            ...prev,
+                                                            featuredUniversities: prev.featuredUniversities.map((entry) => entry.universityId === item.universityId ? { ...entry, badgeText: value } : entry),
+                                                        }))}
+                                                    />
+                                                    <Toggle
+                                                        label="Enabled"
+                                                        value={item.enabled !== false}
+                                                        onChange={(value) => updateDraft((prev) => ({
+                                                            ...prev,
+                                                            featuredUniversities: prev.featuredUniversities.map((entry) => entry.universityId === item.universityId ? { ...entry, enabled: value } : entry),
+                                                        }))}
 
-                <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
-                    <SectionHeader title="University Card Config" section="universityCardConfig" onReset={resetSection} resetting={resettingSection === 'universityCardConfig'} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <AdminImageUploadField
-                            label="Default University Logo"
-                            value={draft.universityCardConfig.defaultUniversityLogo}
-                            onChange={(nextValue) => updateDraft((prev) => ({
-                                ...prev,
-                                universityCardConfig: {
-                                    ...prev.universityCardConfig,
-                                    defaultUniversityLogo: nextValue,
-                                },
-                            }))}
-                            helper="Shown when a university does not have its own uploaded logo."
-                            category="admin_upload"
-                            previewAlt="Fallback university logo"
-                            fit="contain"
-                            previewClassName="min-h-[170px]"
-                            panelClassName="bg-slate-950/30 dark:bg-slate-950/55"
-                        />
-                        <NumberInput
-                            label="Closing Soon Days Threshold"
-                            value={draft.universityCardConfig.closingSoonDays}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, closingSoonDays: value } }))}
-                        />
-                        <Toggle
-                            label="Show Exam Centers Preview"
-                            value={draft.universityCardConfig.showExamCentersPreview}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamCentersPreview: value } }))}
-                           
-                        />
-                        <Toggle
-                            label="Show Address"
-                            value={draft.universityCardConfig.showAddress}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showAddress: value } }))}
-                           
-                        />
-                        <Toggle
-                            label="Show Email"
-                            value={draft.universityCardConfig.showEmail}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showEmail: value } }))}
-                           
-                        />
-                        <Toggle
-                            label="Show Application Progress"
-                            value={draft.universityCardConfig.showApplicationProgress}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showApplicationProgress: value } }))}
-                           
-                        />
-                        <Toggle
-                            label="Show Exam Dates"
-                            value={draft.universityCardConfig.showExamDates}
-                            onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamDates: value } }))}
-                           
-                        />
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs text-slate-400">Default Sort</label>
-                            <select
-                                value={draft.universityCardConfig.defaultSort}
-                                onChange={(event) => updateDraft((prev) => ({
-                                    ...prev,
-                                    universityCardConfig: {
-                                        ...prev.universityCardConfig,
-                                        defaultSort: event.target.value as HomeSettingsConfig['universityCardConfig']['defaultSort'],
-                                    },
-                                }))}
-                                className="mt-1 w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
-                            >
-                                <option value="alphabetical">Name (A-Z)</option>
-                                <option value="nearest_deadline">Nearest Deadline</option>
-                            </select>
-                        </div>
-                    </div>
-                </section>
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="Scrollable Ads" section="adsSection" onReset={resetSection} resetting={resettingSection === 'adsSection'} />
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <Toggle
+                                        label="Ads Section Enabled"
+                                        value={draft.adsSection.enabled}
+                                        onChange={(value) => updateDraft((prev) => ({ ...prev, adsSection: { ...prev.adsSection, enabled: value } }))}
+                                        helper="Toggle the scrollable ad section on Home page."
+
+                                    />
+                                    <Input
+                                        label="Section Title (Optional)"
+                                        value={draft.adsSection.title}
+                                        onChange={(value) => updateDraft((prev) => ({ ...prev, adsSection: { ...prev.adsSection, title: value } }))}
+                                        helper="Headline displayed above ads."
+                                    />
+                                </div>
+                                <div className="rounded-xl bg-indigo-500/5 border border-indigo-500/10 p-4">
+                                    <p className="text-xs text-indigo-200/70 leading-relaxed mb-3">
+                                        This section displays banners from the <strong>Home Ads (Scrollable)</strong> slot.
+                                        You can manage these banners in the Banner Management panel.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const bannerTab = document.querySelector('[data-tab-id="banners"]') as HTMLElement;
+                                            if (bannerTab) bannerTab.click();
+                                        }}
+                                        className="inline-flex items-center gap-2 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+                                    >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        Go to Banner Management
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-slate-900/60 rounded-2xl border border-indigo-500/10 p-5">
+                            <SectionHeader title="University Card Config" section="universityCardConfig" onReset={resetSection} resetting={resettingSection === 'universityCardConfig'} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <AdminImageUploadField
+                                    label="Default University Logo"
+                                    value={draft.universityCardConfig.defaultUniversityLogo}
+                                    onChange={(nextValue) => updateDraft((prev) => ({
+                                        ...prev,
+                                        universityCardConfig: {
+                                            ...prev.universityCardConfig,
+                                            defaultUniversityLogo: nextValue,
+                                        },
+                                    }))}
+                                    helper="Shown when a university does not have its own uploaded logo."
+                                    category="admin_upload"
+                                    previewAlt="Fallback university logo"
+                                    fit="contain"
+                                    previewClassName="min-h-[170px]"
+                                    panelClassName="bg-slate-950/30 dark:bg-slate-950/55"
+                                />
+                                <NumberInput
+                                    label="Closing Soon Days Threshold"
+                                    value={draft.universityCardConfig.closingSoonDays}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, closingSoonDays: value } }))}
+                                />
+                                <Toggle
+                                    label="Show Exam Centers Preview"
+                                    value={draft.universityCardConfig.showExamCentersPreview}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamCentersPreview: value } }))}
+
+                                />
+                                <Toggle
+                                    label="Show Address"
+                                    value={draft.universityCardConfig.showAddress}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showAddress: value } }))}
+
+                                />
+                                <Toggle
+                                    label="Show Email"
+                                    value={draft.universityCardConfig.showEmail}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showEmail: value } }))}
+
+                                />
+                                <Toggle
+                                    label="Show Application Progress"
+                                    value={draft.universityCardConfig.showApplicationProgress}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showApplicationProgress: value } }))}
+
+                                />
+                                <Toggle
+                                    label="Show Exam Dates"
+                                    value={draft.universityCardConfig.showExamDates}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamDates: value } }))}
+
+                                />
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs text-slate-400">Default Sort</label>
+                                    <select
+                                        value={draft.universityCardConfig.defaultSort}
+                                        onChange={(event) => updateDraft((prev) => ({
+                                            ...prev,
+                                            universityCardConfig: {
+                                                ...prev.universityCardConfig,
+                                                defaultSort: event.target.value as HomeSettingsConfig['universityCardConfig']['defaultSort'],
+                                            },
+                                        }))}
+                                        className="mt-1 w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2 text-sm text-white"
+                                    >
+                                        <option value="alphabetical">Name (A-Z)</option>
+                                        <option value="nearest_deadline">Nearest Deadline</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
                     </>
                 ) : null}
 
@@ -1578,6 +1577,7 @@ export default function HomeSettingsPanel() {
                     </div>
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
                         <Toggle label="Footer Enabled (Global)" value={draft.footer.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, footer: { ...prev.footer, enabled: value } }))} />
+                        <Toggle label="Show Founder Button" value={draft.footer.showFounderButton} onChange={(value) => updateDraft((prev) => ({ ...prev, footer: { ...prev.footer, showFounderButton: value } }))} helper="Show or hide the Founder button in the footer" />
                         <Toggle label="Social Strip Enabled" value={draft.socialStrip.enabled} onChange={(value) => updateDraft((prev) => ({ ...prev, socialStrip: { ...prev.socialStrip, enabled: value } }))} />
                     </div>
                     <div className="mt-3">

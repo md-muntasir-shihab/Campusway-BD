@@ -10,6 +10,7 @@ import {
 } from '../services/api';
 import { isExternalUrl, normalizeInternalOrExternalUrl } from '../utils/url';
 import PageHeroBanner from '../components/common/PageHeroBanner';
+import HeroSearchInput from '../components/common/HeroSearchInput';
 import { usePageHeroSettings } from '../hooks/usePageHeroSettings';
 
 type ResourceType = ResourceSettingsType;
@@ -309,7 +310,14 @@ export default function ResourcesPage() {
                     gradientTo={hero.gradientTo}
                     primaryCTA={hero.primaryCTA}
                     secondaryCTA={hero.secondaryCTA}
-                />
+                >
+                    <HeroSearchInput
+                        value={search}
+                        onChange={(v) => { setSearch(v); setPage(1); }}
+                        placeholder="রিসোর্স খুঁজুন..."
+                        className="mt-2"
+                    />
+                </PageHeroBanner>
             )}
             <div className="min-h-screen">
                 {toast ? <Toast message={toast} onDismiss={() => setToast('')} /> : null}

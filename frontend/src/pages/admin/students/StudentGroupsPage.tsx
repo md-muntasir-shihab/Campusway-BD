@@ -80,14 +80,13 @@ function GroupCard({ g, selected, onToggleSelect, onEdit, onDelete, onOpen, onEx
   const cardBg = style === 'gradient'
     ? { background: `linear-gradient(135deg, ${color}15, ${color}05)` }
     : style === 'solid'
-    ? { borderLeftColor: color, borderLeftWidth: '4px' }
-    : {};
+      ? { borderLeftColor: color, borderLeftWidth: '4px' }
+      : {};
 
   return (
     <div
-      className={`relative rounded-xl border bg-white p-5 transition hover:shadow-md dark:bg-slate-900 cursor-pointer ${
-        style === 'outline' ? 'border-2' : 'border-slate-200 dark:border-slate-700'
-      }`}
+      className={`relative rounded-xl border bg-white p-5 transition hover:shadow-md dark:bg-slate-900 cursor-pointer ${style === 'outline' ? 'border-2' : 'border-slate-200 dark:border-slate-700'
+        }`}
       style={style === 'outline' ? { borderColor: `${color}60` } : cardBg}
       onClick={onOpen}
     >
@@ -148,7 +147,7 @@ function GroupCard({ g, selected, onToggleSelect, onEdit, onDelete, onOpen, onEx
       )}
 
       {/* Metrics row */}
-      <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+      <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-slate-500">
         <div className="flex items-center gap-1">
           <Users size={12} />
           <span className="font-medium text-slate-700 dark:text-slate-300">{memberCount}</span>
@@ -162,6 +161,9 @@ function GroupCard({ g, selected, onToggleSelect, onEdit, onDelete, onOpen, onEx
           <span className="capitalize text-slate-400">{String(g.department)}</span>
         )}
         {!!g.batch && <span className="text-slate-400">Batch {String(g.batch)}</span>}
+        {g.defaultExamVisibility === 'group_only' && (
+          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">Exam: Group Only</span>
+        )}
       </div>
     </div>
   );

@@ -140,6 +140,8 @@ export const ADMIN_PATHS = {
     teamSecurity: adminUi('team/security'),
     teamInvites: adminUi('team/invites'),
     approvals: adminUi('approvals'),
+    legalPages: adminUi('legal-pages'),
+    founderDetails: adminUi('founder-details'),
 } as const;
 
 export type AdminMenuItem = {
@@ -315,6 +317,18 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
 
     // 13. Admin Profile
     { key: 'adminProfile', label: 'Admin Profile', path: ADMIN_PATHS.adminProfile, icon: User, module: 'admin_profile' },
+
+    // 14. Legal Pages — merged into Site Settings → Static Pages
+
+    // 15. Founder Details
+    {
+        key: 'founderDetails',
+        label: 'Founder Details',
+        path: ADMIN_PATHS.founderDetails,
+        icon: User,
+        module: 'founder_details',
+        matchPrefixes: [adminUi('founder-details')],
+    },
 ];
 
 export function isAdminPathActive(pathname: string, item: AdminMenuItem): boolean {

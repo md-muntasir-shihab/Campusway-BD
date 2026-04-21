@@ -20,22 +20,38 @@ import {
 /* ── Default form state ── */
 interface ExamFormData {
     title: string;
+    title_bn: string;
     subject: string;
+    examCategory: string;
     durationMinutes: number;
     totalMarks: number;
     negativeMarkingEnabled: boolean;
     negativeMarkValue: number;
     showAnswersAfterExam: boolean;
+    shuffleQuestions: boolean;
+    shuffleOptions: boolean;
+    attemptLimit: number;
+    status: string;
+    visibilityMode: string;
+    description: string;
 }
 
 const DEFAULT_FORM: ExamFormData = {
     title: '',
+    title_bn: '',
     subject: '',
+    examCategory: '',
     durationMinutes: 60,
     totalMarks: 100,
     negativeMarkingEnabled: false,
     negativeMarkValue: 0.25,
     showAnswersAfterExam: false,
+    shuffleQuestions: true,
+    shuffleOptions: true,
+    attemptLimit: 1,
+    status: 'draft',
+    visibilityMode: 'all_students',
+    description: '',
 };
 
 const DEFAULT_MARKS_PER_QUESTION = 1;
@@ -71,12 +87,20 @@ function ExamFormInner() {
             const exam = await getAdminExam(id);
             setForm({
                 title: exam.title ?? '',
+                title_bn: exam.title_bn ?? '',
                 subject: exam.subject ?? '',
+                examCategory: exam.examCategory ?? exam.group_category ?? '',
                 durationMinutes: exam.durationMinutes ?? exam.duration ?? 60,
                 totalMarks: exam.totalMarks ?? 100,
                 negativeMarkingEnabled: exam.negativeMarkingEnabled ?? exam.negativeMarking ?? false,
                 negativeMarkValue: exam.negativeMarkValue ?? exam.negativePerWrong ?? 0.25,
                 showAnswersAfterExam: exam.showAnswersAfterExam ?? false,
+                shuffleQuestions: exam.shuffleQuestions ?? exam.randomizeQuestions ?? true,
+                shuffleOptions: exam.shuffleOptions ?? exam.randomizeOptions ?? true,
+                attemptLimit: exam.attemptLimit ?? 1,
+                status: exam.status ?? 'draft',
+                visibilityMode: exam.visibilityMode ?? 'all_students',
+                description: exam.description ?? '',
             });
 
             // Populate the right panel with currently assigned questions
@@ -216,12 +240,20 @@ function ExamFormInner() {
         if (!validate()) return;
         const payload: Record<string, unknown> = {
             title: form.title.trim(),
+            title_bn: form.title_bn.trim(),
             subject: form.subject.trim(),
+            examCategory: form.examCategory.trim(),
             durationMinutes: form.durationMinutes,
             totalMarks: form.totalMarks,
             negativeMarkingEnabled: form.negativeMarkingEnabled,
             negativePerWrong: form.negativeMarkingEnabled ? form.negativeMarkValue : 0,
             showAnswersAfterExam: form.showAnswersAfterExam,
+            shuffleQuestions: form.shuffleQuestions,
+            shuffleOptions: form.shuffleOptions,
+            attemptLimit: form.attemptLimit,
+            status: form.status,
+            visibilityMode: form.visibilityMode,
+            description: form.description.trim(),
         };
         if (isEdit) updateMutation.mutate(payload);
         else createMutation.mutate(payload);
@@ -256,64 +288,65 @@ function ExamFormInner() {
                 <h3 className="text-xs md:text-sm font-bold uppercase tracking-wider text-text-muted">Exam Details</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                    {/* Title */}
                     <label className="block">
-                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">
-                            Title <span className="text-red-500">*</span>
-                        </span>
-                        <input
-                            type="text"
-                            value={form.title}
-                            onChange={(e) => setField('title', e.target.value)}
-                            placeholder="Enter exam title"
-                            className="admin-input mt-1"
-                        />
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Title (EN) <span className="text-red-500">*</span></span>
+                        <input type="text" value={form.title} onChange={(e) => setField('title', e.target.value)} placeholder="Enter exam title" className="admin-input mt-1" />
                         {fieldError('title')}
                     </label>
-
-                    {/* Subject */}
                     <label className="block">
-                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">
-                            Subject <span className="text-red-500">*</span>
-                        </span>
-                        <input
-                            type="text"
-                            value={form.subject}
-                            onChange={(e) => setField('subject', e.target.value)}
-                            placeholder="e.g. Mathematics, Science"
-                            className="admin-input mt-1"
-                        />
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Title (BN)</span>
+                        <input type="text" value={form.title_bn} onChange={(e) => setField('title_bn', e.target.value)} placeholder="পরীক্ষার শিরোনাম" className="admin-input mt-1" />
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Subject <span className="text-red-500">*</span></span>
+                        <input type="text" value={form.subject} onChange={(e) => setField('subject', e.target.value)} placeholder="e.g. Physics, Mathematics" className="admin-input mt-1" />
                         {fieldError('subject')}
                     </label>
-
-                    {/* Duration */}
                     <label className="block">
-                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">
-                            Duration (minutes) <span className="text-red-500">*</span>
-                        </span>
-                        <input
-                            type="number"
-                            min={1}
-                            value={form.durationMinutes}
-                            onChange={(e) => setField('durationMinutes', Number(e.target.value))}
-                            className="admin-input mt-1"
-                        />
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Category</span>
+                        <select value={form.examCategory} onChange={(e) => setField('examCategory', e.target.value)} className="admin-input mt-1">
+                            <option value="">Select category</option>
+                            <option value="SSC">SSC</option>
+                            <option value="HSC">HSC</option>
+                            <option value="Admission">Admission</option>
+                            <option value="Custom">Custom</option>
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Duration (min) <span className="text-red-500">*</span></span>
+                        <input type="number" min={1} value={form.durationMinutes} onChange={(e) => setField('durationMinutes', Number(e.target.value))} className="admin-input mt-1" />
                         {fieldError('durationMinutes')}
                     </label>
-
-                    {/* Total Marks */}
                     <label className="block">
-                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">
-                            Total Marks <span className="text-red-500">*</span>
-                        </span>
-                        <input
-                            type="number"
-                            min={1}
-                            value={form.totalMarks}
-                            onChange={(e) => setField('totalMarks', Number(e.target.value))}
-                            className="admin-input mt-1"
-                        />
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Total Marks <span className="text-red-500">*</span></span>
+                        <input type="number" min={1} value={form.totalMarks} onChange={(e) => setField('totalMarks', Number(e.target.value))} className="admin-input mt-1" />
                         {fieldError('totalMarks')}
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Status</span>
+                        <select value={form.status} onChange={(e) => setField('status', e.target.value)} className="admin-input mt-1">
+                            <option value="draft">Draft</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="live">Live</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Attempt Limit</span>
+                        <input type="number" min={1} value={form.attemptLimit} onChange={(e) => setField('attemptLimit', Number(e.target.value))} className="admin-input mt-1" />
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Visibility</span>
+                        <select value={form.visibilityMode} onChange={(e) => setField('visibilityMode', e.target.value)} className="admin-input mt-1">
+                            <option value="all_students">All Students</option>
+                            <option value="group_only">Group Only</option>
+                            <option value="subscription_only">Subscription Only</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </label>
+                    <label className="block md:col-span-2">
+                        <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Description</span>
+                        <textarea value={form.description} onChange={(e) => setField('description', e.target.value)} placeholder="Exam description..." className="admin-input mt-1 min-h-[60px]" />
                     </label>
                 </div>
             </div>
@@ -323,15 +356,11 @@ function ExamFormInner() {
                 <h3 className="text-xs md:text-sm font-bold uppercase tracking-wider text-text-muted">Options</h3>
 
                 <div className="space-y-4">
-                    {/* Negative Marking */}
-                    <div className="flex items-center justify-between">
-                        <ModernToggle
-                            label="Negative Marking"
-                            helper="Deduct marks for incorrect answers"
-                            checked={form.negativeMarkingEnabled}
-                            onChange={(v) => setField('negativeMarkingEnabled', v)}
-                            size="sm"
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <ModernToggle label="Negative Marking" helper="Deduct marks for incorrect answers" checked={form.negativeMarkingEnabled} onChange={(v) => setField('negativeMarkingEnabled', v)} size="sm" />
+                        <ModernToggle label="Show Answers After Exam" helper="Allow students to see correct answers" checked={form.showAnswersAfterExam} onChange={(v) => setField('showAnswersAfterExam', v)} size="sm" />
+                        <ModernToggle label="Shuffle Questions" helper="Randomize question order for each student" checked={form.shuffleQuestions} onChange={(v) => setField('shuffleQuestions', v)} size="sm" />
+                        <ModernToggle label="Shuffle Options" helper="Randomize option order (A/B/C/D)" checked={form.shuffleOptions} onChange={(v) => setField('shuffleOptions', v)} size="sm" />
                     </div>
 
                     {form.negativeMarkingEnabled && (
@@ -350,16 +379,6 @@ function ExamFormInner() {
                         </label>
                     )}
 
-                    {/* Show Answers After Exam */}
-                    <div className="flex items-center justify-between">
-                        <ModernToggle
-                            label="Show Answers After Exam"
-                            helper="Allow students to see correct answers after submission"
-                            checked={form.showAnswersAfterExam}
-                            onChange={(v) => setField('showAnswersAfterExam', v)}
-                            size="sm"
-                        />
-                    </div>
                 </div>
             </div>
 

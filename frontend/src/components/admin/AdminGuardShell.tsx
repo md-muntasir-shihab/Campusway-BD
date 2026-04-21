@@ -1,4 +1,4 @@
-import React, { createContext, useContext, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useModuleAccess } from '../../hooks/useModuleAccess';
@@ -57,8 +57,25 @@ export default function AdminGuardShell({
     const isNestedInsideAdminShell = useContext(AdminShellNestingContext);
     const location = useLocation();
     const forceResetPath = '/__cw_admin__/settings/admin-profile';
+    const [timedOut, setTimedOut] = useState(false);
+
+    useEffect(() => {
+        if (!isLoading) {
+            setTimedOut(false);
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setTimedOut(true);
+        }, 6000);
+
+        return () => clearTimeout(timer);
+    }, [isLoading]);
 
     if (isLoading) {
+        if (timedOut) {
+            return <Navigate to="/__cw_admin__/login" replace />;
+        }
         return <div className="section-container py-16 text-sm text-text-muted dark:text-dark-text/70">Checking admin access...</div>;
     }
 

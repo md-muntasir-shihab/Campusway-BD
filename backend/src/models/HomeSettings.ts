@@ -199,6 +199,7 @@ export interface HomeSettingsShape {
             address: string;
         };
         legalLinks: HomeLinkItem[];
+        showFounderButton: boolean;
     };
     campaignBanners: {
         enabled: boolean;
@@ -445,6 +446,7 @@ export function createHomeSettingsDefaults(): HomeSettingsShape {
                 { label: 'Terms', url: '/terms' },
                 { label: 'Privacy', url: '/privacy' },
             ],
+            showFounderButton: true,
         },
         campaignBanners: {
             enabled: true,
@@ -644,6 +646,7 @@ const homeSettingsSchema = new Schema<IHomeSettings>(
                 address: { type: String, default: '' },
             },
             legalLinks: { type: [linkItemSchema], default: () => [] },
+            showFounderButton: { type: Boolean, default: true },
         },
         campaignBanners: {
             enabled: { type: Boolean, default: true },

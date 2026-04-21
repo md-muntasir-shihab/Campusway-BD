@@ -1,22 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ChevronDown, ChevronUp, Loader2, Palette, Save, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Palette, Save, Sparkles, Home, GraduationCap, Newspaper, ClipboardList, BookOpen, CreditCard, Phone, Info, HelpCircle, Lock, FileText, type LucideIcon } from 'lucide-react';
 import { adminUpdatePageHeroSettings, getPublicSettings, type PageHeroConfig, type PageHeroKey, type PageHeroVantaEffect } from '../../services/api';
 import { DEFAULT_HERO_CONFIGS } from '../../hooks/usePageHeroSettings';
 
-export const PAGE_KEYS: Array<{ key: PageHeroKey; label: string; icon: string }> = [
-    { key: 'home', label: 'Home Page', icon: '🏠' },
-    { key: 'universities', label: 'Universities', icon: '🎓' },
-    { key: 'news', label: 'News', icon: '📰' },
-    { key: 'exams', label: 'Exams', icon: '📝' },
-    { key: 'resources', label: 'Resources', icon: '📚' },
-    { key: 'subscriptionPlans', label: 'Subscription Plans', icon: '💰' },
-    { key: 'contact', label: 'Contact', icon: '📞' },
-    { key: 'about', label: 'About', icon: 'ℹ️' },
-    { key: 'helpCenter', label: 'Help Center', icon: '🆘' },
-    { key: 'privacy', label: 'Privacy', icon: '🔒' },
-    { key: 'terms', label: 'Terms', icon: '📄' },
+export const PAGE_KEYS: Array<{ key: PageHeroKey; label: string; Icon: LucideIcon }> = [
+    { key: 'home', label: 'Home Page', Icon: Home },
+    { key: 'universities', label: 'Universities', Icon: GraduationCap },
+    { key: 'news', label: 'News', Icon: Newspaper },
+    { key: 'exams', label: 'Exams', Icon: ClipboardList },
+    { key: 'resources', label: 'Resources', Icon: BookOpen },
+    { key: 'subscriptionPlans', label: 'Subscription Plans', Icon: CreditCard },
+    { key: 'contact', label: 'Contact', Icon: Phone },
+    { key: 'about', label: 'About', Icon: Info },
+    { key: 'helpCenter', label: 'Help Center', Icon: HelpCircle },
+    { key: 'privacy', label: 'Privacy', Icon: Lock },
+    { key: 'terms', label: 'Terms', Icon: FileText },
 ];
 
 const VANTA_EFFECTS: Array<{ value: PageHeroVantaEffect; label: string }> = [
@@ -160,7 +160,7 @@ export default function PageHeroSettingsEditor() {
             </div>
 
             <div className="space-y-2">
-                {PAGE_KEYS.map(({ key, label, icon }) => {
+                {PAGE_KEYS.map(({ key, label, Icon }) => {
                     const config = draft[key];
                     const isExpanded = expandedPage === key;
 
@@ -172,7 +172,9 @@ export default function PageHeroSettingsEditor() {
                                 className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
                             >
                                 <div className="flex items-center gap-3">
-                                    <span className="text-lg">{icon}</span>
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-300">
+                                        <Icon className="h-4 w-4" />
+                                    </div>
                                     <div>
                                         <p className="text-sm font-semibold text-white">{label}</p>
                                         <p className="text-[10px] text-slate-500">

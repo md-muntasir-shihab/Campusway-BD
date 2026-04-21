@@ -161,7 +161,7 @@ export default function Navbar() {
                         )}
 
                         {authLoading ? (
-                            <div className="h-8 w-8 sm:h-9 sm:w-20 rounded-full bg-card-border/70 dark:bg-dark-border/70 animate-pulse" />
+                            <Link to="/login" className="btn-primary text-sm py-2 px-4 rounded-full">Login</Link>
                         ) : user ? (
                             <div className="relative group">
                                 <div

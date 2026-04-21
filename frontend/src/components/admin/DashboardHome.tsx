@@ -286,13 +286,13 @@ export default function DashboardHome({ universities, exams, users, onTabChange 
     return (
         <div className="space-y-6">
             {/* Hero / Header Strip */}
-            <div className="rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 text-white shadow-[0_24px_70px_rgba(6,10,24,0.24)]">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="rounded-2xl sm:rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-4 sm:p-6 text-white shadow-[0_24px_70px_rgba(6,10,24,0.24)]">
+                <div className="flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="max-w-3xl">
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-200/85">Admin Control Center</p>
-                        <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Admin Summary</h2>
-                        <p className="mt-3 text-sm leading-7 text-slate-300">
-                            Live snapshot of core modules with quick navigation links. Data refreshes automatically every minute.
+                        <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.24em] text-indigo-200/85">Admin Control Center</p>
+                        <h2 className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-black tracking-tight lg:text-4xl">Admin Summary</h2>
+                        <p className="mt-2 sm:mt-3 text-xs sm:text-sm leading-6 sm:leading-7 text-slate-300">
+                            Live snapshot of core modules with quick navigation links.
                         </p>
                     </div>
                     <button
@@ -307,11 +307,11 @@ export default function DashboardHome({ universities, exams, users, onTabChange 
             </div>
 
             {/* Summary Cards Grid */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 sm:gap-4">
                 {visibleCards.map((card) => (
                     <article
                         key={card.key}
-                        className="group relative flex min-h-[15.5rem] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800/80 dark:bg-slate-950/70 dark:hover:border-indigo-500/30"
+                        className="group relative flex flex-col overflow-hidden rounded-2xl sm:rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 sm:p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800/80 dark:bg-slate-950/70 dark:hover:border-indigo-500/30"
                     >
                         {/* Decorative gradient blob */}
                         <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:from-indigo-500/15 group-hover:to-cyan-500/15 dark:from-indigo-500/8 dark:to-cyan-500/8" />
@@ -319,10 +319,10 @@ export default function DashboardHome({ universities, exams, users, onTabChange 
                         <div className="relative flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.title}</p>
-                                <p className="mt-2 break-words text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-[2rem]">{card.value}</p>
+                                <p className="mt-1.5 sm:mt-2 break-words text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">{card.value}</p>
                             </div>
-                            <span className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/15 to-cyan-500/10 text-indigo-600 ring-1 ring-indigo-500/20 transition-transform duration-300 group-hover:scale-110 dark:from-indigo-500/20 dark:to-cyan-500/15 dark:text-indigo-300 dark:ring-indigo-500/25">
-                                <card.icon className="h-5 w-5" />
+                            <span className="inline-flex h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500/15 to-cyan-500/10 text-indigo-600 ring-1 ring-indigo-500/20 transition-transform duration-300 group-hover:scale-110 dark:from-indigo-500/20 dark:to-cyan-500/15 dark:text-indigo-300 dark:ring-indigo-500/25">
+                                <card.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                             </span>
                         </div>
 
