@@ -1,35 +1,43 @@
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Install dependencies first (layer cache)
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
 
-# Copy source code
-COPY . .
-
-# Build TypeScript code
+# Copy source and compile TypeScript
+COPY tsconfig.json ./
+COPY src ./src
 RUN npm run build
 
-# Production image
+# ── Stage 2: Production ──────────────────────────────────────────────────────
 FROM node:20-alpine
+
+# Install curl for Docker health checks
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Install production dependencies only
-RUN npm ci --omit=dev
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy built artifacts from builder
+# Copy compiled output from builder
 COPY --from=builder /app/dist ./dist
 
-# Expose port (Cloud Run/Render defaults to 8080)
-EXPOSE 8080
+# Switch to non-root user
+USER appuser
 
-# Start server
+# Default port (matches .env.example)
+EXPOSE 5003
+
+# Health check against the existing /health endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-5003}/health || exit 1
+
 CMD ["node", "dist/server.js"]

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth';
 import { approveApproval, getPendingApprovals, rejectApproval } from '../services/actionApprovalService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function mapServiceErrorToHttp(error: unknown): { status: number; message: string; code: string } {
     const raw = (error instanceof Error ? error.message : String(error || '')).trim();
@@ -22,17 +23,17 @@ export async function adminGetPendingApprovals(req: AuthRequest, res: Response):
     try {
         const limit = Math.max(1, Math.min(500, Number(req.query.limit || 100)));
         const items = await getPendingApprovals(limit);
-        res.json({ items, total: items.length });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total: items.length }));
     } catch (error) {
         console.error('adminGetPendingApprovals error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminApprovePendingAction(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user?._id) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
         const approvalId = String(req.params?.id || '').trim();
@@ -40,22 +41,22 @@ export async function adminApprovePendingAction(req: AuthRequest, res: Response)
             userId: req.user._id,
             role: req.user.role,
         });
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             message: item.status === 'executed'
                 ? 'Second approval successful and action executed.'
                 : 'Second approval recorded.',
             item,
-        });
+        }));
     } catch (error) {
         const mapped = mapServiceErrorToHttp(error);
-        res.status(mapped.status).json({ message: mapped.message, code: mapped.code });
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.error(mapped.code || 'SERVER_ERROR', mapped.message));
     }
 }
 
 export async function adminRejectPendingAction(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user?._id) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
         const reason = String(req.body?.reason || '').trim();
@@ -64,9 +65,9 @@ export async function adminRejectPendingAction(req: AuthRequest, res: Response):
             userId: req.user._id,
             role: req.user.role,
         }, reason);
-        res.json({ message: 'Approval request rejected.', item });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Approval request rejected.'));
     } catch (error) {
         const mapped = mapServiceErrorToHttp(error);
-        res.status(mapped.status).json({ message: mapped.message, code: mapped.code });
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.error(mapped.code || 'SERVER_ERROR', mapped.message));
     }
 }

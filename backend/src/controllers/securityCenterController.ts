@@ -15,6 +15,7 @@ import { terminateSessions } from '../services/sessionSecurityService';
 import { getClientIp } from '../utils/requestMeta';
 import { logAdminAction } from '../services/securityAuditLogger';
 import { checkSuspiciousAdminActivity } from '../services/securityAlertService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const ALLOWED_ROOT_KEYS = [
     'passwordPolicy',
@@ -82,10 +83,10 @@ async function logSecurityAudit(req: AuthRequest, action: string, details: Recor
 export async function getAdminSecuritySettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await getSecuritySettingsSnapshot(true);
-        res.json({ settings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings }));
     } catch (error) {
         console.error('getAdminSecuritySettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -94,7 +95,7 @@ export async function updateAdminSecuritySettings(req: AuthRequest, res: Respons
         const payload = req.body;
         const validation = validateUpdatePayload(payload);
         if (validation) {
-            res.status(400).json({ message: validation });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', validation));
             return;
         }
 
@@ -125,10 +126,10 @@ export async function updateAdminSecuritySettings(req: AuthRequest, res: Respons
             checkSuspiciousAdminActivity(String(req.user._id)).catch(() => { /* alert check must never crash */ });
         }
 
-        res.json({ message: 'Security settings updated', settings: updated });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({settings: updated}, 'Security settings updated'));
     } catch (error) {
         console.error('updateAdminSecuritySettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -143,10 +144,10 @@ export async function resetAdminSecuritySettings(req: AuthRequest, res: Response
             after: settings,
         });
 
-        res.json({ message: 'Security settings reset to defaults', settings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({settings}, 'Security settings reset to defaults'));
     } catch (error) {
         console.error('resetAdminSecuritySettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -166,21 +167,18 @@ export async function forceLogoutAllUsers(req: AuthRequest, res: Response): Prom
             terminatedAt: terminated.terminatedAt,
         });
 
-        res.json({
-            message: 'Force logout executed for all active sessions',
-            terminatedCount: terminated.terminatedCount,
-            terminatedAt: terminated.terminatedAt,
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({terminatedCount: terminated.terminatedCount,
+            terminatedAt: terminated.terminatedAt}, 'Force logout executed for all active sessions'));
     } catch (error) {
         console.error('forceLogoutAllUsers error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function lockAdminPanel(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (typeof req.body?.adminPanelEnabled !== 'boolean') {
-            res.status(400).json({ message: 'adminPanelEnabled must be boolean' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'adminPanelEnabled must be boolean'));
             return;
         }
         const enabled = Boolean(req.body?.adminPanelEnabled);
@@ -196,33 +194,33 @@ export async function lockAdminPanel(req: AuthRequest, res: Response): Promise<v
         invalidateSecurityConfigCache();
         await logSecurityAudit(req, 'security_admin_panel_toggle', { adminPanelEnabled: enabled });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             message: enabled ? 'Admin panel unlocked' : 'Admin panel locked',
             settings,
-        });
+        }));
     } catch (error) {
         console.error('lockAdminPanel error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getPublicSecurityConfigController(_req: Request, res: Response): Promise<void> {
     try {
         const config = await getPublicSecurityConfig(true);
-        res.json(config);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(config));
     } catch (error) {
         console.error('getPublicSecurityConfigController error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getAntiCheatPolicy(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await getSecuritySettingsSnapshot(true);
-        res.json({ policy: settings.antiCheatPolicy });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ policy: settings.antiCheatPolicy }));
     } catch (error) {
         console.error('getAntiCheatPolicy error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -260,9 +258,9 @@ export async function updateAntiCheatPolicy(req: AuthRequest, res: Response): Pr
             checkSuspiciousAdminActivity(String(req.user._id)).catch(() => { /* alert check must never crash */ });
         }
 
-        res.json({ policy: updated.antiCheatPolicy, updated: true });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ policy: updated.antiCheatPolicy, updated: true }));
     } catch (error) {
         console.error('updateAntiCheatPolicy error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

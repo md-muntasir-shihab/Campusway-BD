@@ -1,18 +1,21 @@
-import { Suspense, useEffect, useLayoutEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './hooks/useTheme';
 import { AuthProvider } from './hooks/useAuth';
 import { I18nProvider } from './i18n';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-import HomePage from './pages/HomeModern';
-import LoginPage from './pages/Login';
-import AdminSecretLoginPage from './pages/AdminSecretLogin';
-import OtpVerificationPage from './pages/OtpVerification';
-import AdminAccessDeniedPage from './pages/AdminAccessDenied';
-import NotFoundPage from './pages/NotFound';
 import ForceLogoutModal from './components/auth/ForceLogoutModal';
+
+// Route-based code splitting — page-level components loaded on demand
+const HomePage = lazy(() => import('./pages/HomeModern'));
+const LoginPage = lazy(() => import('./pages/Login'));
+const AdminSecretLoginPage = lazy(() => import('./pages/AdminSecretLogin'));
+const OtpVerificationPage = lazy(() => import('./pages/OtpVerification'));
+const AdminAccessDeniedPage = lazy(() => import('./pages/AdminAccessDenied'));
+const NotFoundPage = lazy(() => import('./pages/NotFound'));
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import {
     ADMIN_ACCESS_DENIED,
@@ -65,6 +68,7 @@ import {
     AdminUniversitiesPage,
     AdminUniversitySettingsPage,
     ActionApprovalsPage,
+    PendingApprovalsPage,
     CampaignConsolePage,
     CampaignSettingsPage,
     ExamFormPage,
@@ -311,10 +315,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="min-h-screen flex flex-col bg-transparent transition-colors duration-300">
+            <a href="#main-content" className="skip-to-content">Skip to main content</a>
             <SEO />
             <RouteScrollReset />
             <Navbar />
-            <main className="flex-1">{children}</main>
+            <main id="main-content" className="flex-1">{children}</main>
             {!isStudentAppRoute && <Footer />}
             <ForceLogoutModal />
             {/* Global Popup Ad Campaigns – shown to all public visitors */}
@@ -524,6 +529,7 @@ export default function App() {
                                         <Route path={ADMIN_PATHS.teamSecurity} element={<TeamAccessConsolePage />} />
                                         <Route path={ADMIN_PATHS.teamInvites} element={<TeamAccessConsolePage />} />
                                         <Route path={ADMIN_PATHS.approvals} element={<ActionApprovalsPage />} />
+                                        <Route path={ADMIN_PATHS.pendingApprovals} element={<PendingApprovalsPage />} />
                                         <Route path={adminUi('settings/student-settings')} element={<AdminStudentSettingsPage />} />
                                         <Route path={ADMIN_PATHS.legalPages} element={<AdminLegalPagesPage />} />
                                         <Route path={ADMIN_PATHS.founderDetails} element={<AdminFounderDetailsPage />} />
@@ -572,6 +578,15 @@ export default function App() {
                                 </Suspense>
                             </AppLayout>
                         </BrowserRouter>
+                        <Toaster
+                            toastOptions={{
+                                style: {
+                                    background: 'var(--surface)',
+                                    color: 'var(--text)',
+                                    border: '1px solid var(--border)',
+                                },
+                            }}
+                        />
                     </I18nProvider>
                 </AuthProvider>
             </ThemeProvider>

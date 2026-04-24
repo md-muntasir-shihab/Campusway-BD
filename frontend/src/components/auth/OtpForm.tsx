@@ -83,7 +83,7 @@ export default function OtpForm({
                         <ShieldCheck className="h-8 w-8 text-indigo-600" />
                     )}
                 </div>
-                <h2 className="mb-2 text-2xl font-bold text-slate-900">Two-Step Verification</h2>
+                <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-white">Two-Step Verification</h2>
                 {isAuthenticatorChallenge ? (
                     <p className="text-sm text-slate-500">
                         Open your authenticator app and enter the latest 6-digit code,
@@ -107,12 +107,12 @@ export default function OtpForm({
                         maxLength={isAuthenticatorChallenge ? 16 : 6}
                         value={otp}
                         onChange={(e) => setOtp(isAuthenticatorChallenge ? e.target.value.toUpperCase() : e.target.value.replace(/\D/g, ''))}
-                        className={`w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center uppercase text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isAuthenticatorChallenge ? 'text-xl font-semibold tracking-[0.3em]' : 'text-2xl font-bold tracking-[1em]'}`}
+                        className={`w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center uppercase text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:border-slate-700 dark:bg-slate-800 dark:text-white ${isAuthenticatorChallenge ? 'text-xl font-semibold tracking-[0.3em]' : 'text-2xl font-bold tracking-[1em]'}`}
                         placeholder={isAuthenticatorChallenge ? 'ABC12345' : '......'}
                         autoFocus
                     />
                     {isAuthenticatorChallenge ? (
-                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs leading-6 text-slate-500">
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs leading-6 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                             <div className="flex items-center gap-2 font-semibold text-slate-700">
                                 <KeyRound className="h-3.5 w-3.5" />
                                 Accepted formats

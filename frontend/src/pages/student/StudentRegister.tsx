@@ -60,7 +60,7 @@ export default function StudentRegister() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4 pb-20 sm:pb-0">
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Full Name</label>
                             <input
@@ -110,17 +110,19 @@ export default function StudentRegister() {
                             />
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-transparent bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-[#061226]"
-                        >
-                            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
-                                <>
-                                    Create Account <ArrowRight className="h-4 w-4" />
-                                </>
-                            )}
-                        </button>
+                        <div className="sticky bottom-0 bg-white/95 dark:bg-[#061226]/95 backdrop-blur py-3 px-4 -mx-4 sm:static sm:bg-transparent sm:dark:bg-transparent sm:backdrop-blur-none sm:py-0 sm:px-0 sm:mx-0">
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="mt-6 sm:mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-transparent bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-[#061226]"
+                            >
+                                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+                                    <>
+                                        Create Account <ArrowRight className="h-4 w-4" />
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>

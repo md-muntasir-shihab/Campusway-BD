@@ -96,6 +96,7 @@ export interface ISiteSettings extends Document {
         notifyGuardiansOnResult: boolean;
         allowExternalImports: boolean;
     };
+    profileApprovalEnabled: boolean;
     adminUiLayout: {
         sidebarOrder: string[];
         settingsCardOrder: string[];
@@ -221,6 +222,7 @@ const SiteSettingsSchema = new Schema<ISiteSettings>({
         notifyGuardiansOnResult: { type: Boolean, default: false },
         allowExternalImports: { type: Boolean, default: true },
     },
+    profileApprovalEnabled: { type: Boolean, default: true },
     adminUiLayout: {
         sidebarOrder: { type: [String], default: [] },
         settingsCardOrder: { type: [String], default: [] },

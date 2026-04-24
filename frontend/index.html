@@ -8,6 +8,16 @@
   <meta name="description"
     content="CampusWay BD- From Updates to Upskilling. Your dynamic educational admission platform." />
   <title>CampusWay - From Updates to Upskilling</title>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('campusway_theme');
+        var d = (t === 'dark') || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (d) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+      } catch (e) { }
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Preload critical Bangla fonts to prevent FOIT/FOUT -->
@@ -15,6 +25,9 @@
     href="https://fonts.gstatic.com/s/notosansbengali/v20/Cn-SJsCGWQxOjaGwMQ6fIiMywrNJIky6nvd8BjzVMvJx2mcSPVFpVEqE-6KmsolKudCk8izI0lc.woff2" />
   <link rel="preload" as="font" type="font/woff2" crossorigin
     href="https://fonts.gstatic.com/s/hindsiliguri/v12/ijwTs5juQtsyLLR5jN4cxBEoRDf44uEfKiGvxts.woff2" />
+  <!-- Preload critical Latin fonts (Plus Jakarta Sans body, Sora headings) -->
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" />
   <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap"
     rel="stylesheet" />

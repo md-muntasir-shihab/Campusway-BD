@@ -1,15 +1,15 @@
 
 async function testLogin() {
     try {
-        console.log('Testing login for student@campusway.com...');
-        const response = await fetch('http://localhost:5002/api/auth/login', {
+        console.log(`Testing login for ${process.env.TEST_LOGIN_EMAIL || 'student@campusway.com'}...`);
+        const response = await fetch(`http://localhost:${process.env.PORT || 5002}/api/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                email: 'student@campusway.com',
-                password: 'admin123'
+                email: process.env.TEST_LOGIN_EMAIL || 'student@campusway.com',
+                password: process.env.TEST_LOGIN_PASSWORD || ''
             })
         });
 

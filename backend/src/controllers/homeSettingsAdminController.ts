@@ -8,6 +8,7 @@ import {
     mergeHomeSettings,
 } from '../services/homeSettingsService';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /**
  * Validates a single footer link entry.
@@ -60,24 +61,24 @@ export const adminGetHomeSettings = async (_req: Request, res: Response): Promis
         const settingsDoc = await ensureHomeSettings();
         const normalized = mergeHomeSettings(getHomeSettingsDefaults(), settingsDoc.toObject());
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             homeSettings: normalized,
             updatedAt: settingsDoc.updatedAt,
-        });
+        }));
     } catch (error) {
         console.error('adminGetHomeSettings error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
 export const adminGetHomeSettingsDefaults = async (_req: Request, res: Response): Promise<void> => {
     try {
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             defaults: getHomeSettingsDefaults(),
-        });
+        }));
     } catch (error) {
         console.error('adminGetHomeSettingsDefaults error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -87,7 +88,7 @@ export const adminUpdateHomeSettings = async (req: Request, res: Response): Prom
         const footerUpdate = req.body?.footer as Record<string, unknown> | undefined;
         if (footerUpdate && typeof footerUpdate === 'object') {
             if (!validateFooterLinks(footerUpdate)) {
-                res.status(400).json({ error: 'Each link must have a non-empty label and valid URL' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Each link must have a non-empty label and valid URL'));
                 return;
             }
         }
@@ -104,14 +105,11 @@ export const adminUpdateHomeSettings = async (req: Request, res: Response): Prom
             meta: { section: 'home-settings' },
         });
 
-        res.json({
-            message: 'Home settings updated successfully',
-            homeSettings: mergeHomeSettings(getHomeSettingsDefaults(), settingsDoc.toObject()),
-            updatedAt: settingsDoc.updatedAt,
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({homeSettings: mergeHomeSettings(getHomeSettingsDefaults(), settingsDoc.toObject()),
+            updatedAt: settingsDoc.updatedAt}, 'Home settings updated successfully'));
     } catch (error) {
         console.error('adminUpdateHomeSettings error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -119,9 +117,7 @@ export const adminResetHomeSettingsSection = async (req: Request, res: Response)
     try {
         const section = String(req.body?.section || '').trim();
         if (!section || !isResettableSection(section)) {
-            res.status(400).json({
-                message: 'Invalid section key',
-            });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid section key'));
             return;
         }
 
@@ -136,15 +132,12 @@ export const adminResetHomeSettingsSection = async (req: Request, res: Response)
             meta: { section: `reset-${section}` },
         });
 
-        res.json({
-            message: `Section "${section}" reset successfully`,
-            section,
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({section,
             value: settingsDoc.get(section),
-            updatedAt: settingsDoc.updatedAt,
-        });
+            updatedAt: settingsDoc.updatedAt}, `Section "${section}" reset successfully`));
     } catch (error) {
         console.error('adminResetHomeSettingsSection error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -153,13 +146,10 @@ export const adminDeleteHomeSettings = async (_req: Request, res: Response): Pro
         await HomeSettings.deleteMany({});
         const recreated = await ensureHomeSettings();
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'reset-all' } });
-        res.json({
-            message: 'Home settings recreated from defaults',
-            homeSettings: recreated,
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({homeSettings: recreated}, 'Home settings recreated from defaults'));
     } catch (error) {
         console.error('adminDeleteHomeSettings error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -168,12 +158,12 @@ export const getPublicHomeSettings = async (_req: Request, res: Response): Promi
         const settingsDoc = await ensureHomeSettings();
         const normalized = mergeHomeSettings(getHomeSettingsDefaults(), settingsDoc.toObject());
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             homeSettings: normalized,
             updatedAt: settingsDoc.updatedAt,
-        });
+        }));
     } catch (error) {
         console.error('getPublicHomeSettings error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };

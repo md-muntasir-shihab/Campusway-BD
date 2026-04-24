@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Check, MessageSquare, X } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle, MessageSquare, Shield, Tag, X, XCircle, Zap } from 'lucide-react';
 import type { SubscriptionPlanPublic } from '../../services/api';
 import {
     resolveSubscriptionPlanContactTarget,
@@ -8,9 +8,13 @@ import {
 } from './subscriptionAction';
 import {
     formatSubscriptionPlanPrice,
+    getSubscriptionPlanAccessPermissions,
+    getSubscriptionPlanDashboardPrivileges,
     getSubscriptionPlanFeatureList,
+    getSubscriptionPlanIncludedModules,
     getSubscriptionPlanMetaItems,
     getSubscriptionPlanPriceSuffix,
+    getSubscriptionPlanTags,
     paragraphBlocks,
 } from './subscriptionContent';
 import { getSubscriptionTheme } from './subscriptionTheme';
@@ -51,6 +55,10 @@ export default function PlanDetailsDrawer({
     const priceText = plan ? formatSubscriptionPlanPrice(plan) : '';
     const priceSuffix = plan ? getSubscriptionPlanPriceSuffix(plan) : '';
     const metaItems = plan ? getSubscriptionPlanMetaItems(plan) : [];
+    const accessPermissions = plan ? getSubscriptionPlanAccessPermissions(plan) : [];
+    const includedModules = plan ? getSubscriptionPlanIncludedModules(plan) : [];
+    const dashboardPrivileges = plan ? getSubscriptionPlanDashboardPrivileges(plan) : [];
+    const tags = plan ? getSubscriptionPlanTags(plan) : [];
     const contactLabel = plan?.contactCtaLabel || 'Talk to admissions';
     const resolvedContactLabel = contactLabel !== primaryLabel ? contactLabel : 'Contact admin';
     const bannerUrl = plan?.bannerImageUrl || defaultBannerUrl || null;
@@ -64,7 +72,7 @@ export default function PlanDetailsDrawer({
         <AnimatePresence>
             {open && plan ? (
                 <motion.div
-                    className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/64 p-4 backdrop-blur-md"
+                    className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-slate-950/64 sm:p-4 backdrop-blur-md"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -76,11 +84,11 @@ export default function PlanDetailsDrawer({
                         exit={{ opacity: 0, y: 18, scale: 0.985 }}
                         transition={{ duration: 0.22 }}
                         onClick={(event) => event.stopPropagation()}
-                        className="relative flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2.2rem] border border-slate-900/10 bg-[#fbf4e9]/96 text-slate-950 shadow-[0_50px_160px_rgba(2,6,23,0.45)] dark:border-white/10 dark:bg-[#020617]/96 dark:text-white"
+                        className="relative flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[2rem] sm:rounded-[2.2rem] border border-slate-900/10 bg-[#fbf4e9]/96 text-slate-950 shadow-[0_50px_160px_rgba(2,6,23,0.45)] dark:border-white/10 dark:bg-[#020617]/96 dark:text-white"
                     >
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.07),_transparent_28%),linear-gradient(180deg,_rgba(255,255,255,0.34),_rgba(255,255,255,0.92)_22%,_rgba(255,255,255,0.78)_100%)] dark:bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.1),_transparent_26%),linear-gradient(180deg,_rgba(255,255,255,0.02),_rgba(255,255,255,0.04)_22%,_rgba(255,255,255,0.03)_100%)]" />
 
-                        <div className="relative flex items-center justify-between gap-3 border-b border-slate-900/10 px-5 py-4 dark:border-white/10 sm:px-6">
+                        <div className="relative flex items-center justify-between gap-3 border-b border-slate-900/10 px-4 py-3 dark:border-white/10 sm:px-6 sm:py-4">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                                     Plan details
@@ -113,10 +121,10 @@ export default function PlanDetailsDrawer({
                             </div>
                         </div>
 
-                        <div className="relative flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-                            <div className="grid gap-5 xl:grid-cols-[1.02fr,0.98fr]">
+                        <div className="relative flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+                            <div className="grid gap-4 sm:gap-5 xl:grid-cols-[1.02fr,0.98fr]">
                                 <div className="space-y-5">
-                                    <section className="relative overflow-hidden rounded-[1.9rem] border border-slate-900/10 bg-[#0d172a] px-5 py-5 text-white shadow-[0_24px_80px_rgba(15,23,42,0.28)] dark:border-white/10 sm:px-6">
+                                    <section className="relative overflow-hidden rounded-[1.5rem] sm:rounded-[1.9rem] border border-slate-900/10 bg-[#0d172a] px-4 py-4 text-white shadow-[0_24px_80px_rgba(15,23,42,0.28)] dark:border-white/10 sm:px-6 sm:py-5">
                                         {bannerUrl ? (
                                             <img
                                                 src={bannerUrl}
@@ -141,18 +149,18 @@ export default function PlanDetailsDrawer({
                                                 ) : null}
                                             </div>
 
-                                            <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr),auto] lg:items-end">
+                                            <div className="mt-5 grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr),auto] lg:items-end">
                                                 <div>
-                                                    <h2 className="text-3xl font-black tracking-[-0.04em] text-white sm:text-[2.5rem]">{plan.name}</h2>
-                                                    <p className="mt-3 max-w-2xl text-sm leading-7 text-white/78 sm:text-base">
+                                                    <h2 className="text-2xl sm:text-3xl font-black tracking-[-0.04em] text-white lg:text-[2.5rem]">{plan.name}</h2>
+                                                    <p className="mt-2 sm:mt-3 max-w-2xl text-sm leading-6 sm:leading-7 text-white/78 sm:text-base">
                                                         {plan.tagline || plan.shortDescription || 'Plan details are managed from the admin pricing center.'}
                                                     </p>
                                                 </div>
 
-                                                <div className="rounded-[1.55rem] border border-white/12 bg-white/8 px-4 py-4 backdrop-blur-xl">
+                                                <div className="rounded-[1.3rem] sm:rounded-[1.55rem] border border-white/12 bg-white/8 px-3.5 sm:px-4 py-3 sm:py-4 backdrop-blur-xl">
                                                     <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/55">Price</p>
-                                                    <div className="mt-2 flex flex-wrap items-end gap-2">
-                                                        <p className="text-[2.15rem] font-black tracking-[-0.05em] text-white">{priceText}</p>
+                                                    <div className="mt-1.5 sm:mt-2 flex flex-wrap items-end gap-2">
+                                                        <p className="text-[1.75rem] sm:text-[2.15rem] font-black tracking-[-0.05em] text-white">{priceText}</p>
                                                         <span className="pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
                                                             / {priceSuffix}
                                                         </span>
@@ -285,15 +293,111 @@ export default function PlanDetailsDrawer({
                                             </div>
                                         </section>
                                     ) : null}
+
+                                    {accessPermissions.length > 0 ? (
+                                        <section className="rounded-[1.7rem] border border-slate-900/10 bg-white/82 p-5 dark:border-white/10 dark:bg-white/[0.04]">
+                                            <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                                                <Shield className="h-3.5 w-3.5" />
+                                                Access permissions
+                                            </h3>
+                                            <div className="mt-4 grid gap-2">
+                                                {accessPermissions.map((perm) => (
+                                                    <div
+                                                        key={perm.label}
+                                                        className="flex items-center justify-between rounded-[1rem] border border-slate-900/[0.06] bg-white/60 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.025]"
+                                                    >
+                                                        <span className="text-sm text-slate-700 dark:text-slate-200">{perm.label}</span>
+                                                        {perm.allowed ? (
+                                                            <CheckCircle className="h-4 w-4 text-emerald-500" />
+                                                        ) : (
+                                                            <XCircle className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    ) : null}
+
+                                    {includedModules.length > 0 ? (
+                                        <section className="rounded-[1.7rem] border border-slate-900/10 bg-white/82 p-5 dark:border-white/10 dark:bg-white/[0.04]">
+                                            <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                                                <Zap className="h-3.5 w-3.5" />
+                                                Included modules
+                                            </h3>
+                                            <div className="mt-4 flex flex-wrap gap-2">
+                                                {includedModules.map((mod) => (
+                                                    <span
+                                                        key={mod}
+                                                        className="rounded-full border border-slate-900/[0.08] bg-slate-100/80 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200"
+                                                    >
+                                                        {mod}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    ) : null}
+
+                                    {dashboardPrivileges.length > 0 ? (
+                                        <section className="rounded-[1.7rem] border border-slate-900/10 bg-white/82 p-5 dark:border-white/10 dark:bg-white/[0.04]">
+                                            <h3 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                                                Dashboard privileges
+                                            </h3>
+                                            <div className="mt-4 flex flex-wrap gap-2">
+                                                {dashboardPrivileges.map((priv) => (
+                                                    <span
+                                                        key={priv}
+                                                        className="rounded-full border border-violet-200/60 bg-violet-50/80 px-3 py-1.5 text-xs font-medium text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200"
+                                                    >
+                                                        {priv}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    ) : null}
+
+                                    {(plan.recommendedFor || plan.comparisonNote || tags.length > 0) ? (
+                                        <section className="rounded-[1.7rem] border border-slate-900/10 bg-white/82 p-5 dark:border-white/10 dark:bg-white/[0.04]">
+                                            <h3 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                                                Additional info
+                                            </h3>
+                                            <div className="mt-4 grid gap-3">
+                                                {plan.recommendedFor ? (
+                                                    <div className="rounded-[1.2rem] border border-slate-900/[0.06] bg-white/60 px-4 py-3 dark:border-white/[0.06] dark:bg-slate-950/40">
+                                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Recommended for</p>
+                                                        <p className="mt-2 text-sm leading-7 text-slate-700 dark:text-slate-200">{plan.recommendedFor}</p>
+                                                    </div>
+                                                ) : null}
+                                                {plan.comparisonNote ? (
+                                                    <div className="rounded-[1.2rem] border border-slate-900/[0.06] bg-white/60 px-4 py-3 dark:border-white/[0.06] dark:bg-slate-950/40">
+                                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Comparison note</p>
+                                                        <p className="mt-2 text-sm leading-7 text-slate-700 dark:text-slate-200">{plan.comparisonNote}</p>
+                                                    </div>
+                                                ) : null}
+                                                {tags.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {tags.map((tag) => (
+                                                            <span
+                                                                key={tag}
+                                                                className="inline-flex items-center gap-1 rounded-full border border-slate-900/[0.06] bg-slate-100/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300"
+                                                            >
+                                                                <Tag className="h-3 w-3" />
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        </section>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="relative border-t border-slate-900/10 px-5 py-4 dark:border-white/10 sm:px-6">
-                            <div className="flex flex-col gap-3 rounded-[1.5rem] border border-slate-900/10 bg-white/82 p-4 dark:border-white/10 dark:bg-white/[0.04] lg:flex-row lg:items-center">
+                        <div className="relative border-t border-slate-900/10 px-4 py-3 dark:border-white/10 sm:px-6 sm:py-4">
+                            <div className="flex flex-col gap-2.5 sm:gap-3 rounded-[1.3rem] sm:rounded-[1.5rem] border border-slate-900/10 bg-white/82 p-3.5 sm:p-4 dark:border-white/10 dark:bg-white/[0.04] lg:flex-row lg:items-center">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-slate-950 dark:text-white">{primaryLabel}</p>
-                                    <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                                    <p className="mt-0.5 sm:mt-1 text-xs leading-5 sm:leading-6 text-slate-500 dark:text-slate-400">
                                         Routing stays exactly as configured. Continue to contact, internal flow, checkout, or external payment path.
                                     </p>
                                 </div>

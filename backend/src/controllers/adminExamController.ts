@@ -37,6 +37,7 @@ import {
     adminInitUniversityImport,
     adminValidateUniversityImport,
 } from './universityImportController';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 interface PopulatedStudent { username: string; fullName: string; email: string; }
 function asStudent(s: unknown): PopulatedStudent { return s as PopulatedStudent; }
@@ -738,11 +739,7 @@ export async function adminGetExams(req: AuthRequest, res: Response): Promise<vo
                 acc[key].push(exam);
                 return acc;
             }, {});
-            res.json({
-                exams,
-                grouped: { byCategory: groupedByCategory },
-                pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },
-            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.paginated(exams, pageNum, limitNum, total));
             return;
         }
         if (String(groupBy || '').toLowerCase() === 'status') {
@@ -752,32 +749,28 @@ export async function adminGetExams(req: AuthRequest, res: Response): Promise<vo
                 acc[key].push(exam);
                 return acc;
             }, {});
-            res.json({
-                exams,
-                grouped: { byStatus: groupedByStatus },
-                pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },
-            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.paginated(exams, pageNum, limitNum, total));
             return;
         }
 
-        res.json({ exams, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ exams, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } }));
     } catch (err) {
         console.error('[adminGetExams]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminGetExamById(req: AuthRequest, res: Response): Promise<void> {
     try {
         const exam = await Exam.findById(req.params.id).populate('createdBy', 'username fullName').lean();
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
         const questionCount = await Question.countDocuments({ exam: req.params.id });
         const accessControl = (exam.accessControl as Record<string, unknown> | undefined) || {};
         const allowedGroupIds = normalizeObjectIdArray(accessControl.allowedGroupIds);
         const allowedGroups = allowedGroupIds.length > 0
             ? await StudentGroup.find({ _id: { $in: allowedGroupIds } }).select('name slug').lean()
             : [];
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             exam: {
                 ...exam,
                 questionCount,
@@ -788,10 +781,10 @@ export async function adminGetExamById(req: AuthRequest, res: Response): Promise
                 allowedGroups,
                 shareUrl: (exam as Record<string, unknown>).share_link ? `/exam/take/${String((exam as Record<string, unknown>).share_link)}` : '',
             }
-        });
+        }));
     } catch (err) {
         console.error('[adminGetExamById]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -801,7 +794,7 @@ export async function adminCreateExam(req: AuthRequest, res: Response): Promise<
 
         const validation = validateExamPayload(payload);
         if (!validation.valid) {
-            res.status(400).json({ success: false, message: 'Validation failed', errors: validation.errors });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Validation failed', { success: false, errors: validation.errors }));
             return;
         }
 
@@ -811,15 +804,10 @@ export async function adminCreateExam(req: AuthRequest, res: Response): Promise<
         const exam = await Exam.create({ ...payload, createdBy: req.user!._id });
         broadcastStudentDashboardEvent({ type: 'exam_updated', meta: { action: 'create', examId: String(exam._id) } });
         void broadcastExamMetricsSnapshot(String(exam._id), 'exam_create');
-        res.status(201).json({ exam, message: 'Exam created successfully.' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ exam }, 'Exam created successfully.'));
     } catch (err) {
         console.error('[adminCreateExam]', err);
-        res.status(500).json({
-            message: 'Server error',
-            ...(process.env.NODE_ENV === 'production'
-                ? {}
-                : { error: err instanceof Error ? err.message : String(err) }),
-        });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -829,23 +817,20 @@ export async function adminUpdateExam(req: AuthRequest, res: Response): Promise<
 
         const validation = validateExamPayload(payload);
         if (!validation.valid) {
-            res.status(400).json({ success: false, message: 'Validation failed', errors: validation.errors });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Validation failed', { success: false, errors: validation.errors }));
             return;
         }
 
         // Validate antiCheatOverrides — reject unknown keys (Req 11.6)
         if (payload.antiCheatOverrides !== undefined && payload.antiCheatOverrides !== null) {
             if (typeof payload.antiCheatOverrides !== 'object' || Array.isArray(payload.antiCheatOverrides)) {
-                res.status(400).json({ message: 'antiCheatOverrides must be an object', code: 'VALIDATION_ERROR' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'antiCheatOverrides must be an object', { code: 'VALIDATION_ERROR' }));
                 return;
             }
             const overrideKeys = Object.keys(payload.antiCheatOverrides as Record<string, unknown>);
             const unknownKeys = overrideKeys.filter((key) => !(VALID_POLICY_KEYS as readonly string[]).includes(key));
             if (unknownKeys.length > 0) {
-                res.status(400).json({
-                    message: `Unknown antiCheatOverrides keys: ${unknownKeys.join(', ')}`,
-                    code: 'UNKNOWN_OVERRIDE_KEY',
-                });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('UNKNOWN_OVERRIDE_KEY', `Unknown antiCheatOverrides keys: ${unknownKeys.join(', ')}`));
                 return;
             }
         }
@@ -861,7 +846,7 @@ export async function adminUpdateExam(req: AuthRequest, res: Response): Promise<
             { ...payload, updatedAt: new Date() },
             { new: true, runValidators: true }
         );
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
         broadcastStudentDashboardEvent({ type: 'exam_updated', meta: { action: 'update', examId: String(exam._id) } });
         void broadcastExamMetricsSnapshot(String(exam._id), 'exam_update');
         if (exam.isPublished) {
@@ -871,10 +856,10 @@ export async function adminUpdateExam(req: AuthRequest, res: Response): Promise<
                     .catch((noticeErr) => console.warn('[adminUpdateExam notice]', noticeErr));
             }
         }
-        res.json({ exam, message: 'Exam updated successfully.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ exam }, 'Exam updated successfully.'));
     } catch (err) {
         console.error('[adminUpdateExam]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -883,7 +868,7 @@ export async function adminAssignExamGroups(req: AuthRequest, res: Response): Pr
         const examId = String(req.params.id || '');
         const { targetGroupIds, visibilityMode } = req.body as { targetGroupIds?: string[]; visibilityMode?: string };
 
-        if (!examId) { res.status(400).json({ message: 'Exam ID is required' }); return; }
+        if (!examId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Exam ID is required')); return; }
 
         const updatePayload: Record<string, unknown> = {};
         if (Array.isArray(targetGroupIds)) {
@@ -894,20 +879,20 @@ export async function adminAssignExamGroups(req: AuthRequest, res: Response): Pr
         }
 
         const exam = await Exam.findByIdAndUpdate(examId, updatePayload, { new: true, runValidators: true });
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
 
         broadcastStudentDashboardEvent({ type: 'exam_updated', meta: { action: 'assign_groups', examId } });
-        res.json({ exam, message: 'Exam group assignment updated successfully.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ exam }, 'Exam group assignment updated successfully.'));
     } catch (err) {
         console.error('[adminAssignExamGroups]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteExam(req: AuthRequest, res: Response): Promise<void> {
     try {
         const exam = await Exam.findById(req.params.id);
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
         await Promise.all([
             Exam.findByIdAndDelete(req.params.id),
             Question.deleteMany({ exam: req.params.id }),
@@ -915,17 +900,17 @@ export async function adminDeleteExam(req: AuthRequest, res: Response): Promise<
             ExamSession.deleteMany({ exam: req.params.id }),
         ]);
         broadcastStudentDashboardEvent({ type: 'exam_updated', meta: { action: 'delete', examId: req.params.id } });
-        res.json({ message: 'Exam and all related data deleted.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Exam and all related data deleted.'));
     } catch (err) {
         console.error('[adminDeleteExam]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminPublishExam(req: AuthRequest, res: Response): Promise<void> {
     try {
         const examDoc = await Exam.findById(req.params.id);
-        if (!examDoc) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!examDoc) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
 
         const deliveryMode = String(examDoc.deliveryMode || 'internal').trim().toLowerCase();
         const questionCount = deliveryMode === 'external_link'
@@ -934,20 +919,20 @@ export async function adminPublishExam(req: AuthRequest, res: Response): Promise
                 $or: [{ exam: req.params.id }, { examId: req.params.id }],
             });
         if (deliveryMode !== 'external_link' && questionCount === 0) {
-            res.status(400).json({ message: 'Cannot publish an exam with no questions. Add at least one question first.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Cannot publish an exam with no questions. Add at least one question first.'));
             return;
         }
         const exam = await Exam.findByIdAndUpdate(req.params.id, { isPublished: true }, { new: true });
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
         broadcastStudentDashboardEvent({ type: 'exam_updated', meta: { action: 'publish', examId: String(exam._id) } });
         const actorId = asObjectId(req.user?._id);
         if (actorId) {
             void createExamAudienceNotice(exam.toObject() as unknown as Record<string, unknown>, actorId, 'published')
                 .catch((noticeErr) => console.warn('[adminPublishExam notice]', noticeErr));
         }
-        res.json({ message: 'Exam published.', exam });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ exam }, 'Exam published.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -955,7 +940,7 @@ export async function adminCloneExam(req: AuthRequest, res: Response): Promise<v
     try {
         const source = await Exam.findById(req.params.id).lean();
         if (!source) {
-            res.status(404).json({ message: 'Exam not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
             return;
         }
 
@@ -1008,10 +993,10 @@ export async function adminCloneExam(req: AuthRequest, res: Response): Promise<v
         }
 
         broadcastStudentDashboardEvent({ type: 'exam_updated', meta: { action: 'clone', examId: String(clonedExam._id) } });
-        res.status(201).json({ exam: clonedExam, message: 'Exam cloned successfully.' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ exam: clonedExam }, 'Exam cloned successfully.'));
     } catch (err) {
         console.error('[adminCloneExam]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1023,7 +1008,7 @@ export async function adminAutoGenerateExam(req: AuthRequest, res: Response): Pr
         const distribution = body.distribution as Record<string, unknown> | undefined;
 
         if (!distribution || typeof distribution !== 'object') {
-            res.status(400).json({ message: 'distribution object with easy, medium, hard counts is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'distribution object with easy, medium, hard counts is required.'));
             return;
         }
 
@@ -1032,12 +1017,12 @@ export async function adminAutoGenerateExam(req: AuthRequest, res: Response): Pr
         const hard = Number(distribution.hard) || 0;
 
         if (easy < 0 || medium < 0 || hard < 0) {
-            res.status(400).json({ message: 'Distribution counts must be non-negative.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Distribution counts must be non-negative.'));
             return;
         }
 
         if (easy + medium + hard === 0) {
-            res.status(400).json({ message: 'At least one question must be requested.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'At least one question must be requested.'));
             return;
         }
 
@@ -1066,19 +1051,9 @@ export async function adminAutoGenerateExam(req: AuthRequest, res: Response): Pr
             });
 
             if (available < count) {
-                res.status(400).json({
-                    message: `Insufficient ${level} questions: requested ${count}, available ${available}`,
-                    shortage: {
-                        level,
-                        requested: count,
-                        available,
-                    },
-                    distribution: {
-                        easy: { requested: easy, available: level === 'easy' ? available : undefined },
-                        medium: { requested: medium, available: level === 'medium' ? available : undefined },
-                        hard: { requested: hard, available: level === 'hard' ? available : undefined },
-                    },
-                });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Insufficient ${level} questions: requested ${count}, available ${available}`, {
+                    shortage: { level, requested: count, available },
+                }));
                 return;
             }
 
@@ -1091,14 +1066,14 @@ export async function adminAutoGenerateExam(req: AuthRequest, res: Response): Pr
             distReport[level] = { requested: count, available, selected: selected.length };
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             questions: selectedQuestions,
             distribution: distReport,
             defaultMarksPerQuestion,
-        });
+        }));
     } catch (err) {
         console.error('[adminAutoGenerateExam]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1108,13 +1083,13 @@ export async function adminBulkAttachQuestions(req: AuthRequest, res: Response):
     try {
         const examId = String(req.params.id || req.params.examId || '');
         if (!examId || !mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
 
         const exam = await Exam.findById(examId);
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
 
@@ -1122,22 +1097,22 @@ export async function adminBulkAttachQuestions(req: AuthRequest, res: Response):
         const questions = body.questions as Array<{ bankQuestionId: string; marks: number; orderIndex: number }>;
 
         if (!Array.isArray(questions) || questions.length === 0) {
-            res.status(400).json({ message: 'questions array is required and must not be empty.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'questions array is required and must not be empty.'));
             return;
         }
 
         // Validate each entry
         for (const q of questions) {
             if (!q.bankQuestionId || !mongoose.Types.ObjectId.isValid(q.bankQuestionId)) {
-                res.status(400).json({ message: `Invalid bankQuestionId: ${q.bankQuestionId}` });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid bankQuestionId: ${q.bankQuestionId}'));
                 return;
             }
             if (typeof q.marks !== 'number' || q.marks <= 0) {
-                res.status(400).json({ message: `marks must be a positive number for bankQuestionId: ${q.bankQuestionId}` });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'marks must be a positive number for bankQuestionId: ${q.bankQuestionId}'));
                 return;
             }
             if (typeof q.orderIndex !== 'number' || q.orderIndex < 0) {
-                res.status(400).json({ message: `orderIndex must be a non-negative number for bankQuestionId: ${q.bankQuestionId}` });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'orderIndex must be a non-negative number for bankQuestionId: ${q.bankQuestionId}'));
                 return;
             }
         }
@@ -1149,7 +1124,7 @@ export async function adminBulkAttachQuestions(req: AuthRequest, res: Response):
         if (bankQuestions.length !== bankQuestionIds.length) {
             const foundIds = new Set(bankQuestions.map(bq => String(bq._id)));
             const missing = bankQuestionIds.filter(id => !foundIds.has(id));
-            res.status(404).json({ message: `Bank questions not found: ${missing.join(', ')}` });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', `Bank questions not found: ${missing.join(', ')}`));
             return;
         }
 
@@ -1192,13 +1167,13 @@ export async function adminBulkAttachQuestions(req: AuthRequest, res: Response):
 
         await Exam.findByIdAndUpdate(examId, { totalQuestions, totalMarks });
 
-        res.status(201).json({
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             attached: created.length,
             examQuestions: created,
-        });
+        }));
     } catch (err) {
         console.error('[adminBulkAttachQuestions]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1222,7 +1197,7 @@ export async function adminRegenerateExamShareLink(req: AuthRequest, res: Respon
     try {
         const exam = await Exam.findById(req.params.id);
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
             return;
         }
 
@@ -1234,15 +1209,14 @@ export async function adminRegenerateExamShareLink(req: AuthRequest, res: Respon
 
         broadcastStudentDashboardEvent({ type: 'exam_updated', meta: { action: 'share_link_regenerated', examId: String(exam._id) } });
         void broadcastExamMetricsSnapshot(String(exam._id), 'share_link_regenerated');
-        res.json({
-            message: 'Share URL regenerated.',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             share_link,
             shareUrl: `/exam/take/${share_link}`,
             examId: String(exam._id),
-        });
+        }, 'Share URL regenerated.'));
     } catch (err) {
         console.error('[adminRegenerateExamShareLink]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1251,14 +1225,14 @@ export async function adminSignExamBannerUpload(req: AuthRequest, res: Response)
         const filename = String(req.body?.filename || '').trim();
         const mimeType = String(req.body?.mimeType || 'application/octet-stream');
         if (!filename) {
-            res.status(400).json({ message: 'filename is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'filename is required.'));
             return;
         }
         const signed = await getSignedUploadForBanner(filename, mimeType);
-        res.json(signed);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(signed));
     } catch (err) {
         console.error('[adminSignExamBannerUpload]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1294,12 +1268,9 @@ export async function adminForceSubmit(req: AuthRequest, res: Response): Promise
         });
         void broadcastExamMetricsSnapshot(examId, 'admin_force_submit');
 
-        res.json({
-            message: 'Session force-submitted.',
-            ...(submitResult.body as Record<string, unknown>),
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ...(submitResult.body as Record<string, unknown>) }, 'Session force-submitted.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1309,9 +1280,9 @@ export async function adminGetExamResults(req: AuthRequest, res: Response): Prom
             .populate('student', 'fullName username email phone')
             .sort({ obtainedMarks: -1 })
             .lean();
-        res.json({ results, count: results.length });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ results, count: results.length }));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1322,10 +1293,10 @@ export async function adminPublishResult(req: AuthRequest, res: Response): Promi
             { resultPublishDate: new Date() },
             { new: true }
         );
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
-        res.json({ message: 'Result published immediately.', exam });
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ exam }, 'Result published immediately.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1335,7 +1306,7 @@ export async function adminEvaluateResult(req: AuthRequest, res: Response): Prom
         const { obtainedMarks, correctCount, wrongCount, status } = req.body;
 
         const result = await ExamResult.findById(resultId);
-        if (!result) { res.status(404).json({ message: 'Result not found' }); return; }
+        if (!result) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Result not found')); return; }
 
         if (obtainedMarks !== undefined) result.obtainedMarks = obtainedMarks;
         if (correctCount !== undefined) result.correctCount = correctCount;
@@ -1347,10 +1318,10 @@ export async function adminEvaluateResult(req: AuthRequest, res: Response): Prom
         }
 
         await result.save();
-        res.json({ message: 'Result evaluated successfully.', result });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ result }, 'Result evaluated successfully.'));
     } catch (err) {
         console.error('[adminEvaluateResult]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1380,9 +1351,9 @@ export async function adminGetQuestions(req: AuthRequest, res: Response): Promis
             fromBank: true,
         }));
         const allQuestions = [...legacyQuestions, ...normalizedBank];
-        res.json({ questions: allQuestions, count: allQuestions.length });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ questions: allQuestions, count: allQuestions.length }));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1412,9 +1383,9 @@ export async function adminCreateQuestion(req: AuthRequest, res: Response): Prom
         const question = await Question.create({ ...payload, exam: examId, order: payload.order ?? count + 1 });
         // Update totalQuestions count on exam
         await Exam.findByIdAndUpdate(examId, { $inc: { totalQuestions: 1 } });
-        res.status(201).json({ question, message: 'Question created.' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ question }, 'Question created.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1422,21 +1393,21 @@ export async function adminUpdateQuestion(req: AuthRequest, res: Response): Prom
     try {
         const payload = normalizeQuestionPayload(req.body);
         const question = await Question.findByIdAndUpdate(req.params.questionId, payload, { new: true });
-        if (!question) { res.status(404).json({ message: 'Question not found' }); return; }
-        res.json({ question, message: 'Question updated.' });
+        if (!question) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Question not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ question }, 'Question updated.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteQuestion(req: AuthRequest, res: Response): Promise<void> {
     try {
         const question = await Question.findByIdAndDelete(req.params.questionId);
-        if (!question) { res.status(404).json({ message: 'Question not found' }); return; }
+        if (!question) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Question not found')); return; }
         await Exam.findByIdAndUpdate(question.exam, { $inc: { totalQuestions: -1 } });
-        res.json({ message: 'Question deleted.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Question deleted.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1446,13 +1417,13 @@ export async function adminReorderQuestions(req: AuthRequest, res: Response): Pr
         const { questions } = req.body as { questions: Array<{ questionId: string; orderIndex: number }> };
 
         if (!Array.isArray(questions) || questions.length === 0) {
-            res.status(400).json({ message: 'questions array is required and must not be empty.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'questions array is required and must not be empty.'));
             return;
         }
 
         const exam = await Exam.findById(examId);
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
 
@@ -1464,9 +1435,9 @@ export async function adminReorderQuestions(req: AuthRequest, res: Response): Pr
         );
         await Promise.all(updates);
 
-        res.json({ message: 'Questions reordered.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Questions reordered.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1476,11 +1447,11 @@ export async function adminImportQuestionsFromExcel(req: AuthRequest, res: Respo
     try {
         const { examId } = req.params;
         const exam = await Exam.findById(examId);
-        if (!exam) { res.status(404).json({ message: 'Exam not found.' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.')); return; }
 
         const questionsList = req.body;
         if (!Array.isArray(questionsList) || questionsList.length === 0) {
-            res.status(400).json({ message: 'Payload must be a non-empty array of mapped questions.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Payload must be a non-empty array of mapped questions.'));
             return;
         }
 
@@ -1509,15 +1480,14 @@ export async function adminImportQuestionsFromExcel(req: AuthRequest, res: Respo
         await Question.insertMany(toInsert);
         await Exam.findByIdAndUpdate(examId, { $inc: { totalQuestions: toInsert.length } });
 
-        res.status(201).json({
-            message: `Import complete. ${toInsert.length} questions added.`,
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             imported: toInsert.length,
             duplicatesSkipped: 0,
             duplicateRows: []
-        });
+        }, `Import complete. ${toInsert.length} questions added.`));
     } catch (err) {
         console.error('[adminImportQuestionsFromExcel]', err);
-        res.status(500).json({ message: 'Server error during import.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during import.'));
     }
 }
 
@@ -1527,7 +1497,7 @@ export async function adminGetExamAnalytics(req: AuthRequest, res: Response): Pr
     try {
         const { examId } = req.params;
         const exam = await Exam.findById(examId).lean();
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
 
         const results = await ExamResult.find({ exam: examId })
             .populate('student', 'username fullName email')
@@ -1551,7 +1521,7 @@ export async function adminGetExamAnalytics(req: AuthRequest, res: Response): Pr
             totalTabSwitches += r.tabSwitchCount || 0;
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             exam,
             totalParticipants: results.length,
             avgScore: exam.avgScore,
@@ -1588,10 +1558,10 @@ export async function adminGetExamAnalytics(req: AuthRequest, res: Response): Pr
                 status: (r as any).status || 'evaluated',
                 _id: r._id,
             })),
-        });
+        }));
     } catch (err) {
         console.error('[adminGetExamAnalytics]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1649,7 +1619,7 @@ export async function adminExportExamResults(req: AuthRequest, res: Response): P
     try {
         const examId = String(req.params.examId || '');
         const exam = await Exam.findById(examId).lean();
-        if (!exam) { res.status(404).json({ message: 'Exam not found' }); return; }
+        if (!exam) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found')); return; }
 
         const results = await ExamResult.find({ exam: examId })
             .populate('student', 'username fullName email')
@@ -1746,7 +1716,7 @@ export async function adminExportExamResults(req: AuthRequest, res: Response): P
         res.end();
     } catch (err) {
         console.error('[adminExportExamResults]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1970,7 +1940,7 @@ export async function adminDownloadExamResultsImportTemplate(req: AuthRequest, r
         res.send(buffer);
     } catch (err) {
         console.error('[adminDownloadExamResultsImportTemplate]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1978,23 +1948,23 @@ export async function adminImportExamResults(req: AuthRequest, res: Response): P
     try {
         const examId = String(req.params.id || req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
         if (!req.file?.buffer || !req.file?.originalname) {
-            res.status(400).json({ message: 'No file uploaded.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded.'));
             return;
         }
 
         const exam = await Exam.findById(examId).select('title totalMarks').lean();
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
 
         const rawRows = readImportRowsFromBuffer(req.file.buffer, req.file.originalname);
         if (!rawRows.length) {
-            res.status(400).json({ message: 'No data rows found in the uploaded file.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No data rows found in the uploaded file.'));
             return;
         }
 
@@ -2096,11 +2066,10 @@ export async function adminImportExamResults(req: AuthRequest, res: Response): P
         }
 
         if (!ops.length) {
-            res.status(400).json({
-                message: 'No valid rows found to import.',
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No valid rows found to import.', {
                 imported: 0,
-                errors,
-            });
+                errors
+            }));
             return;
         }
 
@@ -2111,19 +2080,18 @@ export async function adminImportExamResults(req: AuthRequest, res: Response): P
             .filter((id) => mongoose.Types.ObjectId.isValid(id))));
         await Promise.all(impactedStudentIds.map((studentId) => updateStudentPoints(studentId)));
 
-        res.json({
-            message: 'Exam results imported successfully.',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             examId,
             examTitle: exam.title,
             imported: Number(bulkResult.upsertedCount || 0) + Number(bulkResult.modifiedCount || 0),
             inserted: Number(bulkResult.upsertedCount || 0),
             updated: Number(bulkResult.modifiedCount || 0),
             invalid: errors.length,
-            errors,
-        });
+            errors
+        }, 'Exam results imported successfully.'));
     } catch (err) {
         console.error('[adminImportExamResults]', err);
-        res.status(500).json({ message: 'Server error during import.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during import.'));
     }
 }
 
@@ -2131,11 +2099,11 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
     try {
         const examId = String(req.params.id || req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
         if (!req.file?.buffer || !req.file?.originalname) {
-            res.status(400).json({ message: 'No file uploaded.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded.'));
             return;
         }
 
@@ -2143,17 +2111,17 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
             .select('title totalMarks deliveryMode accessMode allowedUsers accessControl visibilityMode targetGroupIds requiresActiveSubscription subscriptionRequired')
             .lean();
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
         if (String((exam as Record<string, unknown>).deliveryMode || 'internal') !== 'external_link') {
-            res.status(400).json({ message: 'This exam is not configured as an external-link exam.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'This exam is not configured as an external-link exam.'));
             return;
         }
 
         const rawRows = readImportRowsFromBuffer(req.file.buffer, req.file.originalname);
         if (!rawRows.length) {
-            res.status(400).json({ message: 'No data rows found in the uploaded file.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No data rows found in the uploaded file.'));
             return;
         }
 
@@ -2529,19 +2497,17 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
         }
 
         if (inserted === 0 && updated === 0) {
-            res.status(400).json({
-                message: 'No valid rows found to import.',
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No valid rows found to import.', {
                 imported: 0,
-                errors,
-            });
+                errors
+            }));
             return;
         }
 
         await recomputeGlobalExamRanks(examId);
         await Promise.all(Array.from(impactedStudentIds).map((studentId) => updateStudentPoints(studentId)));
 
-        res.json({
-            message: 'External exam results imported successfully.',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             examId,
             examTitle: (exam as Record<string, unknown>).title,
             imported: inserted + updated,
@@ -2550,11 +2516,11 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
             profileUpdates,
             invalid: errors.length,
             errors,
-            syncProfileMode,
-        });
+            syncProfileMode
+        }, 'External exam results imported successfully.'));
     } catch (err) {
         console.error('[adminImportExternalExamResults]', err);
-        res.status(500).json({ message: 'Server error during external import.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during external import.'));
     }
 }
 
@@ -2562,13 +2528,13 @@ export async function adminExportExamReport(req: AuthRequest, res: Response): Pr
     try {
         const examId = String(req.params.id || req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
 
         const groupId = String(req.query.groupId || '').trim();
         if (groupId && !mongoose.Types.ObjectId.isValid(groupId)) {
-            res.status(400).json({ message: 'Invalid groupId.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid groupId.'));
             return;
         }
 
@@ -2675,7 +2641,7 @@ export async function adminExportExamEvents(req: AuthRequest, res: Response): Pr
         const format = String(req.query.format || 'csv').toLowerCase();
         const exam = await Exam.findById(examId).lean();
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
             return;
         }
 
@@ -2734,7 +2700,7 @@ export async function adminExportExamEvents(req: AuthRequest, res: Response): Pr
         res.send(csvRows.join('\n'));
     } catch (err) {
         console.error('[adminExportExamEvents]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2762,7 +2728,7 @@ export async function adminStartExamPreview(req: AuthRequest, res: Response): Pr
         const adminId = String(req.user?._id || '');
         const exam = await Exam.findById(examId).lean();
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
             return;
         }
 
@@ -2805,7 +2771,7 @@ export async function adminStartExamPreview(req: AuthRequest, res: Response): Pr
             });
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             preview: true,
             exam: {
                 _id: exam._id,
@@ -2828,10 +2794,10 @@ export async function adminStartExamPreview(req: AuthRequest, res: Response): Pr
             },
             questions,
             serverNow: new Date().toISOString(),
-        });
+        }));
     } catch (err) {
         console.error('[adminStartExamPreview]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2842,7 +2808,7 @@ export async function adminGetExamPreview(req: AuthRequest, res: Response): Prom
         const examId = String(req.params.id || req.params.examId || '');
         const exam = await Exam.findById(examId).lean();
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
             return;
         }
 
@@ -2863,7 +2829,7 @@ export async function adminGetExamPreview(req: AuthRequest, res: Response): Prom
             marks: q.marks,
         }));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             exam: {
                 title: exam.title,
                 subject: exam.subject,
@@ -2874,10 +2840,10 @@ export async function adminGetExamPreview(req: AuthRequest, res: Response): Prom
                 negativeMarkValue: exam.negativeMarkValue,
             },
             questions: previewQuestions,
-        });
+        }));
     } catch (err) {
         console.error('[adminGetExamPreview]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2923,7 +2889,7 @@ export async function adminDailyReport(req: AuthRequest, res: Response): Promise
         res.end();
     } catch (err) {
         console.error('[adminDailyReport]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2948,9 +2914,9 @@ export async function adminGetUsers(req: AuthRequest, res: Response): Promise<vo
             .skip((pageNum - 1) * limitNum)
             .limit(limitNum)
             .lean();
-        res.json({ users, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ users, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } }));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2990,22 +2956,22 @@ export async function adminUpdateUserSubscription(req: AuthRequest, res: Respons
             },
             { new: true }
         ).select('-password');
-        if (!user) { res.status(404).json({ message: 'User not found' }); return; }
-        res.json({ user, message: 'Subscription updated.' });
+        if (!user) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ user }, 'Subscription updated.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleUserStatus(req: AuthRequest, res: Response): Promise<void> {
     try {
         const user = await User.findById(req.params.userId);
-        if (!user) { res.status(404).json({ message: 'User not found' }); return; }
+        if (!user) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found')); return; }
         user.status = user.status === 'active' ? 'suspended' : 'active';
         await user.save();
-        res.json({ message: `User status changed to ${user.status}.`, status: user.status });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ status: user.status }, `User status changed to ${user.status}.`));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3016,9 +2982,9 @@ export async function adminResetExamAttempt(req: AuthRequest, res: Response): Pr
             ExamResult.deleteOne({ exam: examId, student: userId }),
             ExamSession.deleteOne({ exam: examId, student: userId }),
         ]);
-        res.json({ message: 'Exam attempt reset for student.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Exam attempt reset for student.'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3027,7 +2993,7 @@ export async function adminGetStudentReport(req: AuthRequest, res: Response): Pr
     try {
         const { userId } = req.params;
         const student = await User.findById(userId).select('username fullName email phone role').lean();
-        if (!student) { res.status(404).json({ message: 'Student not found.' }); return; }
+        if (!student) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found.')); return; }
 
         const results = await ExamResult.find({ student: userId })
             .populate('exam', 'title subject totalMarks duration negativeMarking startDate endDate')
@@ -3061,14 +3027,14 @@ export async function adminGetStudentReport(req: AuthRequest, res: Response): Pr
         const totalExams = results.length;
         const avgPercentage = totalExams > 0 ? Math.round((results.reduce((s, r) => s + r.percentage, 0) / totalExams) * 10) / 10 : 0;
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             student,
             summary: { totalExams, avgPercentage },
             exams: report,
-        });
+        }));
     } catch (err) {
         console.error('[adminGetStudentReport]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3076,7 +3042,7 @@ export async function adminGetStudentReport(req: AuthRequest, res: Response): Pr
 export async function adminBulkImportUniversities(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: 'No file uploaded.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded.'));
             return;
         }
 
@@ -3117,7 +3083,7 @@ export async function adminBulkImportUniversities(req: AuthRequest, res: Respons
         const initBody = asRecordObject(initResult.body) || {};
         const jobId = String(initBody.importJobId || '').trim();
         if (!jobId) {
-            res.status(500).json({ message: 'Legacy import failed to initialize an import job.' });
+            ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Legacy import failed to initialize an import job.'));
             return;
         }
 
@@ -3200,20 +3166,19 @@ export async function adminBulkImportUniversities(req: AuthRequest, res: Respons
             })
             .filter((item) => item.row > 0);
 
-        res.json({
-            message: `Import complete. ${legacyImported} added, ${legacyUpdated} updated.`,
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             imported: legacyImported,
             updated: legacyUpdated,
             errors: legacyErrors,
             importJobId: jobId,
             validationSummary: validateBody.validationSummary || null,
             commitSummary,
-            warnings: Array.isArray(commitBody.warnings) ? commitBody.warnings : [],
-        });
+            warnings: Array.isArray(commitBody.warnings) ? commitBody.warnings : []
+        }, `Import complete. ${legacyImported} added, ${legacyUpdated} updated.`));
         return;
     } catch (err) {
         console.error('[adminBulkImportUniversities]', err);
-        res.status(500).json({ message: 'Server error during import.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during import.'));
     }
 }
 
@@ -3258,15 +3223,15 @@ export const adminGetLiveExamSessions = async (req: AuthRequest, res: Response) 
             };
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             sessions,
             total,
             page,
             totalPages: Math.ceil(total / limit)
-        });
+        }));
     } catch (err) {
         console.error('[adminGetLiveExamSessions]', err);
-        res.status(500).json({ message: 'Server error fetching live exam sessions.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error fetching live exam sessions.'));
     }
 };
 
@@ -3275,7 +3240,7 @@ export async function adminLiveStream(req: AuthRequest, res: Response): Promise<
         addAdminLiveStreamClient(res);
     } catch (err) {
         console.error('[adminLiveStream]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3283,20 +3248,20 @@ export async function adminLiveAttemptAction(req: AuthRequest, res: Response): P
     try {
         const attemptId = String(req.params.attemptId || '');
         if (!attemptId || !mongoose.Types.ObjectId.isValid(attemptId)) {
-            res.status(400).json({ message: 'Invalid attempt id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid attempt id.'));
             return;
         }
 
         const body = (req.body || {}) as Record<string, unknown>;
         const action = String(body.action || '').trim().toLowerCase();
         if (!['warn', 'force_submit', 'lock', 'message'].includes(action)) {
-            res.status(400).json({ message: 'Invalid action.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid action.'));
             return;
         }
 
         const session = await ExamSession.findById(attemptId).lean();
         if (!session) {
-            res.status(404).json({ message: 'Attempt not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Attempt not found.'));
             return;
         }
 
@@ -3328,7 +3293,7 @@ export async function adminLiveAttemptAction(req: AuthRequest, res: Response): P
                 ip: req.ip || '',
                 userAgent: req.get('User-Agent') || '',
             });
-            res.json({ action, status: 'ok', message: 'Attempt force-submitted.' });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ action, status: 'ok' }, 'Attempt force-submitted.'));
             return;
         }
 
@@ -3349,7 +3314,7 @@ export async function adminLiveAttemptAction(req: AuthRequest, res: Response): P
                 ip: req.ip || '',
                 userAgent: req.get('User-Agent') || '',
             });
-            res.json({ action, status: 'ok', message: 'Attempt locked.' });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ action, status: 'ok' }, 'Attempt locked.'));
             return;
         }
 
@@ -3366,13 +3331,13 @@ export async function adminLiveAttemptAction(req: AuthRequest, res: Response): P
                 ip: req.ip || '',
                 userAgent: req.get('User-Agent') || '',
             });
-            res.json({ action, status: 'ok', message: 'Warning sent.' });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ action, status: 'ok' }, 'Warning sent.'));
             return;
         }
 
         const message = String(body.message || '').trim();
         if (!message) {
-            res.status(400).json({ message: 'Message is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Message is required.'));
             return;
         }
         broadcastExamAttemptEventByMeta({ examId, studentId }, 'policy-warning', { source: 'admin_message', actorId, message });
@@ -3386,10 +3351,10 @@ export async function adminLiveAttemptAction(req: AuthRequest, res: Response): P
             ip: req.ip || '',
             userAgent: req.get('User-Agent') || '',
         });
-        res.json({ action, status: 'ok', message: 'Message sent.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ action, status: 'ok' }, 'Message sent.'));
     } catch (err) {
         console.error('[adminLiveAttemptAction]', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 

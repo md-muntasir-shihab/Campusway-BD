@@ -3,6 +3,7 @@ import Banner from '../models/Banner';
 import { AuthRequest } from '../middlewares/auth';
 import { getSignedUploadForBanner } from '../services/uploadProvider';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function isBannerActive(
     banner: { isActive?: boolean; status?: string; startDate?: Date | null; endDate?: Date | null },
@@ -30,20 +31,20 @@ export async function getActiveBanners(req: Request, res: Response): Promise<voi
             .lean();
 
         const activeBanners = banners.filter((banner) => isBannerActive(banner, now));
-        res.json({ banners: activeBanners });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ banners: activeBanners }));
     } catch (err) {
         console.error('getActiveBanners error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminGetBanners(_req: Request, res: Response): Promise<void> {
     try {
         const banners = await Banner.find().sort({ slot: 1, priority: -1, order: 1 }).lean();
-        res.json({ banners });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ banners }));
     } catch (err) {
         console.error('adminGetBanners error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -84,10 +85,10 @@ export async function adminCreateBanner(req: AuthRequest, res: Response): Promis
             popupConfig,
         });
         broadcastHomeStreamEvent({ type: 'banner-updated', meta: { action: 'create', bannerId: String(banner._id) } });
-        res.status(201).json({ banner, message: 'Banner created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({banner}, 'Banner created'));
     } catch (err) {
         console.error('adminCreateBanner error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -124,14 +125,14 @@ export async function adminUpdateBanner(req: Request, res: Response): Promise<vo
 
         const banner = await Banner.findByIdAndUpdate(req.params.id, update, { new: true });
         if (!banner) {
-            res.status(404).json({ message: 'Banner not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Banner not found'));
             return;
         }
         broadcastHomeStreamEvent({ type: 'banner-updated', meta: { action: 'update', bannerId: String(banner._id) } });
-        res.json({ banner, message: 'Banner updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({banner}, 'Banner updated'));
     } catch (err) {
         console.error('adminUpdateBanner error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -139,14 +140,14 @@ export async function adminDeleteBanner(req: Request, res: Response): Promise<vo
     try {
         const banner = await Banner.findByIdAndDelete(req.params.id);
         if (!banner) {
-            res.status(404).json({ message: 'Banner not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Banner not found'));
             return;
         }
         broadcastHomeStreamEvent({ type: 'banner-updated', meta: { action: 'delete', bannerId: req.params.id } });
-        res.json({ message: 'Banner deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Banner deleted'));
     } catch (err) {
         console.error('adminDeleteBanner error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -154,7 +155,7 @@ export async function adminPublishBanner(req: Request, res: Response): Promise<v
     try {
         const banner = await Banner.findById(req.params.id);
         if (!banner) {
-            res.status(404).json({ message: 'Banner not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Banner not found'));
             return;
         }
         const publish = req.body?.publish !== undefined ? Boolean(req.body.publish) : true;
@@ -165,10 +166,10 @@ export async function adminPublishBanner(req: Request, res: Response): Promise<v
             type: 'banner-updated',
             meta: { action: publish ? 'publish' : 'unpublish', bannerId: String(banner._id) },
         });
-        res.json({ banner, message: publish ? 'Banner published' : 'Banner unpublished' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ banner, message: publish ? 'Banner published' : 'Banner unpublished' }));
     } catch (err) {
         console.error('adminPublishBanner error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -177,13 +178,13 @@ export async function adminSignBannerUpload(req: Request, res: Response): Promis
         const filename = String(req.body?.filename || '').trim();
         const mimeType = String(req.body?.mimeType || 'application/octet-stream');
         if (!filename) {
-            res.status(400).json({ message: 'filename is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'filename is required.'));
             return;
         }
         const signed = await getSignedUploadForBanner(filename, mimeType);
-        res.json(signed);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(signed));
     } catch (err) {
         console.error('adminSignBannerUpload error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

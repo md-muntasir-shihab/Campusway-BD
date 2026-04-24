@@ -44,7 +44,7 @@ const CENTER_TABS: Array<{ key: CenterTab; label: string; icon: typeof Users }> 
   { key: 'presets', label: 'Format Presets', icon: Settings2 },
   { key: 'logs', label: 'Logs / History', icon: History },
 ];
-const EMPTY_FILTERS: SubscriptionContactCenterFilters = { bucket: 'all', search: '', planIds: [], groupIds: [], departments: [], institutionNames: [], selectedUserIds: [] };
+const EMPTY_FILTERS: SubscriptionContactCenterFilters = { bucket: 'all', excludeExpired: true, search: '', planIds: [], groupIds: [], departments: [], institutionNames: [], selectedUserIds: [] };
 const BUCKET_OPTIONS = [
   { value: 'all', label: 'All buckets' }, { value: 'active', label: 'Active' },
   { value: 'renewal_due', label: 'Renewal Due' }, { value: 'expired', label: 'Expired' },
@@ -91,7 +91,8 @@ function presetDraftFromPreset(p?: Partial<SubscriptionContactCenterPreset> | nu
   return {
     name: p?.name || '', prefix: p?.prefix || '', suffix: p?.suffix || '', separator: p?.separator || '\n',
     includeName: p?.includeName ?? false, includeEmail: p?.includeEmail ?? false, includeGuardian: p?.includeGuardian ?? false,
-    includePlan: p?.includePlan ?? false, includeStatus: p?.includeStatus ?? false, isDefault: p?.isDefault ?? false
+    includePlan: p?.includePlan ?? false, includeStatus: p?.includeStatus ?? false, excludeExpiredByDefault: p?.excludeExpiredByDefault ?? true,
+    isDefault: p?.isDefault ?? false
   };
 }
 function trimFilterPayload(f: SubscriptionContactCenterFilters): SubscriptionContactCenterFilters {
@@ -429,6 +430,11 @@ export default function SubscriptionContactCenterPage() {
             className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600">
             {BUCKET_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600">
+            <input type="checkbox" checked={filters.excludeExpired !== false} onChange={(e) => setFilters((c) => ({ ...c, excludeExpired: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600" />
+            <span className="text-slate-600 dark:text-slate-300">Exclude Expired</span>
+          </label>
           <button onClick={() => setShowAdvancedFilters((c) => !c)}
             className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${showAdvancedFilters ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600'}`}>
             <Filter className="h-4 w-4" /> Filters <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />

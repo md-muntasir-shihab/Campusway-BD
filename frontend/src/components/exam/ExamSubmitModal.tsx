@@ -40,7 +40,7 @@ export default function ExamSubmitModal({
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.95, opacity: 0 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+                    className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col dark:bg-slate-900"
                 >
                     <div className={`p-6 text-white flex items-center gap-3 ${isTimeUp ? 'bg-red-500' : 'bg-indigo-600'}`}>
                         {isTimeUp ? <Clock className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
@@ -52,22 +52,22 @@ export default function ExamSubmitModal({
 
                     <div className="p-6">
                         <div className="grid gap-4 mb-6">
-                            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                                <span className="text-sm font-medium text-emerald-800 flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded-full"></div> Answered</span>
-                                <span className="text-lg font-bold text-emerald-600">{answeredCount}</span>
+                            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/40">
+                                <span className="text-sm font-medium text-emerald-800 flex items-center gap-2 dark:text-emerald-300"><div className="w-3 h-3 bg-emerald-500 rounded-full"></div> Answered</span>
+                                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{answeredCount}</span>
                             </div>
-                            <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
-                                <span className="text-sm font-medium text-red-800 flex items-center gap-2"><div className="w-3 h-3 bg-red-400 rounded-full"></div> Not Answered</span>
-                                <span className="text-lg font-bold text-red-600">{notAnsweredCount}</span>
+                            <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100 dark:bg-red-950/30 dark:border-red-900/40">
+                                <span className="text-sm font-medium text-red-800 flex items-center gap-2 dark:text-red-300"><div className="w-3 h-3 bg-red-400 rounded-full"></div> Not Answered</span>
+                                <span className="text-lg font-bold text-red-600 dark:text-red-400">{notAnsweredCount}</span>
                             </div>
-                            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
-                                <span className="text-sm font-medium text-amber-800 flex items-center gap-2"><div className="w-3 h-3 bg-amber-400 rounded-full"></div> Marked for Review</span>
-                                <span className="text-lg font-bold text-amber-600">{markedForReviewCount}</span>
+                            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100 dark:bg-amber-950/30 dark:border-amber-900/40">
+                                <span className="text-sm font-medium text-amber-800 flex items-center gap-2 dark:text-amber-300"><div className="w-3 h-3 bg-amber-400 rounded-full"></div> Marked for Review</span>
+                                <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{markedForReviewCount}</span>
                             </div>
                         </div>
 
                         {!isTimeUp && (
-                            <p className="text-sm text-slate-500 text-center mb-6">
+                            <p className="text-sm text-slate-500 text-center mb-6 dark:text-slate-400">
                                 Once you submit, you will not be able to change your answers. Do you wish to proceed?
                             </p>
                         )}
@@ -77,7 +77,7 @@ export default function ExamSubmitModal({
                                 <button
                                     onClick={onClose}
                                     disabled={isSubmitting}
-                                    className="flex-1 py-3 text-slate-600 font-semibold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
+                                    className="flex-1 py-3 text-slate-600 font-semibold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50 dark:text-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700"
                                 >
                                     Cancel
                                 </button>

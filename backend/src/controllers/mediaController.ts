@@ -6,6 +6,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { getFirebaseStorageBucket } from '../config/firebaseAdmin';
 import { buildSecureUploadUrl, registerSecureUpload } from '../services/secureUploadService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 // Ensure the upload directory exists
 const uploadDir = path.join(__dirname, '../../public/uploads');
@@ -126,12 +127,12 @@ export const uploadMiddleware = multer({
 export async function uploadMedia(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: 'No file uploaded.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded.'));
             return;
         }
 
         if (!isAllowedUpload(req.file)) {
-            res.status(400).json({ message: `Unsupported file type: ${req.file.mimetype}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported file type: ${req.file.mimetype}'));
             return;
         }
 
@@ -162,15 +163,12 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
 
                 const publicUrl = `https://storage.googleapis.com/${firebaseBucket.name}/${objectKey}`;
                 fs.unlink(req.file.path, () => { /* ignore */ });
-                res.status(201).json({
-                    message: 'File uploaded successfully.',
-                    url: publicUrl,
+                ResponseBuilder.send(res, 201, ResponseBuilder.created({url: publicUrl,
                     absoluteUrl: publicUrl,
                     filename: objectKey,
                     mimetype: req.file.mimetype,
                     size: req.file.size,
-                    provider: 'firebase',
-                });
+                    provider: 'firebase'}, 'File uploaded successfully.'));
                 return;
             } catch (firebaseErr) {
                 console.warn('[uploadMedia] Firebase upload failed, falling back to local storage:', firebaseErr);
@@ -189,15 +187,12 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
                 accessRoles,
             });
             const url = buildSecureUploadUrl(secureUpload.storedName);
-            res.status(201).json({
-                message: 'File uploaded successfully.',
-                url,
+            ResponseBuilder.send(res, 201, ResponseBuilder.created({url,
                 absoluteUrl: `${origin}${url}`,
                 filename: secureUpload.storedName,
                 mimetype: secureUpload.mimeType,
                 size: secureUpload.sizeBytes,
-                visibility: secureUpload.visibility,
-            });
+                visibility: secureUpload.visibility}, 'File uploaded successfully.'));
             return;
         }
 
@@ -211,18 +206,15 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
         const fileUrl = `/uploads/${req.file.filename}`;
         const absoluteUrl = buildAbsoluteUploadUrl(fileUrl, origin);
 
-        res.status(201).json({
-            message: 'File uploaded successfully.',
-            url: fileUrl,
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({url: fileUrl,
             absoluteUrl,
             filename: req.file.filename,
             mimetype: req.file.mimetype,
             size: req.file.size,
-            visibility: 'public',
-        });
+            visibility: 'public'}, 'File uploaded successfully.'));
     } catch (err) {
         console.error('[uploadMedia]', err);
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        res.status(500).json({ message: `Server error during file upload: ${errorMessage}` });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during file upload: ${errorMessage}'));
     }
 }

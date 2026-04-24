@@ -352,24 +352,31 @@ export default function SingleNewsPage() {
                     transition={{ duration: 0.24 }}
                     className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/60"
                 >
-                    <img src={image} alt={newsItem.title} className="h-64 w-full object-cover sm:h-80 lg:h-[420px]" />
-                    <div className="space-y-4 p-5 sm:p-7">
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-300">
-                            <span className="rounded-full bg-cyan-500/15 px-2.5 py-1 font-medium text-cyan-700 dark:text-cyan-200">
-                                {newsItem.category || 'General'}
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                                <CalendarDays className="h-3.5 w-3.5" />
-                                {renderDate(newsItem.publishedAt || newsItem.publishDate || newsItem.createdAt)}
-                            </span>
+                    <div className="relative">
+                        <img src={image} alt={newsItem.title} className="h-56 w-full object-cover sm:h-72 lg:h-[400px]" loading="lazy" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
+                            <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
+                                <span className="rounded-full bg-cyan-500 px-2.5 py-1 font-semibold text-white shadow-sm">
+                                    {newsItem.category || 'General'}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-white/80">
+                                    <CalendarDays className="h-3.5 w-3.5" />
+                                    {renderDate(newsItem.publishedAt || newsItem.publishDate || newsItem.createdAt)}
+                                </span>
+                            </div>
+                            <h1 className="text-xl font-black leading-tight text-white sm:text-3xl lg:text-4xl drop-shadow-lg">
+                                {newsItem.title}
+                            </h1>
                         </div>
-                        <h1 className="text-2xl font-black leading-tight text-slate-900 dark:text-white sm:text-4xl">
-                            {newsItem.title}
-                        </h1>
-                        <p className="text-sm text-slate-600 dark:text-slate-300 sm:text-base">
-                            {newsItem.shortSummary || newsItem.shortDescription}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-200">
+                    </div>
+                    <div className="space-y-5 p-5 sm:p-7 lg:p-8">
+                        {(newsItem.shortSummary || newsItem.shortDescription) && (
+                            <p className="text-sm text-slate-600 dark:text-slate-300 sm:text-base lg:text-lg leading-relaxed border-l-4 border-cyan-500/40 pl-4 italic">
+                                {newsItem.shortSummary || newsItem.shortDescription}
+                            </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-slate-600 dark:text-slate-200">
                             <a
                                 href={sourceUrl}
                                 target={sourceUrl !== '#' ? '_blank' : undefined}
@@ -424,7 +431,7 @@ export default function SingleNewsPage() {
                             ) : null}
                         </div>
                         {hasBodyContent ? (
-                            <div className="space-y-4 border-t border-slate-200 pt-5 text-[15px] leading-8 text-slate-700 dark:border-white/10 dark:text-slate-200 sm:text-base">
+                            <div className="space-y-5 border-t border-slate-200 pt-6 text-[15px] leading-[1.85] text-slate-700 dark:border-white/10 dark:text-slate-200 sm:text-base lg:text-[17px] max-w-prose">
                                 {cleanedArticleParagraphs.map((paragraph, index) => (
                                     <p key={`${newsItem._id}-paragraph-${index}`}>{paragraph}</p>
                                 ))}
@@ -442,31 +449,38 @@ export default function SingleNewsPage() {
                 </motion.header>
 
                 {relatedNews.length > 0 ? (
-                    <section className="mt-7 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/60">
-                        <div className="mb-4 flex items-center justify-between">
+                    <section className="mt-8 rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-sm dark:border-white/10 dark:bg-slate-950/60">
+                        <div className="mb-5 flex items-center justify-between">
                             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Related Articles</h2>
-                            <Link to="/news" className="text-sm font-semibold text-cyan-600 hover:text-cyan-500">
+                            <Link to="/news" className="text-sm font-semibold text-cyan-600 hover:text-cyan-500 transition-colors">
                                 View all
                             </Link>
                         </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {relatedNews.slice(0, 5).map((item) => (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {relatedNews.slice(0, 6).map((item) => (
                                 <Link
                                     key={item._id}
                                     to={`/news/${item.slug || item._id}`}
-                                    className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition hover:-translate-y-0.5 hover:border-cyan-500/60 dark:border-white/10 dark:bg-slate-900/60"
+                                    className="group overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-cyan-500/40 dark:border-white/10 dark:bg-slate-900/60"
                                 >
-                                    <img
-                                        src={getArticleImage(item, settings)}
-                                        alt={item.title}
-                                        className="h-32 w-full object-cover"
-                                        loading="lazy"
-                                    />
-                                    <div className="space-y-2 p-3">
-                                        <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white">
+                                    <div className="relative overflow-hidden">
+                                        <img
+                                            src={getArticleImage(item, settings)}
+                                            alt={item.title}
+                                            className="h-36 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                            loading="lazy"
+                                        />
+                                        {item.category && (
+                                            <span className="absolute top-2 left-2 rounded-full bg-black/50 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white">
+                                                {item.category}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2 p-3.5">
+                                        <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                                             {item.title}
                                         </h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-300">
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
                                             {renderDate(item.publishedAt || item.publishDate || item.createdAt)}
                                         </p>
                                     </div>

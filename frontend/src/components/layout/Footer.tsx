@@ -275,7 +275,7 @@ export default function Footer() {
                                 ) : null}
                             </div>
                         </Link>
-                        <p className="mt-3 line-clamp-2 text-[12px] leading-5 text-white/62">
+                        <p className="mt-3 sm:line-clamp-2 text-[12px] leading-5 text-white/62">
                             {footerAboutText}
                         </p>
                     </div>
@@ -404,7 +404,7 @@ export default function Footer() {
 
             <div className="border-t border-white/10">
                 <div className="section-container flex flex-col items-start justify-between gap-2.5 py-3.5 md:flex-row md:items-center md:gap-4 md:py-5">
-                    <p className="text-[11px] leading-5 text-white/45 md:text-xs">
+                    <p className="text-[11px] leading-relaxed text-white/45 md:text-xs">
                         &copy; {new Date().getFullYear()} {brandName}. All rights reserved.
                     </p>
                     <div className="flex flex-wrap items-center gap-1.5 md:justify-end md:gap-2">

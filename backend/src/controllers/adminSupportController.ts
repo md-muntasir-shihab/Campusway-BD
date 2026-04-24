@@ -7,6 +7,7 @@ import StudentProfile from '../models/StudentProfile';
 import { AuthRequest } from '../middlewares/auth';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { getClientIp } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function asObjectId(value: unknown): mongoose.Types.ObjectId | null {
     const raw = String(value || '').trim();
@@ -93,17 +94,17 @@ export async function adminGetNotices(req: AuthRequest, res: Response): Promise<
             AnnouncementNotice.countDocuments(filter),
         ]);
 
-        res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) }));
     } catch (error) {
         console.error('adminGetNotices error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateNotice(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
@@ -111,7 +112,7 @@ export async function adminCreateNotice(req: AuthRequest, res: Response): Promis
         const title = String(body.title || '').trim();
         const message = String(body.message || '').trim();
         if (!title || !message) {
-            res.status(400).json({ message: 'title and message are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'title and message are required'));
             return;
         }
 
@@ -123,7 +124,7 @@ export async function adminCreateNotice(req: AuthRequest, res: Response): Promis
 
         const createdBy = asObjectId(req.user._id);
         if (!createdBy) {
-            res.status(400).json({ message: 'Invalid actor id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid actor id'));
             return;
         }
 
@@ -207,10 +208,10 @@ export async function adminCreateNotice(req: AuthRequest, res: Response): Promis
             targetIdsCount: Array.isArray(notice.targetIds) ? notice.targetIds.length : 0,
         });
 
-        res.status(201).json({ item: notice, message: 'Notice created successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({item: notice}, 'Notice created successfully'));
     } catch (error) {
         console.error('adminCreateNotice error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -218,7 +219,7 @@ export async function adminToggleNotice(req: AuthRequest, res: Response): Promis
     try {
         const notice = await AnnouncementNotice.findById(req.params.id);
         if (!notice) {
-            res.status(404).json({ message: 'Notice not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Notice not found'));
             return;
         }
 
@@ -246,17 +247,17 @@ export async function adminToggleNotice(req: AuthRequest, res: Response): Promis
             isActive: notice.isActive,
         });
 
-        res.json({ item: notice, message: notice.isActive ? 'Notice activated' : 'Notice deactivated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: notice, message: notice.isActive ? 'Notice activated' : 'Notice deactivated' }));
     } catch (error) {
         console.error('adminToggleNotice error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function studentGetNotices(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
@@ -284,9 +285,9 @@ export async function studentGetNotices(req: AuthRequest, res: Response): Promis
             .sort({ startAt: -1, createdAt: -1 })
             .lean();
 
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (error) {
         console.error('studentGetNotices error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

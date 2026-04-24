@@ -23,7 +23,7 @@ interface SubsResponse {
     limit: number;
 }
 
-const STATUS_OPTS = ['', 'active', 'expired', 'pending', 'cancelled'] as const;
+const STATUS_OPTS = ['', 'active', 'expired', 'pending', 'cancelled', 'expiring_soon'] as const;
 
 export default function SubscriptionsV2Page() {
     const navigate = useNavigate();
@@ -77,6 +77,11 @@ export default function SubscriptionsV2Page() {
     const statActive = subs.filter((s) => s.status === 'active').length;
     const statExpired = subs.filter((s) => s.status === 'expired').length;
     const statPending = subs.filter((s) => s.status === 'pending').length;
+    const statExpiringSoon = subs.filter((s) => {
+        if (s.status !== 'active' || !s.endDate) return false;
+        const daysLeft = Math.ceil((new Date(s.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        return daysLeft >= 0 && daysLeft <= 7;
+    }).length;
 
     return (
         <div className="space-y-6">
@@ -103,19 +108,42 @@ export default function SubscriptionsV2Page() {
             </div>
 
             {/* Quick Stat Cards */}
-            <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
                 {[
                     { label: 'Total', value: total, accent: false },
                     { label: 'Active', value: statActive, accent: true },
+                    { label: 'Expiring Soon', value: statExpiringSoon, accent: false, warn: statExpiringSoon > 0 },
                     { label: 'Expired', value: statExpired, accent: false },
                     { label: 'Pending', value: statPending, accent: false },
                 ].map((stat) => (
-                    <div key={stat.label} className={`rounded-[1.5rem] border px-4 py-4 ${stat.accent ? 'border-cyan-200 bg-cyan-50 dark:border-cyan-900/70 dark:bg-cyan-950/30' : 'border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/70'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{stat.label}</p>
+                    <div key={stat.label} className={`rounded-[1.5rem] border px-4 py-4 ${stat.accent ? 'border-cyan-200 bg-cyan-50 dark:border-cyan-900/70 dark:bg-cyan-950/30' : stat.warn ? 'border-amber-200 bg-amber-50 dark:border-amber-900/70 dark:bg-amber-950/30' : 'border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/70'}`}>
+                        <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${stat.warn ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>{stat.label}</p>
                         <p className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">{stat.value}</p>
                     </div>
                 ))}
             </div>
+
+            {/* Expiring Soon Warning */}
+            {statExpiringSoon > 0 && (
+                <div className="flex items-center gap-3 rounded-[1.5rem] border border-amber-200/80 bg-amber-50/90 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+                    <Clock3 className="h-5 w-5 shrink-0 text-amber-500" />
+                    <div className="flex-1">
+                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                            {statExpiringSoon} subscription{statExpiringSoon === 1 ? '' : 's'} expiring within 7 days
+                        </p>
+                        <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                            Consider sending renewal reminders or extending these subscriptions from the Contact Center.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => { setStatus('active'); setPage(1); }}
+                        className="shrink-0 rounded-xl border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                    >
+                        View Active
+                    </button>
+                </div>
+            )}
 
             {/* Search & Filter Bar */}
             <div className="flex flex-wrap items-center gap-3 rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800/80 dark:bg-slate-950/70">
@@ -129,7 +157,7 @@ export default function SubscriptionsV2Page() {
                         onChange={(e) => setSearchInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') { setSearch(searchInput); setPage(1); } }}
                         placeholder="Search by name, email, phone..."
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:focus:border-cyan-500"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:focus:border-cyan-500 dark:focus:bg-slate-800"
                     />
                 </div>
                 <div className="flex items-center gap-2">
@@ -143,7 +171,7 @@ export default function SubscriptionsV2Page() {
                     >
                         <option value="">All Status</option>
                         {STATUS_OPTS.filter(Boolean).map((item) => (
-                            <option key={item} value={item}>{item.charAt(0).toUpperCase() + item.slice(1)}</option>
+                            <option key={item} value={item}>{item === 'expiring_soon' ? 'Expiring Soon' : item.charAt(0).toUpperCase() + item.slice(1)}</option>
                         ))}
                     </select>
                 </div>

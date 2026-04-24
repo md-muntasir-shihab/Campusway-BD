@@ -11,6 +11,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { X, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import FocusTrap from './FocusTrap';
 
 /* ── Types ── */
 interface PopupBanner {
@@ -187,104 +188,110 @@ export default function GlobalPopupManager() {
 
     return (
         <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={popup.title || 'Promotional popup'}
             className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 transition-all duration-400 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
             style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
             onClick={(e) => { if (e.target === e.currentTarget && closeable) dismiss(); }}
+            onKeyDown={(e) => { if (e.key === 'Escape' && closeable) dismiss(); }}
         >
-            <div
-                className={`relative w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl transition-all duration-400 ${visible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
-                    }`}
-                style={{
-                    background: 'rgba(15, 15, 30, 0.88)',
-                    border: '1px solid rgba(99, 102, 241, 0.25)',
-                    backdropFilter: 'blur(20px)',
-                    boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.1), inset 0 1px 0 rgba(255,255,255,0.05)',
-                }}
-            >
-                {/* Auto-close progress bar */}
-                {autoCloseSec > 0 && (
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10">
-                        <div
-                            className="h-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] transition-all duration-1000 ease-linear"
-                            style={{ width: `${autoProgress}%` }}
-                        />
-                    </div>
-                )}
-
-                {/* Close / Countdown button */}
-                <div className="absolute top-3 right-3 z-10">
-                    {closeable ? (
-                        <button
-                            onClick={dismiss}
-                            aria-label="Close popup"
-                            className="flex items-center justify-center w-8 h-8 rounded-full text-white/80 hover:text-white transition-all hover:scale-110 active:scale-95"
-                            style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.15)' }}
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    ) : (
-                        <div
-                            className="flex items-center justify-center w-8 h-8 rounded-full text-white/50 text-xs font-bold select-none"
-                            title={`Close available in ${countdown}s`}
-                            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}
-                        >
-                            {countdown}
+            <FocusTrap active={visible}>
+                <div
+                    className={`relative w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl transition-all duration-400 ${visible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
+                        }`}
+                    style={{
+                        background: 'rgba(15, 15, 30, 0.88)',
+                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                        backdropFilter: 'blur(20px)',
+                        boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.1), inset 0 1px 0 rgba(255,255,255,0.05)',
+                    }}
+                >
+                    {/* Auto-close progress bar */}
+                    {autoCloseSec > 0 && (
+                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10">
+                            <div
+                                className="h-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] transition-all duration-1000 ease-linear"
+                                style={{ width: `${autoProgress}%` }}
+                            />
                         </div>
                     )}
-                </div>
 
-                {/* Banner image */}
-                {popup.linkUrl ? (
-                    <a href={popup.linkUrl} target="_blank" rel="noopener noreferrer" className="block">
+                    {/* Close / Countdown button */}
+                    <div className="absolute top-3 right-3 z-10">
+                        {closeable ? (
+                            <button
+                                onClick={dismiss}
+                                aria-label="Close popup"
+                                className="flex items-center justify-center w-8 h-8 rounded-full text-white/80 hover:text-white transition-all hover:scale-110 active:scale-95"
+                                style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.15)' }}
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        ) : (
+                            <div
+                                className="flex items-center justify-center w-8 h-8 rounded-full text-white/50 text-xs font-bold select-none"
+                                title={`Close available in ${countdown}s`}
+                                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            >
+                                {countdown}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Banner image */}
+                    {popup.linkUrl ? (
+                        <a href={popup.linkUrl} target="_blank" rel="noopener noreferrer" className="block">
+                            <img
+                                src={popup.imageUrl}
+                                alt={popup.altText || popup.title || 'Promotional offer'}
+                                className="w-full object-cover max-h-72 hover:opacity-95 transition-opacity cursor-pointer"
+                                draggable={false}
+                            />
+                        </a>
+                    ) : (
                         <img
                             src={popup.imageUrl}
                             alt={popup.altText || popup.title || 'Promotional offer'}
-                            className="w-full object-cover max-h-72 hover:opacity-95 transition-opacity cursor-pointer"
+                            className="w-full object-cover max-h-72"
                             draggable={false}
                         />
-                    </a>
-                ) : (
-                    <img
-                        src={popup.imageUrl}
-                        alt={popup.altText || popup.title || 'Promotional offer'}
-                        className="w-full object-cover max-h-72"
-                        draggable={false}
+                    )}
+
+                    {/* Text + CTA */}
+                    {(popup.title || popup.subtitle || popup.linkUrl) && (
+                        <div className="px-5 py-4 space-y-3">
+                            {popup.title && (
+                                <p className="text-white font-semibold text-base leading-snug">{popup.title}</p>
+                            )}
+                            {popup.subtitle && (
+                                <p className="text-slate-400 text-sm leading-relaxed">{popup.subtitle}</p>
+                            )}
+                            {popup.linkUrl && (
+                                <a
+                                    href={popup.linkUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+                                    style={{
+                                        background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+                                        boxShadow: '0 4px 16px rgba(99,102,241,0.3)',
+                                    }}
+                                >
+                                    {ctaText} <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Shimmer overlay */}
+                    <div
+                        className="pointer-events-none absolute inset-0 rounded-2xl"
+                        style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, transparent 60%, rgba(139,92,246,0.04) 100%)' }}
                     />
-                )}
-
-                {/* Text + CTA */}
-                {(popup.title || popup.subtitle || popup.linkUrl) && (
-                    <div className="px-5 py-4 space-y-3">
-                        {popup.title && (
-                            <p className="text-white font-semibold text-base leading-snug">{popup.title}</p>
-                        )}
-                        {popup.subtitle && (
-                            <p className="text-slate-400 text-sm leading-relaxed">{popup.subtitle}</p>
-                        )}
-                        {popup.linkUrl && (
-                            <a
-                                href={popup.linkUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-                                style={{
-                                    background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-                                    boxShadow: '0 4px 16px rgba(99,102,241,0.3)',
-                                }}
-                            >
-                                {ctaText} <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                        )}
-                    </div>
-                )}
-
-                {/* Shimmer overlay */}
-                <div
-                    className="pointer-events-none absolute inset-0 rounded-2xl"
-                    style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, transparent 60%, rgba(139,92,246,0.04) 100%)' }}
-                />
-            </div>
+                </div>
+            </FocusTrap>
         </div>
     );
 }

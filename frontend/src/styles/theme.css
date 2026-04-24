@@ -2,15 +2,33 @@
   --bg: #f4f8ff;
   --surface: #ffffff;
   --surface2: #e9f2ff;
+  --surface3: #f1f5f9;
   --text: #102a43;
-  --muted: #5b708a;
+  --text-heading: #0f172a;
+  --muted: #4a6070;
   --border: #d7e8f7;
   --primary: #0d5fdb;
   --primaryFg: #ffffff;
   --danger: #ef4444;
   --warning: #f59e0b;
   --success: #16a34a;
+  --info: #3b82f6;
   --shadowColor: rgba(13, 95, 219, 0.14);
+
+  /* Interactive state colors */
+  --hover-bg: rgba(13, 95, 219, 0.06);
+  --active-bg: rgba(13, 95, 219, 0.1);
+  --input-bg: var(--surface);
+  --input-border: var(--border);
+  --input-focus-ring: rgba(13, 95, 219, 0.3);
+
+  /* Overlay / backdrop */
+  --overlay-bg: rgba(15, 23, 42, 0.5);
+  --backdrop-blur: blur(8px);
+
+  /* Image filter for dark mode (no-op in light) */
+  --img-brightness: 1;
+  --img-illustration-filter: none;
 
   /* Legacy aliases for safe migration */
   --color-bg: var(--bg);
@@ -42,15 +60,33 @@ html.dark {
   --bg: #081124;
   --surface: #0f1b33;
   --surface2: #16243f;
+  --surface3: #1e293b;
   --text: #e9f1ff;
-  --muted: #9bb0c9;
+  --text-heading: #f8fafc;
+  --muted: #b0c4d8;
   --border: rgba(148, 163, 184, 0.3);
   --primary: #4b8dff;
   --primaryFg: #f7fbff;
   --danger: #fb7185;
   --warning: #fbbf24;
   --success: #34d399;
+  --info: #60a5fa;
   --shadowColor: rgba(2, 10, 24, 0.55);
+
+  /* Interactive state colors */
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --active-bg: rgba(255, 255, 255, 0.08);
+  --input-bg: var(--surface);
+  --input-border: rgba(148, 163, 184, 0.25);
+  --input-focus-ring: rgba(75, 141, 255, 0.4);
+
+  /* Overlay / backdrop */
+  --overlay-bg: rgba(2, 6, 23, 0.7);
+  --backdrop-blur: blur(12px);
+
+  /* Image filter for dark mode — reduce brightness on illustrations */
+  --img-brightness: 0.9;
+  --img-illustration-filter: brightness(0.85) saturate(1.1);
 
   --color-primary-600: #3276f0;
   --gradient-soft:
@@ -59,4 +95,16 @@ html.dark {
     linear-gradient(180deg, #081124 0%, #0f1b33 100%);
 
   color-scheme: dark;
+}
+
+/* Dark mode focus ring improvement for keyboard navigation */
+html.dark *:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+/* Dark mode placeholder contrast improvement */
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #b0c4de;
 }

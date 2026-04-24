@@ -1,5 +1,21 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+/**
+ * News model — represents a news article, RSS-ingested item, or admin-created update.
+ *
+ * Key fields:
+ * - `title`, `slug`: Article title and URL-safe slug (unique)
+ * - `status`: Lifecycle — published | draft | archived | trash | pending_review | duplicate_review | approved | rejected | scheduled | fetch_failed
+ * - `sourceType`: manual | rss | ai_assisted
+ * - `fullContent` / `content`: Rich-text body of the article
+ * - `category`, `tags`, `publicTags`: Classification metadata
+ * - `aiEnrichment`: AI-generated summaries, key points, and suggestions
+ * - `dedupe`: Duplicate detection hash and score
+ * - `priority`: normal | priority | breaking
+ * - `isFeatured`: Whether the article is pinned/featured
+ *
+ * @collection news
+ */
 export interface INews extends Document {
     title: string;
     slug: string;

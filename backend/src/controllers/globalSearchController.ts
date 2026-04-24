@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import University from '../models/University';
 import Exam from '../models/Exam';
 import News from '../models/News';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /**
  * GET /search?q=<query>
@@ -13,12 +14,12 @@ export async function globalSearch(req: Request, res: Response): Promise<void> {
         const rawQuery = String(req.query.q || '').trim();
 
         if (rawQuery.length < 2) {
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 ok: true,
                 universities: [],
                 exams: [],
                 news: [],
-            });
+            }));
             return;
         }
 
@@ -108,14 +109,14 @@ export async function globalSearch(req: Request, res: Response): Promise<void> {
             type: 'news' as const,
         }));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             ok: true,
             universities: universityResults,
             exams: examResults,
             news: newsResults,
-        });
+        }));
     } catch (error) {
         console.error('[globalSearch] Error:', error);
-        res.status(500).json({ ok: false, message: 'Internal server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal server error'));
     }
 }

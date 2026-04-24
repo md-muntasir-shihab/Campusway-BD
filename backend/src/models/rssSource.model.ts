@@ -1,5 +1,18 @@
 import { Schema, model, InferSchemaType } from "mongoose";
 
+/**
+ * RssSource model — defines an RSS feed source for automated news ingestion.
+ *
+ * Key fields:
+ * - `name`: Human-readable source name
+ * - `rssUrl`: The RSS feed URL to fetch
+ * - `siteUrl`: The source website URL
+ * - `enabled`: Whether this source is actively fetched
+ * - `fetchIntervalMinutes`: How often to poll the feed
+ * - `lastFetchedAt` / `lastError`: Fetch status tracking
+ *
+ * @collection rss_sources
+ */
 const rssSourceSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },

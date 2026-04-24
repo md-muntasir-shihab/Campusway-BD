@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import FounderProfile from '../models/FounderProfile';
 import { AuthRequest } from '../middlewares/auth';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ═══════════════════════════════════════════════════════════
    PUBLIC  ENDPOINTS
@@ -12,14 +13,14 @@ export async function getPublicFounder(_req: Request, res: Response): Promise<vo
         const founder = await FounderProfile.findOne().lean();
 
         if (!founder) {
-            res.status(404).json({ error: 'Founder profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Founder profile not found'));
             return;
         }
 
-        res.json(founder);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(founder));
     } catch (err) {
         console.error('getPublicFounder error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -33,14 +34,14 @@ export async function getAdminFounder(_req: Request, res: Response): Promise<voi
         const founder = await FounderProfile.findOne().lean();
 
         if (!founder) {
-            res.status(404).json({ error: 'Founder profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Founder profile not found'));
             return;
         }
 
-        res.json(founder);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(founder));
     } catch (err) {
         console.error('getAdminFounder error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -50,7 +51,7 @@ export async function upsertFounder(req: AuthRequest, res: Response): Promise<vo
         const { name, tagline, founderMessage, photoUrl, role, aboutText, fatherName, dateOfBirth, gender, address, location, contactDetails, skills, education, experience } = req.body;
 
         if (!name || !String(name).trim()) {
-            res.status(400).json({ error: 'Name is required', field: 'name' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Name is required', { field: 'name' }));
             return;
         }
 
@@ -78,9 +79,9 @@ export async function upsertFounder(req: AuthRequest, res: Response): Promise<vo
             { upsert: true, new: true, runValidators: true },
         ).lean();
 
-        res.json({ founder, message: 'Founder profile updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({founder}, 'Founder profile updated'));
     } catch (err) {
         console.error('upsertFounder error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

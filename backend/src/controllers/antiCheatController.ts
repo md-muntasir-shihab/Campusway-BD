@@ -5,6 +5,7 @@
 import type { Response } from 'express';
 import type { AuthRequest } from '../middlewares/auth';
 import { processAntiCheatSignal, AntiCheatSignalError } from '../services/antiCheatEngine';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /**
  * Error code → HTTP status mapping for AntiCheatSignalError.
@@ -35,15 +36,15 @@ export async function processSignalController(req: AuthRequest, res: Response): 
             correlationId: (req as any).requestId || '',
         });
 
-        res.status(200).json(decision);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(decision));
     } catch (err: unknown) {
         if (err instanceof AntiCheatSignalError) {
             const status = ERROR_STATUS_MAP[err.code] ?? err.statusCode;
-            res.status(status).json({ message: err.message, code: err.code });
+            ResponseBuilder.send(res, status, ResponseBuilder.error(err.code || 'SERVER_ERROR', err.message));
             return;
         }
 
         console.error('[AntiCheatController] Unexpected error:', err);
-        res.status(500).json({ message: 'Internal server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal server error'));
     }
 }

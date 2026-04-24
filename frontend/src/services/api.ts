@@ -1263,6 +1263,7 @@ export interface ApiUniversityCardPreview {
     featured?: boolean;
     isHistorical?: boolean;
     endedAt?: string;
+    timelineStatus?: 'upcoming' | 'ended';
 }
 
 export interface ApiClusterCardPreview {
@@ -1283,8 +1284,10 @@ export interface ApiClusterCardPreview {
     examCentersPreview: string[];
     homeVisible?: boolean;
     homeOrder?: number;
+    homeFeedMode?: 'cluster_only' | 'members_only' | 'both';
     isHistorical?: boolean;
     endedAt?: string;
+    timelineStatus?: 'upcoming' | 'ended';
 }
 
 export interface ApiCategoryCardPreview {
@@ -3538,6 +3541,7 @@ export interface AdminUniversityCluster {
     name: string;
     slug: string;
     description?: string;
+    heroImageUrl?: string;
     isActive: boolean;
     memberUniversityIds: string[];
     categoryRules: string[];
@@ -3556,6 +3560,7 @@ export interface AdminUniversityCluster {
     syncPolicy: 'inherit_with_override';
     homeVisible: boolean;
     homeOrder: number;
+    homeFeedMode: 'cluster_only' | 'members_only' | 'both';
     resolution?: {
         warnings?: Array<{
             universityId: string;
@@ -3621,11 +3626,12 @@ export const adminDeleteUniversityCluster = async (id: string, proof?: Sensitive
             proof,
         }),
     });
-export const adminDeleteUniversityClusterPermanent = async (id: string, proof?: SensitiveActionProof) =>
+export const adminDeleteUniversityClusterPermanent = async (id: string, proof?: SensitiveActionProof, mode?: 'cluster_only' | 'cascade' | 'detach') =>
     api.delete(`/${ADMIN_PATH}/university-clusters/${id}/permanent`, {
+        params: mode ? { mode } : undefined,
         headers: await resolveSensitiveActionHeaders({
             actionLabel: 'permanently delete university cluster',
-            defaultReason: 'Permanently delete empty university cluster',
+            defaultReason: 'Permanently delete university cluster',
             requireOtpHint: true,
             proof,
         }),
@@ -3636,6 +3642,7 @@ export interface FeaturedUniversityCluster {
     name: string;
     slug: string;
     description?: string;
+    heroImageUrl?: string;
     homeOrder?: number;
     memberCount: number;
     dates?: {
@@ -3660,6 +3667,10 @@ export const getHomeClusterMembers = (
     summary: {
         memberCount: number;
         categories: string[];
+        totalSeats: number;
+        scienceSeats: number;
+        artsSeats: number;
+        commerceSeats: number;
         applicationStartDate: string;
         applicationEndDate: string;
         scienceExamDate: string;

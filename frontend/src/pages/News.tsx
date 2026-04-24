@@ -12,6 +12,8 @@ import {
     ArrowRight,
     X,
     Sparkles,
+    Globe2,
+    Layers,
 } from 'lucide-react';
 import PageHeroBanner from '../components/common/PageHeroBanner';
 import HeroSearchInput from '../components/common/HeroSearchInput';
@@ -340,7 +342,7 @@ export default function NewsPage() {
                         )}
 
                         {!isLoading && (listQuery.isError || settingsQuery.isError) && (
-                            <div className="rounded-2xl border border-dashed border-card-border bg-white px-6 py-10 text-center dark:border-dark-border dark:bg-dark-surface/55">
+                            <div className="rounded-2xl border border-dashed border-slate-200/50 bg-white px-6 py-10 text-center dark:border-white/[0.06] dark:bg-slate-900/50">
                                 <AlertCircle className="mx-auto h-10 w-10 text-red-400 dark:text-red-300" />
                                 <p className="mt-3 text-sm font-medium text-text-muted dark:text-dark-text/75">
                                     Failed to load news
@@ -360,7 +362,7 @@ export default function NewsPage() {
                         )}
 
                         {!isLoading && renderedItems.length === 0 && (
-                            <div className="rounded-2xl border border-dashed border-card-border bg-white px-6 py-10 text-center text-sm text-text-muted dark:border-dark-border dark:bg-dark-surface/55 dark:text-dark-text/75">
+                            <div className="rounded-2xl border border-dashed border-slate-200/50 bg-white px-6 py-10 text-center text-sm text-text-muted dark:border-white/[0.06] dark:bg-slate-900/50 dark:text-dark-text/75">
                                 No news found for this filter.
                             </div>
                         )}
@@ -439,7 +441,7 @@ export default function NewsPage() {
                             initial={{ opacity: 0, x: 12 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.2 }}
-                            className="sticky top-24 space-y-4 rounded-2xl border border-card-border/60 bg-white/95 p-5 shadow-card dark:border-dark-border/60 dark:bg-dark-surface/90 backdrop-blur-sm"
+                            className="sticky top-24 space-y-4 rounded-2xl border border-slate-200/50 bg-white/95 p-5 shadow-lg dark:border-white/[0.06] dark:bg-slate-900/80 backdrop-blur-sm"
                         >
                             {preview ? (
                                 <>
@@ -573,66 +575,69 @@ function FilterPanel({
     }, [sourceSearch, sources]);
 
     return (
-        <div className="space-y-4 rounded-2xl border border-card-border/80 bg-white/95 p-3 dark:border-dark-border/80 dark:bg-dark-surface/85">
-            <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                    className="w-full rounded-xl border border-card-border bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-cyan-500 dark:border-dark-border dark:bg-dark-surface"
-                    placeholder="Search headlines..."
-                    value={search}
-                    onChange={(e) => onSearch(e.target.value)}
-                />
-            </label>
-
-            <div className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">Sources</h3>
-                <label className="relative block">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        <div className="space-y-1 rounded-2xl border border-slate-200/50 bg-white/95 shadow-sm backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/80 overflow-hidden">
+            {/* Sources Section */}
+            <div className="p-4 pb-3">
+                <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                    <Globe2 className="h-3.5 w-3.5" />
+                    Sources
+                </h3>
+                <label className="relative block mb-2.5">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     <input
-                        className="w-full rounded-lg border border-card-border bg-white py-1.5 pl-8 pr-2 text-xs outline-none transition focus:border-cyan-500 dark:border-dark-border dark:bg-dark-surface"
-                        placeholder="Search sources..."
+                        className="w-full rounded-lg border border-slate-200/60 bg-slate-50 py-1.5 pl-8 pr-2 text-xs outline-none transition focus:border-cyan-500 focus:bg-white dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-cyan-500 dark:focus:bg-white/[0.06]"
+                        placeholder="Filter sources..."
+                        aria-label="Filter news sources"
                         value={sourceSearch}
                         onChange={(e) => setSourceSearch(e.target.value)}
                     />
                 </label>
-                <div className="space-y-1">
+                <div className="space-y-0.5 max-h-48 overflow-y-auto">
                     <button
                         type="button"
                         onClick={() => onSource('')}
-                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm ${source === '' ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-200' : 'text-text-muted hover:bg-slate-100 dark:text-dark-text/75 dark:hover:bg-white/5'
+                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${source === '' ? 'bg-cyan-500/12 text-cyan-700 font-medium dark:text-cyan-300' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5'
                             }`}
                     >
                         <span>All Sources</span>
+                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-400">{sources.reduce((a, s) => a + s.count, 0)}</span>
                     </button>
                     {filteredSources.map((item) => (
                         <button
                             key={item._id}
                             type="button"
                             onClick={() => onSource(item._id)}
-                            className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm ${source === item._id ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-200' : 'text-text-muted hover:bg-slate-100 dark:text-dark-text/75 dark:hover:bg-white/5'
+                            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${source === item._id ? 'bg-cyan-500/12 text-cyan-700 font-medium dark:text-cyan-300' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5'
                                 }`}
                         >
-                            <span className="inline-flex items-center gap-2">
-                                {item.iconUrl ? <img src={buildMediaUrl(item.iconUrl)} alt={item.name} className="h-4 w-4 rounded-full object-cover" /> : null}
-                                {item.name}
+                            <span className="inline-flex items-center gap-2 truncate">
+                                {item.iconUrl ? <img src={buildMediaUrl(item.iconUrl)} alt={item.name} className="h-4 w-4 rounded-full object-cover flex-shrink-0" /> : <span className="h-4 w-4 rounded-full bg-gradient-to-br from-cyan-400 to-indigo-500 flex-shrink-0" />}
+                                <span className="truncate">{item.name}</span>
                             </span>
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] dark:bg-white/10">{item.count}</span>
+                            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-400 flex-shrink-0 ml-2">{item.count}</span>
                         </button>
                     ))}
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">Categories</h3>
-                <div className="flex flex-wrap gap-2">
+            {/* Divider */}
+            <div className="border-t border-slate-100 dark:border-white/5" />
+
+            {/* Categories Section */}
+            <div className="p-4 pb-3">
+                <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                    <Layers className="h-3.5 w-3.5" />
+                    Categories
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
                     {categories.map((item) => (
                         <button
                             key={item}
                             type="button"
                             onClick={() => onCategory(item)}
-                            className={`rounded-full border px-3 py-1 text-xs ${category === item
-                                ? 'border-cyan-500 bg-cyan-500/15 text-cyan-700 dark:text-cyan-200'
-                                : 'border-card-border text-text-muted dark:border-dark-border dark:text-dark-text/75'
+                            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${category === item
+                                ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/25'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-300 dark:hover:bg-white/12'
                                 }`}
                         >
                             {item}
@@ -641,16 +646,20 @@ function FilterPanel({
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <h3 className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
-                    <Tag className="h-3 w-3" />
+            {/* Divider */}
+            <div className="border-t border-slate-100 dark:border-white/5" />
+
+            {/* Tags Section */}
+            <div className="p-4 pt-3">
+                <h3 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                    <Tag className="h-3.5 w-3.5" />
                     Tags
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                     <button
                         type="button"
                         onClick={() => onTag('')}
-                        className={`rounded-full border px-3 py-1 text-xs ${tag === '' ? 'border-cyan-500 bg-cyan-500/15 text-cyan-700 dark:text-cyan-200' : 'border-card-border text-text-muted dark:border-dark-border dark:text-dark-text/75'
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${tag === '' ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/25' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-300 dark:hover:bg-white/12'
                             }`}
                     >
                         All
@@ -660,9 +669,9 @@ function FilterPanel({
                             key={item}
                             type="button"
                             onClick={() => onTag(item)}
-                            className={`rounded-full border px-3 py-1 text-xs ${tag === item
-                                ? 'border-cyan-500 bg-cyan-500/15 text-cyan-700 dark:text-cyan-200'
-                                : 'border-card-border text-text-muted dark:border-dark-border dark:text-dark-text/75'
+                            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${tag === item
+                                ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/25'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-300 dark:hover:bg-white/12'
                                 }`}
                         >
                             {item}
@@ -708,9 +717,9 @@ function NewsArticleCard({
             whileHover={{ y: -2 }}
             transition={{ duration: 0.18 }}
             onClick={onSelect}
-            className={`group relative cursor-pointer rounded-2xl border bg-white/95 shadow-sm transition-all duration-200 dark:bg-dark-surface/85 ${isSelected
+            className={`group relative cursor-pointer rounded-2xl border bg-white/95 shadow-sm transition-all duration-200 backdrop-blur-sm dark:bg-slate-900/80 ${isSelected
                 ? 'border-cyan-500/60 ring-2 ring-cyan-500/20 shadow-md'
-                : 'border-card-border/60 hover:border-cyan-400/40 hover:shadow-card dark:border-dark-border/60'
+                : 'border-slate-200/50 hover:border-cyan-400/40 hover:shadow-lg dark:border-white/[0.06] dark:hover:border-cyan-500/30'
                 }`}
         >
             <div className={`grid grid-cols-1 ${layoutMode === 'list' ? 'sm:grid-cols-[200px_1fr]' : 'sm:grid-cols-[180px_1fr]'}`}>
@@ -789,14 +798,14 @@ function NewsArticleCard({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setShareOpen(!shareOpen); }}
-                                    className="rounded-lg border border-card-border/60 p-1.5 text-text-muted hover:border-[var(--primary)]/40 hover:text-[var(--primary)] transition-colors dark:border-dark-border/60"
+                                    className="rounded-lg border border-slate-200/50 p-1.5 text-text-muted hover:border-[var(--primary)]/40 hover:text-[var(--primary)] transition-colors dark:border-white/[0.08] dark:hover:border-cyan-500/30"
                                     aria-label="Share"
                                 >
                                     <Share2 className="h-3.5 w-3.5" />
                                 </button>
                                 {shareOpen && (
                                     <div
-                                        className="absolute right-0 bottom-full mb-1 z-50 min-w-[140px] rounded-xl border border-card-border/80 bg-white p-1.5 shadow-lg dark:border-dark-border/80 dark:bg-slate-900"
+                                        className="absolute right-0 bottom-full mb-1 z-50 min-w-[140px] rounded-xl border border-slate-200/60 bg-white p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-slate-900"
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {shareButtons.whatsapp && <ShareMenuItem label="WhatsApp" onClick={() => { onShare(news, 'whatsapp'); setShareOpen(false); }} />}

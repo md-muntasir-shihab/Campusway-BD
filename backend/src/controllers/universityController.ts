@@ -31,6 +31,7 @@ import {
     combineMongoFilters,
     sanitizePublicFixtureText,
 } from '../utils/publicFixtureFilters';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type UniversityStatusFilter = 'active' | 'inactive' | 'archived' | 'all';
 
@@ -585,11 +586,10 @@ export async function getUniversities(req: Request, res: Response): Promise<void
         const featuredMode = ['true', '1', 'yes', 'on'].includes(featuredRaw);
 
         if (categoryMissing && !featuredMode) {
-            res.status(400).json({
-                message: 'Category is required for this endpoint.',
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Category is required for this endpoint.', {
                 code: 'CATEGORY_REQUIRED',
-                defaultCategory: dashboardConfig.defaultCategory,
-            });
+                defaultCategory: dashboardConfig.defaultCategory
+            }));
             return;
         }
 
@@ -599,12 +599,12 @@ export async function getUniversities(req: Request, res: Response): Promise<void
         if (taxonomy.activeCategoryNames.length > 0) {
             if (requestedCategory) {
                 if (!taxonomy.activeCategorySet.has(requestedCategory)) {
-                    res.json({
+                    ResponseBuilder.send(res, 200, ResponseBuilder.success({
                         items: [],
                         page: pageNum,
                         limit: limitNum,
                         total: 0,
-                    });
+                    }));
                     return;
                 }
                 filter.category = requestedCategory;
@@ -621,14 +621,14 @@ export async function getUniversities(req: Request, res: Response): Promise<void
             ? ({ featuredOrder: 1, name: 1 } as Record<string, 1 | -1>)
             : normalizeSort(sortBy, sortOrder, sort);
         const total = await University.countDocuments(publicFilter);
-        
+
         const sortParamOriginal = String(sortBy || sort || '').trim().toLowerCase();
         const isClosingSoon = ['closing_soon', 'nearest_deadline', 'deadline', 'nearest_application_deadline'].includes(sortParamOriginal);
         const isExamSoon = sortParamOriginal === 'exam_soon';
 
         let rows;
         if (!featuredMode && (isClosingSoon || isExamSoon)) {
-            const aggrSort: Record<string, 1 | -1> = isClosingSoon 
+            const aggrSort: Record<string, 1 | -1> = isClosingSoon
                 ? { hasDateFlag: -1, applicationEndDate: 1, name: 1 }
                 : { hasDateFlag: -1, scienceExamDate: 1, artsExamDate: 1, businessExamDate: 1, name: 1 };
 
@@ -636,18 +636,24 @@ export async function getUniversities(req: Request, res: Response): Promise<void
                 if (field.trim()) acc[field.trim()] = 1;
                 return acc;
             }, {} as Record<string, 1>);
-            
+
             rows = await University.aggregate([
                 { $match: publicFilter },
-                { $addFields: {
-                    hasDateFlag: isClosingSoon 
-                        ? { $cond: [{ $ifNull: ["$applicationEndDate", false] }, 1, 0] }
-                        : { $cond: [{ $or: [ 
-                            { $and: [{ $ifNull: ["$scienceExamDate", false] }, { $ne: ["$scienceExamDate", ""] }] },
-                            { $and: [{ $ifNull: ["$artsExamDate", false] }, { $ne: ["$artsExamDate", ""] }] },
-                            { $and: [{ $ifNull: ["$businessExamDate", false] }, { $ne: ["$businessExamDate", ""] }] }
-                          ]}, 1, 0] }
-                }},
+                {
+                    $addFields: {
+                        hasDateFlag: isClosingSoon
+                            ? { $cond: [{ $ifNull: ["$applicationEndDate", false] }, 1, 0] }
+                            : {
+                                $cond: [{
+                                    $or: [
+                                        { $and: [{ $ifNull: ["$scienceExamDate", false] }, { $ne: ["$scienceExamDate", ""] }] },
+                                        { $and: [{ $ifNull: ["$artsExamDate", false] }, { $ne: ["$artsExamDate", ""] }] },
+                                        { $and: [{ $ifNull: ["$businessExamDate", false] }, { $ne: ["$businessExamDate", ""] }] }
+                                    ]
+                                }, 1, 0]
+                            }
+                    }
+                },
                 { $sort: aggrSort },
                 { $skip: (pageNum - 1) * limitNum },
                 { $limit: limitNum },
@@ -661,20 +667,20 @@ export async function getUniversities(req: Request, res: Response): Promise<void
                 .limit(limitNum)
                 .lean();
         }
-        
+
         const canonicalRows = rows.map((item) => toCanonicalUniversityRecord(
             stripInactiveClusterFromUniversityRecord(item as unknown as Record<string, unknown>, taxonomy),
         ));
         const rowsWithClusterSlugs = await attachClusterSlugs(canonicalRows);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: rowsWithClusterSlugs,
             page: pageNum,
             limit: limitNum,
             total,
-        });
+        }));
     } catch (error) {
         console.error('Get universities error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -726,10 +732,10 @@ export async function getUniversityCategories(_req: Request, res: Response): Pro
             count: map.get(categoryName)?.count || 0,
             clusterGroups: Array.from(map.get(categoryName)?.clusterGroups || []).sort(),
         }));
-        res.json(categories);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(categories));
     } catch (error) {
         console.error('Get university categories error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -738,19 +744,19 @@ export async function getUniversityBySlug(req: Request, res: Response): Promise<
         await backfillUniversityTaxonomyIfNeeded();
         const taxonomy = await getActivePublicUniversityTaxonomy();
         const row = await University.findOne({ slug: req.params.slug, isActive: true, isArchived: { $ne: true } }).lean();
-        if (!row) { res.status(404).json({ message: 'University not found' }); return; }
+        if (!row) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
         const categoryName = normalizeUniversityCategory(String(row.category || DEFAULT_UNIVERSITY_CATEGORY));
         if (taxonomy.activeCategoryNames.length > 0 && !taxonomy.activeCategorySet.has(categoryName)) {
-            res.status(404).json({ message: 'University not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found'));
             return;
         }
         const [withClusterSlug] = await attachClusterSlugs([toCanonicalUniversityRecord(
             stripInactiveClusterFromUniversityRecord(row as unknown as Record<string, unknown>, taxonomy),
         )]);
-        res.json(withClusterSlug);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(withClusterSlug));
     } catch (error) {
         console.error('Get university error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -777,13 +783,10 @@ export async function adminGetAllUniversities(req: Request, res: Response): Prom
         const canonicalRows = rows.map((item) => toCanonicalUniversityRecord(item as unknown as Record<string, unknown>));
         const rowsWithClusterSlugs = await attachClusterSlugs(canonicalRows);
 
-        res.json({
-            universities: rowsWithClusterSlugs,
-            pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.paginated(rowsWithClusterSlugs, pageNum, limitNum, total));
     } catch (err) {
         console.error('adminGetAllUniversities error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -831,10 +834,10 @@ export async function adminGetUniversityCategories(req: Request, res: Response):
                 return a.name.localeCompare(b.name);
             });
 
-        res.json({ categories });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ categories }));
     } catch (err) {
         console.error('adminGetUniversityCategories error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -842,12 +845,12 @@ export async function adminGetUniversityById(req: Request, res: Response): Promi
     try {
         await backfillUniversityTaxonomyIfNeeded();
         const row = await University.findById(req.params.id).lean();
-        if (!row) { res.status(404).json({ message: 'University not found' }); return; }
+        if (!row) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
         const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(row as unknown as Record<string, unknown>)]);
-        res.json({ university });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ university }));
     } catch (err) {
         console.error('adminGetUniversityById error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -855,7 +858,7 @@ export async function adminCreateUniversity(req: Request, res: Response): Promis
     try {
         await backfillUniversityTaxonomyIfNeeded();
         const payload = buildUniversityMutationPayload((req.body || {}) as Record<string, unknown>);
-        if (!payload.name || !String(payload.name).trim()) { res.status(400).json({ message: 'University name is required' }); return; }
+        if (!payload.name || !String(payload.name).trim()) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'University name is required')); return; }
 
         // Category validation against allowed list
         const catName = String(payload.category || '').trim();
@@ -863,7 +866,7 @@ export async function adminCreateUniversity(req: Request, res: Response): Promis
             const settings = await ensureUniversitySettings();
             const isAllowed = (ALLOWED_CATEGORIES as readonly string[]).some((c) => c.toLowerCase() === catName.toLowerCase());
             if (!isAllowed && !settings.allowCustomCategories) {
-                res.status(400).json({ message: `Category "${catName}" is not in the allowed list.`, code: 'INVALID_CATEGORY', allowedCategories: [...ALLOWED_CATEGORIES] });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('INVALID_CATEGORY', `Category "${catName}" is not in the allowed list.`));
                 return;
             }
         }
@@ -888,11 +891,11 @@ export async function adminCreateUniversity(req: Request, res: Response): Promis
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'create', universityId: String(created._id) } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'create', universityId: String(created._id) } });
         const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(created.toObject() as unknown as Record<string, unknown>)]);
-        res.status(201).json({ university, message: 'University created successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ university }, 'University created successfully'));
     } catch (err: unknown) {
-        if ((err as { code?: number }).code === 11000) { res.status(400).json({ message: 'A university with this name or slug already exists' }); return; }
+        if ((err as { code?: number }).code === 11000) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'A university with this name or slug already exists')); return; }
         console.error('adminCreateUniversity error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -901,7 +904,7 @@ export async function adminUpdateUniversity(req: Request, res: Response): Promis
         await backfillUniversityTaxonomyIfNeeded();
         const payload = buildUniversityMutationPayload((req.body || {}) as Record<string, unknown>, { partial: true });
         const existing = await University.findById(req.params.id).select('_id clusterId').lean();
-        if (!existing) { res.status(404).json({ message: 'University not found' }); return; }
+        if (!existing) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
 
         // Category validation against allowed list
         const catName = String(payload.category || '').trim();
@@ -909,7 +912,7 @@ export async function adminUpdateUniversity(req: Request, res: Response): Promis
             const settings = await ensureUniversitySettings();
             const isAllowed = (ALLOWED_CATEGORIES as readonly string[]).some((c) => c.toLowerCase() === catName.toLowerCase());
             if (!isAllowed && !settings.allowCustomCategories) {
-                res.status(400).json({ message: `Category "${catName}" is not in the allowed list.`, code: 'INVALID_CATEGORY', allowedCategories: [...ALLOWED_CATEGORIES] });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('INVALID_CATEGORY', `Category "${catName}" is not in the allowed list.`));
                 return;
             }
         }
@@ -928,7 +931,7 @@ export async function adminUpdateUniversity(req: Request, res: Response): Promis
             normalizeClusterGroupValue(payload);
         }
         const updated = await University.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
-        if (!updated) { res.status(404).json({ message: 'University not found' }); return; }
+        if (!updated) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
         if (payload.clusterGroup !== undefined || payload.clusterName !== undefined || payload.clusterId !== undefined) {
             await syncManualClusterMembership([existing._id], updated.clusterId ? String(updated.clusterId) : null);
         }
@@ -936,11 +939,11 @@ export async function adminUpdateUniversity(req: Request, res: Response): Promis
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'update', universityId: String(updated._id) } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'update', universityId: String(updated._id) } });
         const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(updated.toObject() as unknown as Record<string, unknown>)]);
-        res.json({ university, message: 'University updated successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ university }, 'University updated successfully'));
     } catch (err: unknown) {
-        if ((err as { code?: number }).code === 11000) { res.status(400).json({ message: 'Slug or name already taken by another university' }); return; }
+        if ((err as { code?: number }).code === 11000) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Slug or name already taken by another university')); return; }
         console.error('adminUpdateUniversity error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -951,19 +954,19 @@ export async function adminDeleteUniversity(req: Request, res: Response): Promis
         const actorId = (req as Request & { user?: { _id?: string } }).user?._id || null;
         if (mode === 'soft') {
             const updated = await University.findByIdAndUpdate(req.params.id, { $set: { isArchived: true, isActive: false, archivedAt: new Date(), archivedBy: actorId } }, { new: true });
-            if (!updated) { res.status(404).json({ message: 'University not found' }); return; }
+            if (!updated) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
         } else {
             const removed = await University.findByIdAndDelete(req.params.id);
-            if (!removed) { res.status(404).json({ message: 'University not found' }); return; }
+            if (!removed) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
         }
         await reconcileUniversityClusterAssignments(actorId || null);
         await pruneOrphanedTaxonomy();
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'delete', universityId: req.params.id, mode } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'delete', universityId: req.params.id, mode } });
-        res.json({ message: mode === 'soft' ? 'University archived successfully' : 'University deleted successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ message: mode === 'soft' ? 'University archived successfully' : 'University deleted successfully' }));
     } catch (err) {
         console.error('adminDeleteUniversity error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -975,7 +978,7 @@ export async function adminBulkDeleteUniversities(req: Request, res: Response): 
         const taxonomyScope = String(req.body?.taxonomyScope || 'none').toLowerCase() === 'uni-taxonomy'
             ? 'uni-taxonomy'
             : 'none';
-        if (Object.keys(targetFilter).length === 0) { res.status(400).json({ message: 'Invalid or empty target selection provided.' }); return; }
+        if (Object.keys(targetFilter).length === 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid or empty target selection provided.')); return; }
         const actorId = (req as Request & { user?: { _id?: string } }).user?._id || null;
         let affected = 0;
         let taxonomyPruned = false;
@@ -1005,18 +1008,17 @@ export async function adminBulkDeleteUniversities(req: Request, res: Response): 
         await pruneOrphanedTaxonomy();
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'bulk_delete', mode, affected } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'bulk_delete', mode, affected } });
-        res.json({
-            message: mode === 'hard' ? `${affected} universities permanently deleted.` : `${affected} universities archived.`,
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             affected,
             mode,
             taxonomyScope,
             taxonomyPruned,
             skipped: [],
             errors: [],
-        });
+        }, mode === 'hard' ? `${affected} universities permanently deleted.` : `${affected} universities archived.`));
     } catch (err) {
         console.error('adminBulkDeleteUniversities error:', err);
-        res.status(500).json({ message: 'Server error during bulk deletion.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during bulk deletion.'));
     }
 }
 
@@ -1024,7 +1026,7 @@ export async function adminBulkUpdateUniversities(req: Request, res: Response): 
     try {
         await backfillUniversityTaxonomyIfNeeded();
         const targetFilter = await resolveBulkTargetFilter(req);
-        if (Object.keys(targetFilter).length === 0) { res.status(400).json({ message: 'No university targets provided.' }); return; }
+        if (Object.keys(targetFilter).length === 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No university targets provided.')); return; }
         const updates = buildUniversityMutationPayload((req.body?.updates || {}) as Record<string, unknown>, { partial: true });
         if (updates.category !== undefined || updates.categoryId !== undefined) {
             const categoryFields = await resolveCategoryFields(updates);
@@ -1048,40 +1050,40 @@ export async function adminBulkUpdateUniversities(req: Request, res: Response): 
         await reconcileUniversityClusterAssignments((req as Request & { user?: { _id?: string } }).user?._id || null);
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'bulk_update', affected } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'bulk_update', affected } });
-        res.json({ message: `${affected} universities updated.`, affected });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ affected }, `${affected} universities updated.`));
     } catch (err) {
         console.error('adminBulkUpdateUniversities error:', err);
-        res.status(500).json({ message: 'Server error during bulk update.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during bulk update.'));
     }
 }
 
 export async function adminToggleUniversityStatus(req: Request, res: Response): Promise<void> {
     try {
         const university = await University.findById(req.params.id);
-        if (!university) { res.status(404).json({ message: 'University not found' }); return; }
-        if (university.isArchived) { res.status(400).json({ message: 'Archived university cannot be activated. Restore it first.' }); return; }
+        if (!university) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
+        if (university.isArchived) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Archived university cannot be activated. Restore it first.')); return; }
         university.isActive = !university.isActive;
         await university.save();
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'toggle', universityId: String(university._id), isActive: university.isActive } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'toggle', universityId: String(university._id), isActive: university.isActive } });
-        res.json({ university: toCanonicalUniversityRecord(university.toObject() as unknown as Record<string, unknown>), message: `University ${university.isActive ? 'activated' : 'deactivated'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ university: toCanonicalUniversityRecord(university.toObject() as unknown as Record<string, unknown>) }, `University ${university.isActive ? 'activated' : 'deactivated'}`));
     } catch (err) {
         console.error('adminToggleUniversityStatus error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminReorderFeaturedUniversities(req: Request, res: Response): Promise<void> {
     try {
         const { order } = req.body as { order: { id: string; featuredOrder: number }[] };
-        if (!Array.isArray(order)) { res.status(400).json({ message: 'Invalid order format' }); return; }
+        if (!Array.isArray(order)) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid order format')); return; }
         if (order.length > 0) await University.bulkWrite(order.map((item) => ({ updateOne: { filter: { _id: item.id, isArchived: { $ne: true } }, update: { $set: { featuredOrder: item.featuredOrder } } } })));
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'reorder' } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'reorder' } });
-        res.json({ message: 'Featured order updated successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Featured order updated successfully'));
     } catch (err) {
         console.error('adminReorderFeaturedUniversities error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1156,6 +1158,6 @@ export async function adminExportUniversities(req: Request, res: Response): Prom
         res.send(csv);
     } catch (err) {
         console.error('adminExportUniversities error:', err);
-        res.status(500).json({ message: 'Failed to export universities.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to export universities.'));
     }
 }

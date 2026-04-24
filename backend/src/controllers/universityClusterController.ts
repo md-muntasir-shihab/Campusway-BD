@@ -15,6 +15,7 @@ import {
     buildPublicClusterExclusionQuery,
     combineMongoFilters,
 } from '../utils/publicFixtureFilters';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function normalizeClusterSlug(name: string, fallbackSlug?: string): string {
     const slug = slugify(name || fallbackSlug || '', { lower: true, strict: true });
@@ -109,15 +110,38 @@ export async function adminGetUniversityClusters(req: Request, res: Response): P
         const countMap = new Map<string, number>();
         counts.forEach((item) => countMap.set(String(item._id), Number(item.count || 0)));
 
-        res.json({
+        // Aggregate seat stats per cluster
+        const parseSeats = (val: unknown): number => {
+            if (!val) return 0;
+            const num = parseInt(String(val).replace(/[^0-9]/g, ''), 10);
+            return Number.isNaN(num) ? 0 : num;
+        };
+        const clusterIds = clusters.map(c => c._id);
+        const allClusterUnis = await University.find({ clusterId: { $in: clusterIds }, isArchived: { $ne: true } })
+            .select('clusterId totalSeats scienceSeats seatsScienceEng artsSeats seatsArtsHum businessSeats seatsBusiness')
+            .lean();
+        const seatStatsMap = new Map<string, { totalSeats: number; scienceSeats: number; artsSeats: number; commerceSeats: number }>();
+        for (const uni of allClusterUnis) {
+            const cid = String(uni.clusterId);
+            const existing = seatStatsMap.get(cid) || { totalSeats: 0, scienceSeats: 0, artsSeats: 0, commerceSeats: 0 };
+            const row = uni as Record<string, unknown>;
+            existing.totalSeats += parseSeats(row.totalSeats);
+            existing.scienceSeats += parseSeats(row.scienceSeats || row.seatsScienceEng);
+            existing.artsSeats += parseSeats(row.artsSeats || row.seatsArtsHum);
+            existing.commerceSeats += parseSeats(row.businessSeats || row.seatsBusiness);
+            seatStatsMap.set(cid, existing);
+        }
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             clusters: clusters.map((cluster) => ({
                 ...cluster,
                 memberCount: countMap.get(String(cluster._id)) || 0,
+                seatStats: seatStatsMap.get(String(cluster._id)) || { totalSeats: 0, scienceSeats: 0, artsSeats: 0, commerceSeats: 0 },
             })),
-        });
+        }));
     } catch (err) {
         console.error('adminGetUniversityClusters error:', err);
-        res.status(500).json({ message: 'Failed to fetch clusters.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to fetch clusters.'));
     }
 }
 
@@ -126,7 +150,7 @@ export async function adminCreateUniversityCluster(req: Request, res: Response):
         const payload = req.body || {};
         const name = String(payload.name || '').trim();
         if (!name) {
-            res.status(400).json({ message: 'Cluster name is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Cluster name is required.'));
             return;
         }
 
@@ -135,7 +159,7 @@ export async function adminCreateUniversityCluster(req: Request, res: Response):
             $or: [{ name }, { slug }],
         }).lean();
         if (existing) {
-            res.status(409).json({ message: 'Cluster name or slug already exists.', code: 'CLUSTER_DUPLICATE' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CLUSTER_DUPLICATE', 'Cluster name or slug already exists.'));
             return;
         }
 
@@ -143,6 +167,7 @@ export async function adminCreateUniversityCluster(req: Request, res: Response):
             name,
             slug,
             description: String(payload.description || ''),
+            heroImageUrl: String(payload.heroImageUrl || ''),
             isActive: payload.isActive !== false,
             memberUniversityIds: uniqueObjectIds(payload.memberUniversityIds || []),
             categoryRules: normalizeCategories(payload.categoryRules || []),
@@ -151,6 +176,7 @@ export async function adminCreateUniversityCluster(req: Request, res: Response):
             syncPolicy: 'inherit_with_override',
             homeVisible: Boolean(payload.homeVisible),
             homeOrder: Number(payload.homeOrder || 0),
+            homeFeedMode: (['cluster_only', 'members_only', 'both'].includes(payload.homeFeedMode) ? payload.homeFeedMode : 'both'),
             createdBy: (req as Request & { user?: { _id?: string } }).user?._id || null,
             updatedBy: (req as Request & { user?: { _id?: string } }).user?._id || null,
         });
@@ -166,20 +192,19 @@ export async function adminCreateUniversityCluster(req: Request, res: Response):
             meta: { action: 'create', clusterId: String(cluster._id) },
         });
 
-        res.status(201).json({
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             cluster,
             memberCount: resolution.clusterMemberCounts[String(cluster._id)] || 0,
             dateSync: syncResult,
-            resolution,
-            message: 'Cluster created successfully.',
-        });
+            resolution
+        }, 'Cluster created successfully.'));
     } catch (err) {
         if ((err as { code?: number }).code === 11000) {
-            res.status(409).json({ message: 'Cluster name or slug already exists.', code: 'CLUSTER_DUPLICATE' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CLUSTER_DUPLICATE', 'Cluster name or slug already exists.'));
             return;
         }
         console.error('adminCreateUniversityCluster error:', err);
-        res.status(500).json({ message: 'Failed to create cluster.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to create cluster.'));
     }
 }
 
@@ -188,7 +213,7 @@ export async function adminGetUniversityClusterById(req: Request, res: Response)
         await backfillUniversityTaxonomyIfNeeded();
         const cluster = await UniversityCluster.findById(req.params.id).lean();
         if (!cluster) {
-            res.status(404).json({ message: 'Cluster not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Cluster not found.'));
             return;
         }
         const members = await University.find({ _id: { $in: cluster.memberUniversityIds || [] } })
@@ -204,10 +229,10 @@ export async function adminGetUniversityClusterById(req: Request, res: Response)
         const ruleCategories = categoryRuleIds.length > 0
             ? await UniversityCategory.find({ _id: { $in: categoryRuleIds } }).select('_id name labelBn').lean()
             : [];
-        res.json({ cluster, members, effectiveMembers, ruleCategories });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ cluster, members, effectiveMembers, ruleCategories }));
     } catch (err) {
         console.error('adminGetUniversityClusterById error:', err);
-        res.status(500).json({ message: 'Failed to load cluster.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load cluster.'));
     }
 }
 
@@ -217,7 +242,7 @@ export async function adminUpdateUniversityCluster(req: Request, res: Response):
         const payload = req.body || {};
         const cluster = await UniversityCluster.findById(clusterId);
         if (!cluster) {
-            res.status(404).json({ message: 'Cluster not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Cluster not found.'));
             return;
         }
 
@@ -233,11 +258,12 @@ export async function adminUpdateUniversityCluster(req: Request, res: Response):
                 $or: [{ name: cluster.name }, { slug: cluster.slug }],
             }).select('_id').lean();
             if (duplicate) {
-                res.status(409).json({ message: 'Cluster name or slug already exists.', code: 'CLUSTER_DUPLICATE' });
+                ResponseBuilder.send(res, 409, ResponseBuilder.error('CLUSTER_DUPLICATE', 'Cluster name or slug already exists.'));
                 return;
             }
         }
         if (payload.description !== undefined) cluster.description = String(payload.description || '');
+        if (payload.heroImageUrl !== undefined) cluster.heroImageUrl = String(payload.heroImageUrl || '');
         if (payload.isActive !== undefined) cluster.isActive = Boolean(payload.isActive);
         if (payload.memberUniversityIds) {
             cluster.memberUniversityIds = uniqueObjectIds(payload.memberUniversityIds);
@@ -251,6 +277,9 @@ export async function adminUpdateUniversityCluster(req: Request, res: Response):
         if (payload.dates || payload.examCenters) cluster.dates = normalizeClusterDates(payload);
         if (payload.homeVisible !== undefined) cluster.homeVisible = Boolean(payload.homeVisible);
         if (payload.homeOrder !== undefined) cluster.homeOrder = Number(payload.homeOrder || 0);
+        if (payload.homeFeedMode !== undefined && ['cluster_only', 'members_only', 'both'].includes(payload.homeFeedMode)) {
+            (cluster as unknown as { homeFeedMode: string }).homeFeedMode = payload.homeFeedMode;
+        }
         cluster.updatedBy = toOptionalObjectId((req as Request & { user?: { _id?: string } }).user?._id);
 
         await cluster.save();
@@ -266,20 +295,19 @@ export async function adminUpdateUniversityCluster(req: Request, res: Response):
             meta: { action: 'update', clusterId: String(cluster._id) },
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             cluster,
             memberCount: resolution.clusterMemberCounts[String(cluster._id)] || 0,
             dateSync: syncResult,
-            resolution,
-            message: 'Cluster updated successfully.',
-        });
+            resolution
+        }, 'Cluster updated successfully.'));
     } catch (err) {
         if ((err as { code?: number }).code === 11000) {
-            res.status(409).json({ message: 'Cluster name or slug already exists.', code: 'CLUSTER_DUPLICATE' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CLUSTER_DUPLICATE', 'Cluster name or slug already exists.'));
             return;
         }
         console.error('adminUpdateUniversityCluster error:', err);
-        res.status(500).json({ message: 'Failed to update cluster.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update cluster.'));
     }
 }
 
@@ -288,7 +316,7 @@ export async function adminResolveUniversityClusterMembers(req: Request, res: Re
         const clusterId = String(req.params.id || '');
         const cluster = await UniversityCluster.findById(clusterId).lean();
         if (!cluster) {
-            res.status(404).json({ message: 'Cluster not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Cluster not found.'));
             return;
         }
 
@@ -305,7 +333,7 @@ export async function adminResolveUniversityClusterMembers(req: Request, res: Re
             meta: { action: 'resolve', clusterId },
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             memberCount: effectiveMemberIds.length,
             manualMembers: manualMemberIds,
             suggestedMembers: suggestedMemberIds,
@@ -313,12 +341,11 @@ export async function adminResolveUniversityClusterMembers(req: Request, res: Re
             manualMembersCount: manualMemberIds.length,
             suggestedMembersCount: suggestedMemberIds.length,
             effectiveMembersCount: effectiveMemberIds.length,
-            warnings: resolution.warnings.filter((item) => item.clusterIds.includes(clusterId)),
-            message: 'Cluster members resolved with manual-wins policy.',
-        });
+            warnings: resolution.warnings.filter((item) => item.clusterIds.includes(clusterId))
+        }, 'Cluster members resolved with manual-wins policy.'));
     } catch (err) {
         console.error('adminResolveUniversityClusterMembers error:', err);
-        res.status(500).json({ message: 'Failed to resolve cluster members.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to resolve cluster members.'));
     }
 }
 
@@ -327,7 +354,7 @@ export async function adminSyncUniversityClusterDates(req: Request, res: Respons
         const clusterId = String(req.params.id || '');
         const cluster = await UniversityCluster.findById(clusterId);
         if (!cluster) {
-            res.status(404).json({ message: 'Cluster not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Cluster not found.'));
             return;
         }
 
@@ -345,10 +372,10 @@ export async function adminSyncUniversityClusterDates(req: Request, res: Respons
             type: 'cluster-updated',
             meta: { action: 'sync-dates', clusterId, ...result },
         });
-        res.json({ ...result, message: 'Cluster dates synced.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ...result }, 'Cluster dates synced.'));
     } catch (err) {
         console.error('adminSyncUniversityClusterDates error:', err);
-        res.status(500).json({ message: 'Failed to sync cluster dates.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to sync cluster dates.'));
     }
 }
 
@@ -357,7 +384,7 @@ export async function adminDeleteUniversityCluster(req: Request, res: Response):
         const clusterId = String(req.params.id || '');
         const cluster = await UniversityCluster.findById(clusterId);
         if (!cluster) {
-            res.status(404).json({ message: 'Cluster not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Cluster not found.'));
             return;
         }
 
@@ -372,19 +399,20 @@ export async function adminDeleteUniversityCluster(req: Request, res: Response):
             meta: { action: 'deactivate', clusterId },
         });
 
-        res.json({ message: 'Cluster deactivated successfully.', resolution });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resolution }, 'Cluster deactivated successfully.'));
     } catch (err) {
         console.error('adminDeleteUniversityCluster error:', err);
-        res.status(500).json({ message: 'Failed to deactivate cluster.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to deactivate cluster.'));
     }
 }
 
 export async function adminPermanentDeleteUniversityCluster(req: Request, res: Response): Promise<void> {
     try {
         const clusterId = String(req.params.id || '');
+        const deleteMode = String(req.query.mode || req.body?.mode || 'cluster_only').toLowerCase();
         const cluster = await UniversityCluster.findById(clusterId).lean();
         if (!cluster) {
-            res.status(404).json({ message: 'Cluster not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Cluster not found.'));
             return;
         }
 
@@ -396,24 +424,67 @@ export async function adminPermanentDeleteUniversityCluster(req: Request, res: R
                 { clusterGroup: String(cluster.name || '').trim() },
             ],
         });
-        if (linkedCount > 0) {
-            res.status(409).json({
-                message: 'Cluster has linked universities. Disable it or clear members first.',
-                code: 'CLUSTER_NOT_EMPTY',
-                linkedCount,
-            });
-            return;
-        }
 
-        await UniversityCluster.deleteOne({ _id: cluster._id });
-        broadcastHomeStreamEvent({
-            type: 'cluster-updated',
-            meta: { action: 'permanent-delete', clusterId },
-        });
-        res.json({ message: 'Cluster permanently deleted.', linkedCount: 0 });
+        if (deleteMode === 'cascade') {
+            // Delete cluster AND all linked universities
+            await University.updateMany(
+                {
+                    $or: [
+                        { clusterId: cluster._id },
+                        { clusterName: String(cluster.name || '').trim() },
+                        { clusterGroup: String(cluster.name || '').trim() },
+                    ],
+                },
+                {
+                    $set: {
+                        isArchived: true,
+                        archivedAt: new Date(),
+                        archivedBy: toOptionalObjectId((req as Request & { user?: { _id?: string } }).user?._id),
+                    },
+                },
+            );
+            await UniversityCluster.deleteOne({ _id: cluster._id });
+            broadcastHomeStreamEvent({
+                type: 'cluster-updated',
+                meta: { action: 'permanent-delete-cascade', clusterId },
+            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ linkedCount, deletedUniversities: linkedCount }, 'Cluster and all linked universities permanently deleted.'));
+        } else if (deleteMode === 'detach') {
+            // Delete cluster only, detach universities (remove clusterId)
+            await University.updateMany(
+                {
+                    $or: [
+                        { clusterId: cluster._id },
+                        { clusterName: String(cluster.name || '').trim() },
+                        { clusterGroup: String(cluster.name || '').trim() },
+                    ],
+                },
+                {
+                    $set: { clusterId: null, clusterName: '', clusterGroup: '' },
+                },
+            );
+            await UniversityCluster.deleteOne({ _id: cluster._id });
+            broadcastHomeStreamEvent({
+                type: 'cluster-updated',
+                meta: { action: 'permanent-delete-detach', clusterId },
+            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ linkedCount, detachedUniversities: linkedCount }, 'Cluster deleted. Universities detached and kept safe.'));
+        } else {
+            // Original behavior: only allow delete if empty
+            if (linkedCount > 0) {
+                ResponseBuilder.send(res, 409, ResponseBuilder.error('CLUSTER_NOT_EMPTY', 'Cluster has linked universities. Use mode=cascade to delete all, or mode=detach to keep universities.'));
+                return;
+            }
+            await UniversityCluster.deleteOne({ _id: cluster._id });
+            broadcastHomeStreamEvent({
+                type: 'cluster-updated',
+                meta: { action: 'permanent-delete', clusterId },
+            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ linkedCount: 0 }, 'Cluster permanently deleted.'));
+        }
     } catch (err) {
         console.error('adminPermanentDeleteUniversityCluster error:', err);
-        res.status(500).json({ message: 'Failed to permanently delete cluster.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to permanently delete cluster.'));
     }
 }
 
@@ -425,7 +496,7 @@ export async function getFeaturedUniversityClusters(req: Request, res: Response)
             { isActive: true, homeVisible: true },
             buildPublicClusterExclusionQuery(),
         ))
-            .select('name slug description homeOrder dates')
+            .select('name slug description heroImageUrl homeOrder dates homeFeedMode')
             .sort({ homeOrder: 1, name: 1 })
             .limit(limit)
             .lean();
@@ -438,15 +509,15 @@ export async function getFeaturedUniversityClusters(req: Request, res: Response)
         const countMap = new Map<string, number>();
         counts.forEach((item) => countMap.set(String(item._id), Number(item.count || 0)));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             clusters: clusters.map((cluster) => ({
                 ...cluster,
                 memberCount: countMap.get(String(cluster._id)) || 0,
             })),
-        });
+        }));
     } catch (err) {
         console.error('getFeaturedUniversityClusters error:', err);
-        res.status(500).json({ message: 'Failed to fetch featured clusters.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to fetch featured clusters.'));
     }
 }
 
@@ -461,21 +532,21 @@ export async function getPublicUniversityClusterMembers(req: Request, res: Respo
         if (!cluster) {
             const normalizedRequestedSlug = normalizeClusterSlug('', slug);
             const fallbackMatches = await UniversityCluster.find({ isActive: true })
-                .select('_id name slug description homeOrder dates homeVisible')
+                .select('_id name slug description heroImageUrl homeOrder dates homeVisible')
                 .lean();
             cluster = fallbackMatches.find((candidate) => (
                 normalizeClusterSlug(String(candidate.name || ''), String(candidate.slug || '')) === normalizedRequestedSlug
             )) || null;
         }
         if (!cluster) {
-            res.status(404).json({ message: 'Cluster not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Cluster not found.'));
             return;
         }
 
         const filter = { clusterId: cluster._id, isArchived: { $ne: true }, isActive: true };
         const total = await University.countDocuments(filter);
         const allMembers = await University.find(filter)
-            .select('category applicationStart applicationStartDate applicationEnd applicationEndDate scienceExamDate examDateScience artsExamDate examDateArts businessExamDate examDateBusiness admissionWebsite admissionUrl examCenters')
+            .select('category applicationStart applicationStartDate applicationEnd applicationEndDate scienceExamDate examDateScience artsExamDate examDateArts businessExamDate examDateBusiness admissionWebsite admissionUrl examCenters totalSeats scienceSeats seatsScienceEng artsSeats seatsArtsHum businessSeats seatsBusiness')
             .lean();
         const universities = await University.find(filter)
             .sort({ featured: -1, featuredOrder: 1, name: 1 })
@@ -517,7 +588,22 @@ export async function getPublicUniversityClusterMembers(req: Request, res: Respo
                 .filter(Boolean),
         )).slice(0, 6);
 
-        res.json({
+        // Aggregate seat counts from all member universities
+        const parseSeats = (val: unknown): number => {
+            if (!val) return 0;
+            const num = parseInt(String(val).replace(/[^0-9]/g, ''), 10);
+            return Number.isNaN(num) ? 0 : num;
+        };
+        let totalSeats = 0, scienceSeats = 0, artsSeats = 0, commerceSeats = 0;
+        for (const m of allMembers) {
+            const row = m as Record<string, unknown>;
+            totalSeats += parseSeats(row.totalSeats);
+            scienceSeats += parseSeats(row.scienceSeats || row.seatsScienceEng);
+            artsSeats += parseSeats(row.artsSeats || row.seatsArtsHum);
+            commerceSeats += parseSeats(row.businessSeats || row.seatsBusiness);
+        }
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             cluster,
             summary: {
                 memberCount: total,
@@ -531,6 +617,10 @@ export async function getPublicUniversityClusterMembers(req: Request, res: Respo
                 businessExamDate: toIso(clusterDates.commerceExamDate || clusterDates.businessExamDate) || findNearestUpcomingDate(memberBusinessDates, now),
                 admissionWebsite: String(clusterDates.admissionWebsite || memberAdmissionWebsite?.admissionWebsite || memberAdmissionWebsite?.admissionUrl || '').trim(),
                 examCentersPreview,
+                totalSeats,
+                scienceSeats,
+                artsSeats,
+                commerceSeats,
             },
             universities,
             pagination: {
@@ -539,9 +629,9 @@ export async function getPublicUniversityClusterMembers(req: Request, res: Respo
                 limit,
                 pages: Math.max(1, Math.ceil(total / limit)),
             },
-        });
+        }));
     } catch (err) {
         console.error('getPublicUniversityClusterMembers error:', err);
-        res.status(500).json({ message: 'Failed to fetch cluster members.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to fetch cluster members.'));
     }
 }

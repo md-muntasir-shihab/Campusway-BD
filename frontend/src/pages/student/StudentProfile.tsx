@@ -451,7 +451,7 @@ export default function StudentProfile() {
                                     <option value="">Select a stream...</option>
                                     <option value="science">Science / Engineering / Tech</option>
                                     <option value="commerce">Commerce / Business / Finance</option>
-                                    <option value="arts">Arts / Humanities / Social Sciences</option>
+                                    <option value="arts">Humanities / Social Sciences</option>
                                 </select>
                             </div>
                         </div>
@@ -551,8 +551,8 @@ export default function StudentProfile() {
                             <label
                                 htmlFor="profile-photo-upload"
                                 className={`w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 cursor-pointer relative z-20 ${photoUploading
-                                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                                        : 'bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20'
+                                    ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                    : 'bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20'
                                     }`}
                             >
                                 {photoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}

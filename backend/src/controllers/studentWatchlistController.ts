@@ -5,10 +5,11 @@ import StudentWatchlist from '../models/StudentWatchlist';
 import University from '../models/University';
 import Resource from '../models/Resource';
 import Exam from '../models/Exam';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function ensureStudent(req: AuthRequest, res: Response): string | null {
-    if (!req.user) { res.status(401).json({ message: 'Not authenticated' }); return null; }
-    if (req.user.role !== 'student') { res.status(403).json({ message: 'Student access only' }); return null; }
+    if (!req.user) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated')); return null; }
+    if (req.user.role !== 'student') { ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only')); return null; }
     return req.user._id;
 }
 
@@ -70,10 +71,10 @@ export async function getStudentWatchlist(req: AuthRequest, res: Response): Prom
             total: items.length,
         };
 
-        res.json({ items: enriched, summary, lastUpdatedAt: new Date().toISOString() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: enriched, summary, lastUpdatedAt: new Date().toISOString() }));
     } catch (err) {
         console.error('getStudentWatchlist error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -84,25 +85,25 @@ export async function toggleWatchlistItem(req: AuthRequest, res: Response): Prom
 
         const { itemType, itemId } = req.body;
         if (!itemType || !VALID_TYPES.includes(itemType)) {
-            res.status(400).json({ message: 'Invalid itemType' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid itemType'));
             return;
         }
         if (!itemId || !mongoose.Types.ObjectId.isValid(itemId)) {
-            res.status(400).json({ message: 'Invalid itemId' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid itemId'));
             return;
         }
 
         const existing = await StudentWatchlist.findOne({ studentId, itemType, itemId });
         if (existing) {
             await existing.deleteOne();
-            res.json({ saved: false, message: 'Removed from watchlist' });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({saved: false}, 'Removed from watchlist'));
         } else {
             await StudentWatchlist.create({ studentId, itemType, itemId });
-            res.json({ saved: true, message: 'Added to watchlist' });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({saved: true}, 'Added to watchlist'));
         }
     } catch (err) {
         console.error('toggleWatchlistItem error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -123,10 +124,10 @@ export async function getWatchlistSummary(req: AuthRequest, res: Response): Prom
             summary.total += c.count;
         }
 
-        res.json({ summary });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ summary }));
     } catch (err) {
         console.error('getWatchlistSummary error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -137,7 +138,7 @@ export async function checkWatchlistStatus(req: AuthRequest, res: Response): Pro
 
         const { itemType, itemId } = req.query;
         if (!itemType || !itemId) {
-            res.status(400).json({ message: 'itemType and itemId required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'itemType and itemId required'));
             return;
         }
 
@@ -147,9 +148,9 @@ export async function checkWatchlistStatus(req: AuthRequest, res: Response): Pro
             itemId: String(itemId),
         });
 
-        res.json({ saved: Boolean(exists) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ saved: Boolean(exists) }));
     } catch (err) {
         console.error('checkWatchlistStatus error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

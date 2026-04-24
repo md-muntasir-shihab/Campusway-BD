@@ -18,6 +18,7 @@ import User from '../models/User';
 import { markExternalExamAttemptImported } from '../services/externalExamAttemptService';
 import { syncExamResultToStudentProfile } from '../services/examProfileSyncEngine';
 import { getCanonicalSubscriptionSnapshot } from '../services/subscriptionAccessService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type CanonicalRow = Record<string, unknown>;
 type LookupUser = Record<string, unknown>;
@@ -806,7 +807,7 @@ async function previewImportInternal(req: AuthRequest): Promise<Record<string, u
 
 export async function adminPreviewExamImport(req: AuthRequest, res: Response): Promise<void> {
     try {
-        res.json(await previewImportInternal(req));
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(await previewImportInternal(req)));
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to generate import preview.';
         res.status(message.includes('not found') ? 404 : 400).json({ message });
@@ -817,13 +818,13 @@ export async function adminCommitExamImport(req: AuthRequest, res: Response): Pr
     try {
         const examId = String(req.params.id || req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
 
         const previewToken = asString(req.body.previewToken);
         if (!previewToken) {
-            res.status(400).json({ message: 'previewToken is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'previewToken is required.'));
             return;
         }
 
@@ -833,11 +834,11 @@ export async function adminCommitExamImport(req: AuthRequest, res: Response): Pr
             getSettingsDoc(String(req.user?._id || '')),
         ]);
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
         if (!job) {
-            res.status(404).json({ message: 'Preview job not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Preview job not found.'));
             return;
         }
 
@@ -1006,18 +1007,16 @@ export async function adminCommitExamImport(req: AuthRequest, res: Response): Pr
             })));
         }
 
-        res.json({
-            message: job.status === 'committed' ? 'Import committed successfully.' : 'Import committed with issues.',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({message: job.status === 'committed' ? 'Import committed successfully.' : 'Import committed with issues.',
             job: {
                 _id: String(job._id),
                 previewToken: job.previewToken,
                 status: job.status,
                 summary: job.summary,
                 failedRowsCsv: job.failedRowsCsv,
-            },
-        });
+            },}));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to commit import.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to commit import.'));
     }
 }
 
@@ -1025,7 +1024,7 @@ export async function adminGetExamImportLogs(req: AuthRequest, res: Response): P
     try {
         const examId = String(req.params.id || req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
 
@@ -1041,8 +1040,7 @@ export async function adminGetExamImportLogs(req: AuthRequest, res: Response): P
                 .lean()
             : [];
 
-        res.json({
-            logs: jobs.map((job) => ({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({logs: jobs.map((job) => ({
                 ...job,
                 _id: String(job._id),
                 examId: String(job.examId),
@@ -1056,18 +1054,17 @@ export async function adminGetExamImportLogs(req: AuthRequest, res: Response): P
                 _id: String(issue._id),
                 jobId: String(issue.jobId),
                 examId: String(issue.examId),
-            })),
-        });
+            })),}));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to load import logs.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load import logs.'));
     }
 }
 
 export async function adminGetExamImportTemplates(_req: AuthRequest, res: Response): Promise<void> {
     try {
-        res.json({ templates: await ExamImportTemplate.find({}).sort({ updatedAt: -1 }).lean() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ templates: await ExamImportTemplate.find({}).sort({ updatedAt: -1 }).lean() }));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to load templates.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load templates.'));
     }
 }
 
@@ -1086,9 +1083,9 @@ export async function adminCreateExamImportTemplate(req: AuthRequest, res: Respo
             createdBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
             updatedBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
         });
-        res.status(201).json({ template, message: 'Template created.' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({template}, 'Template created.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to create template.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to create template.'));
     }
 }
 
@@ -1113,12 +1110,12 @@ export async function adminUpdateExamImportTemplate(req: AuthRequest, res: Respo
             { new: true },
         );
         if (!template) {
-            res.status(404).json({ message: 'Template not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Template not found.'));
             return;
         }
-        res.json({ template, message: 'Template updated.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({template}, 'Template updated.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to update template.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to update template.'));
     }
 }
 
@@ -1126,20 +1123,20 @@ export async function adminDeleteExamImportTemplate(req: AuthRequest, res: Respo
     try {
         const deleted = await ExamImportTemplate.findByIdAndDelete(req.params.id);
         if (!deleted) {
-            res.status(404).json({ message: 'Template not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Template not found.'));
             return;
         }
-        res.json({ message: 'Template deleted.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Template deleted.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to delete template.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to delete template.'));
     }
 }
 
 export async function adminGetExamMappingProfiles(_req: AuthRequest, res: Response): Promise<void> {
     try {
-        res.json({ profiles: await ExamMappingProfile.find({}).sort({ updatedAt: -1 }).lean() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ profiles: await ExamMappingProfile.find({}).sort({ updatedAt: -1 }).lean() }));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to load mapping profiles.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load mapping profiles.'));
     }
 }
 
@@ -1155,9 +1152,9 @@ export async function adminCreateExamMappingProfile(req: AuthRequest, res: Respo
             createdBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
             updatedBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
         });
-        res.status(201).json({ profile, message: 'Mapping profile created.' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({profile}, 'Mapping profile created.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to create mapping profile.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to create mapping profile.'));
     }
 }
 
@@ -1179,12 +1176,12 @@ export async function adminUpdateExamMappingProfile(req: AuthRequest, res: Respo
             { new: true },
         );
         if (!profile) {
-            res.status(404).json({ message: 'Mapping profile not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Mapping profile not found.'));
             return;
         }
-        res.json({ profile, message: 'Mapping profile updated.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({profile}, 'Mapping profile updated.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to update mapping profile.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to update mapping profile.'));
     }
 }
 
@@ -1192,20 +1189,20 @@ export async function adminDeleteExamMappingProfile(req: AuthRequest, res: Respo
     try {
         const deleted = await ExamMappingProfile.findByIdAndDelete(req.params.id);
         if (!deleted) {
-            res.status(404).json({ message: 'Mapping profile not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Mapping profile not found.'));
             return;
         }
-        res.json({ message: 'Mapping profile deleted.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Mapping profile deleted.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to delete mapping profile.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to delete mapping profile.'));
     }
 }
 
 export async function adminGetExamCenters(_req: AuthRequest, res: Response): Promise<void> {
     try {
-        res.json({ centers: await ExamCenter.find({}).sort({ updatedAt: -1 }).lean() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ centers: await ExamCenter.find({}).sort({ updatedAt: -1 }).lean() }));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to load exam centers.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load exam centers.'));
     }
 }
 
@@ -1220,9 +1217,9 @@ export async function adminCreateExamCenter(req: AuthRequest, res: Response): Pr
             createdBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
             updatedBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
         });
-        res.status(201).json({ center, message: 'Exam center created.' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({center}, 'Exam center created.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to create exam center.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to create exam center.'));
     }
 }
 
@@ -1243,12 +1240,12 @@ export async function adminUpdateExamCenter(req: AuthRequest, res: Response): Pr
             { new: true },
         );
         if (!center) {
-            res.status(404).json({ message: 'Exam center not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam center not found.'));
             return;
         }
-        res.json({ center, message: 'Exam center updated.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({center}, 'Exam center updated.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to update exam center.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to update exam center.'));
     }
 }
 
@@ -1256,12 +1253,12 @@ export async function adminDeleteExamCenter(req: AuthRequest, res: Response): Pr
     try {
         const deleted = await ExamCenter.findByIdAndDelete(req.params.id);
         if (!deleted) {
-            res.status(404).json({ message: 'Exam center not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam center not found.'));
             return;
         }
-        res.json({ message: 'Exam center deleted.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Exam center deleted.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to delete exam center.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to delete exam center.'));
     }
 }
 
@@ -1269,12 +1266,12 @@ export async function adminRunExamProfileSync(req: AuthRequest, res: Response): 
     try {
         const examId = String(req.params.id || req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
         const exam = await Exam.findById(examId).lean();
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
         const results = await ExamResult.find({ exam: new mongoose.Types.ObjectId(examId) }).sort({ submittedAt: -1 }).limit(200).lean();
@@ -1303,9 +1300,9 @@ export async function adminRunExamProfileSync(req: AuthRequest, res: Response): 
             else synced += 1;
         }
 
-        res.json({ message: 'Profile sync run completed.', synced, failed });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({synced, failed}, 'Profile sync run completed.'));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to run profile sync.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to run profile sync.'));
     }
 }
 
@@ -1313,27 +1310,25 @@ export async function adminGetExamProfileSyncLogs(req: AuthRequest, res: Respons
     try {
         const examId = String(req.params.id || req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id.'));
             return;
         }
-        res.json({
-            logs: await ExamProfileSyncLog.find({ examId: new mongoose.Types.ObjectId(examId) })
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({logs: await ExamProfileSyncLog.find({ examId: new mongoose.Types.ObjectId(examId) })
                 .sort({ createdAt: -1 })
                 .limit(100)
                 .populate('studentId', 'full_name username email')
-                .lean(),
-        });
+                .lean(),}));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to load sync logs.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load sync logs.'));
     }
 }
 
 export async function adminGetExamCenterSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await getSettingsDoc(String(req.user?._id || ''));
-        res.json({ settings: asRecord(settings.examCenterSettings) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: asRecord(settings.examCenterSettings) }));
     } catch (error) {
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to load exam settings.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load exam settings.'));
     }
 }
 
@@ -1358,8 +1353,8 @@ export async function adminUpdateExamCenterSettings(req: AuthRequest, res: Respo
         }
         await settings.save();
 
-        res.json({ message: 'Exam settings updated.', settings: settings.examCenterSettings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({settings: settings.examCenterSettings}, 'Exam settings updated.'));
     } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to update exam settings.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Failed to update exam settings.'));
     }
 }

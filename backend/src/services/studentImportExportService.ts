@@ -13,22 +13,22 @@ import StudentDueLedger from '../models/StudentDueLedger';
 // Column definitions
 // ---------------------------------------------------------------------------
 const STUDENT_COLUMNS = [
-  { key: 'userId',                        label: 'User ID' },
-  { key: 'full_name',                     label: 'Full Name' },
-  { key: 'username',                      label: 'Username' },
-  { key: 'email',                         label: 'Email' },
-  { key: 'phone_number',                  label: 'Phone' },
-  { key: 'guardian_phone',                label: 'Guardian Phone' },
-  { key: 'department',                    label: 'Department' },
-  { key: 'ssc_batch',                     label: 'SSC Batch' },
-  { key: 'hsc_batch',                     label: 'HSC Batch' },
-  { key: 'college_name',                  label: 'College Name' },
-  { key: 'college_address',               label: 'College Address' },
-  { key: 'present_address',               label: 'Present Address' },
-  { key: 'district',                      label: 'District' },
-  { key: 'gender',                        label: 'Gender' },
-  { key: 'dob',                           label: 'Date of Birth' },
-  { key: 'status',                        label: 'Status' },
+  { key: 'userId', label: 'User ID' },
+  { key: 'full_name', label: 'Full Name' },
+  { key: 'username', label: 'Username' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone_number', label: 'Phone' },
+  { key: 'guardian_phone', label: 'Guardian Phone' },
+  { key: 'department', label: 'Department' },
+  { key: 'ssc_batch', label: 'SSC Batch' },
+  { key: 'hsc_batch', label: 'HSC Batch' },
+  { key: 'college_name', label: 'College Name' },
+  { key: 'college_address', label: 'College Address' },
+  { key: 'present_address', label: 'Present Address' },
+  { key: 'district', label: 'District' },
+  { key: 'gender', label: 'Gender' },
+  { key: 'dob', label: 'Date of Birth' },
+  { key: 'status', label: 'Status' },
   { key: 'profile_completion_percentage', label: 'Profile Score' },
 ];
 
@@ -36,43 +36,43 @@ const STUDENT_COLUMNS = [
 // Smart-mapping aliases
 // ---------------------------------------------------------------------------
 const COLUMN_ALIASES: Record<string, string> = {
-  'full name':           'full_name',
-  fullname:              'full_name',
-  name:                  'full_name',
-  'student name':        'full_name',
-  username:              'username',
-  'user name':           'username',
-  email:                 'email',
-  'email address':       'email',
-  phone:                 'phone_number',
-  mobile:                'phone_number',
-  'phone number':        'phone_number',
-  'mobile number':       'phone_number',
-  'guardian phone':      'guardian_phone',
-  'guardian mobile':     'guardian_phone',
-  department:            'department',
-  dept:                  'department',
-  'ssc batch':           'ssc_batch',
-  sscbatch:              'ssc_batch',
-  'hsc batch':           'hsc_batch',
-  hscbatch:              'hsc_batch',
-  college:               'college_name',
-  'college name':        'college_name',
-  'college address':     'college_address',
-  address:               'present_address',
-  'present address':     'present_address',
-  district:              'district',
-  gender:                'gender',
-  dob:                   'dob',
-  'date of birth':       'dob',
-  birthday:              'dob',
-  status:                'status',
-  'profile score':       'profile_completion_percentage',
-  'profile completion':  'profile_completion_percentage',
-  score:                 'profile_completion_percentage',
-  'user id':             'userId',
-  userid:                'userId',
-  id:                    'userId',
+  'full name': 'full_name',
+  fullname: 'full_name',
+  name: 'full_name',
+  'student name': 'full_name',
+  username: 'username',
+  'user name': 'username',
+  email: 'email',
+  'email address': 'email',
+  phone: 'phone_number',
+  mobile: 'phone_number',
+  'phone number': 'phone_number',
+  'mobile number': 'phone_number',
+  'guardian phone': 'guardian_phone',
+  'guardian mobile': 'guardian_phone',
+  department: 'department',
+  dept: 'department',
+  'ssc batch': 'ssc_batch',
+  sscbatch: 'ssc_batch',
+  'hsc batch': 'hsc_batch',
+  hscbatch: 'hsc_batch',
+  college: 'college_name',
+  'college name': 'college_name',
+  'college address': 'college_address',
+  address: 'present_address',
+  'present address': 'present_address',
+  district: 'district',
+  gender: 'gender',
+  dob: 'dob',
+  'date of birth': 'dob',
+  birthday: 'dob',
+  status: 'status',
+  'profile score': 'profile_completion_percentage',
+  'profile completion': 'profile_completion_percentage',
+  score: 'profile_completion_percentage',
+  'user id': 'userId',
+  userid: 'userId',
+  id: 'userId',
 };
 
 function normalise(s: string): string {
@@ -99,25 +99,25 @@ function suggestMapping(detectedColumns: string[]): Record<string, string> {
 // Public interfaces
 // ---------------------------------------------------------------------------
 export interface ImportPreviewResult {
-  totalRows:        number;
-  previewRows:      Record<string, string>[];
-  detectedColumns:  string[];
+  totalRows: number;
+  previewRows: Record<string, string>[];
+  detectedColumns: string[];
   suggestedMapping: Record<string, string>;
   validationErrors: { row: number; field: string; message: string }[];
 }
 
 export interface ImportCommitOptions {
-  mode:        'create_only' | 'upsert';
+  mode: 'create_only' | 'upsert';
   dedupeField: 'userId' | 'phone' | 'email';
-  mapping:     Record<string, string>;
-  rows:        Record<string, string>[];
+  mapping: Record<string, string>;
+  rows: Record<string, string>[];
 }
 
 export interface ImportCommitResult {
   created: number;
   updated: number;
   skipped: number;
-  errors:  { row: number; message: string }[];
+  errors: { row: number; message: string }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ async function parseXlsxBuffer(
   buffer: Buffer,
 ): Promise<{ rows: Record<string, string>[]; columns: string[] }> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
+  await workbook.xlsx.load(buffer as Buffer & ArrayBuffer);
   const sheet = workbook.worksheets[0];
   if (!sheet) return { rows: [], columns: [] };
 
@@ -208,7 +208,7 @@ export async function generatePreview(
   });
 
   return {
-    totalRows:        rows.length,
+    totalRows: rows.length,
     previewRows,
     detectedColumns,
     suggestedMapping,
@@ -219,7 +219,7 @@ export async function generatePreview(
 // ---------------------------------------------------------------------------
 // commitImport
 // ---------------------------------------------------------------------------
-const DEFAULT_PASSWORD = 'CampusWay@2024';
+const DEFAULT_PASSWORD = process.env.STUDENT_IMPORT_DEFAULT_PASSWORD || 'CampusWayBD@demopass';
 
 export async function commitImport(
   opts: ImportCommitOptions,
@@ -263,26 +263,26 @@ export async function commitImport(
 
       if (existingUser) {
         const userUpdate: Record<string, unknown> = {};
-        if (mapped['full_name'])    userUpdate['full_name']    = mapped['full_name'];
-        if (mapped['email'])        userUpdate['email']        = mapped['email'].toLowerCase();
+        if (mapped['full_name']) userUpdate['full_name'] = mapped['full_name'];
+        if (mapped['email']) userUpdate['email'] = mapped['email'].toLowerCase();
         if (mapped['phone_number']) userUpdate['phone_number'] = mapped['phone_number'];
-        if (mapped['status'] && ['active','suspended','blocked','pending'].includes(mapped['status'])) {
+        if (mapped['status'] && ['active', 'suspended', 'blocked', 'pending'].includes(mapped['status'])) {
           userUpdate['status'] = mapped['status'];
         }
         await User.findByIdAndUpdate(existingUser._id, { $set: userUpdate });
 
         const profileUpdate: Record<string, unknown> = {};
-        if (mapped['full_name'])        profileUpdate['full_name']       = mapped['full_name'];
-        if (mapped['phone_number'])     profileUpdate['phone_number']    = mapped['phone_number'];
-        if (mapped['guardian_phone'])   profileUpdate['guardian_phone']  = mapped['guardian_phone'];
-        if (mapped['department'])       profileUpdate['department']      = mapped['department'];
-        if (mapped['ssc_batch'])        profileUpdate['ssc_batch']       = mapped['ssc_batch'];
-        if (mapped['hsc_batch'])        profileUpdate['hsc_batch']       = mapped['hsc_batch'];
-        if (mapped['college_name'])     profileUpdate['college_name']    = mapped['college_name'];
-        if (mapped['college_address'])  profileUpdate['college_address'] = mapped['college_address'];
-        if (mapped['present_address'])  profileUpdate['present_address'] = mapped['present_address'];
-        if (mapped['district'])         profileUpdate['district']        = mapped['district'];
-        if (mapped['gender'] && ['male','female','other'].includes(mapped['gender'])) {
+        if (mapped['full_name']) profileUpdate['full_name'] = mapped['full_name'];
+        if (mapped['phone_number']) profileUpdate['phone_number'] = mapped['phone_number'];
+        if (mapped['guardian_phone']) profileUpdate['guardian_phone'] = mapped['guardian_phone'];
+        if (mapped['department']) profileUpdate['department'] = mapped['department'];
+        if (mapped['ssc_batch']) profileUpdate['ssc_batch'] = mapped['ssc_batch'];
+        if (mapped['hsc_batch']) profileUpdate['hsc_batch'] = mapped['hsc_batch'];
+        if (mapped['college_name']) profileUpdate['college_name'] = mapped['college_name'];
+        if (mapped['college_address']) profileUpdate['college_address'] = mapped['college_address'];
+        if (mapped['present_address']) profileUpdate['present_address'] = mapped['present_address'];
+        if (mapped['district']) profileUpdate['district'] = mapped['district'];
+        if (mapped['gender'] && ['male', 'female', 'other'].includes(mapped['gender'])) {
           profileUpdate['gender'] = mapped['gender'];
         }
         if (mapped['dob']) {
@@ -296,38 +296,38 @@ export async function commitImport(
         );
         result.updated++;
       } else {
-        const email    = mapped['email']    ? mapped['email'].toLowerCase() : '';
+        const email = mapped['email'] ? mapped['email'].toLowerCase() : '';
         const username = mapped['username'] ? mapped['username'].toLowerCase()
           : (email ? email.split('@')[0] + '_' + Date.now() : 'user_' + Date.now());
 
         const newUser = await User.create({
-          full_name:    mapped['full_name'],
+          full_name: mapped['full_name'],
           username,
-          email:        email || `${username}@import.local`,
-          password:     hashedDefault,
-          role:         'student',
-          status:       ['active','suspended','blocked','pending'].includes(mapped['status'] ?? '')
+          email: email || `${username}@import.local`,
+          password: hashedDefault,
+          role: 'student',
+          status: ['active', 'suspended', 'blocked', 'pending'].includes(mapped['status'] ?? '')
             ? mapped['status'] : 'active',
           phone_number: mapped['phone_number'] || undefined,
           mustChangePassword: true,
         });
 
         const profileData: Record<string, unknown> = {
-          user_id:   newUser._id,
+          user_id: newUser._id,
           full_name: mapped['full_name'],
           username,
-          email:     newUser.email,
+          email: newUser.email,
         };
-        if (mapped['phone_number'])    profileData['phone_number']   = mapped['phone_number'];
-        if (mapped['guardian_phone'])  profileData['guardian_phone'] = mapped['guardian_phone'];
-        if (mapped['department'])      profileData['department']     = mapped['department'];
-        if (mapped['ssc_batch'])       profileData['ssc_batch']      = mapped['ssc_batch'];
-        if (mapped['hsc_batch'])       profileData['hsc_batch']      = mapped['hsc_batch'];
-        if (mapped['college_name'])    profileData['college_name']   = mapped['college_name'];
+        if (mapped['phone_number']) profileData['phone_number'] = mapped['phone_number'];
+        if (mapped['guardian_phone']) profileData['guardian_phone'] = mapped['guardian_phone'];
+        if (mapped['department']) profileData['department'] = mapped['department'];
+        if (mapped['ssc_batch']) profileData['ssc_batch'] = mapped['ssc_batch'];
+        if (mapped['hsc_batch']) profileData['hsc_batch'] = mapped['hsc_batch'];
+        if (mapped['college_name']) profileData['college_name'] = mapped['college_name'];
         if (mapped['college_address']) profileData['college_address'] = mapped['college_address'];
         if (mapped['present_address']) profileData['present_address'] = mapped['present_address'];
-        if (mapped['district'])        profileData['district']       = mapped['district'];
-        if (mapped['gender'] && ['male','female','other'].includes(mapped['gender'])) {
+        if (mapped['district']) profileData['district'] = mapped['district'];
+        if (mapped['gender'] && ['male', 'female', 'other'].includes(mapped['gender'])) {
           profileData['gender'] = mapped['gender'];
         }
         if (mapped['dob']) {
@@ -412,9 +412,9 @@ export async function exportStudents(
   const sortOrder = String(filters['sortOrder'] || '').trim().toLowerCase() === 'asc' ? 1 : -1;
   const sortField =
     sortBy === 'name' ? 'full_name'
-    : sortBy === 'status' ? 'status'
-    : sortBy === 'lastlogin' ? 'lastLoginAtUTC'
-    : 'createdAt';
+      : sortBy === 'status' ? 'status'
+        : sortBy === 'lastlogin' ? 'lastLoginAtUTC'
+          : 'createdAt';
 
   const users = await User.find(userQuery)
     .select('_id full_name username email phone_number status createdAt subscription')
@@ -429,22 +429,22 @@ export async function exportStudents(
   const rows = users.map((u) => {
     const pr = (profileMap.get(String(u._id)) ?? {}) as Record<string, unknown>;
     return {
-      userId:                        String(u._id),
-      full_name:                     u.full_name ?? '',
-      username:                      u.username ?? '',
-      email:                         u.email ?? '',
-      phone_number:                  String(u.phone_number ?? pr['phone_number'] ?? ''),
-      guardian_phone:                String(pr['guardian_phone'] ?? ''),
-      department:                    String(pr['department'] ?? ''),
-      ssc_batch:                     String(pr['ssc_batch'] ?? ''),
-      hsc_batch:                     String(pr['hsc_batch'] ?? ''),
-      college_name:                  String(pr['college_name'] ?? ''),
-      college_address:               String(pr['college_address'] ?? ''),
-      present_address:               String(pr['present_address'] ?? ''),
-      district:                      String(pr['district'] ?? ''),
-      gender:                        String(pr['gender'] ?? ''),
-      dob:                           pr['dob'] ? new Date(pr['dob'] as string).toISOString().split('T')[0] : '',
-      status:                        u.status ?? '',
+      userId: String(u._id),
+      full_name: u.full_name ?? '',
+      username: u.username ?? '',
+      email: u.email ?? '',
+      phone_number: String(u.phone_number ?? pr['phone_number'] ?? ''),
+      guardian_phone: String(pr['guardian_phone'] ?? ''),
+      department: String(pr['department'] ?? ''),
+      ssc_batch: String(pr['ssc_batch'] ?? ''),
+      hsc_batch: String(pr['hsc_batch'] ?? ''),
+      college_name: String(pr['college_name'] ?? ''),
+      college_address: String(pr['college_address'] ?? ''),
+      present_address: String(pr['present_address'] ?? ''),
+      district: String(pr['district'] ?? ''),
+      gender: String(pr['gender'] ?? ''),
+      dob: pr['dob'] ? new Date(pr['dob'] as string).toISOString().split('T')[0] : '',
+      status: u.status ?? '',
       profile_completion_percentage: String(pr['profile_completion_percentage'] ?? '0'),
     };
   }).filter((row) => {
@@ -481,25 +481,25 @@ export async function generateTemplateXlsx(): Promise<Buffer> {
   const sheet = workbook.addWorksheet('Students Template');
   sheet.columns = STUDENT_COLUMNS.map((c) => ({ header: c.label, key: c.key, width: 22 }));
   const headerRow = sheet.getRow(1);
-  headerRow.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-  headerRow.font  = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   sheet.addRow({
-    userId:                        '(leave blank for new)',
-    full_name:                     'John Doe',
-    username:                      'johndoe',
-    email:                         'john@example.com',
-    phone_number:                  '01700000000',
-    guardian_phone:                '01800000000',
-    department:                    'science',
-    ssc_batch:                     '2020',
-    hsc_batch:                     '2022',
-    college_name:                  'Dhaka College',
-    college_address:               'Dhaka',
-    present_address:               'Mirpur, Dhaka',
-    district:                      'Dhaka',
-    gender:                        'male',
-    dob:                           '2004-01-15',
-    status:                        'active',
+    userId: '(leave blank for new)',
+    full_name: 'John Doe',
+    username: 'johndoe',
+    email: 'john@example.com',
+    phone_number: '01700000000',
+    guardian_phone: '01800000000',
+    department: 'science',
+    ssc_batch: '2020',
+    hsc_batch: '2022',
+    college_name: 'Dhaka College',
+    college_address: 'Dhaka',
+    present_address: 'Mirpur, Dhaka',
+    district: 'Dhaka',
+    gender: 'male',
+    dob: '2004-01-15',
+    status: 'active',
     profile_completion_percentage: '0',
   });
   return Buffer.from(await workbook.xlsx.writeBuffer());

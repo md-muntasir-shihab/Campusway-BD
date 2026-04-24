@@ -5,6 +5,7 @@ import {
     buildPublicUniversityExclusionQuery,
     combineMongoFilters,
 } from '../utils/publicFixtureFilters';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 export const getUniversityCategories = async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -52,9 +53,9 @@ export const getUniversityCategories = async (_req: Request, res: Response): Pro
                 return a.categoryName.localeCompare(b.categoryName);
             });
 
-        res.json({ ok: true, data: categories });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: categories }));
     } catch (error) {
         console.error('getUniversityCategories error:', error);
-        res.status(500).json({ ok: false, message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };

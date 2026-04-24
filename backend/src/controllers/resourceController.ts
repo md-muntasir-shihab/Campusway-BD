@@ -6,6 +6,7 @@ import ResourceSettings, {
     RESOURCE_SETTINGS_DEFAULTS,
     type IResourceSettings,
 } from '../models/ResourceSettings';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function isAllToken(value: unknown): boolean {
     const normalized = String(value || '').trim().toLowerCase();
@@ -118,10 +119,10 @@ async function loadSanitizedResourceSettings(): Promise<PublicResourceSettingsRe
 export async function getPublicResourceSettings(_req: Request, res: Response): Promise<void> {
     try {
         const settings = await loadSanitizedResourceSettings();
-        res.json({ settings, lastUpdatedAt: new Date().toISOString() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings, lastUpdatedAt: new Date().toISOString() }));
     } catch (err) {
         console.error('getPublicResourceSettings error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -170,10 +171,10 @@ export async function getPublicResources(req: Request, res: Response): Promise<v
             Resource.countDocuments(filter),
         ]);
 
-        res.json({ resources: resources.map((item) => withPublicSlug(item as Record<string, any>)), total, page: pageNum, pages: Math.ceil(total / limitNum) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resources: resources.map((item) => withPublicSlug(item as Record<string, any>)), total, page: pageNum, pages: Math.ceil(total / limitNum) }));
     } catch (err) {
         console.error('getPublicResources error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -181,13 +182,13 @@ export async function incrementResourceView(req: Request, res: Response): Promis
     try {
         const settings = await loadSanitizedResourceSettings();
         if (!settings.trackingEnabled) {
-            res.json({ ok: true, trackingEnabled: false });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, trackingEnabled: false }));
             return;
         }
         await Resource.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
-        res.json({ ok: true });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true }));
     } catch {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -195,13 +196,13 @@ export async function incrementResourceDownload(req: Request, res: Response): Pr
     try {
         const settings = await loadSanitizedResourceSettings();
         if (!settings.trackingEnabled) {
-            res.json({ ok: true, trackingEnabled: false });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, trackingEnabled: false }));
             return;
         }
         await Resource.findByIdAndUpdate(req.params.id, { $inc: { downloads: 1 } });
-        res.json({ ok: true });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true }));
     } catch {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -230,7 +231,7 @@ export async function getPublicResourceBySlug(req: Request, res: Response): Prom
         }
 
         if (!resource) {
-            res.status(404).json({ message: 'Resource not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Resource not found'));
             return;
         }
 
@@ -252,9 +253,9 @@ export async function getPublicResourceBySlug(req: Request, res: Response): Prom
             .limit(4)
             .lean();
 
-        res.json({ resource: withPublicSlug(resource as Record<string, any>), relatedResources: relatedResources.map((item) => withPublicSlug(item as Record<string, any>)) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resource: withPublicSlug(resource as Record<string, any>), relatedResources: relatedResources.map((item) => withPublicSlug(item as Record<string, any>)) }));
     } catch (err) {
         console.error('getPublicResourceBySlug error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

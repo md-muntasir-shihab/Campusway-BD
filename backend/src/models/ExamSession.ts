@@ -1,6 +1,20 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-/** Tracks an in-progress exam attempt for auto-save and fraud detection */
+/**
+ * ExamSession model — tracks an in-progress exam attempt for auto-save and fraud detection.
+ *
+ * Key fields:
+ * - `exam` / `student`: References to the Exam and User documents
+ * - `attemptNo`: Which attempt number this is for the student
+ * - `answers`: Array of per-question responses with change history
+ * - `status`: in_progress | submitted | evaluated | expired
+ * - `tabSwitchCount`, `copyAttemptCount`, `fullscreenExitCount`: Anti-cheat counters
+ * - `cheat_flags`: Timestamped reasons for suspicious activity
+ * - `submissionType`: manual | auto_timeout | auto_expired | forced
+ * - `expiresAt`: When the session auto-expires
+ *
+ * @collection exam_attempts
+ */
 export interface IExamSession extends Document {
     exam: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;

@@ -4,6 +4,7 @@ import fs from 'fs';
 import ActiveSession from '../models/ActiveSession';
 import SecureUpload from '../models/SecureUpload';
 import User from '../models/User';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_SECRET || 'refresh_secret';
 const ADMIN_ROLES = new Set(['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent', 'chairman']);
@@ -105,7 +106,7 @@ export async function serveSecureUpload(req: Request, res: Response, next: NextF
         }
 
         if (!fs.existsSync(upload.storagePath)) {
-            res.status(404).json({ message: 'File not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'File not found'));
             return;
         }
 
@@ -127,6 +128,6 @@ export async function serveSecureUpload(req: Request, res: Response, next: NextF
         res.sendFile(upload.storagePath);
     } catch (error) {
         console.error('serveSecureUpload error:', error);
-        res.status(500).json({ message: 'Failed to serve file' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to serve file'));
     }
 }

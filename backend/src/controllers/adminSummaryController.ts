@@ -16,6 +16,7 @@ import SubscriptionPlan from '../models/SubscriptionPlan';
 import TeamInvite from '../models/TeamInvite';
 import TeamRole from '../models/TeamRole';
 import SecurityAlertLog from '../models/SecurityAlertLog';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 export const adminGetDashboardSummary = async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -138,8 +139,7 @@ export const adminGetDashboardSummary = async (_req: Request, res: Response): Pr
             99: 'down',
         };
         const db = dbStateMap[mongoose.connection.readyState] || 'down';
-        res.json({
-            universities: {
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({universities: {
                 total: universityStats.total,
                 active: universityStats.active,
                 featured: universityStats.featured,
@@ -172,11 +172,10 @@ export const adminGetDashboardSummary = async (_req: Request, res: Response): Pr
             systemStatus: {
                 db,
                 timeUTC: now.toISOString(),
-            },
-        });
+            },}));
     } catch (error) {
         console.error('adminGetDashboardSummary error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 

@@ -230,6 +230,10 @@ async function resolveFilterUserIds(
             ? filters.accountStatuses
             : (Array.isArray(filters.statuses) ? filters.statuses : undefined),
     };
+    // Default: exclude expired subscriptions from campaign audience unless explicitly set to false
+    if (mappedFilters.excludeExpired === undefined) {
+        mappedFilters.excludeExpired = true;
+    }
     return resolveSubscriptionContactUserIds(mappedFilters);
 }
 

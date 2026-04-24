@@ -2,7 +2,7 @@ import Parser from "rss-parser";
 import fetch from "node-fetch";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
-import { NewsItemModel } from "../models/newsItem.model";
+import News from "../models/News";
 import { NewsSettingsModel } from "../models/newsSettings.model";
 import { RssSourceModel } from "../models/rssSource.model";
 import { sanitizeNewsHtml, slugify, hashKey, normalizeTitle } from "../utils/content";
@@ -176,7 +176,7 @@ export const runRssIngestion = async () => {
               originalArticleUrl
             });
 
-            await NewsItemModel.create({
+            await News.create({
               ...baseDoc,
               title: ai.title,
               shortSummary: ai.shortSummary,
@@ -187,7 +187,7 @@ export const runRssIngestion = async () => {
               aiNotes: ai.aiNotes
             });
           } else {
-            await NewsItemModel.create({ ...baseDoc, isAiGenerated: false });
+            await News.create({ ...baseDoc, isAiGenerated: false });
           }
         } catch (itemErr) {
           console.error(`[RSS] Failed to process item from ${source.name}:`, (itemErr as Error).message);

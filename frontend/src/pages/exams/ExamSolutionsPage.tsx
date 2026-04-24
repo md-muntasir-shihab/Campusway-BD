@@ -188,9 +188,8 @@ export const ExamSolutionsPage = () => {
                     >
                         {tab}
                         {filterCounts[tab] > 0 ? (
-                            <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
-                                filter === tab ? "bg-white/25 text-white" : "bg-card-border/50 text-text-muted dark:text-dark-text/60"
-                            }`}>
+                            <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[max(10px,0.625rem)] font-bold ${filter === tab ? "bg-white/25 text-white" : "bg-card-border/50 text-text-muted dark:text-dark-text/60"
+                                }`}>
                                 {filterCounts[tab]}
                             </span>
                         ) : null}
@@ -246,11 +245,14 @@ export const ExamSolutionsPage = () => {
                             </div>
 
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                <span className={isSkipped ? "badge-warning" : isCorrect ? "badge-success" : "badge-danger"}>
-                                    Selected: {selected}
+                                <span
+                                    className={isSkipped ? "badge-warning" : isCorrect ? "badge-success" : "badge-danger"}
+                                    aria-label={isSkipped ? "Warning: Skipped" : isCorrect ? "Correct answer" : "Incorrect answer"}
+                                >
+                                    {isSkipped ? "⚠ " : isCorrect ? "✓ " : "✕ "}Selected: {selected}
                                 </span>
-                                <span className="badge-success">Correct: {item.correctKey}</span>
-                                {markedQuestionIds.has(item.questionId) ? <span className="badge-warning">Marked</span> : null}
+                                <span className="badge-success" aria-label="Correct answer">✓ Correct: {item.correctKey}</span>
+                                {markedQuestionIds.has(item.questionId) ? <span className="badge-warning" aria-label="Warning: Marked for review">⚠ Marked</span> : null}
                             </div>
 
                             {item.questionImageUrl ? (

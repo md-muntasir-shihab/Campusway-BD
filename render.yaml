@@ -30,4 +30,12 @@ services:
         value: https://campuswaybd.web.app
       - key: BACKEND_URL
         value: https://campusway-backend.onrender.com
+      - key: UPSTASH_REDIS_REST_URL
+        value: https://equipped-badger-94770.upstash.io
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false # Set this in the Render dashboard manually for security!
+      - key: CACHE_ENABLED
+        value: "true"
+      - key: CACHE_PREFIX
+        value: "cw:"
 

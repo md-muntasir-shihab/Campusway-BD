@@ -92,7 +92,7 @@ export default function DeadlineCard({ university: uni }: DeadlineCardProps) {
                 {/* Exam Dates */}
                 <div className="grid grid-cols-3 gap-1.5">
                     <ExamChip label="Science" value={uni.examDateScience || uni.scienceExamDate || ''} />
-                    <ExamChip label="Arts" value={uni.examDateArts || uni.artsExamDate || ''} />
+                    <ExamChip label="Humanities" value={uni.examDateArts || uni.artsExamDate || ''} />
                     <ExamChip label="Business" value={uni.examDateBusiness || uni.businessExamDate || ''} />
                 </div>
             </div>

@@ -59,6 +59,7 @@ export const TeamAccessConsolePage = lazy(() => import('./pages/admin/team/TeamA
 export const MemberDetailPage = lazy(() => import('./pages/admin/team/MemberDetailPage'));
 export const RoleDetailPage = lazy(() => import('./pages/admin/team/RoleDetailPage'));
 export const ActionApprovalsPage = lazy(() => import('./pages/admin/approvals/ActionApprovalsPage'));
+export const PendingApprovalsPage = lazy(() => import('./pages/admin/approvals/PendingApprovalsPage'));
 export const ExamFormPage = lazy(() => import('./pages/admin/exams/ExamFormPage'));
 export const ExamPreviewPage = lazy(() => import('./pages/admin/exams/ExamPreviewPage'));
 export const AdminLegalPagesPage = lazy(() => import('./pages/admin/AdminLegalPages'));

@@ -1,5 +1,18 @@
 import { Schema, model } from "mongoose";
 
+/**
+ * Answer model — stores individual question responses submitted during an exam session.
+ *
+ * Key fields:
+ * - `sessionId`: The exam session this answer belongs to
+ * - `examId`: The exam being taken
+ * - `userId`: The student who submitted the answer
+ * - `questionId`: The question being answered
+ * - `selectedKey`: The chosen option (A–D) or null if skipped
+ * - `changeCount`: Number of times the student changed their answer
+ *
+ * @collection answers
+ */
 const answerSchema = new Schema(
   {
     sessionId: { type: String, required: true, index: true },

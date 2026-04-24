@@ -1,5 +1,16 @@
 import { Schema, model } from "mongoose";
 
+/**
+ * NewsSettings model — stores global configuration for the news module.
+ *
+ * Key fields:
+ * - `newsPageTitle` / `newsPageSubtitle`: Public-facing page header text
+ * - `fetchFullArticleEnabled`: Whether full article scraping is active
+ * - `fullArticleFetchMode`: Scraping strategy (rss_content, readability_scrape, both)
+ * - `appearance`: Layout and widget visibility preferences
+ *
+ * @collection newssettings
+ */
 const newsSettingsSchema = new Schema(
   {
     newsPageTitle: { type: String, default: "CampusWay News" },

@@ -2077,7 +2077,7 @@ export function AdminExamsPage() {
                             <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Target Groups</span>
                             <div className="flex flex-wrap gap-1.5 mt-1 mb-2">
                                 {(Array.isArray(formData.targetGroupIds) ? formData.targetGroupIds as string[] : []).map((gId) => {
-                                    const allGroups = (Array.isArray((groupsQuery.data as any)?.items) ? (groupsQuery.data as any).items : Array.isArray(groupsQuery.data) ? groupsQuery.data : []) as Array<Record<string, unknown>> : [];
+                                    const allGroups = (Array.isArray((groupsQuery.data as any)?.items) ? (groupsQuery.data as any).items : Array.isArray(groupsQuery.data) ? groupsQuery.data : []) as Array<Record<string, unknown>>;
                                     const g = allGroups.find((x) => String(x._id) === gId);
                                     const color = String(g?.color || '#6366f1');
                                     return (
@@ -2099,27 +2099,27 @@ export function AdminExamsPage() {
                                     {((Array.isArray((groupsQuery.data as any)?.items) ? (groupsQuery.data as any).items : Array.isArray(groupsQuery.data) ? groupsQuery.data : []) as Array<Record<string, unknown>> : [])
                                         .filter((g) => {
                                             const selected = Array.isArray(formData.targetGroupIds) ? formData.targetGroupIds as string[] : [];
-                                            return !selected.includes(String(g._id)) && String(g.name || '').toLowerCase().includes(groupSearch.toLowerCase());
+                                    return !selected.includes(String(g._id)) && String(g.name || '').toLowerCase().includes(groupSearch.toLowerCase());
                                         })
-                                        .slice(0, 8)
+                                    .slice(0, 8)
                                         .map((g) => {
                                             const color = String(g.color || '#6366f1');
-                                            return (
-                                                <button
-                                                    key={String(g._id)}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const existing = Array.isArray(formData.targetGroupIds) ? formData.targetGroupIds as string[] : [];
-                                                        setField('targetGroupIds', [...existing, String(g._id)]);
-                                                        setGroupSearch('');
-                                                    }}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                                                >
-                                                    <Users className="h-3.5 w-3.5 flex-shrink-0" style={{ color }} />
-                                                    <span className="truncate text-text dark:text-dark-text">{String(g.name)}</span>
-                                                    <span className="ml-auto text-xs text-text-muted">{String(g.type || '')}</span>
-                                                </button>
-                                            );
+                                    return (
+                                    <button
+                                        key={String(g._id)}
+                                        type="button"
+                                        onClick={() => {
+                                            const existing = Array.isArray(formData.targetGroupIds) ? formData.targetGroupIds as string[] : [];
+                                            setField('targetGroupIds', [...existing, String(g._id)]);
+                                            setGroupSearch('');
+                                        }}
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                                    >
+                                        <Users className="h-3.5 w-3.5 flex-shrink-0" style={{ color }} />
+                                        <span className="truncate text-text dark:text-dark-text">{String(g.name)}</span>
+                                        <span className="ml-auto text-xs text-text-muted">{String(g.type || '')}</span>
+                                    </button>
+                                    );
                                         })}
                                 </div>
                             )}
@@ -2532,7 +2532,7 @@ export function AdminExamsPage() {
                                     <p className="text-sm font-medium text-text dark:text-dark-text">{String(payment.userId || '')}</p>
                                     <p className="text-xs text-text-muted">{String(payment.method || '')} &middot; BDT {String(payment.amountBDT || payment.amount || 0)}</p>
                                 </div>
-                                <span className={isPaid ? 'badge-success' : 'badge-warning'}>{String(payment.status)}</span>
+                                <span className={isPaid ? 'badge-success' : 'badge-warning'} aria-label={`Payment status: ${String(payment.status)}`}>{isPaid ? '✓ ' : '⚠ '}{String(payment.status)}</span>
                                 {!isPaid ? (
                                     <button
                                         type="button"

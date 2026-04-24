@@ -13,6 +13,7 @@ import DaysLeftChip from '../components/university/DaysLeftChip';
 import SectionHeader from '../components/home/SectionHeader';
 import PremiumCarousel from '../components/home/PremiumCarousel';
 import HomeSkeleton from '../components/home/SectionSkeleton';
+import useHomeLiveUpdates from '../hooks/useHomeLiveUpdates';
 import EmptySection from '../components/home/EmptySection';
 import SectionErrorBoundary from '../components/home/SectionErrorBoundary';
 import DeadlineCard from '../components/home/cards/DeadlineCard';
@@ -386,27 +387,36 @@ function ClusterPreviewCard({ cluster }: { cluster: ApiClusterCardPreview }) {
     const fallbackText = buildCategoryFallbackText(cluster.name);
     const centersText = cluster.examCentersPreview.slice(0, 3).join(', ');
     const appMeta = buildApplicationUrgency(cluster.applicationStartDate, cluster.applicationEndDate);
+    const isHistorical = Boolean(cluster.isHistorical);
+    const historicalDate = cluster.endedAt || cluster.nearestDeadline || cluster.applicationEndDate;
 
     return (
-        <article className="group flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-slate-200/70 bg-white/95 shadow-[0_8px_30px_rgba(15,23,42,0.08)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(15,23,42,0.14)] dark:border-slate-700/60 dark:bg-slate-900/95 dark:shadow-[0_8px_30px_rgba(4,12,24,0.2)] dark:hover:shadow-[0_20px_50px_rgba(4,12,24,0.3)] dark:hover:border-indigo-500/15">
+        <article className={`group flex h-full flex-col overflow-hidden rounded-[1.5rem] border shadow-[0_8px_30px_rgba(15,23,42,0.08)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_30px_rgba(4,12,24,0.2)] dark:hover:shadow-[0_20px_50px_rgba(4,12,24,0.3)] ${isHistorical ? 'border-slate-300/50 bg-white/80 opacity-85 dark:border-slate-700/40 dark:bg-slate-900/80' : 'border-slate-200/70 bg-white/95 dark:border-slate-700/60 dark:bg-slate-900/95 dark:hover:border-indigo-500/15'}`}>
             {/* Accent line */}
-            <div className="h-[2px] w-full bg-gradient-to-r from-cyan-500 via-indigo-500 to-cyan-500 opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className={`h-[2px] w-full bg-gradient-to-r ${isHistorical ? 'from-slate-400 to-slate-500 opacity-40' : 'from-cyan-500 via-indigo-500 to-cyan-500 opacity-50 group-hover:opacity-100'} transition-opacity duration-500`} />
 
             <div className="flex items-start gap-3 p-4 pb-2.5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200/60 bg-white text-xs font-black uppercase tracking-[0.18em] text-cyan-600 shadow-sm transition-transform duration-300 group-hover:scale-105 dark:border-slate-700/60 dark:bg-slate-950 dark:text-cyan-300">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform duration-300 group-hover:scale-105 ${isHistorical ? 'border-slate-200/50 bg-slate-50 text-xs font-black uppercase tracking-[0.18em] text-slate-400 dark:border-slate-700/40 dark:bg-slate-900 dark:text-slate-500' : 'border-slate-200/60 bg-white text-xs font-black uppercase tracking-[0.18em] text-cyan-600 dark:border-slate-700/60 dark:bg-slate-950 dark:text-cyan-300'}`}>
                     {fallbackText}
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Cluster</p>
-                            <Link to={`/universities/cluster/${cluster.slug}`} className="mt-1 block truncate text-sm font-bold leading-snug text-slate-900 transition-colors group-hover:text-indigo-600 dark:text-white dark:group-hover:text-cyan-300" title={cluster.name}>
+                            <Link to={`/universities/cluster/${cluster.slug}`} className={`mt-1 block truncate text-sm font-bold leading-snug transition-colors ${isHistorical ? 'text-slate-600 group-hover:text-slate-800 dark:text-slate-400 dark:group-hover:text-slate-200' : 'text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-cyan-300'}`} title={cluster.name}>
                                 {cluster.name}
                             </Link>
                         </div>
-                        <span className="shrink-0 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2 py-0.5 text-[10px] font-bold text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-                            {cluster.memberCount} members
-                        </span>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                            <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${isHistorical ? 'border-slate-200/50 bg-slate-100/60 text-slate-400 dark:border-slate-700/40 dark:bg-slate-800/60 dark:text-slate-500' : 'border-cyan-200/60 bg-cyan-50/80 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200'}`}>
+                                {cluster.memberCount} members
+                            </span>
+                            {isHistorical && (
+                                <span className="rounded-lg border border-slate-300/60 bg-slate-100/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-600/40 dark:bg-slate-800/60 dark:text-slate-400">
+                                    Ended {formatMetaDate(historicalDate)}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -418,27 +428,37 @@ function ClusterPreviewCard({ cluster }: { cluster: ApiClusterCardPreview }) {
             </div>
 
             <div className="space-y-2 px-4 pb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                    <DaysLeftChip daysLeft={appMeta.daysLeft} urgencyState={appMeta.urgencyState} />
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{appMeta.endLabel}</span>
-                </div>
-                <div className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-2.5 dark:border-slate-700/60 dark:bg-slate-950/40">
+                {isHistorical ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200/70 bg-slate-100/80 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" /><path d="M8 5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                            Recently Ended
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Ended on {formatMetaDate(historicalDate)}</span>
+                    </div>
+                ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <DaysLeftChip daysLeft={appMeta.daysLeft} urgencyState={appMeta.urgencyState} />
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{appMeta.endLabel}</span>
+                    </div>
+                )}
+                <div className={`rounded-xl border p-2.5 ${isHistorical ? 'border-slate-200/40 bg-slate-50/50 dark:border-slate-700/40 dark:bg-slate-950/30' : 'border-slate-200/60 bg-slate-50/80 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
                     <CompactMetaLine label="Application Window" value={appMeta.windowLabel} />
-                    <div className="mt-1.5"><CompactMetaLine label="Nearest Deadline" value={formatMetaDate(cluster.nearestDeadline)} /></div>
+                    <div className="mt-1.5"><CompactMetaLine label={isHistorical ? 'Last Deadline' : 'Nearest Deadline'} value={formatMetaDate(cluster.nearestDeadline)} /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
                     <UnitDateChip label="Science" value={cluster.scienceExamDate} />
-                    <UnitDateChip label="Arts" value={cluster.artsExamDate} />
+                    <UnitDateChip label="Humanities" value={cluster.artsExamDate} />
                     <UnitDateChip label="Business" value={cluster.businessExamDate} />
                 </div>
             </div>
 
-            <div className="mt-auto border-t border-slate-100/80 px-4 py-3 dark:border-slate-800/60">
+            <div className={`mt-auto border-t px-4 py-3 ${isHistorical ? 'border-slate-100/50 dark:border-slate-800/40' : 'border-slate-100/80 dark:border-slate-800/60'}`}>
                 {centersText && <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-2.5">Centers: {centersText}</p>}
                 <div className="grid grid-cols-2 gap-2">
                     {cluster.admissionWebsite ? (
                         <a href={cluster.admissionWebsite} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-3 py-2 text-xs font-bold text-white shadow-md shadow-cyan-500/15 transition-all hover:shadow-lg hover:shadow-cyan-500/25">
+                            className={`inline-flex min-h-[40px] items-center justify-center rounded-xl px-3 py-2 text-xs font-bold text-white shadow-md transition-all hover:shadow-lg ${isHistorical ? 'bg-gradient-to-r from-slate-400 to-slate-500 shadow-slate-400/10 hover:shadow-slate-400/20' : 'bg-gradient-to-r from-cyan-500 to-indigo-500 shadow-cyan-500/15 hover:shadow-cyan-500/25'}`}>
                             Apply Now
                         </a>
                     ) : (
@@ -561,9 +581,14 @@ export default function HomeModern() {
     const { data, isLoading, isError } = useQuery<HomeApiResponse>({
         queryKey: ['home'],
         queryFn: () => getHome().then(r => r.data),
-        staleTime: 60_000,
-        refetchInterval: 90_000,
+        staleTime: 30_000,
+        refetchInterval: 45_000,
+        refetchOnWindowFocus: true,
+        refetchOnReconnect: true,
     });
+
+    /* ---------- live updates (SSE) ---------- */
+    useHomeLiveUpdates(true);
 
     /* ---------- state ---------- */
     const [search, setSearch] = useState('');
@@ -909,7 +934,7 @@ export default function HomeModern() {
                                 onClick={() => { setSelectedCategory(''); setSelectedCluster(''); }}
                                 className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${!selectedCategory
                                     ? 'bg-[var(--primary)] text-white shadow-md shadow-[var(--primary)]/25'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                                    : 'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.08]'
                                     }`}>
                                 All
                             </button>
@@ -924,10 +949,10 @@ export default function HomeModern() {
                                         }}
                                         className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5 ${isActive
                                             ? 'bg-[var(--primary)] text-white shadow-md shadow-[var(--primary)]/25'
-                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                                            : 'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.08]'
                                             }`}>
                                         {cat.categoryName}
-                                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20' : 'bg-gray-200/80 dark:bg-gray-700'}`}>
+                                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20' : 'bg-slate-200/80 dark:bg-white/10'}`}>
                                             {cat.count}
                                         </span>
                                         {highlighted?.badgeText && (
@@ -942,8 +967,8 @@ export default function HomeModern() {
                                 type="button"
                                 onClick={() => scrollChipRow('category', 'left')}
                                 disabled={!categoryScrollState.canLeft}
-                                className={`pointer-events-auto ml-1 inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200/80 bg-white/85 text-gray-600 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/85 dark:text-gray-200 ${categoryScrollState.canLeft
-                                    ? 'hover:bg-white'
+                                className={`pointer-events-auto ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/60 bg-white/90 text-slate-600 shadow-sm backdrop-blur-sm dark:border-white/[0.08] dark:bg-slate-900/90 dark:text-slate-300 ${categoryScrollState.canLeft
+                                    ? 'hover:bg-white dark:hover:bg-slate-800'
                                     : 'cursor-not-allowed opacity-35'
                                     }`}
                                 aria-label="Scroll categories left"
@@ -956,8 +981,8 @@ export default function HomeModern() {
                                 type="button"
                                 onClick={() => scrollChipRow('category', 'right')}
                                 disabled={!categoryScrollState.canRight}
-                                className={`pointer-events-auto mr-1 inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200/80 bg-white/85 text-gray-600 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/85 dark:text-gray-200 ${categoryScrollState.canRight
-                                    ? 'hover:bg-white'
+                                className={`pointer-events-auto mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/60 bg-white/90 text-slate-600 shadow-sm backdrop-blur-sm dark:border-white/[0.08] dark:bg-slate-900/90 dark:text-slate-300 ${categoryScrollState.canRight
+                                    ? 'hover:bg-white dark:hover:bg-slate-800'
                                     : 'cursor-not-allowed opacity-35'
                                     }`}
                                 aria-label="Scroll categories right"
@@ -965,8 +990,8 @@ export default function HomeModern() {
                                 <ChevronRight className="h-4 w-4" />
                             </button>
                         </div>
-                        <div className="absolute left-0 top-0 h-full w-8 bg-gradient-to-r from-gray-50 dark:from-gray-950 pointer-events-none md:hidden" />
-                        <div className="absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-gray-50 dark:from-gray-950 pointer-events-none md:hidden" />
+                        <div className="absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-background dark:from-[#081322] pointer-events-none md:hidden" />
+                        <div className="absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background dark:from-[#081322] pointer-events-none md:hidden" />
                     </div>
                     {/* Cluster chips */}
                     {enableCluster && currentClusters.length > 0 && (
@@ -975,13 +1000,13 @@ export default function HomeModern() {
                             animate={{ opacity: 1, height: 'auto' }}
                             ref={clusterScrollRef}
                             onWheel={handleHorizontalWheel}
-                            className="flex gap-2 overflow-x-auto pb-2 mt-1 scrollbar-hide touch-pan-x"
+                            className="flex gap-2 overflow-x-auto pb-2 mt-2 scrollbar-hide touch-pan-x"
                         >
                             <button
                                 onClick={() => setSelectedCluster('')}
                                 className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${!selectedCluster
                                     ? 'bg-purple-600 text-white shadow-sm'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+                                    : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-white/[0.08] hover:bg-slate-200 dark:hover:bg-white/10'
                                     }`}>
                                 All Clusters
                             </button>
@@ -990,7 +1015,7 @@ export default function HomeModern() {
                                     onClick={() => setSelectedCluster(selectedCluster === cl ? '' : cl)}
                                     className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedCluster === cl
                                         ? 'bg-purple-600 text-white shadow-sm'
-                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+                                        : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-white/[0.08] hover:bg-slate-200 dark:hover:bg-white/10'
                                         }`}>
                                     {cl}
                                 </button>
@@ -1003,8 +1028,8 @@ export default function HomeModern() {
                                 type="button"
                                 onClick={() => scrollChipRow('cluster', 'left')}
                                 disabled={!clusterScrollState.canLeft}
-                                className={`inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200/80 bg-white/85 text-gray-600 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/85 dark:text-gray-200 ${clusterScrollState.canLeft
-                                    ? 'hover:bg-white'
+                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/60 bg-white/90 text-slate-600 shadow-sm backdrop-blur-sm dark:border-white/[0.08] dark:bg-slate-900/90 dark:text-slate-300 ${clusterScrollState.canLeft
+                                    ? 'hover:bg-white dark:hover:bg-slate-800'
                                     : 'cursor-not-allowed opacity-35'
                                     }`}
                                 aria-label="Scroll clusters left"
@@ -1015,8 +1040,8 @@ export default function HomeModern() {
                                 type="button"
                                 onClick={() => scrollChipRow('cluster', 'right')}
                                 disabled={!clusterScrollState.canRight}
-                                className={`inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200/80 bg-white/85 text-gray-600 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/85 dark:text-gray-200 ${clusterScrollState.canRight
-                                    ? 'hover:bg-white'
+                                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/60 bg-white/90 text-slate-600 shadow-sm backdrop-blur-sm dark:border-white/[0.08] dark:bg-slate-900/90 dark:text-slate-300 ${clusterScrollState.canRight
+                                    ? 'hover:bg-white dark:hover:bg-slate-800'
                                     : 'cursor-not-allowed opacity-35'
                                     }`}
                                 aria-label="Scroll clusters right"
@@ -1030,14 +1055,22 @@ export default function HomeModern() {
         );
     }
 
-    /* 6 ─ Admission Deadlines */
+    /* 6 -- Admission Deadlines */
     function renderDeadlines() {
         if (hs?.sectionVisibility?.closingExamWidget === false) return null;
         const hasAnyItems = filteredDeadlineClusters.length > 0 || filteredDeadline.length > 0;
+        const hasHistorical = filteredDeadline.some(u => u.isHistorical) || filteredDeadlineClusters.some(c => c.isHistorical);
+        const allHistorical = hasAnyItems && filteredDeadline.every(u => u.isHistorical) && filteredDeadlineClusters.every(c => c.isHistorical);
         return (
             <SectionWrap>
                 <div className="px-4 md:px-0" data-testid="home-deadlines-section">
-                    <SectionHeader title="Application Deadlines" subtitle="Don't miss your chance to apply" icon={CalendarClock} viewAllHref="/universities" viewAllLabel="See all" />
+                    <SectionHeader
+                        title="Application Deadlines"
+                        subtitle={allHistorical ? 'Recently closed deadlines' : "Don't miss your chance to apply"}
+                        icon={CalendarClock}
+                        viewAllHref="/universities"
+                        viewAllLabel="See all"
+                    />
                     {hasAnyItems ? (
                         <PremiumCarousel>
                             {filteredDeadlineClusters.map(cluster => (
@@ -1057,14 +1090,21 @@ export default function HomeModern() {
         );
     }
 
-    /* 7 ─ Upcoming Exams */
+    /* 7 -- Upcoming Exams */
     function renderUpcomingExams() {
         if (hs?.sectionVisibility?.examsWidget === false) return null;
         const hasAnyItems = filteredUpcomingClusters.length > 0 || filteredUpcoming.length > 0;
+        const allHistorical = hasAnyItems && filteredUpcoming.every(u => u.isHistorical) && filteredUpcomingClusters.every(c => c.isHistorical);
         return (
             <SectionWrap>
                 <div className="px-4 md:px-0">
-                    <SectionHeader title="Upcoming Exams" subtitle="Prepare and plan ahead" icon={CalendarClock} viewAllHref="/universities" viewAllLabel="See all" />
+                    <SectionHeader
+                        title="Upcoming Exams"
+                        subtitle={allHistorical ? 'Recently completed exams' : 'Prepare and plan ahead'}
+                        icon={CalendarClock}
+                        viewAllHref="/universities"
+                        viewAllLabel="See all"
+                    />
                     {hasAnyItems ? (
                         <PremiumCarousel>
                             {filteredUpcomingClusters.map(cluster => (
@@ -1173,7 +1213,7 @@ export default function HomeModern() {
                             return (
                                 <motion.div key={block._id} whileHover={{ scale: 1.005 }}
                                     className="rounded-2xl overflow-hidden bg-gradient-to-r from-[var(--primary)] to-purple-600 text-white p-6 md:p-8 flex flex-col md:flex-row items-center gap-5 shadow-elevated">
-                                    {block.imageUrl && <img src={block.imageUrl} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shrink-0 ring-2 ring-white/20" />}
+                                    {block.imageUrl && <img src={block.imageUrl} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shrink-0 ring-2 ring-white/20" loading="lazy" />}
                                     <div className="flex-1 text-center md:text-left">
                                         {block.title && <h3 className="font-heading font-bold text-lg md:text-xl mb-1">{block.title}</h3>}
                                         {block.body && <p className="text-sm text-white/75 line-clamp-2">{block.body}</p>}
@@ -1211,7 +1251,7 @@ export default function HomeModern() {
                         return (
                             <motion.div key={block._id} whileHover={{ y: -2 }}
                                 className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-5 shadow-card hover:shadow-card-hover transition-shadow flex flex-col md:flex-row items-center gap-5">
-                                {block.imageUrl && <img src={block.imageUrl} alt="" className="w-full md:w-44 h-36 md:h-32 rounded-xl object-cover shrink-0" />}
+                                {block.imageUrl && <img src={block.imageUrl} alt="" className="w-full md:w-44 h-36 md:h-32 rounded-xl object-cover shrink-0" loading="lazy" />}
                                 <div className="flex-1">
                                     {block.title && <h3 className="font-heading font-bold text-base text-gray-900 dark:text-white mb-1">{block.title}</h3>}
                                     {block.body && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">{block.body}</p>}
@@ -1295,7 +1335,7 @@ export default function HomeModern() {
             return (
                 <motion.div key={block._id} whileHover={{ scale: 1.005 }}
                     className="rounded-2xl overflow-hidden bg-gradient-to-r from-[var(--primary)] to-purple-600 text-white p-6 md:p-8 flex flex-col md:flex-row items-center gap-5 shadow-elevated">
-                    {block.imageUrl && <img src={block.imageUrl} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shrink-0 ring-2 ring-white/20" />}
+                    {block.imageUrl && <img src={block.imageUrl} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shrink-0 ring-2 ring-white/20" loading="lazy" />}
                     <div className="flex-1 text-center md:text-left">
                         {block.title && <h3 className="font-heading font-bold text-lg md:text-xl mb-1">{block.title}</h3>}
                         {block.body && <p className="text-sm text-white/75 line-clamp-2">{block.body}</p>}
@@ -1333,7 +1373,7 @@ export default function HomeModern() {
         return (
             <motion.div key={block._id} whileHover={{ y: -2 }}
                 className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-5 shadow-card hover:shadow-card-hover transition-shadow flex flex-col md:flex-row items-center gap-5">
-                {block.imageUrl && <img src={block.imageUrl} alt="" className="w-full md:w-44 h-36 md:h-32 rounded-xl object-cover shrink-0" />}
+                {block.imageUrl && <img src={block.imageUrl} alt="" className="w-full md:w-44 h-36 md:h-32 rounded-xl object-cover shrink-0" loading="lazy" />}
                 <div className="flex-1">
                     {block.title && <h3 className="font-heading font-bold text-base text-gray-900 dark:text-white mb-1">{block.title}</h3>}
                     {block.body && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">{block.body}</p>}

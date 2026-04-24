@@ -16,7 +16,7 @@ export default function ExamsTodayStrip({ universities }: { universities: Univer
     const upcomingExams = universities.flatMap(u => {
         const units = [];
         if (u.scienceExamDate && u.scienceExamDate !== 'N/A' && u.scienceExamDate !== 'n/a') units.push({ name: 'Science', date: new Date(u.scienceExamDate) });
-        if (u.artsExamDate && u.artsExamDate !== 'N/A' && u.artsExamDate !== 'n/a') units.push({ name: 'Arts', date: new Date(u.artsExamDate) });
+        if (u.artsExamDate && u.artsExamDate !== 'N/A' && u.artsExamDate !== 'n/a') units.push({ name: 'Humanities', date: new Date(u.artsExamDate) });
         if (u.businessExamDate && u.businessExamDate !== 'N/A' && u.businessExamDate !== 'n/a') units.push({ name: 'Commerce', date: new Date(u.businessExamDate) });
 
         return units

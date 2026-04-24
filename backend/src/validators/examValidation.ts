@@ -48,5 +48,13 @@ export function validateExamPayload(payload: Record<string, unknown>): Validatio
         }
     }
 
+    // 6. group_only visibility requires at least one targetGroupId (Requirement 5.1)
+    if (String(payload.visibilityMode) === 'group_only') {
+        const targetGroupIds = Array.isArray(payload.targetGroupIds) ? payload.targetGroupIds : [];
+        if (targetGroupIds.length === 0) {
+            errors.push('At least one target group is required when visibility is set to group_only');
+        }
+    }
+
     return { valid: errors.length === 0, errors };
 }

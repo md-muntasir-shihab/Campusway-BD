@@ -5,6 +5,7 @@ import HelpArticle from '../models/HelpArticle';
 import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middlewares/auth';
 import { getClientIp } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -48,13 +49,13 @@ export async function getPublicHelpCenter(_req: Request, res: Response): Promise
         .select('title slug categoryId shortDescription tags isFeatured viewsCount createdAt')
         .sort({ isFeatured: -1, createdAt: -1 })
         .lean();
-    res.json({ categories, articles });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ categories, articles }));
 }
 
 /** GET /api/help-center/search?q=keyword */
 export async function searchPublicHelpArticles(req: Request, res: Response): Promise<void> {
     const q = String(req.query.q || '').trim();
-    if (!q || q.length < 2) { res.json({ articles: [] }); return; }
+    if (!q || q.length < 2) { ResponseBuilder.send(res, 200, ResponseBuilder.success({ articles: [] })); return; }
 
     const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     const articles = await HelpArticle.find({
@@ -65,13 +66,13 @@ export async function searchPublicHelpArticles(req: Request, res: Response): Pro
         .sort({ isFeatured: -1, viewsCount: -1 })
         .limit(20)
         .lean();
-    res.json({ articles });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ articles }));
 }
 
 /** GET /api/help-center/:slug — single article */
 export async function getPublicHelpArticle(req: Request, res: Response): Promise<void> {
     const slug = String(req.params.slug || '').trim();
-    if (!slug) { res.status(400).json({ message: 'Missing slug' }); return; }
+    if (!slug) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Missing slug')); return; }
 
     const article = await HelpArticle.findOneAndUpdate(
         { slug, isPublished: true },
@@ -82,20 +83,20 @@ export async function getPublicHelpArticle(req: Request, res: Response): Promise
         .populate('relatedArticleIds', 'title slug shortDescription')
         .lean();
 
-    if (!article) { res.status(404).json({ message: 'Article not found' }); return; }
-    res.json({ article });
+    if (!article) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Article not found')); return; }
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ article }));
 }
 
 /** POST /api/help-center/:slug/feedback — helpful/not-helpful */
 export async function submitHelpArticleFeedback(req: Request, res: Response): Promise<void> {
     const slug = String(req.params.slug || '').trim();
     const { helpful } = req.body as { helpful?: boolean };
-    if (!slug || typeof helpful !== 'boolean') { res.status(400).json({ message: 'Invalid request' }); return; }
+    if (!slug || typeof helpful !== 'boolean') { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid request')); return; }
 
     const inc = helpful ? { helpfulCount: 1 } : { notHelpfulCount: 1 };
     const article = await HelpArticle.findOneAndUpdate({ slug, isPublished: true }, { $inc: inc });
-    if (!article) { res.status(404).json({ message: 'Article not found' }); return; }
-    res.json({ message: 'Feedback recorded' });
+    if (!article) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Article not found')); return; }
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Feedback recorded'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -105,17 +106,17 @@ export async function submitHelpArticleFeedback(req: Request, res: Response): Pr
 /** GET /admin/help-center/categories */
 export async function adminGetHelpCategories(_req: AuthRequest, res: Response): Promise<void> {
     const categories = await HelpCategory.find().sort({ displayOrder: 1 }).lean();
-    res.json({ data: categories });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: categories }));
 }
 
 /** POST /admin/help-center/categories */
 export async function adminCreateHelpCategory(req: AuthRequest, res: Response): Promise<void> {
     const { name, description, icon } = req.body as { name?: string; description?: string; icon?: string };
-    if (!name || !name.trim()) { res.status(400).json({ message: 'Name is required' }); return; }
+    if (!name || !name.trim()) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Name is required')); return; }
 
     const slug = slugify(name);
     const exists = await HelpCategory.findOne({ slug }).lean();
-    if (exists) { res.status(409).json({ message: 'Category with this slug already exists' }); return; }
+    if (exists) { ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Category with this slug already exists')); return; }
 
     const maxOrder = await HelpCategory.findOne().sort({ displayOrder: -1 }).select('displayOrder').lean();
     const cat = await HelpCategory.create({
@@ -126,13 +127,13 @@ export async function adminCreateHelpCategory(req: AuthRequest, res: Response): 
         displayOrder: (maxOrder?.displayOrder ?? -1) + 1,
     });
     await createAudit(req, 'help_category_created', { categoryId: cat._id, name: cat.name });
-    res.status(201).json({ data: cat, message: 'Category created' });
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({data: cat}, 'Category created'));
 }
 
 /** PUT /admin/help-center/categories/:id */
 export async function adminUpdateHelpCategory(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const { name, description, icon, isActive, displayOrder } = req.body as Record<string, unknown>;
     const update: Record<string, unknown> = {};
@@ -143,23 +144,23 @@ export async function adminUpdateHelpCategory(req: AuthRequest, res: Response): 
     if (typeof displayOrder === 'number') update.displayOrder = displayOrder;
 
     const cat = await HelpCategory.findByIdAndUpdate(id, { $set: update }, { new: true });
-    if (!cat) { res.status(404).json({ message: 'Category not found' }); return; }
+    if (!cat) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }
     await createAudit(req, 'help_category_updated', { categoryId: id });
-    res.json({ data: cat, message: 'Category updated' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: cat}, 'Category updated'));
 }
 
 /** DELETE /admin/help-center/categories/:id */
 export async function adminDeleteHelpCategory(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const articles = await HelpArticle.countDocuments({ categoryId: id });
-    if (articles > 0) { res.status(400).json({ message: `Cannot delete: ${articles} articles belong to this category` }); return; }
+    if (articles > 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Cannot delete: ${articles} articles belong to this category')); return; }
 
     const deleted = await HelpCategory.findByIdAndDelete(id);
-    if (!deleted) { res.status(404).json({ message: 'Category not found' }); return; }
+    if (!deleted) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }
     await createAudit(req, 'help_category_deleted', { categoryId: id, name: deleted.name });
-    res.json({ message: 'Category deleted' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Category deleted'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -195,41 +196,41 @@ export async function adminGetHelpArticles(req: AuthRequest, res: Response): Pro
             .lean(),
         HelpArticle.countDocuments(filter),
     ]);
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
 }
 
 /** GET /admin/help-center/articles/:id */
 export async function adminGetHelpArticle(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const article = await HelpArticle.findById(id)
         .populate('categoryId', 'name slug')
         .populate('createdByAdminId', 'username full_name')
         .populate('relatedArticleIds', 'title slug')
         .lean();
-    if (!article) { res.status(404).json({ message: 'Article not found' }); return; }
-    res.json({ data: article });
+    if (!article) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Article not found')); return; }
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: article }));
 }
 
 /** POST /admin/help-center/articles */
 export async function adminCreateHelpArticle(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const { title, categoryId, shortDescription, fullContent, tags, isPublished, isFeatured, relatedArticleIds } = req.body as Record<string, unknown>;
     if (!title || !categoryId || !shortDescription || !fullContent) {
-        res.status(400).json({ message: 'title, categoryId, shortDescription, and fullContent are required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'title, categoryId, shortDescription, and fullContent are required'));
         return;
     }
 
     const catId = asObjectId(categoryId);
-    if (!catId) { res.status(400).json({ message: 'Invalid categoryId' }); return; }
+    if (!catId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid categoryId')); return; }
     const cat = await HelpCategory.findById(catId).lean();
-    if (!cat) { res.status(404).json({ message: 'Category not found' }); return; }
+    if (!cat) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }
 
     const slug = slugify(String(title));
     const existing = await HelpArticle.findOne({ slug }).lean();
-    if (existing) { res.status(409).json({ message: 'Article with this slug already exists' }); return; }
+    if (existing) { ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Article with this slug already exists')); return; }
 
     const article = await HelpArticle.create({
         title: String(title).trim(),
@@ -247,15 +248,15 @@ export async function adminCreateHelpArticle(req: AuthRequest, res: Response): P
 
     await HelpCategory.findByIdAndUpdate(catId, { $inc: { articleCount: 1 } });
     await createAudit(req, 'help_article_created', { articleId: article._id, title: article.title });
-    res.status(201).json({ data: article, message: 'Article created' });
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({data: article}, 'Article created'));
 }
 
 /** PUT /admin/help-center/articles/:id */
 export async function adminUpdateHelpArticle(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const body = req.body as Record<string, unknown>;
     const update: Record<string, unknown> = {};
@@ -278,49 +279,49 @@ export async function adminUpdateHelpArticle(req: AuthRequest, res: Response): P
     update.lastEditedByAdminId = new mongoose.Types.ObjectId(String(req.user._id));
 
     const article = await HelpArticle.findByIdAndUpdate(id, { $set: update }, { new: true });
-    if (!article) { res.status(404).json({ message: 'Article not found' }); return; }
+    if (!article) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Article not found')); return; }
     await createAudit(req, 'help_article_updated', { articleId: id });
-    res.json({ data: article, message: 'Article updated' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: article}, 'Article updated'));
 }
 
 /** DELETE /admin/help-center/articles/:id */
 export async function adminDeleteHelpArticle(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const article = await HelpArticle.findByIdAndDelete(id);
-    if (!article) { res.status(404).json({ message: 'Article not found' }); return; }
+    if (!article) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Article not found')); return; }
     await HelpCategory.findByIdAndUpdate(article.categoryId, { $inc: { articleCount: -1 } });
     await createAudit(req, 'help_article_deleted', { articleId: id, title: article.title });
-    res.json({ message: 'Article deleted' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Article deleted'));
 }
 
 /** POST /admin/help-center/articles/:id/publish */
 export async function adminPublishHelpArticle(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const article = await HelpArticle.findByIdAndUpdate(
         id,
         { $set: { isPublished: true, publishedAt: new Date() } },
         { new: true },
     );
-    if (!article) { res.status(404).json({ message: 'Article not found' }); return; }
+    if (!article) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Article not found')); return; }
     await createAudit(req, 'help_article_published', { articleId: id });
-    res.json({ data: article, message: 'Article published' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: article}, 'Article published'));
 }
 
 /** POST /admin/help-center/articles/:id/unpublish */
 export async function adminUnpublishHelpArticle(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const article = await HelpArticle.findByIdAndUpdate(
         id,
         { $set: { isPublished: false } },
         { new: true },
     );
-    if (!article) { res.status(404).json({ message: 'Article not found' }); return; }
+    if (!article) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Article not found')); return; }
     await createAudit(req, 'help_article_unpublished', { articleId: id });
-    res.json({ data: article, message: 'Article unpublished' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: article}, 'Article unpublished'));
 }

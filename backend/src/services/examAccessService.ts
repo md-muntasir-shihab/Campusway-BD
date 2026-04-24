@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
-import { ExamSessionModel } from "../models/examSession.model";
+import ExamSession from "../models/ExamSession";
 import { PaymentModel } from "../models/payment.model";
 import UserSubscription from '../models/UserSubscription';
-import { UserModel } from "../models/user.model";
+import User from "../models/User";
 import StudentProfile from "../models/StudentProfile";
 
 export const buildAccessPayload = async (exam: any, userId?: string) => {
@@ -14,7 +14,7 @@ export const buildAccessPayload = async (exam: any, userId?: string) => {
 
   let user: any = null;
   if (userId) {
-    user = await UserModel.findOne({ userId });
+    user = await (User as any).findOne({ userId });
     if (!user || (user.profileScore ?? 0) < 70) blockReasons.push("PROFILE_BELOW_70");
   }
 
@@ -33,10 +33,10 @@ export const buildAccessPayload = async (exam: any, userId?: string) => {
   if (userId && (exam.subscriptionRequired || exam.requiresActiveSubscription)) {
     const active = mongoose.Types.ObjectId.isValid(userId)
       ? await UserSubscription.findOne({
-          userId: new mongoose.Types.ObjectId(userId),
-          status: 'active',
-          expiresAtUTC: { $gt: now },
-        }).lean()
+        userId: new mongoose.Types.ObjectId(userId),
+        status: 'active',
+        expiresAtUTC: { $gt: now },
+      }).lean()
       : null;
     if (!active) blockReasons.push("SUBSCRIPTION_REQUIRED");
   }
@@ -53,7 +53,7 @@ export const buildAccessPayload = async (exam: any, userId?: string) => {
   }
 
   if (userId) {
-    const attempts = await ExamSessionModel.countDocuments({ examId: String(exam._id), userId, status: { $in: ["submitted", "evaluated", "expired"] } });
+    const attempts = await (ExamSession as any).countDocuments({ examId: String(exam._id), userId, status: { $in: ["submitted", "evaluated", "expired"] } });
     if (attempts >= exam.attemptLimit && !exam.allowReAttempt) blockReasons.push("ATTEMPT_LIMIT_REACHED");
   }
 

@@ -28,6 +28,7 @@ import { startNewsV2CronJobs } from './cron/newsJobs';
 import { startNotificationJobCron } from './cron/notificationJobs';
 import { startRetentionCronJobs } from './cron/retentionJobs';
 import { startSubscriptionExpiryCron } from './cron/subscriptionExpiryCron';
+import { startBackupCronJobs } from './cron/backupJobs';
 import adminStudentMgmtRoutes from './routes/adminStudentMgmtRoutes';
 import adminProviderRoutes from './routes/adminProviderRoutes';
 import adminNotificationRoutes from './routes/adminNotificationRoutes';
@@ -39,6 +40,7 @@ import {
     enforceSiteAccess,
 } from './middlewares/securityGuards';
 import { sanitizeRequestPayload } from './middlewares/requestSanitizer';
+import { staticAssetCacheHeaders } from './middlewares/staticAssetCacheHeaders';
 import { adminRateLimiter } from './middlewares/securityRateLimit';
 import { requestIdMiddleware } from './middlewares/requestId';
 import { cspNonceMiddleware } from './middlewares/cspNonce';
@@ -274,6 +276,9 @@ app.use(hpp());
 app.use(sanitizeRequestPayload);
 app.use(enforceSiteAccess);
 
+// Set Cache-Control headers for static asset responses (images, fonts, CSS)
+app.use(staticAssetCacheHeaders);
+
 // Serve uploaded media files
 app.get('/uploads/:storedName', serveSecureUpload);
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads'), {
@@ -463,6 +468,7 @@ async function start() {
         startRetentionCronJobs();
         startSubscriptionExpiryCron();
         startFinanceRecurringCronJobs();
+        startBackupCronJobs();
 
         // Seed default Chart-of-Account entries (idempotent)
         await seedDefaultChartOfAccounts();

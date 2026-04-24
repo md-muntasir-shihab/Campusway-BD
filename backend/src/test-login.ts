@@ -8,8 +8,13 @@ dotenv.config();
 async function testLogin() {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/campusway');
 
-    const email = 'admin@campusway.com';
-    const password = 'admin123456';
+    const email = process.env.TEST_LOGIN_EMAIL || 'admin@campusway.com';
+    const password = process.env.TEST_LOGIN_PASSWORD || '';
+
+    if (!password) {
+        console.log('TEST_LOGIN_PASSWORD env var is required');
+        process.exit(1);
+    }
 
     const user = await User.findOne({ email }).select('+password');
     if (!user) {

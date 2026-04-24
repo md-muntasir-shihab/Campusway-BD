@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CheckCircle, Shield, Tag, X, XCircle, Zap } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSubscriptionPlanById } from '../hooks/useSubscriptionPlans';
 import {
@@ -8,6 +8,13 @@ import {
     shouldOpenSubscriptionPlanTargetInNewTab,
 } from '../components/subscription/subscriptionAction';
 import { getSubscriptionTheme } from '../components/subscription/subscriptionTheme';
+import {
+    getSubscriptionPlanAccessPermissions,
+    getSubscriptionPlanDashboardPrivileges,
+    getSubscriptionPlanIncludedModules,
+    getSubscriptionPlanMetaItems,
+    getSubscriptionPlanTags,
+} from '../components/subscription/subscriptionContent';
 import { isExternalUrl } from '../utils/url';
 
 function paragraphBlocks(value: string): string[] {
@@ -75,11 +82,12 @@ export default function SubscriptionPlanDetailPage() {
     const primaryTarget = resolveSubscriptionPlanTarget(plan);
     const contactTarget = resolveSubscriptionPlanContactTarget(plan);
     const showContactAction = Boolean(contactTarget) && contactTarget !== primaryTarget;
-    const metaItems = [
-        { label: 'Billing', value: plan.billingCycle === 'one_time' ? 'One time' : (plan.billingCycle || 'Monthly') },
-        { label: 'Validity', value: plan.validityLabel || plan.durationLabel || 'Admin managed' },
-        { label: 'Support', value: plan.supportLevel || 'Standard' },
-    ];
+    const metaItems = getSubscriptionPlanMetaItems(plan);
+    const accessPermissions = getSubscriptionPlanAccessPermissions(plan);
+    const includedModules = getSubscriptionPlanIncludedModules(plan);
+    const dashboardPrivileges = getSubscriptionPlanDashboardPrivileges(plan);
+    const tags = getSubscriptionPlanTags(plan);
+    const excludedFeatures = (plan.excludedFeatures || []).slice(0, 6);
 
     const handlePrimaryAction = () => {
         if (shouldOpenSubscriptionPlanTargetInNewTab(plan)) {
@@ -101,7 +109,7 @@ export default function SubscriptionPlanDetailPage() {
             </Link>
 
             <section className="mt-6 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/92 shadow-[0_28px_90px_rgba(2,6,23,0.28)]">
-                <div className={`relative overflow-hidden border-b border-white/8 bg-gradient-to-br ${theme.shell} px-6 py-7 sm:px-8`}>
+                <div className={`relative overflow-hidden border-b border-white/8 bg-gradient-to-br ${theme.shell} px-4 py-5 sm:px-8 sm:py-7`}>
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.06),rgba(2,6,23,0.46))]" />
                     <div className="relative">
                         <div className="flex flex-wrap items-center gap-2">
@@ -113,16 +121,16 @@ export default function SubscriptionPlanDetailPage() {
                             ) : null}
                         </div>
 
-                        <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr),auto] lg:items-end">
+                        <div className="mt-4 grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr),auto] lg:items-end">
                             <div className="max-w-3xl">
-                                <h1 className="text-3xl font-black tracking-tight text-white sm:text-[2.7rem]">{plan.name}</h1>
-                                <p className="mt-3 text-sm leading-7 text-white/80 sm:text-base">{summary}</p>
+                                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white lg:text-[2.7rem]">{plan.name}</h1>
+                                <p className="mt-2 sm:mt-3 text-sm leading-6 sm:leading-7 text-white/80 sm:text-base">{summary}</p>
                             </div>
 
-                            <div className="rounded-[1.4rem] border border-white/15 bg-slate-950/20 px-5 py-4 backdrop-blur-sm">
+                            <div className="rounded-[1.2rem] sm:rounded-[1.4rem] border border-white/15 bg-slate-950/20 px-4 py-3 sm:px-5 sm:py-4 backdrop-blur-sm">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Price</p>
-                                <div className="mt-2 flex flex-wrap items-end gap-2">
-                                    <p className="text-[2.2rem] font-black tracking-[-0.05em] text-white">{priceText}</p>
+                                <div className="mt-1.5 sm:mt-2 flex flex-wrap items-end gap-2">
+                                    <p className="text-[1.8rem] sm:text-[2.2rem] font-black tracking-[-0.05em] text-white">{priceText}</p>
                                     <span className="pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
                                         / {plan.billingCycle === 'one_time' ? 'one time' : (plan.billingCycle || 'monthly')}
                                     </span>
@@ -166,7 +174,7 @@ export default function SubscriptionPlanDetailPage() {
                     </div>
                 </div>
 
-                <div className="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[minmax(0,0.92fr),minmax(0,1.08fr)]">
+                <div className="grid gap-4 sm:gap-6 px-4 py-4 sm:px-8 sm:py-6 lg:grid-cols-[minmax(0,0.92fr),minmax(0,1.08fr)]">
                     <section className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Overview</p>
                         <div className="mt-4 space-y-3">
@@ -201,6 +209,123 @@ export default function SubscriptionPlanDetailPage() {
                         </div>
                     </section>
                 </div>
+
+                {excludedFeatures.length > 0 ? (
+                    <div className="px-4 pb-4 sm:px-8">
+                        <section className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Not included</p>
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                {excludedFeatures.map((feature) => (
+                                    <div key={feature} className="flex items-start gap-3 rounded-[1rem] border border-dashed border-white/10 bg-slate-950/40 px-4 py-3">
+                                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-400">
+                                            <X className="h-3.5 w-3.5" />
+                                        </span>
+                                        <span className="text-sm leading-6 text-slate-400 line-through">{feature}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+                ) : null}
+
+                {accessPermissions.length > 0 ? (
+                    <div className="px-4 pb-4 sm:px-8">
+                        <section className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                <Shield className="h-3.5 w-3.5" />
+                                Access permissions
+                            </p>
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                {accessPermissions.map((perm) => (
+                                    <div
+                                        key={perm.label}
+                                        className="flex items-center justify-between rounded-[1rem] border border-white/8 bg-slate-950/40 px-4 py-2.5"
+                                    >
+                                        <span className="text-sm text-slate-200">{perm.label}</span>
+                                        {perm.allowed ? (
+                                            <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                        ) : (
+                                            <XCircle className="h-4 w-4 text-slate-600" />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+                ) : null}
+
+                {(includedModules.length > 0 || dashboardPrivileges.length > 0) ? (
+                    <div className="grid gap-4 px-4 pb-4 sm:px-8 lg:grid-cols-2">
+                        {includedModules.length > 0 ? (
+                            <section className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                                <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                    <Zap className="h-3.5 w-3.5" />
+                                    Included modules
+                                </p>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    {includedModules.map((mod) => (
+                                        <span
+                                            key={mod}
+                                            className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-200"
+                                        >
+                                            {mod}
+                                        </span>
+                                    ))}
+                                </div>
+                            </section>
+                        ) : null}
+                        {dashboardPrivileges.length > 0 ? (
+                            <section className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Dashboard privileges</p>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    {dashboardPrivileges.map((priv) => (
+                                        <span
+                                            key={priv}
+                                            className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-200"
+                                        >
+                                            {priv}
+                                        </span>
+                                    ))}
+                                </div>
+                            </section>
+                        ) : null}
+                    </div>
+                ) : null}
+
+                {(plan.recommendedFor || plan.comparisonNote || tags.length > 0) ? (
+                    <div className="px-4 pb-5 sm:px-8 sm:pb-6">
+                        <section className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Additional info</p>
+                            <div className="mt-4 grid gap-3">
+                                {plan.recommendedFor ? (
+                                    <div className="rounded-[1rem] border border-white/8 bg-slate-950/40 px-4 py-3">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recommended for</p>
+                                        <p className="mt-2 text-sm leading-7 text-slate-200">{plan.recommendedFor}</p>
+                                    </div>
+                                ) : null}
+                                {plan.comparisonNote ? (
+                                    <div className="rounded-[1rem] border border-white/8 bg-slate-950/40 px-4 py-3">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Comparison note</p>
+                                        <p className="mt-2 text-sm leading-7 text-slate-200">{plan.comparisonNote}</p>
+                                    </div>
+                                ) : null}
+                                {tags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {tags.map((tag) => (
+                                            <span
+                                                key={tag}
+                                                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300"
+                                            >
+                                                <Tag className="h-3 w-3" />
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </section>
+                    </div>
+                ) : null}
             </section>
         </div>
     );

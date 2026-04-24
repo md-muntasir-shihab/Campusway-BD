@@ -183,9 +183,9 @@ function ExamCard({
                 <div className="flex flex-wrap gap-1.5">
                     <span className="badge-primary">{item.paymentRequired ? `Paid BDT ${item.priceBDT ?? 0}` : "Free"}</span>
                     {item.subscriptionRequired ? (
-                        <span className="badge-warning">Subscription Required</span>
+                        <span className="badge-warning" aria-label="Warning: Subscription Required">⚠ Subscription Required</span>
                     ) : null}
-                    {item.paymentRequired ? <span className="badge-danger">Payment Required</span> : null}
+                    {item.paymentRequired ? <span className="badge-danger" aria-label="Alert: Payment Required">✕ Payment Required</span> : null}
                 </div>
 
                 <div className="pt-1">
@@ -335,6 +335,7 @@ export const ExamsListPage = () => {
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
                                 placeholder="Search exam title, subject, category"
+                                aria-label="Search exams"
                                 className="input-field pl-9"
                             />
                         </label>

@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import XLSX from 'xlsx';
 
-import { authenticate, requireRole } from '../middlewares/auth';
+import { authenticate, requireRole, requirePermission } from '../middlewares/auth';
 import { requireSensitiveAction, trackSensitiveExport } from '../middlewares/sensitiveAction';
 import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
@@ -36,6 +36,14 @@ import {
   ImportCommitOptions,
 } from '../services/studentImportExportService';
 import { getUnifiedStudentDetail } from '../services/adminStudentUnifiedService';
+import ProfileUpdateRequest from '../models/ProfileUpdateRequest';
+import Settings from '../models/Settings';
+import {
+  approveNewStudent,
+  rejectNewStudent,
+  bulkApproveRejectStudents,
+  reviewProfileChangeRequest,
+} from '../services/profileApprovalService';
 import * as groupMembershipService from '../services/groupMembershipService';
 import {
   assignSubscriptionLifecycle,
@@ -45,6 +53,14 @@ import {
 } from '../services/subscriptionLifecycleService';
 import { resolveSubscriptionContactUserIds } from '../services/subscriptionContactCenterService';
 import { computeStudentProfileScore } from '../services/studentProfileScoreService';
+import { validateRules, evaluateRules, refreshDynamicGroup, DynamicRuleSet } from '../services/dynamicRuleEngine';
+import * as deleteSafetyService from '../services/deleteSafetyService';
+import {
+  generateExportFilename,
+  buildCategoryColumnDef,
+  VALID_EXPORT_CATEGORIES,
+  type ExportCategory,
+} from '../utils/groupExportHelpers';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -97,11 +113,13 @@ router.get('/students-v2/metrics', ...adminAuth, async (_req: Request, res: Resp
 
     // Profile completion stats
     const profileStats = await StudentProfile.aggregate([
-      { $group: {
-        _id: null,
-        avgCompletion: { $avg: '$profile_completion_percentage' },
-        lowProfile: { $sum: { $cond: [{ $lt: ['$profile_completion_percentage', 50] }, 1, 0] } },
-      }},
+      {
+        $group: {
+          _id: null,
+          avgCompletion: { $avg: '$profile_completion_percentage' },
+          lowProfile: { $sum: { $cond: [{ $lt: ['$profile_completion_percentage', 50] }, 1, 0] } },
+        }
+      },
     ]);
     const avgProfileCompletion = Math.round(profileStats[0]?.avgCompletion ?? 0);
     const lowProfileCount = profileStats[0]?.lowProfile ?? 0;
@@ -209,16 +227,16 @@ router.post('/students-v2/create', ...adminAuth, async (req: Request, res: Respo
       phone_number: phone_number ? String(phone_number).trim() : undefined,
       email: String(email).toLowerCase().trim(),
     };
-    if (department)     profileData['department'] = department;
-    if (ssc_batch)      profileData['ssc_batch'] = ssc_batch;
-    if (hsc_batch)      profileData['hsc_batch'] = hsc_batch;
-    if (college_name)   profileData['college_name'] = college_name;
-    if (guardian_name)  profileData['guardian_name'] = guardian_name;
+    if (department) profileData['department'] = department;
+    if (ssc_batch) profileData['ssc_batch'] = ssc_batch;
+    if (hsc_batch) profileData['hsc_batch'] = hsc_batch;
+    if (college_name) profileData['college_name'] = college_name;
+    if (guardian_name) profileData['guardian_name'] = guardian_name;
     if (guardian_phone) profileData['guardian_phone'] = guardian_phone;
     if (guardian_email) profileData['guardian_email'] = guardian_email;
-    if (gender)         profileData['gender'] = gender;
-    if (dob)            profileData['dob'] = new Date(dob);
-    if (district)       profileData['district'] = district;
+    if (gender) profileData['gender'] = gender;
+    if (dob) profileData['dob'] = new Date(dob);
+    if (district) profileData['district'] = district;
     if (present_address) profileData['present_address'] = present_address;
 
     const profile = await StudentProfile.create(profileData);
@@ -239,6 +257,29 @@ router.post('/students-v2/create', ...adminAuth, async (req: Request, res: Respo
         adminUser?.['_id'] as mongoose.Types.ObjectId | undefined,
         'Assigned during student creation'
       );
+    }
+
+    // Auto-assign to matching batch/department groups
+    const autoGroupQuery: Record<string, unknown> = { isActive: true, type: 'manual' };
+    const orConditions: Record<string, unknown>[] = [];
+    if (hsc_batch) orConditions.push({ batch: String(hsc_batch).trim() });
+    if (department) orConditions.push({ department: String(department).trim().toLowerCase() });
+    if (orConditions.length > 0) {
+      autoGroupQuery['$or'] = orConditions;
+      const matchingGroups = await StudentGroup.find(autoGroupQuery).select('_id').lean();
+      const autoGroupIds = matchingGroups
+        .map(g => String(g._id))
+        .filter(id => !normalizedGroupIds.includes(id)); // skip already-assigned
+      if (autoGroupIds.length > 0) {
+        for (const gid of autoGroupIds) {
+          await groupMembershipService.bulkAddMembers(
+            gid,
+            [String(user._id)],
+            adminUser?.['_id'] as string | undefined,
+            'Auto-assigned by batch/department match'
+          );
+        }
+      }
     }
 
     // Create CRM timeline entry
@@ -321,9 +362,9 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
       hasPaymentDue, sortBy, sortOrder,
     } = req.query as Record<string, string>;
 
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-    const skip     = (pageNum - 1) * limitNum;
+    const skip = (pageNum - 1) * limitNum;
 
     const userQuery: Record<string, unknown> = { role: 'student' };
     if (status) userQuery['status'] = status;
@@ -333,9 +374,9 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
     }
 
     if (group && mongoose.Types.ObjectId.isValid(group)) {
-      const groupId    = new mongoose.Types.ObjectId(group);
+      const groupId = new mongoose.Types.ObjectId(group);
       const memberships = await GroupMembership.find({ groupId }).select('studentId').lean();
-      const memberIds  = memberships.map((m) => m.studentId);
+      const memberIds = memberships.map((m) => m.studentId);
       userQuery['_id'] = { $in: memberIds };
     }
 
@@ -350,7 +391,7 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
           subQuery['status'] = 'active';
         }
       }
-      const subs      = await UserSubscription.find(subQuery).select('userId').lean();
+      const subs = await UserSubscription.find(subQuery).select('userId').lean();
       const subUserIds = subs.map((s) => s.userId);
       const existingId = userQuery['_id'] as { $in: mongoose.Types.ObjectId[] } | undefined;
       userQuery['_id'] = existingId
@@ -362,12 +403,12 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
     if (department || sscBatch || hscBatch || guardianStatus) {
       const profileQuery: Record<string, unknown> = {};
       if (department) profileQuery['department'] = department;
-      if (sscBatch)   profileQuery['ssc_batch'] = sscBatch;
-      if (hscBatch)   profileQuery['hsc_batch'] = hscBatch;
-      if (guardianStatus === 'verified')   profileQuery['guardianPhoneVerificationStatus'] = 'verified';
+      if (sscBatch) profileQuery['ssc_batch'] = sscBatch;
+      if (hscBatch) profileQuery['hsc_batch'] = hscBatch;
+      if (guardianStatus === 'verified') profileQuery['guardianPhoneVerificationStatus'] = 'verified';
       if (guardianStatus === 'unverified') profileQuery['guardianPhoneVerificationStatus'] = { $ne: 'verified' };
       if (guardianStatus === 'has_guardian') profileQuery['guardian_phone'] = { $exists: true, $ne: '' };
-      if (guardianStatus === 'no_guardian')  profileQuery['guardian_phone'] = { $in: [null, '', undefined] };
+      if (guardianStatus === 'no_guardian') profileQuery['guardian_phone'] = { $in: [null, '', undefined] };
 
       const filteredProfiles = await StudentProfile.find(profileQuery).select('user_id').lean();
       const profileUserIds = filteredProfiles.map((p) => p.user_id);
@@ -390,8 +431,8 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
     // Determine sort
     const sortField = sortBy === 'name' ? 'full_name'
       : sortBy === 'status' ? 'status'
-      : sortBy === 'lastLogin' ? 'lastLoginAtUTC'
-      : 'createdAt';
+        : sortBy === 'lastLogin' ? 'lastLoginAtUTC'
+          : 'createdAt';
     const sortDir = sortOrder === 'asc' ? 1 : -1;
 
     const [users, total] = await Promise.all([
@@ -413,13 +454,13 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
     ]);
 
     const profileMap = new Map(profiles.map((p) => [String(p.user_id), p]));
-    const subMap     = new Map(subscriptions.map((s) => [String(s.userId), s]));
+    const subMap = new Map(subscriptions.map((s) => [String(s.userId), s]));
     const filterScore = profileScoreMin ? parseInt(profileScoreMin, 10) : undefined;
 
     const data = users
       .map((u) => ({
         ...u,
-        profile:      profileMap.get(String(u._id)) ?? null,
+        profile: profileMap.get(String(u._id)) ?? null,
         subscription: subMap.get(String(u._id)) ?? null,
       }))
       .filter((row) => {
@@ -538,7 +579,7 @@ router.post('/students-v2/bulk-update', ...adminAuth, async (req: Request, res: 
     const validIds = ids.filter((id) => mongoose.Types.ObjectId.isValid(id));
     const allowedUserFields: Record<string, unknown> = {};
     const allowedProfileFields: Record<string, unknown> = {};
-    if (update['status'] && ['active','suspended','blocked','pending'].includes(String(update['status']))) {
+    if (update['status'] && ['active', 'suspended', 'blocked', 'pending'].includes(String(update['status']))) {
       allowedUserFields['status'] = update['status'];
     }
     if (update['department'] !== undefined) allowedProfileFields['department'] = String(update['department'] || '').trim();
@@ -564,11 +605,13 @@ router.get('/students-v2/weak-topics-report', ...adminAuth, async (_req: Request
   try {
     const results = await ExamResult.aggregate([
       { $unwind: '$answers' },
-      { $group: {
-        _id: '$answers.question',
-        totalAttempts: { $sum: 1 },
-        correctCount: { $sum: { $cond: ['$answers.isCorrect', 1, 0] } },
-      }},
+      {
+        $group: {
+          _id: '$answers.question',
+          totalAttempts: { $sum: 1 },
+          correctCount: { $sum: { $cond: ['$answers.isCorrect', 1, 0] } },
+        }
+      },
       { $match: { totalAttempts: { $gte: 5 } } },
       { $addFields: { accuracy: { $multiply: [{ $divide: ['$correctCount', '$totalAttempts'] }, 100] } } },
       { $match: { accuracy: { $lte: 50 } } },
@@ -604,6 +647,76 @@ router.get('/students-v2/crm-timeline', ...adminAuth, async (req: Request, res: 
     }));
 
     res.json({ entries: data });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+// ============================================================================
+// ADMIN APPROVAL ENDPOINTS — Registration & Profile Change Approvals
+// Must be before :id wildcard routes
+// Requirements: 5.3, 5.4, 5.6, 10.1, 10.2, 10.3
+// ============================================================================
+
+// GET /students-v2/pending-approvals — list pending registrations + profile changes with counts
+router.get('/students-v2/pending-approvals', ...adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const [pendingRegistrations, registrationCount, profileChanges, profileChangeCount] = await Promise.all([
+      User.find({ role: 'student', status: 'pending' })
+        .select('full_name email phone_number status createdAt')
+        .sort({ createdAt: -1 })
+        .lean(),
+      User.countDocuments({ role: 'student', status: 'pending' }),
+      ProfileUpdateRequest.find({ status: 'pending' })
+        .populate('student_id', 'full_name email')
+        .sort({ createdAt: -1 })
+        .lean(),
+      ProfileUpdateRequest.countDocuments({ status: 'pending' }),
+    ]);
+
+    res.json({
+      pendingRegistrations,
+      registrationCount,
+      profileChanges,
+      profileChangeCount,
+    });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+// GET /students-v2/profile-requests — list pending profile change requests
+// Requirements: 7.1
+router.get('/students-v2/profile-requests', ...adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const requests = await ProfileUpdateRequest.find({ status: 'pending' })
+      .populate('student_id', 'full_name email')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ requests });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+// GET /students-v2/profile-requests/:id — get single request with side-by-side diff
+// Requirements: 7.2
+router.get('/students-v2/profile-requests/:id', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const request = await ProfileUpdateRequest.findById(req.params.id)
+      .populate('student_id', 'full_name email phone_number')
+      .populate('reviewed_by', 'full_name')
+      .lean();
+    if (!request) return res.status(404).json({ message: 'Profile change request not found.' });
+
+    // Build side-by-side diff
+    const diff = Object.keys(request.requested_changes || {}).map((field) => ({
+      field,
+      previousValue: request.previous_values?.[field] ?? null,
+      requestedValue: request.requested_changes[field],
+    }));
+
+    res.json({ request, diff });
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }
@@ -650,10 +763,18 @@ router.put('/students-v2/:id', ...adminAuth, async (req: Request, res: Response)
       ...profileFields
     } = req.body;
     const userUpdate: Record<string, unknown> = {};
-    if (full_name)    userUpdate['full_name']    = full_name;
-    if (email)        userUpdate['email']        = email;
-    if (phone_number) userUpdate['phone_number'] = phone_number;
-    if (status && ['active','suspended','blocked','pending'].includes(status)) {
+    if (full_name) userUpdate['full_name'] = full_name;
+    if (email) {
+      userUpdate['email'] = email;
+      // Admin bypass: reset emailVerifiedAt when admin updates email (Requirement 4.3)
+      userUpdate['emailVerifiedAt'] = null;
+    }
+    if (phone_number) {
+      userUpdate['phone_number'] = phone_number;
+      // Admin bypass: reset phoneVerifiedAt when admin updates phone (Requirement 4.2)
+      userUpdate['phoneVerifiedAt'] = null;
+    }
+    if (status && ['active', 'suspended', 'blocked', 'pending'].includes(status)) {
       userUpdate['status'] = status;
     }
     const user = await User.findByIdAndUpdate(req.params.id, { $set: userUpdate }, { new: true })
@@ -662,15 +783,23 @@ router.put('/students-v2/:id', ...adminAuth, async (req: Request, res: Response)
 
     const profileUpdate: Record<string, unknown> = {};
     const profileKeys = [
-      'guardian_phone','department','ssc_batch','hsc_batch','college_name',
-      'college_address','present_address','district','gender','dob',
-      'guardian_name','roll_number','registration_id',
+      'guardian_phone', 'department', 'ssc_batch', 'hsc_batch', 'college_name',
+      'college_address', 'present_address', 'district', 'gender', 'dob',
+      'guardian_name', 'roll_number', 'registration_id',
     ];
     for (const key of profileKeys) {
       if (profileFields[key] !== undefined) profileUpdate[key] = profileFields[key];
     }
-    if (full_name)    profileUpdate['full_name']    = full_name;
-    if (phone_number) profileUpdate['phone_number'] = phone_number;
+    if (full_name) profileUpdate['full_name'] = full_name;
+    if (phone_number) {
+      // Admin bypass: apply phone directly and sync phone field (Requirements 4.1, 4.2)
+      profileUpdate['phone_number'] = phone_number;
+      profileUpdate['phone'] = phone_number;
+    }
+    if (email) {
+      // Admin bypass: apply email directly (Requirement 4.1)
+      profileUpdate['email'] = email;
+    }
 
     const profile = await StudentProfile.findOneAndUpdate(
       { user_id: req.params.id },
@@ -751,10 +880,10 @@ router.post('/students-v2/:id/reset-password', ...adminAuth, async (req: Request
 // STUDENT GROUPS
 // ============================================================================
 
-router.get('/student-groups', ...adminAuth, async (req: Request, res: Response) => {
+router.get('/student-groups', ...adminAuth, requirePermission('students_groups', 'view'), async (req: Request, res: Response) => {
   try {
     const { q, isActive, page = '1', limit = '50' } = req.query as Record<string, string>;
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const query: Record<string, unknown> = {};
     if (isActive !== undefined) query['isActive'] = isActive === 'true';
@@ -769,7 +898,7 @@ router.get('/student-groups', ...adminAuth, async (req: Request, res: Response) 
   }
 });
 
-router.get('/student-groups/export', ...adminAuth, requireSensitiveExport('students_groups', 'student_groups_legacy_export', true), trackSensitiveExport({ moduleName: 'students_groups', actionName: 'student_groups_legacy_export' }), async (req: Request, res: Response) => {
+router.get('/student-groups/export', ...adminAuth, requirePermission('students_groups', 'export'), requireSensitiveExport('students_groups', 'student_groups_legacy_export', true), trackSensitiveExport({ moduleName: 'students_groups', actionName: 'student_groups_legacy_export' }), async (req: Request, res: Response) => {
   try {
     const { q, isActive } = req.query as Record<string, string>;
     const format = String(req.query['format'] ?? req.query['type'] ?? 'xlsx').trim().toLowerCase() === 'csv' ? 'csv' : 'xlsx';
@@ -825,7 +954,7 @@ router.get('/student-groups/export', ...adminAuth, requireSensitiveExport('stude
   }
 });
 
-router.post('/student-groups/bulk-update', ...adminAuth, async (req: Request, res: Response) => {
+router.post('/student-groups/bulk-update', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
   try {
     const { ids, update } = req.body as { ids: string[]; update: Record<string, unknown> };
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -865,7 +994,7 @@ router.post('/student-groups/bulk-update', ...adminAuth, async (req: Request, re
   }
 });
 
-router.post('/student-groups/bulk-delete', ...adminAuth, requireDestructiveStepUp('students_groups', 'student_groups_bulk_delete'), async (req: Request, res: Response) => {
+router.post('/student-groups/bulk-delete', ...adminAuth, requirePermission('students_groups', 'delete'), requireDestructiveStepUp('students_groups', 'student_groups_bulk_delete'), async (req: Request, res: Response) => {
   try {
     const { ids } = req.body as { ids: string[] };
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -873,50 +1002,44 @@ router.post('/student-groups/bulk-delete', ...adminAuth, requireDestructiveStepU
     }
 
     const validIds = ids.filter((id) => mongoose.Types.ObjectId.isValid(id));
-    const deletedIds: string[] = [];
-    const skipped: Array<{ id: string; blockers: string[] }> = [];
+    const result = await deleteSafetyService.bulkDeleteGroups(validIds);
 
-    for (const id of validIds) {
-      const safety = await groupMembershipService.canDeleteGroup(id);
-      if (!safety.safe) {
-        skipped.push({ id, blockers: safety.blockers });
-        continue;
-      }
-
+    // Clean up denormalized groupIds on student profiles for deleted groups
+    for (const id of result.deleted) {
       const objectId = new mongoose.Types.ObjectId(id);
-      const removed = await StudentGroup.findByIdAndDelete(objectId).lean();
-      if (!removed) continue;
-      deletedIds.push(id);
-      await Promise.all([
-        GroupMembership.updateMany(
-          { groupId: objectId, membershipStatus: 'active' },
-          { $set: { membershipStatus: 'archived', removedAtUTC: new Date(), note: 'Bulk deleted group' } }
-        ),
-        StudentProfile.updateMany(
-          { groupIds: objectId },
-          { $pull: { groupIds: objectId } }
-        ),
-      ]);
+      await StudentProfile.updateMany(
+        { groupIds: objectId },
+        { $pull: { groupIds: objectId } }
+      );
     }
 
     res.json({
-      message: `Deleted ${deletedIds.length} groups`,
-      deleted: deletedIds.length,
-      deletedIds,
-      skipped,
+      message: `Deleted ${result.deleted.length} groups`,
+      deleted: result.deleted.length,
+      deletedIds: result.deleted,
+      skipped: result.skipped,
     });
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }
 });
 
-router.post('/student-groups', ...adminAuth, async (req: Request, res: Response) => {
+router.post('/student-groups', ...adminAuth, requirePermission('students_groups', 'create'), async (req: Request, res: Response) => {
   try {
     const { name, description, batchTag, type, rules, isActive,
-            shortCode, color, icon, cardStyleVariant, sortOrder, isFeatured,
-            batch, department, visibilityNote, defaultExamVisibility,
-            defaultCommunicationAudience } = req.body;
+      shortCode, color, icon, cardStyleVariant, sortOrder, isFeatured,
+      batch, department, visibilityNote, defaultExamVisibility,
+      defaultCommunicationAudience } = req.body;
     if (!name) return res.status(400).json({ message: 'name is required' });
+
+    // Validate rules for dynamic groups
+    if (type === 'dynamic' && rules) {
+      const validation = validateRules(rules as DynamicRuleSet);
+      if (!validation.valid) {
+        return res.status(400).json({ message: 'Invalid dynamic rules', errors: validation.errors });
+      }
+    }
+
     const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + Date.now();
     const adminUser = (req as unknown as Record<string, unknown>)['user'] as Record<string, unknown> | undefined;
     const group = await StudentGroup.create({
@@ -937,13 +1060,26 @@ router.post('/student-groups', ...adminAuth, async (req: Request, res: Response)
       defaultExamVisibility: defaultExamVisibility || 'all_students',
       defaultCommunicationAudience: defaultCommunicationAudience === true,
     });
+
+    // For dynamic groups, evaluate rules and return estimated member count
+    if (type === 'dynamic' && rules) {
+      try {
+        const evaluation = await evaluateRules(rules as DynamicRuleSet);
+        await StudentGroup.updateOne({ _id: group._id }, { $set: { memberCountCached: evaluation.matchedCount } });
+        return res.status(201).json({ ...group.toObject(), estimatedMemberCount: evaluation.matchedCount });
+      } catch {
+        // Rule evaluation failure is non-fatal — return group without estimate
+        return res.status(201).json(group);
+      }
+    }
+
     res.status(201).json(group);
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }
 });
 
-router.get('/student-groups/:id', ...adminAuth, async (req: Request, res: Response) => {
+router.get('/student-groups/:id', ...adminAuth, requirePermission('students_groups', 'view'), async (req: Request, res: Response) => {
   try {
     const group = await StudentGroup.findById(req.params.id).lean();
     if (!group) return res.status(404).json({ message: 'Group not found' });
@@ -954,56 +1090,81 @@ router.get('/student-groups/:id', ...adminAuth, async (req: Request, res: Respon
   }
 });
 
-router.put('/student-groups/:id', ...adminAuth, async (req: Request, res: Response) => {
+router.put('/student-groups/:id', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
   try {
     const { name, description, batchTag, type, rules, isActive,
-            shortCode, color, icon, cardStyleVariant, sortOrder, isFeatured,
-            batch, department, visibilityNote, defaultExamVisibility,
-            defaultCommunicationAudience } = req.body;
+      shortCode, color, icon, cardStyleVariant, sortOrder, isFeatured,
+      batch, department, visibilityNote, defaultExamVisibility,
+      defaultCommunicationAudience } = req.body;
+
+    // Determine effective type: use provided type or fetch existing group's type
+    let effectiveType = type;
+    if (effectiveType === undefined) {
+      const existing = await StudentGroup.findById(req.params.id).select('type').lean();
+      effectiveType = existing?.type;
+    }
+
+    // Validate rules for dynamic groups
+    if (effectiveType === 'dynamic' && rules) {
+      const validation = validateRules(rules as DynamicRuleSet);
+      if (!validation.valid) {
+        return res.status(400).json({ message: 'Invalid dynamic rules', errors: validation.errors });
+      }
+    }
+
     const update: Record<string, unknown> = {};
-    if (name        !== undefined) update['name']        = name;
+    if (name !== undefined) update['name'] = name;
     if (description !== undefined) update['description'] = description;
-    if (batchTag    !== undefined) update['batchTag']    = batchTag;
-    if (type        !== undefined) update['type']        = type;
-    if (rules       !== undefined) update['rules']       = rules;
-    if (isActive    !== undefined) update['isActive']    = isActive;
-    if (shortCode   !== undefined) update['shortCode']   = shortCode;
-    if (color       !== undefined) update['color']       = color;
-    if (icon        !== undefined) update['icon']        = icon;
+    if (batchTag !== undefined) update['batchTag'] = batchTag;
+    if (type !== undefined) update['type'] = type;
+    if (rules !== undefined) update['rules'] = rules;
+    if (isActive !== undefined) update['isActive'] = isActive;
+    if (shortCode !== undefined) update['shortCode'] = shortCode;
+    if (color !== undefined) update['color'] = color;
+    if (icon !== undefined) update['icon'] = icon;
     if (cardStyleVariant !== undefined) update['cardStyleVariant'] = cardStyleVariant;
-    if (sortOrder   !== undefined) update['sortOrder']   = Number(sortOrder) || 0;
-    if (isFeatured  !== undefined) update['isFeatured']  = isFeatured === true;
-    if (batch       !== undefined) update['batch']       = batch;
-    if (department  !== undefined) update['department']  = department;
+    if (sortOrder !== undefined) update['sortOrder'] = Number(sortOrder) || 0;
+    if (isFeatured !== undefined) update['isFeatured'] = isFeatured === true;
+    if (batch !== undefined) update['batch'] = batch;
+    if (department !== undefined) update['department'] = department;
     if (visibilityNote !== undefined) update['visibilityNote'] = visibilityNote;
     if (defaultExamVisibility !== undefined) update['defaultExamVisibility'] = defaultExamVisibility;
     if (defaultCommunicationAudience !== undefined) update['defaultCommunicationAudience'] = defaultCommunicationAudience === true;
     const group = await StudentGroup.findByIdAndUpdate(req.params.id, { $set: update }, { new: true }).lean();
     if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    // For dynamic groups, evaluate rules and return estimated member count
+    if (effectiveType === 'dynamic' && rules) {
+      try {
+        const evaluation = await evaluateRules(rules as DynamicRuleSet);
+        await StudentGroup.updateOne({ _id: group._id }, { $set: { memberCountCached: evaluation.matchedCount } });
+        return res.json({ ...group, estimatedMemberCount: evaluation.matchedCount });
+      } catch {
+        // Rule evaluation failure is non-fatal
+        return res.json(group);
+      }
+    }
+
     res.json(group);
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }
 });
 
-router.delete('/student-groups/:id', ...adminAuth, requireDestructiveStepUp('students_groups', 'student_group_delete'), async (req: Request, res: Response) => {
+router.delete('/student-groups/:id', ...adminAuth, requirePermission('students_groups', 'delete'), requireDestructiveStepUp('students_groups', 'student_group_delete'), async (req: Request, res: Response) => {
   try {
+    const groupId = String(req.params.id);
     // Safety check before deletion
-    const safety = await groupMembershipService.canDeleteGroup(String(req.params.id));
-    if (!safety.safe) {
+    const safety = await deleteSafetyService.canDeleteGroup(groupId);
+    if (!safety.canDelete) {
       return res.status(409).json({ message: 'Cannot delete group', blockers: safety.blockers });
     }
-    const group = await StudentGroup.findByIdAndDelete(req.params.id).lean();
-    if (!group) return res.status(404).json({ message: 'Group not found' });
-    // Archive all memberships instead of hard delete
-    await GroupMembership.updateMany(
-      { groupId: req.params.id, membershipStatus: 'active' },
-      { $set: { membershipStatus: 'archived', removedAtUTC: new Date(), note: 'Group deleted' } }
-    );
-    // Remove group from all student profiles
+    // Execute safe deletion (sets memberships to removed, then deletes group)
+    await deleteSafetyService.executeGroupDeletion(groupId);
+    // Remove group from all student profiles (denormalized cache)
     await StudentProfile.updateMany(
-      { groupIds: req.params.id },
-      { $pull: { groupIds: new mongoose.Types.ObjectId(String(req.params.id)) } }
+      { groupIds: groupId },
+      { $pull: { groupIds: new mongoose.Types.ObjectId(groupId) } }
     );
     res.json({ message: 'Group deleted' });
   } catch (err) {
@@ -1011,9 +1172,9 @@ router.delete('/student-groups/:id', ...adminAuth, requireDestructiveStepUp('stu
   }
 });
 
-router.post('/student-groups/:id/members/add', ...adminAuth, async (req: Request, res: Response) => {
+router.post('/student-groups/:id/members/add', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
   try {
-    const { studentIds } = req.body as { studentIds: string[] };
+    const { studentIds, dryRun } = req.body as { studentIds: string[]; dryRun?: boolean };
     if (!Array.isArray(studentIds) || studentIds.length === 0) {
       return res.status(400).json({ message: 'studentIds array required' });
     }
@@ -1053,10 +1214,32 @@ router.post('/student-groups/:id/members/add', ...adminAuth, async (req: Request
     }
 
     const resolvedIds = [...resolvedIdSet];
+    const groupId = String(req.params.id);
+    const unresolvedCount = Math.max(0, normalizedIds.length - resolvedIds.length);
+
+    // Dry-run mode: resolve IDs and check existing memberships without committing
+    if (dryRun) {
+      const existingMemberships = await GroupMembership.find({
+        groupId: new mongoose.Types.ObjectId(groupId),
+        studentId: { $in: resolvedIds.map(rid => new mongoose.Types.ObjectId(rid)) },
+        membershipStatus: 'active',
+      }).select('studentId').lean();
+      const existingSet = new Set(existingMemberships.map(m => String(m.studentId)));
+      const newCount = resolvedIds.filter(rid => !existingSet.has(rid)).length;
+      return res.json({
+        dryRun: true,
+        requested: normalizedIds.length,
+        resolved: resolvedIds.length,
+        unresolved: unresolvedCount,
+        alreadyMembers: existingSet.size,
+        newMembers: newCount,
+      });
+    }
+
     const adminUser = (req as unknown as Record<string, unknown>)['user'] as Record<string, unknown> | undefined;
     const adminId = adminUser?.['_id'] as string | undefined;
     const result = await groupMembershipService.bulkAddMembers(
-      String(req.params.id),
+      groupId,
       resolvedIds,
       adminId,
       'Added via group member management'
@@ -1067,14 +1250,14 @@ router.post('/student-groups/:id/members/add', ...adminAuth, async (req: Request
       skipped: result.skipped,
       requested: normalizedIds.length,
       resolved: resolvedIds.length,
-      unresolved: Math.max(0, normalizedIds.length - resolvedIds.length),
+      unresolved: unresolvedCount,
     });
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }
 });
 
-router.post('/student-groups/:id/members/remove', ...adminAuth, async (req: Request, res: Response) => {
+router.post('/student-groups/:id/members/remove', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
   try {
     const { studentIds } = req.body as { studentIds: string[] };
     if (!Array.isArray(studentIds) || studentIds.length === 0) {
@@ -1094,14 +1277,36 @@ router.post('/student-groups/:id/members/remove', ...adminAuth, async (req: Requ
   }
 });
 
-router.get('/student-groups/:id/members/export', ...adminAuth, requireSensitiveExport('students_groups', 'student_group_members_export', true), trackSensitiveExport({ moduleName: 'students_groups', actionName: 'student_group_members_export', targetType: 'student_group', targetParam: 'id' }), async (req: Request, res: Response) => {
+router.get('/student-groups/:id/members/export', ...adminAuth, requirePermission('students_groups', 'export'), requireSensitiveExport('students_groups', 'student_group_members_export', true), trackSensitiveExport({ moduleName: 'students_groups', actionName: 'student_group_members_export', targetType: 'student_group', targetParam: 'id' }), async (req: Request, res: Response) => {
   try {
     const format = String(req.query['format'] ?? req.query['type'] ?? 'csv').trim().toLowerCase() === 'xlsx' ? 'xlsx' : 'csv';
-    const groupId    = new mongoose.Types.ObjectId(String(req.params.id));
+    const categoryParam = req.query['category'] ? String(req.query['category']).trim().toLowerCase() : undefined;
+
+    // Validate category if provided
+    if (categoryParam && !VALID_EXPORT_CATEGORIES.includes(categoryParam as ExportCategory)) {
+      return res.status(400).json({
+        message: `Invalid export category "${categoryParam}". Valid categories: ${VALID_EXPORT_CATEGORIES.join(', ')}`,
+      });
+    }
+    const category = categoryParam as ExportCategory | undefined;
+
+    const groupId = new mongoose.Types.ObjectId(String(req.params.id));
+
+    // Fetch group for slug-based filename
+    const group = await StudentGroup.findById(groupId).select('slug name').lean();
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
     const memberships = await GroupMembership.find({ groupId, membershipStatus: 'active' })
-      .select('studentId joinedAtUTC note')
+      .select('studentId joinedAtUTC membershipStatus note')
       .lean();
-    const memberIds  = memberships.map((m) => m.studentId);
+
+    if (memberships.length === 0) {
+      return res.status(404).json({ message: 'No active members found for this group' });
+    }
+
+    const memberIds = memberships.map((m) => m.studentId);
     const [users, profiles] = await Promise.all([
       User.find({ _id: { $in: memberIds } }).select('full_name email phone_number status createdAt').lean(),
       StudentProfile.find({ user_id: { $in: memberIds } })
@@ -1111,24 +1316,14 @@ router.get('/student-groups/:id/members/export', ...adminAuth, requireSensitiveE
     const profileMap = new Map(profiles.map(p => [p.user_id.toString(), p]));
     const membershipMap = new Map(memberships.map(m => [m.studentId.toString(), m]));
 
-    const columns = ['Full Name', 'Email', 'Phone', 'Department', 'Batch', 'Roll', 'Guardian', 'Guardian Phone', 'Status', 'Joined At', 'Note'];
+    const { columns, extract } = buildCategoryColumnDef(category);
     const rows = users.map(u => {
-      const prof = profileMap.get(u._id.toString()) ?? {} as Record<string, unknown>;
-      const mem = membershipMap.get(u._id.toString());
-      return [
-        (prof as Record<string, unknown>).full_name ?? u.full_name ?? '',
-        (prof as Record<string, unknown>).email ?? u.email ?? '',
-        (prof as Record<string, unknown>).phone_number ?? u.phone_number ?? '',
-        (prof as Record<string, unknown>).department ?? '',
-        (prof as Record<string, unknown>).hsc_batch ?? '',
-        (prof as Record<string, unknown>).roll_number ?? '',
-        (prof as Record<string, unknown>).guardian_name ?? '',
-        (prof as Record<string, unknown>).guardian_phone ?? '',
-        u.status ?? '',
-        mem?.joinedAtUTC ? new Date(mem.joinedAtUTC as string | Date).toISOString() : '',
-        mem?.note ?? '',
-      ].map(v => String(v ?? ''));
+      const prof = (profileMap.get(u._id.toString()) ?? {}) as Record<string, unknown>;
+      const mem = membershipMap.get(u._id.toString()) as Record<string, unknown> | undefined;
+      return extract(prof, u as unknown as Record<string, unknown>, mem);
     });
+
+    const filename = generateExportFilename(group.slug, category, format);
 
     if (format === 'xlsx') {
       const ExcelJS = await import('exceljs');
@@ -1139,17 +1334,18 @@ router.get('/student-groups/:id/members/export', ...adminAuth, requireSensitiveE
       columns.forEach((_, i) => { const col = ws.getColumn(i + 1); col.width = 18; });
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="group_${req.params.id}_members.xlsx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(Buffer.from(buf as ArrayBuffer));
     } else {
       const escCsv = (v: string) => `"${v.replace(/"/g, '""')}"`;
       const csv = [columns.join(','), ...rows.map(r => r.map(escCsv).join(','))].join('\n');
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="group_${req.params.id}_members.csv"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(csv);
     }
   } catch (err) {
-    res.status(500).json({ message: String(err) });
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ message: `Export failed: ${message}` });
   }
 });
 
@@ -1179,7 +1375,8 @@ router.get('/student-groups/members/template', ...adminAuth, async (_req: Reques
 });
 
 // Membership import preview — upload file, match students by email/phone/ID
-router.post('/student-groups/:id/members/import/preview', ...adminAuth, upload.single('file'), async (req: Request, res: Response) => {
+// Returns each row categorized as new | existing | not_found | duplicate with color-coded status
+router.post('/student-groups/:id/members/import/preview', ...adminAuth, requirePermission('students_groups', 'edit'), upload.single('file'), async (req: Request, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'file is required' });
     const groupId = new mongoose.Types.ObjectId(req.params.id as string);
@@ -1189,7 +1386,7 @@ router.post('/student-groups/:id/members/import/preview', ...adminAuth, upload.s
     // Resolve column mapping (flexible header aliasing)
     const emailAliases = ['email', 'e-mail', 'email address', 'student email', 'ইমেইল'];
     const phoneAliases = ['phone', 'phone number', 'phone_number', 'mobile', 'cell', 'ফোন'];
-    const idAliases    = ['student id', 'studentid', 'student_id', 'id', '_id', 'user id', 'userid'];
+    const idAliases = ['student id', 'studentid', 'student_id', 'id', '_id', 'user id', 'userid'];
 
     const findCol = (aliases: string[], cols: string[]): string | null => {
       for (const a of aliases) {
@@ -1201,7 +1398,7 @@ router.post('/student-groups/:id/members/import/preview', ...adminAuth, upload.s
     const cols = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
     const emailCol = findCol(emailAliases, cols);
     const phoneCol = findCol(phoneAliases, cols);
-    const idCol    = findCol(idAliases, cols);
+    const idCol = findCol(idAliases, cols);
 
     if (!emailCol && !phoneCol && !idCol) {
       return res.status(400).json({ message: 'File must contain at least one of: Email, Phone Number, or Student ID columns' });
@@ -1211,14 +1408,34 @@ router.post('/student-groups/:id/members/import/preview', ...adminAuth, upload.s
     const existingMemberships = await GroupMembership.find({ groupId, membershipStatus: 'active' }).select('studentId').lean();
     const existingSet = new Set(existingMemberships.map(m => m.studentId.toString()));
 
-    const matched: { row: number; email?: string; phone?: string; studentId: string; fullName: string; status: 'new' | 'existing' }[] = [];
-    const unmatched: { row: number; email?: string; phone?: string; reason: string }[] = [];
+    // Track seen student IDs for duplicate detection within the file
+    const seenStudentIds = new Map<string, number>(); // studentId -> first row number
+
+    type RowStatus = 'new' | 'existing' | 'not_found' | 'duplicate';
+    const statusColors: Record<RowStatus, string> = {
+      new: '#22c55e',       // green
+      existing: '#3b82f6',  // blue
+      not_found: '#ef4444', // red
+      duplicate: '#f59e0b', // amber
+    };
+
+    const rows: {
+      row: number;
+      email?: string;
+      phone?: string;
+      studentId?: string;
+      fullName?: string;
+      status: RowStatus;
+      statusColor: string;
+      reason?: string;
+    }[] = [];
 
     for (let i = 0; i < rawRows.length; i++) {
       const r = rawRows[i];
       const email = emailCol ? String(r[emailCol] ?? '').trim().toLowerCase() : '';
       const phone = phoneCol ? String(r[phoneCol] ?? '').trim() : '';
-      const rawId = idCol    ? String(r[idCol]    ?? '').trim() : '';
+      const rawId = idCol ? String(r[idCol] ?? '').trim() : '';
+      const rowNum = i + 2; // 1-indexed, skip header row
 
       let user: Record<string, unknown> | null = null;
 
@@ -1233,34 +1450,78 @@ router.post('/student-groups/:id/members/import/preview', ...adminAuth, upload.s
         user = await User.findOne({ phone_number: phone, role: 'student' }).select('_id full_name').lean() as Record<string, unknown> | null;
       }
 
-      if (user) {
-        const sid = String((user as Record<string, unknown>)._id);
-        matched.push({
-          row: i + 2,
+      if (!user) {
+        rows.push({
+          row: rowNum,
+          email: email || undefined,
+          phone: phone || undefined,
+          status: 'not_found',
+          statusColor: statusColors.not_found,
+          reason: 'No matching student found',
+        });
+        continue;
+      }
+
+      const sid = String((user as Record<string, unknown>)._id);
+      const fullName = (user.full_name as string) || '';
+
+      // Check for duplicate within the file
+      if (seenStudentIds.has(sid)) {
+        rows.push({
+          row: rowNum,
           email: email || undefined,
           phone: phone || undefined,
           studentId: sid,
-          fullName: (user.full_name as string) || '',
-          status: existingSet.has(sid) ? 'existing' : 'new',
+          fullName,
+          status: 'duplicate',
+          statusColor: statusColors.duplicate,
+          reason: `Duplicate of row ${seenStudentIds.get(sid)}`,
         });
-      } else {
-        unmatched.push({
-          row: i + 2,
-          email: email || undefined,
-          phone: phone || undefined,
-          reason: 'No matching student found',
-        });
+        continue;
       }
+
+      seenStudentIds.set(sid, rowNum);
+
+      const status: RowStatus = existingSet.has(sid) ? 'existing' : 'new';
+      rows.push({
+        row: rowNum,
+        email: email || undefined,
+        phone: phone || undefined,
+        studentId: sid,
+        fullName,
+        status,
+        statusColor: statusColors[status],
+      });
     }
 
-    const newCount = matched.filter(m => m.status === 'new').length;
-    const existingCount = matched.filter(m => m.status === 'existing').length;
+    const newCount = rows.filter(r => r.status === 'new').length;
+    const existingCount = rows.filter(r => r.status === 'existing').length;
+    const notFoundCount = rows.filter(r => r.status === 'not_found').length;
+    const duplicateCount = rows.filter(r => r.status === 'duplicate').length;
+
+    // Backward-compatible matched/unmatched arrays
+    const matched = rows.filter(r => r.status === 'new' || r.status === 'existing');
+    const unmatched = rows.filter(r => r.status === 'not_found');
 
     res.json({
       totalRows: rawRows.length,
+      rows,
       matched,
       unmatched,
-      summary: { total: rawRows.length, newMembers: newCount, alreadyMembers: existingCount, notFound: unmatched.length },
+      summary: {
+        total: rawRows.length,
+        newCount,
+        existingCount,
+        notFoundCount,
+        duplicateCount,
+        // Backward-compatible fields
+        newMembers: newCount,
+        alreadyMembers: existingCount,
+        notFound: notFoundCount,
+      },
+      warningCount: notFoundCount,
+      canProceed: newCount > 0,
+      statusColors,
     });
   } catch (err) {
     res.status(500).json({ message: String(err) });
@@ -1268,7 +1529,7 @@ router.post('/student-groups/:id/members/import/preview', ...adminAuth, upload.s
 });
 
 // Membership import commit — add matched students to group
-router.post('/student-groups/:id/members/import/commit', ...adminAuth, async (req: Request, res: Response) => {
+router.post('/student-groups/:id/members/import/commit', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
   try {
     const { studentIds } = req.body as { studentIds: string[] };
     if (!Array.isArray(studentIds) || studentIds.length === 0) {
@@ -1290,7 +1551,7 @@ router.post('/student-groups/:id/members/import/commit', ...adminAuth, async (re
 });
 
 // Group members list (paginated, with profile data)
-router.get('/student-groups/:id/members', ...adminAuth, async (req: Request, res: Response) => {
+router.get('/student-groups/:id/members', ...adminAuth, requirePermission('students_groups', 'view'), async (req: Request, res: Response) => {
   try {
     const { page = '1', limit = '50', q } = req.query as Record<string, string>;
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -1352,18 +1613,27 @@ router.get('/student-groups/:id/members', ...adminAuth, async (req: Request, res
 });
 
 // Group detail metrics
-router.get('/student-groups/:id/metrics', ...adminAuth, async (req: Request, res: Response) => {
+router.get('/student-groups/:id/metrics', ...adminAuth, requirePermission('students_groups', 'view'), async (req: Request, res: Response) => {
   try {
     const groupId = new mongoose.Types.ObjectId(req.params.id as string);
     const memberships = await GroupMembership.find({ groupId, membershipStatus: 'active' }).select('studentId').lean();
     const memberIds = memberships.map(m => m.studentId);
 
-    const [users, activeSubCount] = await Promise.all([
-      User.find({ _id: { $in: memberIds } }).select('status subscription').lean(),
-      User.countDocuments({
-        _id: { $in: memberIds },
-        'subscription.isActive': true,
-      }),
+    const [users, activeMembers, examScoreAgg, campaignReachAgg] = await Promise.all([
+      User.find({ _id: { $in: memberIds } }).select('status').lean(),
+      User.countDocuments({ _id: { $in: memberIds }, status: 'active' }),
+      // Average exam score for group members
+      memberIds.length > 0
+        ? ExamResult.aggregate([
+          { $match: { student: { $in: memberIds } } },
+          { $group: { _id: null, avgScore: { $avg: '$percentage' } } },
+        ])
+        : Promise.resolve([]),
+      // Campaign reach: sum sentCount for campaigns targeting this group
+      NotificationJob.aggregate([
+        { $match: { targetGroupId: groupId, isTestSend: { $ne: true } } },
+        { $group: { _id: null, totalReach: { $sum: '$sentCount' } } },
+      ]),
     ]);
 
     const statusCounts: Record<string, number> = {};
@@ -1372,9 +1642,17 @@ router.get('/student-groups/:id/metrics', ...adminAuth, async (req: Request, res
       statusCounts[s] = (statusCounts[s] || 0) + 1;
     }
 
+    const avgExamScore = examScoreAgg.length > 0 && examScoreAgg[0].avgScore != null
+      ? Math.round(examScoreAgg[0].avgScore * 100) / 100
+      : null;
+    const campaignReach = campaignReachAgg.length > 0 ? campaignReachAgg[0].totalReach : 0;
+
     res.json({
       totalMembers: memberIds.length,
-      activeMembersWithSubscription: activeSubCount,
+      activeMembers,
+      avgExamScore,
+      campaignReach,
+      activeMembersWithSubscription: statusCounts['active'] ?? 0,
       membersByStatus: statusCounts,
     });
   } catch (err) {
@@ -1383,7 +1661,7 @@ router.get('/student-groups/:id/metrics', ...adminAuth, async (req: Request, res
 });
 
 // Move members between groups
-router.post('/student-groups/:id/members/move', ...adminAuth, async (req: Request, res: Response) => {
+router.post('/student-groups/:id/members/move', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
   try {
     const { studentIds, targetGroupId } = req.body as { studentIds: string[]; targetGroupId: string };
     if (!Array.isArray(studentIds) || !targetGroupId) {
@@ -1404,10 +1682,42 @@ router.post('/student-groups/:id/members/move', ...adminAuth, async (req: Reques
   }
 });
 
-// Delete safety check
-router.get('/student-groups/:id/can-delete', ...adminAuth, async (req: Request, res: Response) => {
+// Dynamic rule preview — evaluate rules and return estimated count + sample profiles
+router.post('/student-groups/:id/rules/preview', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
   try {
-    const result = await groupMembershipService.canDeleteGroup(String(req.params.id));
+    const rules = req.body as DynamicRuleSet;
+    if (!rules || typeof rules !== 'object') {
+      return res.status(400).json({ message: 'Request body must contain a valid rules object' });
+    }
+    const validation = validateRules(rules);
+    if (!validation.valid) {
+      return res.status(400).json({ message: 'Invalid dynamic rules', errors: validation.errors });
+    }
+    const result = await evaluateRules(rules);
+    res.json({ estimatedCount: result.matchedCount, sampleProfiles: result.sampleProfiles });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+// Dynamic group refresh — re-evaluate rules and sync memberships
+router.post('/student-groups/:id/rules/refresh', ...adminAuth, requirePermission('students_groups', 'edit'), async (req: Request, res: Response) => {
+  try {
+    const result = await refreshDynamicGroup(String(req.params.id));
+    res.json({ message: 'Dynamic group refreshed', added: result.added, removed: result.removed });
+  } catch (err) {
+    const message = String(err);
+    if (message.includes('not found') || message.includes('not a dynamic group') || message.includes('no rules defined')) {
+      return res.status(400).json({ message });
+    }
+    res.status(500).json({ message });
+  }
+});
+
+// Delete safety check
+router.get('/student-groups/:id/can-delete', ...adminAuth, requirePermission('students_groups', 'delete'), requireDestructiveStepUp('students_groups', 'student_group_delete'), async (req: Request, res: Response) => {
+  try {
+    const result = await deleteSafetyService.canDeleteGroup(String(req.params.id));
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: String(err) });
@@ -1451,7 +1761,7 @@ router.post('/student-contact-timeline/:studentId', ...adminAuth, async (req: Re
 router.delete('/student-contact-timeline/:studentId/:entryId', ...adminAuth, requireDestructiveStepUp('students_groups', 'student_contact_timeline_delete'), async (req: Request, res: Response) => {
   try {
     const entry = await StudentContactTimeline.findOneAndDelete({
-      _id:       req.params.entryId,
+      _id: req.params.entryId,
       studentId: req.params.studentId,
     }).lean();
     if (!entry) return res.status(404).json({ message: 'Entry not found' });
@@ -1468,7 +1778,7 @@ router.delete('/student-contact-timeline/:studentId/:entryId', ...adminAuth, req
 router.get('/subscriptions-v2', ...adminAuth, async (req: Request, res: Response) => {
   try {
     const { status, page = '1', limit = '20', q } = req.query as Record<string, string>;
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const query: Record<string, unknown> = {};
     if (status) query['status'] = status;
@@ -1587,8 +1897,8 @@ router.post('/notification-providers', ...notificationAdminAuth, requireSensitiv
       type, provider, displayName,
       credentialsEncrypted,
       senderConfig: senderConfig ?? {},
-      rateLimit:    rateLimit ?? { perMinute: 30, perDay: 1000 },
-      isEnabled:    isEnabled !== false,
+      rateLimit: rateLimit ?? { perMinute: 30, perDay: 1000 },
+      isEnabled: isEnabled !== false,
     });
     const safe = doc.toObject() as unknown as Record<string, unknown>;
     delete safe['credentialsEncrypted'];
@@ -1612,11 +1922,11 @@ router.put('/notification-providers/:id', ...notificationAdminAuth, requireSensi
   try {
     const { displayName, credentials, senderConfig, rateLimit, isEnabled } = req.body;
     const update: Record<string, unknown> = {};
-    if (displayName  !== undefined) update['displayName']  = displayName;
+    if (displayName !== undefined) update['displayName'] = displayName;
     if (senderConfig !== undefined) update['senderConfig'] = senderConfig;
-    if (rateLimit    !== undefined) update['rateLimit']    = rateLimit;
-    if (isEnabled    !== undefined) update['isEnabled']    = isEnabled;
-    if (credentials  !== undefined) update['credentialsEncrypted'] = encrypt(JSON.stringify(credentials));
+    if (rateLimit !== undefined) update['rateLimit'] = rateLimit;
+    if (isEnabled !== undefined) update['isEnabled'] = isEnabled;
+    if (credentials !== undefined) update['credentialsEncrypted'] = encrypt(JSON.stringify(credentials));
     const doc = await NotificationProvider.findByIdAndUpdate(
       req.params.id, { $set: update }, { new: true },
     ).select('-credentialsEncrypted').lean();
@@ -1700,10 +2010,10 @@ router.put('/notification-templates/:id', ...notificationAdminAuth, requireDestr
   try {
     const { subject, body, placeholdersAllowed, isEnabled } = req.body;
     const update: Record<string, unknown> = {};
-    if (subject             !== undefined) update['subject']             = subject;
-    if (body                !== undefined) update['body']                = body;
+    if (subject !== undefined) update['subject'] = subject;
+    if (body !== undefined) update['body'] = body;
     if (placeholdersAllowed !== undefined) update['placeholdersAllowed'] = placeholdersAllowed;
-    if (isEnabled           !== undefined) update['isEnabled']           = isEnabled;
+    if (isEnabled !== undefined) update['isEnabled'] = isEnabled;
     const template = await NotificationTemplate.findByIdAndUpdate(
       req.params.id, { $set: update }, { new: true },
     ).lean();
@@ -1803,7 +2113,7 @@ router.post('/notifications-v2/send', ...notificationAdminAuth, async (req: Requ
 router.get('/notifications-v2/jobs', ...notificationAdminAuth, async (req: Request, res: Response) => {
   try {
     const { status, page = '1', limit = '20' } = req.query as Record<string, string>;
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const query: Record<string, unknown> = {};
     if (status) query['status'] = status;
@@ -1846,10 +2156,10 @@ router.post('/notifications-v2/jobs/:id/retry-failed', ...notificationAdminAuth,
 router.get('/notifications-v2/logs', ...notificationAdminAuth, async (req: Request, res: Response) => {
   try {
     const { jobId, studentId, status, page = '1', limit = '50' } = req.query as Record<string, string>;
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const query: Record<string, unknown> = {};
-    if (jobId     && mongoose.Types.ObjectId.isValid(jobId))     query['jobId']     = new mongoose.Types.ObjectId(jobId);
+    if (jobId && mongoose.Types.ObjectId.isValid(jobId)) query['jobId'] = new mongoose.Types.ObjectId(jobId);
     if (studentId && mongoose.Types.ObjectId.isValid(studentId)) query['studentId'] = new mongoose.Types.ObjectId(studentId);
     if (status) query['status'] = status;
     const [logs, total] = await Promise.all([
@@ -1905,7 +2215,7 @@ router.put('/student-settings', ...adminAuth, async (req: Request, res: Response
 router.get('/audience-segments', ...adminAuth, async (req: Request, res: Response) => {
   try {
     const { q, page = '1', limit = '50' } = req.query as Record<string, string>;
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const query: Record<string, unknown> = { type: 'dynamic' };
     if (q) query['name'] = new RegExp(String(q), 'i');
@@ -2110,10 +2420,12 @@ router.get('/students-v2/:id/finance-statement', ...adminAuth, async (req: Reque
 
     const totals = await FinanceTransaction.aggregate([
       { $match: { studentId: studentObjectId, isDeleted: false } },
-      { $group: {
-        _id: '$direction',
-        total: { $sum: '$amount' },
-      }},
+      {
+        $group: {
+          _id: '$direction',
+          total: { $sum: '$amount' },
+        }
+      },
     ]);
     const income = totals.find((t) => t._id === 'income')?.total ?? 0;
     const expense = totals.find((t) => t._id === 'expense')?.total ?? 0;
@@ -2150,7 +2462,7 @@ router.get('/students-v2/:id/finance-statement', ...adminAuth, async (req: Reque
 router.get('/import-export-logs', ...adminAuth, async (req: Request, res: Response) => {
   try {
     const { direction, category, page = '1', limit = '20' } = req.query as Record<string, string>;
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const query: Record<string, unknown> = {};
     if (direction) query['direction'] = direction;
@@ -2162,6 +2474,143 @@ router.get('/import-export-logs', ...adminAuth, async (req: Request, res: Respon
       ImportExportLog.countDocuments(query),
     ]);
     res.json({ data: logs, total, page: pageNum, limit: limitNum });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+// ============================================================================
+// ADMIN APPROVAL POST ENDPOINTS — Registration & Profile Change Approvals
+// Requirements: 5.3, 5.4, 10.3
+// ============================================================================
+
+// POST /students-v2/approve-registration/:id — approve pending student
+router.post('/students-v2/approve-registration/:id', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const adminUser = (req as any).user;
+    await approveNewStudent(String(req.params.id), String(adminUser._id));
+    res.json({ message: 'Student approved successfully.' });
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    if (msg === 'User not found') return res.status(404).json({ message: msg });
+    if (msg.includes('not in pending status')) return res.status(400).json({ message: msg });
+    res.status(500).json({ message: msg });
+  }
+});
+
+// POST /students-v2/reject-registration/:id — reject pending student with reason
+router.post('/students-v2/reject-registration/:id', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
+      return res.status(400).json({ message: 'A rejection reason is required.' });
+    }
+    const adminUser = (req as any).user;
+    await rejectNewStudent(String(req.params.id), String(adminUser._id), reason.trim());
+    res.json({ message: 'Student rejected successfully.' });
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    if (msg === 'User not found') return res.status(404).json({ message: msg });
+    if (msg.includes('not in pending status')) return res.status(400).json({ message: msg });
+    res.status(500).json({ message: msg });
+  }
+});
+
+// POST /students-v2/bulk-approve-registrations — bulk approve/reject
+router.post('/students-v2/bulk-approve-registrations', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { userIds, action, reason } = req.body;
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ message: 'At least one student ID is required.' });
+    }
+    if (!action || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Action must be "approve" or "reject".' });
+    }
+    if (action === 'reject' && (!reason || typeof reason !== 'string' || !reason.trim())) {
+      return res.status(400).json({ message: 'A rejection reason is required for bulk reject.' });
+    }
+    const adminUser = (req as any).user;
+    const result = await bulkApproveRejectStudents({
+      userIds,
+      adminId: String(adminUser._id),
+      action,
+      reason: reason?.trim(),
+    });
+    res.json({ message: 'Bulk operation completed.', ...result });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+// ============================================================================
+// PROFILE CHANGE REQUEST REVIEW POST ENDPOINT
+// Requirements: 7.3, 7.4, 7.5
+// ============================================================================
+
+// POST /students-v2/profile-requests/:id/review — approve or reject with feedback
+router.post('/students-v2/profile-requests/:id/review', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { action, feedback } = req.body;
+    if (!action || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Action must be "approve" or "reject".' });
+    }
+    if (action === 'reject' && (!feedback || typeof feedback !== 'string' || !feedback.trim())) {
+      return res.status(400).json({ message: 'Feedback is required when rejecting a profile change request.' });
+    }
+    const adminUser = (req as any).user;
+    await reviewProfileChangeRequest({
+      requestId: String(req.params.id),
+      adminId: String(adminUser._id),
+      action,
+      feedback: feedback?.trim(),
+    });
+    res.json({ message: `Profile change request ${action}d successfully.` });
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    if (msg.includes('not found')) return res.status(404).json({ message: msg });
+    if (msg.includes('already been reviewed')) return res.status(400).json({ message: msg });
+    res.status(500).json({ message: msg });
+  }
+});
+
+// ============================================================================
+// VERIFICATION RESET & SETTINGS TOGGLE ENDPOINTS
+// Requirements: 10.5, 10.6
+// ============================================================================
+
+// POST /students-v2/:id/reset-verification — reset phoneVerifiedAt or emailVerifiedAt to null
+router.post('/students-v2/:id/reset-verification', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { type } = req.body;
+    if (!type || !['phone', 'email'].includes(type)) {
+      return res.status(400).json({ message: 'Type must be "phone" or "email".' });
+    }
+    const field = type === 'phone' ? 'phoneVerifiedAt' : 'emailVerifiedAt';
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { [field]: null } },
+      { new: true },
+    ).select('-password -twoFactorSecret').lean();
+    if (!user) return res.status(404).json({ message: 'Student not found.' });
+    res.json({ message: `${type} verification reset successfully.`, user });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+// PUT /admin/settings/profile-approval — toggle profileApprovalEnabled setting
+router.put('/settings/profile-approval', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ message: 'enabled must be a boolean.' });
+    }
+    const settings = await Settings.findOneAndUpdate(
+      {},
+      { $set: { profileApprovalEnabled: enabled } },
+      { new: true, upsert: true },
+    ).lean();
+    res.json({ profileApprovalEnabled: settings?.profileApprovalEnabled ?? enabled });
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }

@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import { AnswerModel } from "../models/answer.model";
-import { ExamModel } from "../models/exam.model";
+import Exam from "../models/Exam";
 import { ExamQuestionModel } from "../models/examQuestion.model";
-import { ExamSessionModel } from "../models/examSession.model";
+import ExamSession from "../models/ExamSession";
 import { ResultModel } from "../models/result.model";
 import { buildAccessPayload } from "./examAccessService";
 import SecuritySettings from "../models/SecuritySettings";
@@ -11,26 +11,40 @@ import { SAFE_DEFAULTS } from "../types/antiCheat";
 
 const shuffle = <T>(list: T[]) => [...list].sort(() => Math.random() - 0.5);
 
+/**
+ * Field-name helpers — the canonical Exam model uses `duration`, `startDate`,
+ * `endDate`, `negativeMarking`, `negativeMarkValue`, `showRemainingTime`,
+ * `answerEditLimitPerQuestion`, `resultPublishDate` while the modern API layer
+ * uses `durationMinutes`, `examWindowStartUTC`, etc.  These helpers read
+ * whichever field is present so the service works with both naming conventions.
+ */
+const examDuration = (e: any): number => Number(e.durationMinutes ?? e.duration ?? 0);
+const examNegEnabled = (e: any): boolean => Boolean(e.negativeMarkingEnabled ?? e.negativeMarking);
+const examNegValue = (e: any): number => Number(e.negativePerWrong ?? e.negativeMarkValue ?? 0);
+const examAnswerLimit = (e: any): number | null => e.answerChangeLimit ?? e.answerEditLimitPerQuestion ?? null;
+const examShowTimer = (e: any): boolean => Boolean(e.showTimer ?? e.showRemainingTime);
+const examResultPublish = (e: any): any => e.resultPublishAtUTC ?? e.resultPublishDate;
+
 export const startSession = async (examId: string, userId: string, reqMeta: { ip?: string; ua?: string }) => {
-  const exam = await ExamModel.findById(examId);
+  const exam = await Exam.findById(examId) as any;
   if (!exam) throw new Error("NOT_FOUND");
   const access = await buildAccessPayload(exam, userId);
   if (access.accessStatus === "blocked") return { blocked: access };
 
-  const attemptNo = (await ExamSessionModel.countDocuments({ examId, userId })) + 1;
+  const attemptNo = (await ExamSession.countDocuments({ examId, userId })) + 1;
   const startedAtUTC = new Date();
-  const expiresAtUTC = new Date(startedAtUTC.getTime() + exam.durationMinutes * 60_000);
+  const expiresAtUTC = new Date(startedAtUTC.getTime() + examDuration(exam) * 60_000);
 
   const questions = await ExamQuestionModel.find({ examId }).sort({ orderIndex: 1 }).lean();
   const ordered = exam.randomizeQuestions ? shuffle(questions) : questions;
   const optionOrderMap = Object.fromEntries(
-    ordered.map((q) => [
+    ordered.map((q: any) => [
       String(q._id),
       exam.randomizeOptions ? shuffle((q.options || []).map((o: any) => o.key)) : (q.options || []).map((o: any) => o.key)
     ])
   );
 
-  const session = await ExamSessionModel.create({
+  const session = await ExamSession.create({
     _id: new mongoose.Types.ObjectId(),
     examId,
     userId,
@@ -40,16 +54,16 @@ export const startSession = async (examId: string, userId: string, reqMeta: { ip
     expiresAtUTC,
     ip: reqMeta.ip,
     browserInfo: reqMeta.ua,
-    questionOrder: ordered.map((x) => String(x._id)),
+    questionOrder: ordered.map((x: any) => String(x._id)),
     optionOrderMap
-  });
+  } as any);
 
   return { sessionId: String(session._id), startedAtUTC, expiresAtUTC, serverNowUTC: new Date().toISOString() };
 };
 
 export const getSessionQuestions = async (examId: string, sessionId: string, userId: string) => {
-  const exam = await ExamModel.findById(examId);
-  const session = await ExamSessionModel.findById(sessionId);
+  const exam = await Exam.findById(examId) as any;
+  const session = await ExamSession.findById(sessionId) as any;
   if (!exam || !session || session.userId !== userId) throw new Error("NOT_FOUND");
 
   const questionsRaw = await ExamQuestionModel.find({ _id: { $in: session.questionOrder } }).lean();
@@ -64,7 +78,7 @@ export const getSessionQuestions = async (examId: string, sessionId: string, use
       question_en: q.question_en,
       question_bn: q.question_bn,
       questionImageUrl: q.questionImageUrl,
-      options: optionKeys.map((k) => optionMap.get(k)),
+      options: optionKeys.map((k: string) => optionMap.get(k)),
       marks: q.marks,
       negativeMarks: q.negativeMarks
     };
@@ -77,7 +91,7 @@ export const getSessionQuestions = async (examId: string, sessionId: string, use
   try {
     const secSettings = await SecuritySettings.findOne({ key: 'global' }).lean();
     const globalPolicy = secSettings?.antiCheatPolicy ?? {};
-    const examOverrides = (exam as any).antiCheatOverrides ?? undefined;
+    const examOverrides = exam.antiCheatOverrides ?? undefined;
     mergedAntiCheatPolicy = mergeAntiCheatPolicy(globalPolicy, examOverrides);
   } catch {
     mergedAntiCheatPolicy = { ...SAFE_DEFAULTS };
@@ -87,15 +101,15 @@ export const getSessionQuestions = async (examId: string, sessionId: string, use
     exam: {
       id: String(exam._id),
       title: exam.title,
-      expiresAtUTC: session.expiresAtUTC,
-      durationMinutes: exam.durationMinutes,
-      resultPublishAtUTC: exam.resultPublishAtUTC,
+      expiresAtUTC: session.expiresAtUTC ?? session.expiresAt,
+      durationMinutes: examDuration(exam),
+      resultPublishAtUTC: examResultPublish(exam),
       rules: {
-        negativeMarkingEnabled: exam.negativeMarkingEnabled,
-        negativePerWrong: exam.negativePerWrong,
-        answerChangeLimit: exam.answerChangeLimit,
+        negativeMarkingEnabled: examNegEnabled(exam),
+        negativePerWrong: examNegValue(exam),
+        answerChangeLimit: examAnswerLimit(exam),
         showQuestionPalette: exam.showQuestionPalette,
-        showTimer: exam.showTimer,
+        showTimer: examShowTimer(exam),
         allowBackNavigation: exam.allowBackNavigation,
         randomizeQuestions: exam.randomizeQuestions,
         randomizeOptions: exam.randomizeOptions,
@@ -105,25 +119,26 @@ export const getSessionQuestions = async (examId: string, sessionId: string, use
     session: {
       sessionId: String(session._id),
       isActive: true,
-      attemptRevision: Number((session as any).attemptRevision ?? 0),
+      attemptRevision: Number(session.attemptRevision ?? 0),
     },
     questions,
-    answers: answers.map((a) => ({ questionId: a.questionId, selectedKey: a.selectedKey, changeCount: a.changeCount, updatedAtUTC: a.updatedAtUTC })),
+    answers: answers.map((a: any) => ({ questionId: a.questionId, selectedKey: a.selectedKey, changeCount: a.changeCount, updatedAtUTC: a.updatedAtUTC })),
     antiCheatPolicy: mergedAntiCheatPolicy,
   };
 };
 
 export const saveSessionAnswers = async (examId: string, sessionId: string, userId: string, payload: any) => {
-  const exam = await ExamModel.findById(examId).lean();
+  const exam = await Exam.findById(examId).lean() as any;
   if (!exam) throw new Error("NOT_FOUND");
   const updated: Array<{ questionId: string; changeCount: number; updatedAtUTC: Date }> = [];
 
+  const limit = examAnswerLimit(exam);
   for (const row of payload.answers || []) {
     const prev = await AnswerModel.findOne({ sessionId, questionId: row.questionId, userId });
     const oldSelected = prev?.selectedKey ?? null;
     const willChange = oldSelected !== null && oldSelected !== row.selectedKey;
     const nextChangeCount = (prev?.changeCount || 0) + (willChange ? 1 : 0);
-    if ((exam.answerChangeLimit ?? null) !== null && nextChangeCount > (exam.answerChangeLimit as number)) continue;
+    if (limit !== null && nextChangeCount > limit) continue;
 
     const saved = await AnswerModel.findOneAndUpdate(
       { sessionId, questionId: row.questionId, userId },
@@ -133,25 +148,28 @@ export const saveSessionAnswers = async (examId: string, sessionId: string, user
     updated.push({ questionId: row.questionId, changeCount: saved.changeCount, updatedAtUTC: saved.updatedAtUTC });
   }
 
-  await ExamSessionModel.findByIdAndUpdate(sessionId, { lastSavedAtUTC: new Date() });
+  await ExamSession.findByIdAndUpdate(sessionId, { lastSavedAtUTC: new Date() });
   return { ok: true as const, serverSavedAtUTC: new Date().toISOString(), updated };
 };
 
 export const submitSession = async (examId: string, sessionId: string, userId: string) => {
-  const exam = await ExamModel.findById(examId).lean();
-  const session = await ExamSessionModel.findById(sessionId);
+  const exam = await Exam.findById(examId).lean() as any;
+  const session = await ExamSession.findById(sessionId) as any;
   if (!exam || !session || session.userId !== userId) throw new Error("NOT_FOUND");
 
-  if (session.submittedAtUTC) return { ok: true as const, submittedAtUTC: session.submittedAtUTC };
+  const submittedField = session.submittedAtUTC ?? session.submittedAt;
+  if (submittedField) return { ok: true as const, submittedAtUTC: submittedField };
   const submittedAtUTC = new Date();
   session.submittedAtUTC = submittedAtUTC;
+  session.submittedAt = submittedAtUTC;
   session.status = "submitted";
-  session.timeTakenSeconds = Math.max(0, Math.floor((submittedAtUTC.getTime() - new Date(session.startedAtUTC as unknown as string).getTime()) / 1000));
+  const startTime = new Date(session.startedAtUTC ?? session.startedAt).getTime();
+  session.timeTakenSeconds = Math.max(0, Math.floor((submittedAtUTC.getTime() - startTime) / 1000));
   await session.save();
 
   const questions = await ExamQuestionModel.find({ examId }).lean();
   const answers = await AnswerModel.find({ sessionId, userId }).lean();
-  const answerMap = new Map(answers.map((a) => [a.questionId, a.selectedKey]));
+  const answerMap = new Map(answers.map((a: any) => [a.questionId, a.selectedKey]));
 
   let correctCount = 0;
   let wrongCount = 0;
@@ -160,18 +178,18 @@ export const submitSession = async (examId: string, sessionId: string, userId: s
   let totalMarks = 0;
 
   for (const q of questions) {
-    totalMarks += q.marks || 0;
+    totalMarks += (q as any).marks || 0;
     const chosen = answerMap.get(String(q._id));
     if (!chosen) {
       skippedCount += 1;
       continue;
     }
-    if (chosen === q.correctKey) {
+    if (chosen === (q as any).correctKey) {
       correctCount += 1;
-      obtainedMarks += q.marks || 0;
+      obtainedMarks += (q as any).marks || 0;
     } else {
       wrongCount += 1;
-      obtainedMarks -= exam.negativeMarkingEnabled ? q.negativeMarks ?? exam.negativePerWrong ?? 0 : 0;
+      obtainedMarks -= examNegEnabled(exam) ? ((q as any).negativeMarks ?? examNegValue(exam) ?? 0) : 0;
     }
   }
 

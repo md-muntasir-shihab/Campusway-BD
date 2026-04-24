@@ -299,8 +299,8 @@ function SecurityDashboard() {
                     <DocumentTextIcon className="w-4 h-4" />
                     Recent Security Activity
                 </h4>
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-auto max-h-80">
-                    <table className="w-full text-xs">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-auto max-h-80 -mx-3 px-3 md:mx-0 md:px-0">
+                    <table className="w-full text-xs min-w-[480px]">
                         <thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0">
                             <tr>
                                 <th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Action</th>
@@ -400,8 +400,8 @@ function SecurityAuditLogs() {
                 <div className="flex justify-center py-12"><ArrowPathIcon className="w-5 h-5 animate-spin text-gray-400" /></div>
             ) : (
                 <>
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-auto">
-                        <table className="w-full text-xs">
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-auto -mx-3 px-3 md:mx-0 md:px-0">
+                        <table className="w-full text-xs min-w-[580px]">
                             <thead className="bg-gray-50 dark:bg-gray-800/50">
                                 <tr>
                                     <th className="text-left px-3 py-2.5 font-medium text-gray-500 dark:text-gray-400">Action</th>

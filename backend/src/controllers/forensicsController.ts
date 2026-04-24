@@ -9,6 +9,7 @@ import {
     ForensicsFilters,
 } from '../services/forensicsService';
 import SecurityAlert from '../models/SecurityAlert';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -30,12 +31,12 @@ function asObjectId(value: unknown): mongoose.Types.ObjectId | null {
 export async function getForensicsTimeline(req: AuthRequest, res: Response): Promise<void> {
     const sessionId = asObjectId(req.params.sessionId);
     if (!sessionId) {
-        res.status(400).json({ message: 'Invalid sessionId' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid sessionId'));
         return;
     }
 
     const timeline = await getSessionTimeline(String(sessionId));
-    res.json({ data: timeline });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: timeline }));
 }
 
 /**
@@ -46,12 +47,12 @@ export async function getForensicsTimeline(req: AuthRequest, res: Response): Pro
 export async function getForensicsSummary(req: AuthRequest, res: Response): Promise<void> {
     const examId = asObjectId(req.params.examId);
     if (!examId) {
-        res.status(400).json({ message: 'Invalid examId' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid examId'));
         return;
     }
 
     const summary = await getExamAntiCheatSummary(String(examId));
-    res.json({ data: summary });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: summary }));
 }
 
 /**
@@ -62,12 +63,12 @@ export async function getForensicsSummary(req: AuthRequest, res: Response): Prom
 export async function getForensicsExport(req: AuthRequest, res: Response): Promise<void> {
     const examId = asObjectId(req.params.examId);
     if (!examId) {
-        res.status(400).json({ message: 'Invalid examId' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid examId'));
         return;
     }
 
     const exportData = await exportExamForensics(String(examId));
-    res.json(exportData);
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(exportData));
 }
 
 /**
@@ -78,7 +79,7 @@ export async function getForensicsExport(req: AuthRequest, res: Response): Promi
 export async function getStudentAntiCheatHistoryController(req: AuthRequest, res: Response): Promise<void> {
     const studentId = asObjectId(req.params.studentId);
     if (!studentId) {
-        res.status(400).json({ message: 'Invalid studentId' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid studentId'));
         return;
     }
 
@@ -90,7 +91,7 @@ export async function getStudentAntiCheatHistoryController(req: AuthRequest, res
     if (req.query.limit) filters.limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
 
     const result = await getStudentAntiCheatHistory(String(studentId), filters);
-    res.json(result);
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(result));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -120,7 +121,7 @@ export async function getUnacknowledgedAlerts(req: AuthRequest, res: Response): 
         SecurityAlert.countDocuments(filter),
     ]);
 
-    res.json({ items, total, page, pages: Math.ceil(total / limit) || 1 });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) || 1 }));
 }
 
 /**
@@ -131,12 +132,12 @@ export async function getUnacknowledgedAlerts(req: AuthRequest, res: Response): 
 export async function acknowledgeAlert(req: AuthRequest, res: Response): Promise<void> {
     const alertId = asObjectId(req.params.alertId);
     if (!alertId) {
-        res.status(400).json({ message: 'Invalid alertId' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid alertId'));
         return;
     }
 
     if (!req.user?._id) {
-        res.status(401).json({ message: 'Unauthorized' });
+        ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized'));
         return;
     }
 
@@ -153,9 +154,9 @@ export async function acknowledgeAlert(req: AuthRequest, res: Response): Promise
     );
 
     if (!alert) {
-        res.status(404).json({ message: 'Alert not found' });
+        ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found'));
         return;
     }
 
-    res.json({ data: alert, message: 'Alert acknowledged' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: alert}, 'Alert acknowledged'));
 }

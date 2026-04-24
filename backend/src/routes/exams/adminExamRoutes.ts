@@ -3,13 +3,13 @@ import { Parser as CsvParser } from "json2csv";
 import ExcelJS from "exceljs";
 import { requireAuth, requireRole } from "../../middlewares/auth";
 import { requireSensitiveAction, trackSensitiveExport } from "../../middlewares/sensitiveAction";
-import { ExamModel } from "../../models/exam.model";
+import Exam from "../../models/Exam";
 import { ExamQuestionModel } from "../../models/examQuestion.model";
-import { ExamSessionModel } from "../../models/examSession.model";
+import ExamSession from "../../models/ExamSession";
 import { PaymentModel } from "../../models/payment.model";
 import { ResultModel } from "../../models/result.model";
 import { SubscriptionModel } from "../../models/subscription.model";
-import { UserModel } from "../../models/user.model";
+import User from "../../models/User";
 
 export const adminExamRoutes = Router();
 adminExamRoutes.use(requireAuth, requireRole("admin", "moderator", "editor", "chairman"));
@@ -26,11 +26,11 @@ const requireSensitiveExportStepUp = (moduleName: string, actionName: string) =>
   actionName,
 });
 
-adminExamRoutes.get("/exams", async (_req, res) => res.json(await ExamModel.find().sort({ createdAt: -1 })));
-adminExamRoutes.post("/exams", async (req, res) => res.json(await ExamModel.create(req.body)));
-adminExamRoutes.get("/exams/:id", async (req, res) => res.json(await ExamModel.findById(req.params.id)));
-adminExamRoutes.put("/exams/:id", async (req, res) => res.json(await ExamModel.findByIdAndUpdate(req.params.id, req.body, { new: true })));
-adminExamRoutes.delete("/exams/:id", requireDestructiveStepUp('exams', 'legacy_exam_delete'), async (req, res) => { await ExamModel.findByIdAndDelete(req.params.id); res.status(204).send(); });
+adminExamRoutes.get("/exams", async (_req, res) => res.json(await Exam.find().sort({ createdAt: -1 })));
+adminExamRoutes.post("/exams", async (req, res) => res.json(await Exam.create(req.body)));
+adminExamRoutes.get("/exams/:id", async (req, res) => res.json(await Exam.findById(req.params.id)));
+adminExamRoutes.put("/exams/:id", async (req, res) => res.json(await Exam.findByIdAndUpdate(req.params.id, req.body, { new: true })));
+adminExamRoutes.delete("/exams/:id", requireDestructiveStepUp('exams', 'legacy_exam_delete'), async (req, res) => { await Exam.findByIdAndDelete(req.params.id); res.status(204).send(); });
 
 adminExamRoutes.get("/exams/:id/questions", async (req, res) => res.json(await ExamQuestionModel.find({ examId: req.params.id }).sort({ orderIndex: 1 })));
 adminExamRoutes.post("/exams/:id/questions", async (req, res) => res.json(await ExamQuestionModel.create({ ...req.body, examId: req.params.id })));
@@ -46,7 +46,7 @@ adminExamRoutes.post("/exams/:id/questions/import/commit", async (req, res) => {
 
 adminExamRoutes.get("/exams/:id/results", async (req, res) => res.json(await ResultModel.find({ examId: req.params.id }).sort({ obtainedMarks: -1 })));
 adminExamRoutes.get("/exams/:id/exports", requireSensitiveExportStepUp('reports', 'legacy_exam_results_export'), trackSensitiveExport({ moduleName: 'reports', actionName: 'legacy_exam_results_export', targetType: 'exam', targetParam: 'id' }), async (req, res) => {
-  const exam = await ExamModel.findById(req.params.id).lean();
+  const exam = await Exam.findById(req.params.id).lean();
   if (!exam) return res.status(404).json({ message: "Exam not found" });
   const rows = await ResultModel.find({ examId: req.params.id })
     .populate("userId", "username fullName email phone")
@@ -101,20 +101,20 @@ adminExamRoutes.get("/exams/:id/exports", requireSensitiveExportStepUp('reports'
   res.setHeader("Content-Disposition", `attachment; filename="${title}_results.csv"`);
   res.send(csv);
 });
-adminExamRoutes.post("/exams/:id/publish-results", async (req, res) => res.json(await ExamModel.findByIdAndUpdate(req.params.id, { resultPublishAtUTC: new Date() }, { new: true })));
+adminExamRoutes.post("/exams/:id/publish-results", async (req, res) => res.json(await Exam.findByIdAndUpdate(req.params.id, { resultPublishAtUTC: new Date() }, { new: true })));
 adminExamRoutes.post("/exams/:id/reset-attempt", async (req, res) => {
   const userId = req.body.userId as string;
-  await ExamSessionModel.deleteMany({ examId: req.params.id, userId });
+  await ExamSession.deleteMany({ examId: req.params.id, userId });
   res.json({ ok: true });
 });
 
 adminExamRoutes.get("/payments", async (_req, res) => res.json(await PaymentModel.find().sort({ createdAt: -1 })));
 adminExamRoutes.put("/payments/:id/verify", async (req, res) => res.json(await PaymentModel.findByIdAndUpdate(req.params.id, { status: "paid", verifiedByAdminId: req.user!.id, paidAt: new Date(), notes: req.body.notes }, { new: true })));
 
-adminExamRoutes.get("/students", async (_req, res) => res.json(await UserModel.find({ role: "student" })));
+adminExamRoutes.get("/students", async (_req, res) => res.json(await User.find({ role: "student" })));
 adminExamRoutes.post("/students/import", async (req, res) => res.json({ ok: true, rows: (req.body.rows || []).length }));
 adminExamRoutes.get("/students/export", requireSensitiveExportStepUp('students_groups', 'legacy_students_export'), trackSensitiveExport({ moduleName: 'students_groups', actionName: 'legacy_students_export' }), async (_req, res) => {
-  const csv = new CsvParser().parse(await UserModel.find({ role: "student" }).lean());
+  const csv = new CsvParser().parse(await User.find({ role: "student" }).lean());
   res.type("text/csv").send(csv);
 });
 

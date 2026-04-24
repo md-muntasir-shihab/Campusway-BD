@@ -176,8 +176,8 @@ export default function LiveExamMonitorPanel() {
             </div>
 
             <div className="bg-slate-950/65 rounded-2xl border border-indigo-500/10 overflow-hidden">
-                <div className="overflow-x-auto min-h-[400px]">
-                    <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 min-h-[400px]">
+                    <table className="w-full text-left border-collapse min-w-[640px]">
                         <thead>
                             <tr className="border-b border-indigo-500/10 bg-slate-950/80">
                                 <th className="p-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Student</th>

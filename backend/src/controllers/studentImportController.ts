@@ -7,6 +7,7 @@ import StudentProfile from '../models/StudentProfile';
 import StudentImportJob from '../models/StudentImportJob';
 import SubscriptionPlan from '../models/SubscriptionPlan';
 import { broadcastUserEvent } from '../realtime/userStream';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const TARGET_FIELDS = [
     'full_name',
@@ -116,7 +117,7 @@ function validateAndNormalizeRows(
 export const adminInitStudentImport = async (req: Request, res: Response) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ status: 'error', message: 'No file uploaded.' });
+            return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded.', { status: 'error' }));
         }
 
         const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -124,7 +125,7 @@ export const adminInitStudentImport = async (req: Request, res: Response) => {
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' });
 
         if (rows.length === 0) {
-            return res.status(400).json({ status: 'error', message: 'The uploaded file is empty.' });
+            return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'The uploaded file is empty.', { status: 'error' }));
         }
 
         const headers = Object.keys(rows[0]);
@@ -140,17 +141,14 @@ export const adminInitStudentImport = async (req: Request, res: Response) => {
             createdBy: (req as any).user?._id,
         });
 
-        res.json({
-            status: 'success',
-            data: {
-                id: job._id,
-                headers,
-                sampleRows,
-                targetFields: TARGET_FIELDS,
-            },
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            id: job._id,
+            headers,
+            sampleRows,
+            targetFields: TARGET_FIELDS,
+        }));
     } catch (error: any) {
-        res.status(500).json({ status: 'error', message: error.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error.message));
     }
 };
 
@@ -161,7 +159,7 @@ export const adminValidateStudentImport = async (req: Request, res: Response) =>
 
         const job = await StudentImportJob.findById(id);
         if (!job) {
-            return res.status(404).json({ status: 'error', message: 'Import job not found.' });
+            return ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Import job not found.'));
         }
 
         const { normalizedRows, failedRows } = validateAndNormalizeRows(job.rawRows as any[], mapping, defaults);
@@ -179,16 +177,13 @@ export const adminValidateStudentImport = async (req: Request, res: Response) =>
 
         await job.save();
 
-        res.json({
-            status: 'success',
-            data: {
-                id: job._id,
-                validationSummary: job.validationSummary,
-                failedRows: job.failedRows.slice(0, 10), // Limit UI noise
-            },
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            id: job._id,
+            validationSummary: job.validationSummary,
+            failedRows: job.failedRows.slice(0, 10), // Limit UI noise
+        }));
     } catch (error: any) {
-        res.status(500).json({ status: 'error', message: error.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error.message));
     }
 };
 
@@ -197,7 +192,7 @@ export const adminCommitStudentImport = async (req: Request, res: Response) => {
         const { id } = req.params;
         const job = await StudentImportJob.findById(id);
         if (!job || job.status !== 'validated') {
-            return res.status(400).json({ status: 'error', message: 'Job must be validated before commit.' });
+            return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Job must be validated before commit.', { status: 'error' }));
         }
 
         let inserted = 0;
@@ -325,14 +320,11 @@ export const adminCommitStudentImport = async (req: Request, res: Response) => {
             meta: { jobId: job._id, summary: job.commitSummary }
         });
 
-        res.json({
-            status: 'success',
-            data: {
-                summary: job.commitSummary,
-            },
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            summary: job.commitSummary,
+        }));
     } catch (error: any) {
-        res.status(500).json({ status: 'error', message: error.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error.message));
     }
 };
 
@@ -348,7 +340,7 @@ export const adminDownloadStudentTemplate = async (req: Request, res: Response) 
         res.setHeader('Content-Disposition', 'attachment; filename=student_import_template.xlsx');
         res.send(buffer);
     } catch (error: any) {
-        res.status(500).json({ status: 'error', message: error.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error.message));
     }
 };
 
@@ -357,10 +349,10 @@ export const adminGetStudentImportJob = async (req: Request, res: Response) => {
         const { id } = req.params;
         const job = await StudentImportJob.findById(id);
         if (!job) {
-            return res.status(404).json({ status: 'error', message: 'Import job not found.' });
+            return ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Import job not found.'));
         }
-        res.json({ status: 'success', data: job });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ status: 'success', data: job }));
     } catch (error: any) {
-        res.status(500).json({ status: 'error', message: error.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error.message));
     }
 };

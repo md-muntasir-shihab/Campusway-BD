@@ -21,6 +21,7 @@ import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { executeCampaign } from '../services/notificationOrchestrationService';
 import { escapeRegex } from '../utils/escapeRegex';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type NewsStatus =
     | 'published'
@@ -174,10 +175,10 @@ function publicNewsDiagnosticsEnabled(): boolean {
 function ensurePublicNewsDiagnosticsEnabled(req: Request, res: Response): boolean {
     if (publicNewsDiagnosticsEnabled()) return true;
     if (req.method === 'POST') {
-        res.status(404).json({ message: 'Not found' });
+        ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found'));
         return false;
     }
-    res.status(404).send('Not found');
+    ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found'));
     return false;
 }
 
@@ -1990,7 +1991,7 @@ export async function adminNewsV2Dashboard(_req: AuthRequest, res: Response): Pr
             getOrCreateNewsSettings(),
         ]);
         const fallbackBanner = resolveDefaultNewsBanner(settings);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             cards: {
                 pending,
                 duplicate,
@@ -2012,10 +2013,10 @@ export async function adminNewsV2Dashboard(_req: AuthRequest, res: Response): Pr
             latestRssItems: latestRssItems.map((item) => {
                 return buildNewsOutput(item as unknown as Record<string, unknown>, fallbackBanner);
             }),
-        });
+        }));
     } catch (error) {
         console.error('adminNewsV2Dashboard error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2024,10 +2025,10 @@ export async function adminNewsV2FetchNow(req: AuthRequest, res: Response): Prom
         const sourceIds = Array.isArray(req.body?.sourceIds) ? req.body.sourceIds.map((item: unknown) => String(item)) : [];
         const stats = await ingestFromSources(sourceIds, 'manual', req.user?._id ? String(req.user._id) : undefined);
         await writeNewsAuditEvent(req, { action: 'rss.fetch_now', entityType: 'source', meta: { sourceIds, stats } });
-        res.json({ message: 'Fetch completed', stats });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ stats }, 'Fetch completed'));
     } catch (error) {
         console.error('adminNewsV2FetchNow error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2067,17 +2068,12 @@ export async function adminNewsV2GetItems(req: AuthRequest, res: Response): Prom
             getOrCreateNewsSettings(),
         ]);
         const fallbackBanner = resolveDefaultNewsBanner(settings);
-        res.json({
-            items: items.map((item) => {
-                return buildNewsOutput(item as unknown as Record<string, unknown>, fallbackBanner);
-            }),
-            total,
-            page,
-            pages: Math.ceil(total / limit),
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.paginated(items.map((item) => {
+            return buildNewsOutput(item as unknown as Record<string, unknown>, fallbackBanner);
+        }), page, limit, total));
     } catch (error) {
         console.error('adminNewsV2GetItems error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2085,7 +2081,7 @@ export async function adminNewsV2GetItemById(req: AuthRequest, res: Response): P
     try {
         const itemId = String(req.params.id || '').trim();
         if (!mongoose.isValidObjectId(itemId)) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         const [item, settings] = await Promise.all([
@@ -2093,16 +2089,16 @@ export async function adminNewsV2GetItemById(req: AuthRequest, res: Response): P
             getOrCreateNewsSettings(),
         ]);
         if (!item) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         const fallbackBanner = resolveDefaultNewsBanner(settings);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             item: buildNewsOutput(item as unknown as Record<string, unknown>, fallbackBanner),
-        });
+        }));
     } catch (error) {
         console.error('adminNewsV2GetItemById error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2110,7 +2106,7 @@ export async function adminNewsV2AiCheckItem(req: AuthRequest, res: Response): P
     try {
         const itemId = String(req.params.id || '').trim();
         if (!mongoose.isValidObjectId(itemId)) {
-            res.status(400).json({ message: 'Valid news id is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid news id is required'));
             return;
         }
 
@@ -2121,7 +2117,7 @@ export async function adminNewsV2AiCheckItem(req: AuthRequest, res: Response): P
             News.findById(itemId).lean(),
         ]);
         if (!before) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
 
@@ -2206,15 +2202,14 @@ export async function adminNewsV2AiCheckItem(req: AuthRequest, res: Response): P
                 entityId: itemId,
                 meta: { aiEnabled, aiApplySucceeded, duplicateFlag, warnings },
             });
-            res.json({
-                message: 'AI check completed',
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 applied: false,
                 aiEnabled,
                 warnings,
                 warning: warnings[0] || '',
                 preview,
-                item: before,
-            });
+                item: before
+            }, 'AI check completed'));
             return;
         }
 
@@ -2308,7 +2303,7 @@ export async function adminNewsV2AiCheckItem(req: AuthRequest, res: Response): P
         });
 
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'ai_check_apply', newsId: itemId, aiApplySucceeded } });
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             message: aiApplySucceeded ? 'AI check applied to draft' : 'AI check completed with warnings',
             applied: true,
             aiEnabled,
@@ -2316,10 +2311,10 @@ export async function adminNewsV2AiCheckItem(req: AuthRequest, res: Response): P
             warning: warnings[0] || '',
             preview,
             item: updated,
-        });
+        }));
     } catch (error) {
         console.error('adminNewsV2AiCheckItem error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2659,7 +2654,7 @@ export async function adminNewsV2CreateItem(req: AuthRequest, res: Response): Pr
         const settings = await getOrCreateNewsSettings();
         const normalized = applyDefaultBannerToNewsPayload(normalizeNewsPayload(req.body || {}), settings);
         if (!normalized.title) {
-            res.status(400).json({ message: 'Title is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Title is required'));
             return;
         }
         const existing = await News.findOne({ slug: normalized.slug }).select('_id').lean();
@@ -2671,19 +2666,19 @@ export async function adminNewsV2CreateItem(req: AuthRequest, res: Response): Pr
         const createdPayload = buildNewsOutput(created.toObject() as unknown as Record<string, unknown>, fallbackBanner);
         await writeNewsAuditEvent(req, { action: 'news.create', entityType: 'news', entityId: String(created._id), after: { title: created.title, status: created.status } });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'create', newsId: String(created._id) } });
-        res.status(201).json({ item: createdPayload, message: 'News created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: createdPayload }, 'News created'));
     } catch (error: any) {
         console.error('adminNewsV2CreateItem error:', error);
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors || {}).map((err: any) => err.message);
-            res.status(400).json({ message: messages.length > 0 ? messages.join(', ') : 'Validation failed' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', messages.length > 0 ? messages.join(', ') : 'Validation failed'));
             return;
         }
         if (error.code === 11000) {
-            res.status(400).json({ message: 'A news article with this unique information (like title or slug) already exists.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'A news article with this unique information (like title or slug) already exists.'));
             return;
         }
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2691,7 +2686,7 @@ export async function adminNewsV2UpdateItem(req: AuthRequest, res: Response): Pr
     try {
         const before = await News.findById(req.params.id).lean();
         if (!before) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         const settings = await getOrCreateNewsSettings();
@@ -2725,19 +2720,19 @@ export async function adminNewsV2UpdateItem(req: AuthRequest, res: Response): Pr
             after: updated ? { title: updated.title, status: updated.status, category: updated.category } : undefined,
         });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'update', newsId: entityId } });
-        res.json({ item: updatedPayload, message: 'News updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: updatedPayload }, 'News updated'));
     } catch (error: any) {
         console.error('adminNewsV2UpdateItem error:', error);
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors || {}).map((err: any) => err.message);
-            res.status(400).json({ message: messages.length > 0 ? messages.join(', ') : 'Validation failed' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', messages.length > 0 ? messages.join(', ') : 'Validation failed'));
             return;
         }
         if (error.code === 11000) {
-            res.status(400).json({ message: 'A news article with this unique information already exists.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'A news article with this unique information already exists.'));
             return;
         }
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2745,7 +2740,7 @@ export async function adminNewsV2DeleteItem(req: AuthRequest, res: Response): Pr
     try {
         const before = await News.findById(req.params.id).lean();
         if (!before) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         const settings = await getOrCreateNewsSettings();
@@ -2771,10 +2766,10 @@ export async function adminNewsV2DeleteItem(req: AuthRequest, res: Response): Pr
             after: updated ? { title: updated.title, status: updated.status, category: updated.category } : undefined,
         });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'trash', newsId: entityId } });
-        res.json({ item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, resolveDefaultNewsBanner(settings)) : undefined, message: 'News moved to trash' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, resolveDefaultNewsBanner(settings)) : undefined }, 'News moved to trash'));
     } catch (error) {
         console.error('adminNewsV2DeleteItem error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2782,11 +2777,11 @@ export async function adminNewsV2RestoreItem(req: AuthRequest, res: Response): P
     try {
         const before = await News.findById(req.params.id).lean();
         if (!before) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         if (!['trash', 'archived'].includes(String(before.status || '').toLowerCase())) {
-            res.status(400).json({ message: 'Only archived or trashed items can be restored.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Only archived or trashed items can be restored.'));
             return;
         }
         const settings = await getOrCreateNewsSettings();
@@ -2814,10 +2809,10 @@ export async function adminNewsV2RestoreItem(req: AuthRequest, res: Response): P
             after: updated ? { title: updated.title, status: updated.status, category: updated.category } : undefined,
         });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'restore', newsId: entityId } });
-        res.json({ item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, resolveDefaultNewsBanner(settings)) : undefined, message: 'News restored' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, resolveDefaultNewsBanner(settings)) : undefined }, 'News restored'));
     } catch (error) {
         console.error('adminNewsV2RestoreItem error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2825,11 +2820,11 @@ export async function adminNewsV2PurgeItem(req: AuthRequest, res: Response): Pro
     try {
         const before = await News.findById(req.params.id).lean();
         if (!before) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         if (String(before.status || '').toLowerCase() !== 'trash') {
-            res.status(400).json({ message: 'Only trashed items can be permanently deleted.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Only trashed items can be permanently deleted.'));
             return;
         }
         await News.findByIdAndDelete(req.params.id);
@@ -2841,10 +2836,10 @@ export async function adminNewsV2PurgeItem(req: AuthRequest, res: Response): Pro
             before: { title: before.title, status: before.status, category: before.category },
         });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'purge', newsId: entityId } });
-        res.json({ message: 'News permanently deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'News permanently deleted'));
     } catch (error) {
         console.error('adminNewsV2PurgeItem error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3046,7 +3041,7 @@ async function workflowUpdate(
 ): Promise<void> {
     const before = await News.findById(req.params.id).lean();
     if (!before) {
-        res.status(404).json({ message: 'News item not found' });
+        ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
         return;
     }
     const patch = buildPublishTransitionPatch(req, before as Record<string, any>, status, extra);
@@ -3057,7 +3052,7 @@ async function workflowUpdate(
     const entityId = String(req.params.id || '');
     await writeNewsAuditEvent(req, { action: auditAction, entityType: 'workflow', entityId, before: { status: before.status }, after: { status: updated?.status || status }, meta: patch });
     broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: auditAction, newsId: entityId } });
-    res.json({ item: updatedPayload, message, warning: warnings[0] || '', warnings });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: updatedPayload, message, warning: warnings[0] || '', warnings }));
 }
 
 export async function adminNewsV2SubmitReview(req: AuthRequest, res: Response): Promise<void> {
@@ -3073,13 +3068,13 @@ export async function adminNewsV2ConvertToEditable(req: AuthRequest, res: Respon
     try {
         const before = await News.findById(req.params.id).lean();
         if (!before) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
 
         // Only RSS items need conversion - manual items are already editable
         if (before.sourceType !== 'rss') {
-            res.status(400).json({ message: 'Only RSS-imported items can be converted to editable' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Only RSS-imported items can be converted to editable'));
             return;
         }
 
@@ -3114,10 +3109,10 @@ export async function adminNewsV2ConvertToEditable(req: AuthRequest, res: Respon
         });
 
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'convert_to_editable', newsId: entityId } });
-        res.json({ item: updatedPayload, message: 'RSS item converted to editable draft. Source attribution preserved.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: updatedPayload }, 'RSS item converted to editable draft. Source attribution preserved.'));
     } catch (error: any) {
         console.error('adminNewsV2ConvertToEditable error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3167,12 +3162,12 @@ export async function adminNewsV2PublishNow(req: AuthRequest, res: Response): Pr
 export async function adminNewsV2Schedule(req: AuthRequest, res: Response): Promise<void> {
     const scheduleAtRaw = String(req.body?.scheduleAt || '').trim();
     if (!scheduleAtRaw) {
-        res.status(400).json({ message: 'scheduleAt is required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'scheduleAt is required'));
         return;
     }
     const scheduleAt = new Date(scheduleAtRaw);
     if (Number.isNaN(scheduleAt.getTime())) {
-        res.status(400).json({ message: 'Invalid scheduleAt' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid scheduleAt'));
         return;
     }
     const warnings = await collectPublishWarnings(String(req.params.id || ''));
@@ -3247,12 +3242,12 @@ export async function adminNewsV2ConvertToNotice(req: AuthRequest, res: Response
     try {
         const settings = await getOrCreateNewsSettings();
         if (!settings.communication.allowNoticeConversion) {
-            res.status(403).json({ message: 'Notice conversion is disabled in settings' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Notice conversion is disabled in settings'));
             return;
         }
         const newsItem = await News.findById(req.params.id).lean();
         if (!newsItem) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         const notice = await upsertNoticeFromNews(req, newsItem as Record<string, any>, (req.body || {}) as Record<string, unknown>);
@@ -3277,14 +3272,13 @@ export async function adminNewsV2ConvertToNotice(req: AuthRequest, res: Response
             entityId: String(req.params.id || ''),
             meta: { noticeId: String(notice._id || '') },
         });
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, fallbackBanner) : null,
-            notice,
-            message: 'Converted to notice',
-        });
+            notice
+        }, 'Converted to notice'));
     } catch (error) {
         console.error('adminNewsV2ConvertToNotice error:', error);
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Server error'));
     }
 }
 
@@ -3292,13 +3286,13 @@ export async function adminNewsV2PublishSend(req: AuthRequest, res: Response): P
     try {
         const settings = await getOrCreateNewsSettings();
         if (!settings.communication.allowPublishSend) {
-            res.status(403).json({ message: 'Publish + send is disabled in settings' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Publish + send is disabled in settings'));
             return;
         }
         const itemId = String(req.params.id || '').trim();
         const before = await News.findById(itemId).lean();
         if (!before) {
-            res.status(404).json({ message: 'News item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found'));
             return;
         }
         const warnings = await collectPublishWarnings(itemId);
@@ -3403,17 +3397,17 @@ export async function adminNewsV2PublishSend(req: AuthRequest, res: Response): P
             },
         });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'publish_send', newsId: itemId } });
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, fallbackBanner) : null,
             notice,
             delivery: result,
             message: warnings.length > 0 ? 'Published and sent with warnings' : 'Published and sent',
             warnings,
             warning: warnings[0] || '',
-        });
+        }));
     } catch (error) {
         console.error('adminNewsV2PublishSend error:', error);
-        res.status(500).json({ message: error instanceof Error ? error.message : 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Server error'));
     }
 }
 
@@ -3425,7 +3419,7 @@ export async function adminNewsV2MergeDuplicate(req: AuthRequest, res: Response)
         const appendSourceLink = req.body?.appendSourceLink !== false;
 
         if (!mongoose.isValidObjectId(sourceId) || !mongoose.isValidObjectId(targetId)) {
-            res.status(400).json({ message: 'Valid source and target ids are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid source and target ids are required'));
             return;
         }
 
@@ -3434,7 +3428,7 @@ export async function adminNewsV2MergeDuplicate(req: AuthRequest, res: Response)
             News.findById(targetId).lean(),
         ]);
         if (!sourceItem || !targetItem) {
-            res.status(404).json({ message: 'Source or target item not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Source or target item not found'));
             return;
         }
 
@@ -3503,10 +3497,10 @@ export async function adminNewsV2MergeDuplicate(req: AuthRequest, res: Response)
         });
 
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'merge_duplicate', sourceId, targetId } });
-        res.json({ message: 'Duplicate merged', item: updatedTarget });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: updatedTarget }, 'Duplicate merged'));
     } catch (error) {
         console.error('adminNewsV2MergeDuplicate error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3514,7 +3508,7 @@ export async function adminNewsV2BulkApprove(req: AuthRequest, res: Response): P
     try {
         const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids.map((item: unknown) => String(item)) : [];
         if (ids.length === 0) {
-            res.status(400).json({ message: 'ids is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'ids is required'));
             return;
         }
         const now = new Date();
@@ -3540,10 +3534,10 @@ export async function adminNewsV2BulkApprove(req: AuthRequest, res: Response): P
         );
         await writeNewsAuditEvent(req, { action: 'news.bulk_approve_publish', entityType: 'workflow', meta: { ids, modifiedCount: result.modifiedCount } });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'bulk_approve', modifiedCount: result.modifiedCount } });
-        res.json({ modifiedCount: result.modifiedCount, message: 'Bulk approve complete' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ modifiedCount: result.modifiedCount }, 'Bulk approve complete'));
     } catch (error) {
         console.error('adminNewsV2BulkApprove error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3552,16 +3546,16 @@ export async function adminNewsV2BulkReject(req: AuthRequest, res: Response): Pr
         const ids = Array.isArray(req.body?.ids) ? req.body.ids.map((item: unknown) => String(item)) : [];
         const reason = String(req.body?.reason || '').trim();
         if (ids.length === 0) {
-            res.status(400).json({ message: 'ids is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'ids is required'));
             return;
         }
         const result = await News.updateMany({ _id: { $in: ids } }, { $set: { status: 'rejected', isPublished: false, reviewMeta: { reviewerId: req.user?._id, reviewedAt: new Date(), rejectReason: reason } } });
         await writeNewsAuditEvent(req, { action: 'news.bulk_reject', entityType: 'workflow', meta: { ids, reason, modifiedCount: result.modifiedCount } });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'bulk_reject', modifiedCount: result.modifiedCount } });
-        res.json({ modifiedCount: result.modifiedCount, message: 'Bulk reject complete' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ modifiedCount: result.modifiedCount }, 'Bulk reject complete'));
     } catch (error) {
         console.error('adminNewsV2BulkReject error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3584,7 +3578,7 @@ export async function adminNewsV2GetSources(_req: AuthRequest, res: Response): P
                 }
             });
         });
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: items.map((item) => {
                 const sourceId = String(item._id || '');
                 const recentJobs = jobsBySource.get(sourceId) || [];
@@ -3598,10 +3592,10 @@ export async function adminNewsV2GetSources(_req: AuthRequest, res: Response): P
                     recentJobs,
                 };
             }),
-        });
+        }));
     } catch (error) {
         console.error('adminNewsV2GetSources error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3630,22 +3624,22 @@ export async function adminNewsV2CreateSource(req: AuthRequest, res: Response): 
             createdBy: req.user?._id,
         };
         if (!payload.name || !payload.feedUrl) {
-            res.status(400).json({ message: 'name and rssUrl/feedUrl are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'name and rssUrl/feedUrl are required'));
             return;
         }
         const sourceUrlError = validateNewsSourceUrls(payload.feedUrl, payload.siteUrl, {
             allowPlaceholder: !(payload.enabled && payload.isActive),
         });
         if (sourceUrlError) {
-            res.status(400).json({ message: sourceUrlError });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', sourceUrlError));
             return;
         }
         const created = await NewsSource.create(payload);
         await writeNewsAuditEvent(req, { action: 'source.create', entityType: 'source', entityId: String(created._id), after: payload as unknown as Record<string, unknown> });
-        res.status(201).json({ item: created, message: 'Source created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: created }, 'Source created'));
     } catch (error) {
         console.error('adminNewsV2CreateSource error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3653,7 +3647,7 @@ export async function adminNewsV2UpdateSource(req: AuthRequest, res: Response): 
     try {
         const before = await NewsSource.findById(req.params.id).lean();
         if (!before) {
-            res.status(404).json({ message: 'Source not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Source not found'));
             return;
         }
         const nextRssUrl = req.body?.rssUrl !== undefined || req.body?.feedUrl !== undefined
@@ -3691,15 +3685,15 @@ export async function adminNewsV2UpdateSource(req: AuthRequest, res: Response): 
             allowPlaceholder: !(payload.enabled && payload.isActive),
         });
         if (sourceUrlError) {
-            res.status(400).json({ message: sourceUrlError });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', sourceUrlError));
             return;
         }
         const updated = await NewsSource.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true }).lean();
         await writeNewsAuditEvent(req, { action: 'source.update', entityType: 'source', entityId: String(req.params.id || ''), before: before as unknown as Record<string, unknown>, after: updated as unknown as Record<string, unknown> });
-        res.json({ item: updated, message: 'Source updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: updated }, 'Source updated'));
     } catch (error) {
         console.error('adminNewsV2UpdateSource error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3707,14 +3701,14 @@ export async function adminNewsV2DeleteSource(req: AuthRequest, res: Response): 
     try {
         const deleted = await NewsSource.findByIdAndDelete(req.params.id).lean();
         if (!deleted) {
-            res.status(404).json({ message: 'Source not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Source not found'));
             return;
         }
         await writeNewsAuditEvent(req, { action: 'source.delete', entityType: 'source', entityId: String(req.params.id || ''), before: { name: deleted.name, feedUrl: deleted.feedUrl } });
-        res.json({ message: 'Source deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Source deleted'));
     } catch (error) {
         console.error('adminNewsV2DeleteSource error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3722,12 +3716,12 @@ export async function adminNewsV2TestSource(req: AuthRequest, res: Response): Pr
     try {
         const source = await NewsSource.findById(req.params.id).lean();
         if (!source) {
-            res.status(404).json({ message: 'Source not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Source not found'));
             return;
         }
         const sourceUrlError = validateNewsSourceUrls(String(source.feedUrl || source.rssUrl || ''), String(source.siteUrl || ''));
         if (sourceUrlError) {
-            res.status(400).json({ ok: false, message: sourceUrlError });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', sourceUrlError, { ok: false }));
             return;
         }
         const parser = new Parser();
@@ -3746,7 +3740,7 @@ export async function adminNewsV2TestSource(req: AuthRequest, res: Response): Pr
             },
         });
         await writeNewsAuditEvent(req, { action: 'source.test', entityType: 'source', entityId: String(req.params.id || ''), meta: { itemCount: preview.length } });
-        res.json({ ok: true, title: feed.title || source.name, preview });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, title: feed.title || source.name, preview }));
     } catch (error) {
         console.error('adminNewsV2TestSource error:', error);
         await NewsSource.updateOne({ _id: req.params.id }, {
@@ -3758,7 +3752,7 @@ export async function adminNewsV2TestSource(req: AuthRequest, res: Response): Pr
             },
             $inc: { consecutiveFailureCount: 1 },
         }).catch(() => undefined);
-        res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'Feed parse failed' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', error instanceof Error ? error.message : 'Feed parse failed', { ok: false }));
     }
 }
 
@@ -3766,25 +3760,25 @@ export async function adminNewsV2ReorderSources(req: AuthRequest, res: Response)
     try {
         const ids = Array.isArray(req.body?.ids) ? req.body.ids.map((item: unknown) => String(item)) : [];
         if (ids.length === 0) {
-            res.status(400).json({ message: 'ids is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'ids is required'));
             return;
         }
         await Promise.all(ids.map((id: string, index: number) => NewsSource.updateOne({ _id: id }, { $set: { order: index + 1 } })));
         await writeNewsAuditEvent(req, { action: 'source.reorder', entityType: 'source', meta: { ids } });
-        res.json({ message: 'Reordered' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Reordered'));
     } catch (error) {
         console.error('adminNewsV2ReorderSources error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminNewsV2GetAppearanceSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const config = await getOrCreateNewsSettings();
-        res.json({ appearance: config.appearance });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ appearance: config.appearance }));
     } catch (error) {
         console.error('adminNewsV2GetAppearanceSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3799,20 +3793,20 @@ export async function adminNewsV2UpdateAppearanceSettings(req: AuthRequest, res:
         if (appearance.animationLevel === 'normal') appearance.animationLevel = 'rich';
         const config = await updateNewsSettingsConfig(req, { appearance });
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'appearance_update' } });
-        res.json({ appearance: config.appearance, message: 'Appearance updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ appearance: config.appearance }, 'Appearance updated'));
     } catch (error) {
         console.error('adminNewsV2UpdateAppearanceSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminNewsV2GetAiSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const config = await getOrCreateNewsSettings();
-        res.json({ ai: buildAdminAiSettingsResponse(config) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ai: buildAdminAiSettingsResponse(config) }));
     } catch (error) {
         console.error('adminNewsV2GetAiSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3926,20 +3920,20 @@ export async function adminNewsV2UpdateAiSettings(req: AuthRequest, res: Respons
         });
 
         const config = await updateNewsSettingsConfig(req, { aiSettings: aiSettingsPatch, ai: aiPatch });
-        res.json({ ai: buildAdminAiSettingsResponse(config), message: 'AI settings updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ai: buildAdminAiSettingsResponse(config) }, 'AI settings updated'));
     } catch (error) {
         console.error('adminNewsV2UpdateAiSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminNewsV2GetShareSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const config = await getOrCreateNewsSettings();
-        res.json({ share: config.share });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ share: config.share }));
     } catch (error) {
         console.error('adminNewsV2GetShareSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3985,20 +3979,20 @@ export async function adminNewsV2UpdateShareSettings(req: AuthRequest, res: Resp
             },
         };
         const config = await updateNewsSettingsConfig(req, { share, shareTemplates });
-        res.json({ share: config.share, message: 'Share settings updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ share: config.share }, 'Share settings updated'));
     } catch (error) {
         console.error('adminNewsV2UpdateShareSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminNewsV2GetAllSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await getOrCreateNewsSettings();
-        res.json({ settings: sanitizeSettingsSecrets(settings) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: sanitizeSettingsSecrets(settings) }));
     } catch (error) {
         console.error('adminNewsV2GetAllSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4006,10 +4000,10 @@ export async function adminNewsV2UpdateAllSettings(req: AuthRequest, res: Respon
     try {
         const next = await updateNewsSettingsConfig(req, req.body || {});
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'settings_update' } });
-        res.json({ settings: sanitizeSettingsSecrets(next) as unknown as NewsV2SettingsConfig, message: 'News settings updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: sanitizeSettingsSecrets(next) as unknown as NewsV2SettingsConfig }, 'News settings updated'));
     } catch (error) {
         console.error('adminNewsV2UpdateAllSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4022,22 +4016,22 @@ export async function adminNewsV2GetMedia(req: AuthRequest, res: Response): Prom
         if (req.query.q) { const safeQ = escapeRegex(String(req.query.q)); filter.$or = [{ altText: { $regex: safeQ, $options: 'i' } }, { url: { $regex: safeQ, $options: 'i' } }]; }
         const total = await NewsMedia.countDocuments(filter);
         const items = await NewsMedia.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-        res.json({ items, total, page, pages: Math.ceil(total / limit) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
     } catch (error) {
         console.error('adminNewsV2GetMedia error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminNewsV2UploadMedia(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.file) {
-            res.status(400).json({ message: 'No file uploaded' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded'));
             return;
         }
         const allowedMime = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/jpg']);
         if (!allowedMime.has(String(req.file.mimetype || '').toLowerCase())) {
-            res.status(400).json({ message: 'Unsupported file type. Allowed: jpg, png, webp.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported file type. Allowed: jpg, png, webp.'));
             return;
         }
         const url = `/uploads/${req.file.filename}`;
@@ -4052,10 +4046,10 @@ export async function adminNewsV2UploadMedia(req: AuthRequest, res: Response): P
             uploadedBy: req.user?._id,
         });
         await writeNewsAuditEvent(req, { action: 'media.upload', entityType: 'media', entityId: String(media._id), after: { url: media.url, sourceType: media.sourceType } });
-        res.status(201).json({ item: media, message: 'Uploaded' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: media }, 'Uploaded'));
     } catch (error) {
         console.error('adminNewsV2UploadMedia error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4063,14 +4057,14 @@ export async function adminNewsV2MediaFromUrl(req: AuthRequest, res: Response): 
     try {
         const url = String(req.body?.url || '').trim();
         if (!url) {
-            res.status(400).json({ message: 'url is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'url is required'));
             return;
         }
         try {
             // eslint-disable-next-line no-new
             new URL(url);
         } catch {
-            res.status(400).json({ message: 'Invalid media URL' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid media URL'));
             return;
         }
         const media = await NewsMedia.create({
@@ -4081,10 +4075,10 @@ export async function adminNewsV2MediaFromUrl(req: AuthRequest, res: Response): 
             uploadedBy: req.user?._id,
         });
         await writeNewsAuditEvent(req, { action: 'media.from_url', entityType: 'media', entityId: String(media._id), after: { url: media.url, sourceType: media.sourceType } });
-        res.status(201).json({ item: media, message: 'Media created from URL' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: media }, 'Media created from URL'));
     } catch (error) {
         console.error('adminNewsV2MediaFromUrl error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4092,7 +4086,7 @@ export async function adminNewsV2DeleteMedia(req: AuthRequest, res: Response): P
     try {
         const media = await NewsMedia.findById(req.params.id).lean();
         if (!media) {
-            res.status(404).json({ message: 'Media not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Media not found'));
             return;
         }
         const refCount = await News.countDocuments({
@@ -4105,15 +4099,15 @@ export async function adminNewsV2DeleteMedia(req: AuthRequest, res: Response): P
             ],
         });
         if (refCount > 0) {
-            res.status(400).json({ message: 'Media is currently referenced by news items and cannot be deleted.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Media is currently referenced by news items and cannot be deleted.'));
             return;
         }
         await NewsMedia.deleteOne({ _id: req.params.id });
         await writeNewsAuditEvent(req, { action: 'media.delete', entityType: 'media', entityId: String(req.params.id || ''), before: { url: media.url, sourceType: media.sourceType } });
-        res.json({ message: 'Media deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Media deleted'));
     } catch (error) {
         console.error('adminNewsV2DeleteMedia error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4198,7 +4192,7 @@ export async function adminNewsV2ExportNews(req: AuthRequest, res: Response): Pr
         sendWorkbook(res, 'news', rows, 'news_v2_export', format);
     } catch (error) {
         console.error('adminNewsV2ExportNews error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4239,7 +4233,7 @@ export async function adminNewsV2ExportSources(req: AuthRequest, res: Response):
         sendWorkbook(res, 'sources', rows, 'news_sources_export', format);
     } catch (error) {
         console.error('adminNewsV2ExportSources error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4252,7 +4246,7 @@ export async function adminNewsV2ExportLogs(req: AuthRequest, res: Response): Pr
         sendWorkbook(res, 'audit_logs', rows, 'news_audit_logs_export', format);
     } catch (error) {
         console.error('adminNewsV2ExportLogs error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4265,10 +4259,10 @@ export async function adminNewsV2GetAuditLogs(req: AuthRequest, res: Response): 
         if (req.query.entityType) filter.entityType = String(req.query.entityType);
         const total = await NewsAuditEvent.countDocuments(filter);
         const items = await NewsAuditEvent.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).populate('actorId', 'fullName username email role').lean();
-        res.json({ items, total, page, pages: Math.ceil(total / limit) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
     } catch (error) {
         console.error('adminNewsV2GetAuditLogs error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4458,7 +4452,7 @@ export async function getPublicNewsV2DiagnosticFeed(req: Request, res: Response)
         res.type('application/rss+xml').send(xml);
     } catch (error) {
         console.error('getPublicNewsV2DiagnosticFeed error:', error);
-        res.status(500).send('Server error');
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4469,7 +4463,7 @@ export async function getPublicNewsV2DiagnosticArticle(req: Request, res: Respon
         const host = `${req.protocol}://${req.get('host') || 'localhost'}`;
         const article = getNewsDiagnosticArticles(host).find((item) => item.key === slug);
         if (!article) {
-            res.status(404).send('Diagnostic article not found');
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Diagnostic article not found'));
             return;
         }
         res.type('html').send(`<!doctype html>
@@ -4487,7 +4481,7 @@ export async function getPublicNewsV2DiagnosticArticle(req: Request, res: Respon
 </html>`);
     } catch (error) {
         console.error('getPublicNewsV2DiagnosticArticle error:', error);
-        res.status(500).send('Server error');
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4496,7 +4490,7 @@ export async function getPublicNewsV2DiagnosticDelivery(req: Request, res: Respo
         if (!ensurePublicNewsDiagnosticsEnabled(req, res)) return;
         const channel = String(req.params.channel || '').trim().toLowerCase();
         if (channel !== 'sms' && channel !== 'email') {
-            res.status(404).json({ message: 'Diagnostic delivery channel not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Diagnostic delivery channel not found'));
             return;
         }
 
@@ -4504,7 +4498,7 @@ export async function getPublicNewsV2DiagnosticDelivery(req: Request, res: Respo
             ? req.body as Record<string, unknown>
             : {};
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             ok: true,
             channel,
             receivedAt: new Date().toISOString(),
@@ -4512,10 +4506,10 @@ export async function getPublicNewsV2DiagnosticDelivery(req: Request, res: Respo
                 to: String(payload.to || ''),
                 subject: String(payload.subject || ''),
             },
-        });
+        }));
     } catch (error) {
         console.error('getPublicNewsV2DiagnosticDelivery error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4563,23 +4557,12 @@ export async function getPublicNewsV2List(req: Request, res: Response): Promise<
             .select('-content -fullContent -rssRawContent')
             .lean();
         const host = resolvePublicNewsBaseUrl(req);
-        res.json({
-            items: items.map((item) => {
-                return buildPublicNewsOutput(item as unknown as Record<string, unknown>, host, settings);
-            }),
-            total,
-            page,
-            pages: Math.ceil(total / limit),
-            filters: {
-                source,
-                category,
-                tag,
-                q,
-            },
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.paginated(items.map((item) => {
+            return buildPublicNewsOutput(item as unknown as Record<string, unknown>, host, settings);
+        }), page, limit, total));
     } catch (error) {
         console.error('getPublicNewsV2List error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4603,7 +4586,7 @@ export async function getPublicNewsV2BySlug(req: Request, res: Response): Promis
             { new: true }
         ).populate('createdBy', 'fullName').lean();
         if (!item) {
-            res.status(404).json({ message: 'News not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News not found'));
             return;
         }
         const relatedFilter: Record<string, unknown> = { _id: { $ne: item._id }, ...buildPublicPublishedFilter() };
@@ -4623,15 +4606,15 @@ export async function getPublicNewsV2BySlug(req: Request, res: Response): Promis
             .lean();
         const host = resolvePublicNewsBaseUrl(req);
         const withFallback = buildPublicNewsOutput(item as unknown as Record<string, unknown>, host, settings);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             item: withFallback,
             related: related.map((entry) => {
                 return buildPublicNewsOutput(entry as unknown as Record<string, unknown>, host, settings);
             }),
-        });
+        }));
     } catch (error) {
         console.error('getPublicNewsV2BySlug error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4645,33 +4628,33 @@ export async function getPublicNewsV2OGMeta(req: Request, res: Response): Promis
         const item = await News.findOne({
             $and: [buildPublicPublishedFilter(), { $or: slugFilter }],
         }).select('title slug shortSummary shortDescription coverImageUrl featuredImage coverImage ogTitle ogDescription ogImage').lean();
-        if (!item) { res.status(404).json({ message: 'News not found' }); return; }
+        if (!item) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News not found')); return; }
 
         const ogTitle = (item as any).ogTitle || (item as any).title || '';
         const ogDescription = (item as any).ogDescription || (item as any).shortSummary || (item as any).shortDescription || '';
         const ogImage = (item as any).ogImage || (item as any).coverImageUrl || (item as any).featuredImage || (item as any).coverImage || '';
         const ogUrl = `${req.protocol}://${req.get('host')}/news/${(item as any).slug}`;
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             ogTitle,
             ogDescription,
             ogImage,
             ogUrl,
             ogType: 'article',
-        });
+        }));
     } catch (error) {
         console.error('getPublicNewsV2OGMeta error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getPublicNewsV2Appearance(_req: Request, res: Response): Promise<void> {
     try {
         const settings = await getOrCreateNewsSettings();
-        res.json({ appearance: settings.appearance });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ appearance: settings.appearance }));
     } catch (error) {
         console.error('getPublicNewsV2Appearance error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4691,7 +4674,7 @@ export async function getPublicNewsV2Widgets(_req: Request, res: Response): Prom
             getOrCreateNewsSettings(),
         ]);
         const fallbackBanner = resolveDefaultNewsBanner(settings);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             trending: settings.appearance.showTrendingWidget
                 ? trending.map((item) => {
                     return buildNewsOutput(item as unknown as Record<string, unknown>, fallbackBanner);
@@ -4699,10 +4682,10 @@ export async function getPublicNewsV2Widgets(_req: Request, res: Response): Prom
                 : [],
             categories: settings.appearance.showCategoryWidget ? categories : [],
             tags: settings.appearance.showWidgets.tagChips ? tags : [],
-        });
+        }));
     } catch (error) {
         console.error('getPublicNewsV2Widgets error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4752,10 +4735,10 @@ export async function getPublicNewsV2Sources(_req: Request, res: Response): Prom
                 priority: source.priority ?? source.order ?? 0,
             };
         });
-        res.json({ items: normalizedSources });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: normalizedSources }));
     } catch (error) {
         console.error('getPublicNewsV2Sources error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4763,7 +4746,7 @@ export async function getPublicNewsV2Settings(_req: Request, res: Response): Pro
     try {
         const settings = await getOrCreateNewsSettings();
         const fallbackBanner = resolveDefaultNewsBanner(settings);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             newsPageTitle: settings.pageTitle,
             newsPageSubtitle: settings.pageSubtitle,
             pageTitle: settings.pageTitle,
@@ -4790,10 +4773,10 @@ export async function getPublicNewsV2Settings(_req: Request, res: Response): Pro
                 exposeKeyPoints: settings.communication.exposeKeyPoints,
             },
             help: settings.help,
-        });
+        }));
     } catch (error) {
         console.error('getPublicNewsV2Settings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -4802,14 +4785,14 @@ export async function trackPublicNewsV2Share(req: Request, res: Response): Promi
         const slug = String(req.body?.slug || '').trim();
         const channel = String(req.body?.channel || 'copy').trim();
         if (!slug) {
-            res.status(400).json({ message: 'slug is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'slug is required'));
             return;
         }
         const settings = await getOrCreateNewsSettings();
         const enabled = settings.share.enabledChannels.includes(channel as any) || channel === 'copy';
         if (!enabled) {
             const current = await News.findOne({ slug }).select('_id shareCount').lean();
-            res.json({ ok: false, shareCount: current?.shareCount || 0 });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: false, shareCount: current?.shareCount || 0 }));
             return;
         }
         const updated = await News.findOneAndUpdate(
@@ -4817,9 +4800,9 @@ export async function trackPublicNewsV2Share(req: Request, res: Response): Promi
             { $inc: { shareCount: 1 }, $set: { 'shareMeta.lastChannel': channel, 'shareMeta.lastSharedAt': new Date() } },
             { new: true }
         ).select('_id shareCount').lean();
-        res.json({ ok: true, shareCount: updated?.shareCount || 0 });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, shareCount: updated?.shareCount || 0 }));
     } catch (error) {
         console.error('trackPublicNewsV2Share error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

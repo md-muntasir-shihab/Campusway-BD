@@ -22,12 +22,12 @@ interface Resource {
 const TYPE_CONFIG: Record<ResourceType, {
     label: string; icon: React.FC<{ className?: string }>; badge: string; action: string;
 }> = {
-    pdf:   { label: 'PDF',   icon: FileText,  badge: 'bg-danger/10 text-danger dark:bg-danger/20',     action: 'Download' },
-    link:  { label: 'Link',  icon: Link2,     badge: 'bg-primary/10 text-primary dark:bg-primary/20',  action: 'Visit'    },
-    video: { label: 'Video', icon: Video,     badge: 'bg-accent/10 text-accent dark:bg-accent/20',     action: 'Watch'    },
-    audio: { label: 'Audio', icon: Headphones,badge: 'bg-warning/10 text-warning dark:bg-warning/20',  action: 'Listen'   },
-    image: { label: 'Image', icon: Image,     badge: 'bg-success/10 text-success dark:bg-success/20',  action: 'View'     },
-    note:  { label: 'Note',  icon: StickyNote,badge: 'bg-primary/5 text-primary dark:bg-primary/10',   action: 'Read'     },
+    pdf: { label: 'PDF', icon: FileText, badge: 'bg-danger/10 text-danger dark:bg-danger/20', action: 'Download' },
+    link: { label: 'Link', icon: Link2, badge: 'bg-primary/10 text-primary dark:bg-primary/20', action: 'Visit' },
+    video: { label: 'Video', icon: Video, badge: 'bg-accent/10 text-accent dark:bg-accent/20', action: 'Watch' },
+    audio: { label: 'Audio', icon: Headphones, badge: 'bg-warning/10 text-warning dark:bg-warning/20', action: 'Listen' },
+    image: { label: 'Image', icon: Image, badge: 'bg-success/10 text-success dark:bg-success/20', action: 'View' },
+    note: { label: 'Note', icon: StickyNote, badge: 'bg-primary/5 text-primary dark:bg-primary/10', action: 'Read' },
 };
 
 function RelatedCard({ r }: { r: Resource }) {
@@ -207,8 +207,8 @@ export default function ResourceDetail() {
                                     className="btn-primary gap-2 text-sm flex-1 sm:flex-none justify-center"
                                 >
                                     {resource.type === 'pdf' ? <Download className="w-4 h-4" /> :
-                                     resource.type === 'link' ? <ExternalLink className="w-4 h-4" /> :
-                                     <Eye className="w-4 h-4" />}
+                                        resource.type === 'link' ? <ExternalLink className="w-4 h-4" /> :
+                                            <Eye className="w-4 h-4" />}
                                     {cfg.action}
                                 </a>
                             ) : (
@@ -250,7 +250,7 @@ export default function ResourceDetail() {
                     {/* Thumbnail */}
                     {resource.thumbnailUrl && (
                         <div className="card overflow-hidden">
-                            <img src={resource.thumbnailUrl} alt={resource.title} className="w-full object-cover max-h-80" />
+                            <img src={resource.thumbnailUrl} alt={resource.title} className="w-full object-cover max-h-80" loading="lazy" />
                         </div>
                     )}
                 </div>

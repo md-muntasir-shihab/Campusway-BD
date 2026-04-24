@@ -4,6 +4,17 @@ type JobWorkResult = {
     summary?: Record<string, unknown>;
 };
 
+export interface JobRunnerOptions {
+    maxRetries?: number;       // default: 3
+    backoffBase?: number;      // default: 1000ms (exponential: 1s, 4s, 16s)
+    onConsecutiveFailures?: (jobName: string, count: number) => void;
+}
+
+/** Visible for testing — override in tests to avoid real delays. */
+export const _delays = {
+    sleep: (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)),
+};
+
 export async function runJobWithLog(
     jobName: string,
     worker: () => Promise<void | JobWorkResult>,
@@ -41,6 +52,80 @@ export async function runJobWithLog(
         });
         throw error;
     }
+}
+
+/**
+ * Wraps a job worker with retry logic and exponential backoff.
+ * Retries up to `maxRetries` times (default 3) with delays of backoffBase × 4^attempt.
+ * Persists a single JobRunLog entry with the final outcome and retryCount.
+ * Emits a warning log after 3 consecutive failures.
+ */
+export async function runJobWithRetry(
+    jobName: string,
+    worker: () => Promise<void | JobWorkResult>,
+    options?: JobRunnerOptions,
+): Promise<void> {
+    const maxRetries = options?.maxRetries ?? 3;
+    const backoffBase = options?.backoffBase ?? 1000;
+
+    const startedAt = new Date();
+    const doc = await JobRunLog.create({
+        jobName,
+        startedAt,
+        status: 'running',
+        retryCount: 0,
+    });
+
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            if (attempt > 0) {
+                const delay = backoffBase * Math.pow(4, attempt - 1);
+                await _delays.sleep(delay);
+            }
+
+            const result = await worker();
+            const endedAt = new Date();
+            await JobRunLog.findByIdAndUpdate(doc._id, {
+                $set: {
+                    status: 'success',
+                    endedAt,
+                    durationMs: endedAt.getTime() - startedAt.getTime(),
+                    retryCount: attempt,
+                    summary: result?.summary || {},
+                },
+            });
+            return;
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    // All attempts exhausted — persist failure
+    const endedAt = new Date();
+    const message = lastError instanceof Error ? lastError.message : String(lastError || 'Unknown error');
+    const stack = lastError instanceof Error ? String(lastError.stack || '') : '';
+    await JobRunLog.findByIdAndUpdate(doc._id, {
+        $set: {
+            status: 'failed',
+            endedAt,
+            durationMs: endedAt.getTime() - startedAt.getTime(),
+            retryCount: maxRetries,
+            errorMessage: message,
+            errorStackSnippet: stack.slice(0, 2000),
+        },
+    });
+
+    // Emit warning after 3 consecutive failures
+    if (maxRetries >= 3) {
+        console.warn(
+            `[JOB_RUNNER] WARNING: Job "${jobName}" failed ${maxRetries + 1} consecutive times (${maxRetries} retries exhausted). Last error: ${message}`,
+        );
+        options?.onConsecutiveFailures?.(jobName, maxRetries + 1);
+    }
+
+    throw lastError;
 }
 
 export async function getRecentJobRuns(limit = 100): Promise<IJobRunLog[]> {

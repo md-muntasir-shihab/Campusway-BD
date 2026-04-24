@@ -1,5 +1,19 @@
 import { Schema, model } from "mongoose";
 
+/**
+ * ExamQuestion model — stores questions attached to a specific exam instance.
+ *
+ * Key fields:
+ * - `examId`: The exam this question belongs to
+ * - `fromBankQuestionId`: Optional reference to the source question bank entry
+ * - `orderIndex`: Display order within the exam
+ * - `question_en` / `question_bn`: Bilingual question text
+ * - `options`: Array of answer choices with bilingual text
+ * - `correctKey`: The correct option key (A–H)
+ * - `marks` / `negativeMarks`: Scoring values
+ *
+ * @collection examquestions
+ */
 const examQuestionSchema = new Schema(
   {
     examId: { type: String, required: true, index: true },

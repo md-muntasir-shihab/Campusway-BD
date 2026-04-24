@@ -4,6 +4,7 @@ import ContentBlock from '../models/ContentBlock';
 import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middlewares/auth';
 import { getClientIp } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -40,7 +41,7 @@ const VALID_PLACEMENTS = [
 export async function getPublicContentBlocks(req: Request, res: Response): Promise<void> {
     const placement = String(req.query.placement || '').trim();
     if (!placement || !VALID_PLACEMENTS.includes(placement)) {
-        res.status(400).json({ message: 'Valid placement query param required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid placement query param required'));
         return;
     }
 
@@ -56,23 +57,23 @@ export async function getPublicContentBlocks(req: Request, res: Response): Promi
         .limit(10)
         .lean();
 
-    res.json({ blocks });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ blocks }));
 }
 
 /** POST /api/content-blocks/:id/impression */
 export async function trackContentBlockImpression(req: Request, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
     await ContentBlock.findByIdAndUpdate(id, { $inc: { impressionCount: 1 } });
-    res.json({ ok: true });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true }));
 }
 
 /** POST /api/content-blocks/:id/click */
 export async function trackContentBlockClick(req: Request, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
     await ContentBlock.findByIdAndUpdate(id, { $inc: { clickCount: 1 } });
-    res.json({ ok: true });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true }));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -101,32 +102,32 @@ export async function adminGetContentBlocks(req: AuthRequest, res: Response): Pr
             .lean(),
         ContentBlock.countDocuments(filter),
     ]);
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
 }
 
 /** GET /admin/content-blocks/:id */
 export async function adminGetContentBlock(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const block = await ContentBlock.findById(id)
         .populate('createdByAdminId', 'username full_name')
         .lean();
-    if (!block) { res.status(404).json({ message: 'Content block not found' }); return; }
-    res.json({ data: block });
+    if (!block) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Content block not found')); return; }
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: block }));
 }
 
 /** POST /admin/content-blocks */
 export async function adminCreateContentBlock(req: AuthRequest, res: Response): Promise<void> {
     if (!req.user?._id) {
-        res.status(401).json({ message: 'Unauthorized' });
+        ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized'));
         return;
     }
 
     const { title, subtitle, body, imageUrl, ctaText, ctaUrl, type, placements, styleVariant, isEnabled, startAtUTC, endAtUTC, priority, dismissible, audienceRules } = req.body as Record<string, unknown>;
 
     if (!title || !type || !Array.isArray(placements) || placements.length === 0) {
-        res.status(400).json({ message: 'title, type, and placements[] are required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'title, type, and placements[] are required'));
         return;
     }
 
@@ -150,13 +151,13 @@ export async function adminCreateContentBlock(req: AuthRequest, res: Response): 
     });
 
     await createAudit(req, 'content_block_created', { blockId: block._id, title: block.title });
-    res.status(201).json({ data: block, message: 'Content block created' });
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({data: block}, 'Content block created'));
 }
 
 /** PUT /admin/content-blocks/:id */
 export async function adminUpdateContentBlock(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const body = req.body as Record<string, unknown>;
     const update: Record<string, unknown> = {};
@@ -174,32 +175,32 @@ export async function adminUpdateContentBlock(req: AuthRequest, res: Response): 
     if (body.audienceRules !== undefined) update.audienceRules = body.audienceRules;
 
     const block = await ContentBlock.findByIdAndUpdate(id, { $set: update }, { new: true });
-    if (!block) { res.status(404).json({ message: 'Content block not found' }); return; }
+    if (!block) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Content block not found')); return; }
     await createAudit(req, 'content_block_updated', { blockId: id });
-    res.json({ data: block, message: 'Content block updated' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: block}, 'Content block updated'));
 }
 
 /** DELETE /admin/content-blocks/:id */
 export async function adminDeleteContentBlock(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const block = await ContentBlock.findByIdAndDelete(id);
-    if (!block) { res.status(404).json({ message: 'Content block not found' }); return; }
+    if (!block) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Content block not found')); return; }
     await createAudit(req, 'content_block_deleted', { blockId: id, title: block.title });
-    res.json({ message: 'Content block deleted' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Content block deleted'));
 }
 
 /** PATCH /admin/content-blocks/:id/toggle */
 export async function adminToggleContentBlock(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const block = await ContentBlock.findById(id);
-    if (!block) { res.status(404).json({ message: 'Content block not found' }); return; }
+    if (!block) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Content block not found')); return; }
 
     block.isEnabled = !block.isEnabled;
     await block.save();
     await createAudit(req, 'content_block_toggled', { blockId: id, isEnabled: block.isEnabled });
-    res.json({ data: block, message: `Content block ${block.isEnabled ? 'enabled' : 'disabled'}` });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: block}, `Content block ${block.isEnabled ? 'enabled' : 'disabled'}`));
 }

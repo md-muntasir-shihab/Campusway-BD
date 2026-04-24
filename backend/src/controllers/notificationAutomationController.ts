@@ -1,6 +1,7 @@
 ﻿import { Response } from 'express';
 import SiteSettings from '../models/Settings';
 import { AuthRequest } from '../middlewares/auth';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function defaultSettings() {
     return {
@@ -90,10 +91,10 @@ export async function readNotificationAutomationSettings() {
 export async function adminGetNotificationAutomationSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await readNotificationAutomationSettings();
-        res.json({ settings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings }));
     } catch (error) {
         console.error('adminGetNotificationAutomationSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -142,9 +143,9 @@ export async function adminUpdateNotificationAutomationSettings(req: AuthRequest
             { upsert: true, new: true, setDefaultsOnInsert: true },
         );
 
-        res.json({ settings: next, message: 'Notification automation settings updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({settings: next}, 'Notification automation settings updated'));
     } catch (error) {
         console.error('adminUpdateNotificationAutomationSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

@@ -4,6 +4,7 @@ import Service from '../models/Service';
 import ServiceCategory from '../models/ServiceCategory';
 import ServicePricingPlan from '../models/ServicePricingPlan';
 import ServiceAuditLog from '../models/ServiceAuditLog';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ═══════════════════════════════
    PUBLIC APIS
@@ -42,13 +43,10 @@ export async function getServices(req: Request, res: Response): Promise<void> {
 
         const total = await Service.countDocuments(filter);
 
-        res.json({
-            services,
-            pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) }
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ services, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } }));
     } catch (err) {
         console.error('getServices error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -59,14 +57,14 @@ export async function getServiceDetails(req: Request, res: Response): Promise<vo
             .lean();
 
         if (!service) {
-            res.status(404).json({ message: 'Service not found or inactive' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found or inactive'));
             return;
         }
 
-        res.json({ service });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ service }));
     } catch (err) {
         console.error('getServiceDetails error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -143,10 +141,10 @@ export async function adminGetServices(req: Request, res: Response): Promise<voi
         });
 
         const total = await Service.countDocuments(filter);
-        res.json({ services, total, page: pageNum, pages: Math.ceil(total / limitNum) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ services, total, page: pageNum, pages: Math.ceil(total / limitNum) }));
     } catch (err) {
         console.error('adminGetServices error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -155,16 +153,16 @@ export async function adminCreateService(req: Request, res: Response): Promise<v
         const data = req.body;
         // Basic validation
         if (!data.title_bn || !data.title_en) {
-            res.status(400).json({ message: 'Both English and Bangla titles are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Both English and Bangla titles are required'));
             return;
         }
 
         const service = await Service.create(data);
 
-        res.status(201).json({ service, message: 'Service created successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({service}, 'Service created successfully'));
     } catch (err) {
         console.error('adminCreateService err', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -173,29 +171,29 @@ export async function adminUpdateService(req: Request, res: Response): Promise<v
         const data = req.body;
 
         const service = await Service.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true });
-        if (!service) { res.status(404).json({ message: 'Service not found' }); return; }
+        if (!service) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found')); return; }
 
-        res.json({ service, message: 'Service updated successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({service}, 'Service updated successfully'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteService(req: Request, res: Response): Promise<void> {
     try {
         const service = await Service.findByIdAndDelete(req.params.id);
-        if (!service) { res.status(404).json({ message: 'Service not found' }); return; }
+        if (!service) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found')); return; }
 
-        res.json({ message: 'Service deleted permanently' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Service deleted permanently'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminReorderServices(req: Request, res: Response): Promise<void> {
     try {
         const { ids_in_order } = req.body;
-        if (!Array.isArray(ids_in_order)) { res.status(400).json({ message: 'Invalid data format' }); return; }
+        if (!Array.isArray(ids_in_order)) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid data format')); return; }
 
         const bulkOps = ids_in_order.map((id, index) => ({
             updateOne: {
@@ -205,37 +203,37 @@ export async function adminReorderServices(req: Request, res: Response): Promise
         }));
 
         await Service.bulkWrite(bulkOps);
-        res.json({ message: 'Services reordered successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Services reordered successfully'));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleServiceStatus(req: Request, res: Response): Promise<void> {
     try {
         const service = await Service.findById(req.params.id);
-        if (!service) { res.status(404).json({ message: 'Service not found' }); return; }
+        if (!service) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found')); return; }
 
         service.is_active = !service.is_active;
         await service.save();
 
-        res.json({ service, message: `Service is now ${service.is_active ? 'Active' : 'Inactive'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ service}, `Service is now ${service.is_active ? 'Active' : 'Inactive'}`));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleServiceFeatured(req: Request, res: Response): Promise<void> {
     try {
         const service = await Service.findById(req.params.id);
-        if (!service) { res.status(404).json({ message: 'Service not found' }); return; }
+        if (!service) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found')); return; }
 
         service.is_featured = !service.is_featured;
         await service.save();
 
-        res.json({ service, message: `Service is ${service.is_featured ? 'now Featured' : 'no longer Featured'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ service}, `Service is ${service.is_featured ? 'now Featured' : 'no longer Featured'}`));
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -243,7 +241,7 @@ export async function adminGetAuditLogs(req: Request, res: Response): Promise<vo
     try {
         const serviceId = String(req.params.id || '').trim();
         if (!serviceId) {
-            res.status(400).json({ message: 'Service id is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Service id is required'));
             return;
         }
 
@@ -252,10 +250,10 @@ export async function adminGetAuditLogs(req: Request, res: Response): Promise<vo
             .sort({ timestamp: -1 })
             .lean();
 
-        res.json({ logs });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ logs }));
     } catch (err) {
         console.error('adminGetAuditLogs error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -263,7 +261,7 @@ export async function adminGetPricingPlans(req: Request, res: Response): Promise
     try {
         const serviceId = String(req.params.id || '').trim();
         if (!serviceId) {
-            res.status(400).json({ message: 'Service id is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Service id is required'));
             return;
         }
 
@@ -271,10 +269,10 @@ export async function adminGetPricingPlans(req: Request, res: Response): Promise
             .sort({ order_index: 1, createdAt: -1 })
             .lean();
 
-        res.json({ plans });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ plans }));
     } catch (err) {
         console.error('adminGetPricingPlans error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -282,7 +280,7 @@ export async function adminCreatePricingPlan(req: Request, res: Response): Promi
     try {
         const serviceId = String(req.params.id || '').trim();
         if (!serviceId) {
-            res.status(400).json({ message: 'Service id is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Service id is required'));
             return;
         }
 
@@ -292,15 +290,15 @@ export async function adminCreatePricingPlan(req: Request, res: Response): Promi
         };
 
         if (!payload.name) {
-            res.status(400).json({ message: 'Plan name is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Plan name is required'));
             return;
         }
 
         const plan = await ServicePricingPlan.create(payload);
-        res.status(201).json({ plan, message: 'Pricing plan created successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({plan}, 'Pricing plan created successfully'));
     } catch (err) {
         console.error('adminCreatePricingPlan error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -309,7 +307,7 @@ export async function adminUpdatePricingPlan(req: Request, res: Response): Promi
         const serviceId = String(req.params.id || '').trim();
         const planId = String(req.params.planId || '').trim();
         if (!serviceId || !planId) {
-            res.status(400).json({ message: 'Service id and plan id are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Service id and plan id are required'));
             return;
         }
 
@@ -320,14 +318,14 @@ export async function adminUpdatePricingPlan(req: Request, res: Response): Promi
         );
 
         if (!plan) {
-            res.status(404).json({ message: 'Pricing plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Pricing plan not found'));
             return;
         }
 
-        res.json({ plan, message: 'Pricing plan updated successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({plan}, 'Pricing plan updated successfully'));
     } catch (err) {
         console.error('adminUpdatePricingPlan error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -336,19 +334,19 @@ export async function adminDeletePricingPlan(req: Request, res: Response): Promi
         const serviceId = String(req.params.id || '').trim();
         const planId = String(req.params.planId || '').trim();
         if (!serviceId || !planId) {
-            res.status(400).json({ message: 'Service id and plan id are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Service id and plan id are required'));
             return;
         }
 
         const plan = await ServicePricingPlan.findOneAndDelete({ _id: planId, service_id: serviceId });
         if (!plan) {
-            res.status(404).json({ message: 'Pricing plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Pricing plan not found'));
             return;
         }
 
-        res.json({ message: 'Pricing plan deleted successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Pricing plan deleted successfully'));
     } catch (err) {
         console.error('adminDeletePricingPlan error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

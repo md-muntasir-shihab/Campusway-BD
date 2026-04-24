@@ -18,6 +18,7 @@ import { issueSecurityToken } from '../services/securityTokenService';
 import { sendCampusMail } from '../utils/mailer';
 import { escapeRegex } from '../utils/escapeRegex';
 import { getClientIp, getDeviceInfo } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const TEAM_USER_ROLES = ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'] as const;
 const APP_DOMAIN = process.env.APP_DOMAIN || process.env.FRONTEND_URL || 'http://localhost:5175';
@@ -314,10 +315,10 @@ export async function teamGetMembers(req: Request, res: Response): Promise<void>
             .sort({ updatedAt: -1 })
             .lean();
 
-        res.json({ items: members });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: members }));
     } catch (error) {
         console.error('teamGetMembers error:', error);
-        res.status(500).json({ message: 'Failed to load team members' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load team members'));
     }
 }
 
@@ -339,31 +340,31 @@ export async function teamCreateMember(req: Request, res: Response): Promise<voi
         const useDirectPassword = passwordMode === 'manual';
 
         if (useDirectPassword && !canManageTeamPasswords(authReq.user?.role)) {
-            res.status(403).json({ message: 'Only admin or super admin can set passwords directly' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only admin or super admin can set passwords directly'));
             return;
         }
 
         if (useDirectPassword && directPassword.length < 8) {
-            res.status(400).json({ message: 'Password must be at least 8 characters' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Password must be at least 8 characters'));
             return;
         }
 
         const requirePasswordReset = Boolean(body.forcePasswordResetRequired ?? (useDirectPassword ? false : true));
 
         if (!fullName || !email || !username || !mongoose.Types.ObjectId.isValid(roleId)) {
-            res.status(400).json({ message: 'fullName, email, username and roleId are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'fullName, email, username and roleId are required'));
             return;
         }
 
         const existing = await User.findOne({ $or: [{ email }, { username }] }).lean();
         if (existing) {
-            res.status(409).json({ message: 'Email or username already exists' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Email or username already exists'));
             return;
         }
 
         const role = await TeamRole.findById(roleId).lean();
         if (!role) {
-            res.status(404).json({ message: 'Role not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Role not found'));
             return;
         }
 
@@ -419,10 +420,7 @@ export async function teamCreateMember(req: Request, res: Response): Promise<voi
             inviteSent,
         });
 
-        res.status(201).json({
-            message: useDirectPassword
-                ? 'Team member created with a direct password'
-                : inviteSent ? 'Team member created and invite sent' : 'Team member created',
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             item: {
                 _id: user._id,
                 fullName: user.full_name,
@@ -431,10 +429,12 @@ export async function teamCreateMember(req: Request, res: Response): Promise<voi
                 passwordMode: useDirectPassword ? 'manual' : 'invite',
                 inviteSent,
             },
-        });
+        }, useDirectPassword
+            ? 'Team member created with a direct password'
+            : inviteSent ? 'Team member created and invite sent' : 'Team member created'));
     } catch (error) {
         console.error('teamCreateMember error:', error);
-        res.status(500).json({ message: 'Failed to create team member' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to create team member'));
     }
 }
 
@@ -447,7 +447,7 @@ export async function teamGetMemberById(req: Request, res: Response): Promise<vo
             .lean();
 
         if (!member) {
-            res.status(404).json({ message: 'Member not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
             return;
         }
 
@@ -456,10 +456,10 @@ export async function teamGetMemberById(req: Request, res: Response): Promise<vo
             TeamAuditLog.find({ targetId: req.params.id }).sort({ createdAt: -1 }).limit(50).lean(),
         ]);
 
-        res.json({ item: member, override, logs });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: member, override, logs }));
     } catch (error) {
         console.error('teamGetMemberById error:', error);
-        res.status(500).json({ message: 'Failed to load member details' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load member details'));
     }
 }
 
@@ -468,7 +468,7 @@ export async function teamUpdateMember(req: Request, res: Response): Promise<voi
         const body = req.body as Record<string, unknown>;
         const member = await User.findById(req.params.id);
         if (!member) {
-            res.status(404).json({ message: 'Member not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
             return;
         }
 
@@ -484,7 +484,7 @@ export async function teamUpdateMember(req: Request, res: Response): Promise<voi
         if (body.email !== undefined) {
             const nextEmail = normalizeEmail(body.email);
             if (!nextEmail) {
-                res.status(400).json({ message: 'email is required' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'email is required'));
                 return;
             }
             if (nextEmail !== member.email) {
@@ -493,7 +493,7 @@ export async function teamUpdateMember(req: Request, res: Response): Promise<voi
                     _id: { $ne: member._id },
                 }).select('_id').lean();
                 if (existing) {
-                    res.status(409).json({ message: 'Email already exists' });
+                    ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Email already exists'));
                     return;
                 }
                 member.email = nextEmail;
@@ -511,7 +511,7 @@ export async function teamUpdateMember(req: Request, res: Response): Promise<voi
         if (roleId && mongoose.Types.ObjectId.isValid(roleId)) {
             const role = await TeamRole.findById(roleId).lean();
             if (!role) {
-                res.status(404).json({ message: 'Role not found' });
+                ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Role not found'));
                 return;
             }
             member.teamRoleId = role._id as mongoose.Types.ObjectId;
@@ -527,10 +527,10 @@ export async function teamUpdateMember(req: Request, res: Response): Promise<voi
             email: member.email,
         });
 
-        res.json({ message: 'Member updated', item: member });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: member }, 'Member updated'));
     } catch (error) {
         console.error('teamUpdateMember error:', error);
-        res.status(500).json({ message: 'Failed to update member' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update member'));
     }
 }
 
@@ -546,17 +546,17 @@ async function teamUpdateStatus(req: Request, res: Response, status: string, act
     try {
         const member = await User.findById(req.params.id);
         if (!member) {
-            res.status(404).json({ message: 'Member not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
             return;
         }
         const oldStatus = member.status;
         member.status = status as any;
         await member.save();
         await writeAudit(req, action, 'team_member', req.params.id, { status: oldStatus }, { status });
-        res.json({ message: `Member ${status}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Member ${status}'));
     } catch (error) {
         console.error('teamUpdateStatus error:', error);
-        res.status(500).json({ message: 'Failed to update status' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update status'));
     }
 }
 
@@ -566,7 +566,7 @@ export async function teamResetPassword(req: Request, res: Response): Promise<vo
         const body = req.body as Record<string, unknown>;
         const member = await User.findById(req.params.id).select('+password');
         if (!member) {
-            res.status(404).json({ message: 'Member not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
             return;
         }
 
@@ -575,7 +575,7 @@ export async function teamResetPassword(req: Request, res: Response): Promise<vo
         const useDirectPassword = mode === 'manual';
 
         if (useDirectPassword && directPassword.length < 8) {
-            res.status(400).json({ message: 'Password must be at least 8 characters' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Password must be at least 8 characters'));
             return;
         }
 
@@ -598,15 +598,15 @@ export async function teamResetPassword(req: Request, res: Response): Promise<vo
             forcePasswordResetRequired: member.forcePasswordResetRequired,
             inviteSent,
         });
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             message: useDirectPassword
                 ? (member.forcePasswordResetRequired ? 'Password updated and force reset enabled' : 'Password updated')
                 : inviteSent ? 'Password reset link sent' : 'Password reset prepared',
             inviteSent,
-        });
+        }));
     } catch (error) {
         console.error('teamResetPassword error:', error);
-        res.status(500).json({ message: 'Failed to reset password' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to reset password'));
     }
 }
 
@@ -619,10 +619,10 @@ export async function teamRevokeSessions(req: Request, res: Response): Promise<v
         await writeAudit(req, 'member_sessions_revoked', 'team_member', req.params.id, undefined, {
             modifiedCount: result.modifiedCount,
         });
-        res.json({ message: 'Sessions revoked', modifiedCount: result.modifiedCount });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ modifiedCount: result.modifiedCount }, 'Sessions revoked'));
     } catch (error) {
         console.error('teamRevokeSessions error:', error);
-        res.status(500).json({ message: 'Failed to revoke sessions' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to revoke sessions'));
     }
 }
 
@@ -630,13 +630,13 @@ export async function teamToggle2FA(req: Request, res: Response): Promise<void> 
     try {
         const authReq = req as AuthRequest;
         if (!canManageTeamPasswords(authReq.user?.role)) {
-            res.status(403).json({ message: 'Only admin or super admin can manage 2FA for team members' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only admin or super admin can manage 2FA for team members'));
             return;
         }
 
         const member = await User.findById(req.params.id).select('+twoFactorSecret');
         if (!member) {
-            res.status(404).json({ message: 'Member not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
             return;
         }
 
@@ -656,13 +656,13 @@ export async function teamToggle2FA(req: Request, res: Response): Promise<void> 
             twoFactorEnabled: enable,
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             message: enable ? '2FA enabled for member' : '2FA disabled for member',
             twoFactorEnabled: enable,
-        });
+        }));
     } catch (error) {
         console.error('teamToggle2FA error:', error);
-        res.status(500).json({ message: 'Failed to toggle 2FA' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to toggle 2FA'));
     }
 }
 
@@ -670,17 +670,17 @@ export async function teamResendInvite(req: Request, res: Response): Promise<voi
     try {
         const invite = await TeamInvite.findOne({ memberId: asObjectId(req.params.id) }).sort({ createdAt: -1 });
         if (!invite) {
-            res.status(404).json({ message: 'Invite not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Invite not found'));
             return;
         }
         invite.status = 'sent';
         invite.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         await invite.save();
         await writeAudit(req, 'member_invite_resent', 'team_invite', String(invite._id), { status: 'old' }, { status: 'sent' });
-        res.json({ message: 'Invite re-sent', item: invite });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: invite }, 'Invite re-sent'));
     } catch (error) {
         console.error('teamResendInvite error:', error);
-        res.status(500).json({ message: 'Failed to resend invite' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to resend invite'));
     }
 }
 
@@ -700,16 +700,16 @@ export async function teamGetRoles(_req: Request, res: Response): Promise<void> 
         const permissionSets = await RolePermissionSet.find({ roleId: { $in: roleIds } }).lean();
         const permissionMap = new Map(permissionSets.map((item) => [String(item.roleId), item.modulePermissions]));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: roles.map((role) => ({
                 ...role,
                 totalUsers: countMap.get(String(role._id)) || 0,
                 modulePermissions: permissionMap.get(String(role._id)) || {},
             })),
-        });
+        }));
     } catch (error) {
         console.error('teamGetRoles error:', error);
-        res.status(500).json({ message: 'Failed to load roles' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load roles'));
     }
 }
 
@@ -724,13 +724,13 @@ export async function teamCreateRole(req: Request, res: Response): Promise<void>
         const basePlatformRole = String(body.basePlatformRole || 'viewer').trim();
 
         if (!name || !slug) {
-            res.status(400).json({ message: 'name is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'name is required'));
             return;
         }
 
         const existing = await TeamRole.findOne({ slug }).lean();
         if (existing) {
-            res.status(409).json({ message: 'Role slug already exists' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Role slug already exists'));
             return;
         }
 
@@ -754,10 +754,10 @@ export async function teamCreateRole(req: Request, res: Response): Promise<void>
         await RolePermissionSet.create({ roleId: role._id, modulePermissions });
         await writeAudit(req, 'role_created', 'team_role', String(role._id), undefined, { slug, name });
 
-        res.status(201).json({ message: 'Role created', item: role });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: role }, 'Role created'));
     } catch (error) {
         console.error('teamCreateRole error:', error);
-        res.status(500).json({ message: 'Failed to create role' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to create role'));
     }
 }
 
@@ -765,7 +765,7 @@ export async function teamGetRoleById(req: Request, res: Response): Promise<void
     try {
         const role = await TeamRole.findById(req.params.id).lean();
         if (!role) {
-            res.status(404).json({ message: 'Role not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Role not found'));
             return;
         }
         const permissions = await RolePermissionSet.findOne({ roleId: asObjectId(req.params.id) }).lean();
@@ -774,10 +774,10 @@ export async function teamGetRoleById(req: Request, res: Response): Promise<void
             .sort({ updatedAt: -1 })
             .limit(100)
             .lean();
-        res.json({ item: role, permissions: permissions?.modulePermissions || {}, users });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: role, permissions: permissions?.modulePermissions || {}, users }));
     } catch (error) {
         console.error('teamGetRoleById error:', error);
-        res.status(500).json({ message: 'Failed to load role details' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load role details'));
     }
 }
 
@@ -786,7 +786,7 @@ export async function teamUpdateRole(req: Request, res: Response): Promise<void>
         const body = req.body as Record<string, unknown>;
         const role = await TeamRole.findById(req.params.id);
         if (!role) {
-            res.status(404).json({ message: 'Role not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Role not found'));
             return;
         }
 
@@ -809,10 +809,10 @@ export async function teamUpdateRole(req: Request, res: Response): Promise<void>
             basePlatformRole: role.basePlatformRole,
         });
 
-        res.json({ message: 'Role updated', item: role });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: role }, 'Role updated'));
     } catch (error) {
         console.error('teamUpdateRole error:', error);
-        res.status(500).json({ message: 'Failed to update role' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update role'));
     }
 }
 
@@ -820,7 +820,7 @@ export async function teamDuplicateRole(req: Request, res: Response): Promise<vo
     try {
         const source = await TeamRole.findById(req.params.id).lean();
         if (!source) {
-            res.status(404).json({ message: 'Role not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Role not found'));
             return;
         }
         const sourcePermissions = await RolePermissionSet.findOne({ roleId: asObjectId(req.params.id) }).lean();
@@ -841,10 +841,10 @@ export async function teamDuplicateRole(req: Request, res: Response): Promise<vo
         });
 
         await writeAudit(req, 'role_duplicated', 'team_role', String(role._id), { sourceRoleId: source._id as unknown as string }, { roleId: role._id as unknown as string });
-        res.status(201).json({ message: 'Role duplicated', item: role });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: role }, 'Role duplicated'));
     } catch (error) {
         console.error('teamDuplicateRole error:', error);
-        res.status(500).json({ message: 'Failed to duplicate role' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to duplicate role'));
     }
 }
 
@@ -852,11 +852,11 @@ export async function teamDeleteRole(req: Request, res: Response): Promise<void>
     try {
         const role = await TeamRole.findById(req.params.id);
         if (!role) {
-            res.status(404).json({ message: 'Role not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Role not found'));
             return;
         }
         if (role.isSystemRole) {
-            res.status(400).json({ message: 'System roles cannot be archived/deleted' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'System roles cannot be archived/deleted'));
             return;
         }
 
@@ -865,7 +865,7 @@ export async function teamDeleteRole(req: Request, res: Response): Promise<void>
             role.isActive = false;
             await role.save();
             await writeAudit(req, 'role_archived', 'team_role', req.params.id, undefined, { usersUsingRole });
-            res.json({ message: 'Role archived because it is assigned to members' });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Role archived because it is assigned to members'));
             return;
         }
 
@@ -875,10 +875,10 @@ export async function teamDeleteRole(req: Request, res: Response): Promise<void>
         ]);
 
         await writeAudit(req, 'role_deleted', 'team_role', req.params.id);
-        res.json({ message: 'Role deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Role deleted'));
     } catch (error) {
         console.error('teamDeleteRole error:', error);
-        res.status(500).json({ message: 'Failed to delete role' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to delete role'));
     }
 }
 
@@ -890,7 +890,7 @@ export async function teamGetPermissions(req: Request, res: Response): Promise<v
         const sets = await RolePermissionSet.find({ roleId: { $in: roleIds } }).lean();
         const setMap = new Map(sets.map((set) => [String(set.roleId), set.modulePermissions]));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             modules: TEAM_MODULES,
             actions: TEAM_ACTIONS,
             roles: roles.map((role) => ({
@@ -899,10 +899,10 @@ export async function teamGetPermissions(req: Request, res: Response): Promise<v
                 slug: role.slug,
                 permissions: setMap.get(String(role._id)) || {},
             })),
-        });
+        }));
     } catch (error) {
         console.error('teamGetPermissions error:', error);
-        res.status(500).json({ message: 'Failed to load permissions matrix' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load permissions matrix'));
     }
 }
 
@@ -910,17 +910,17 @@ export async function teamUpdateRolePermissions(req: Request, res: Response): Pr
     try {
         const roleId = String(req.params.id);
         if (!mongoose.Types.ObjectId.isValid(roleId)) {
-            res.status(400).json({ message: 'Invalid role id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid role id'));
             return;
         }
         const modulePermissions = pickModulePermissions((req.body as Record<string, unknown>).modulePermissions);
         await RolePermissionSet.updateOne({ roleId: new mongoose.Types.ObjectId(roleId) }, { $set: { modulePermissions } }, { upsert: true });
 
         await writeAudit(req, 'role_permissions_updated', 'team_role', roleId, undefined, { updated: true });
-        res.json({ message: 'Role permissions updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Role permissions updated'));
     } catch (error) {
         console.error('teamUpdateRolePermissions error:', error);
-        res.status(500).json({ message: 'Failed to update permissions' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update permissions'));
     }
 }
 
@@ -928,27 +928,27 @@ export async function teamUpdateMemberOverride(req: Request, res: Response): Pro
     try {
         const memberId = String(req.params.id);
         if (!mongoose.Types.ObjectId.isValid(memberId)) {
-            res.status(400).json({ message: 'Invalid member id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid member id'));
             return;
         }
 
         const body = req.body as Record<string, unknown>;
         if (body.allow === undefined && body.deny === undefined) {
-            res.status(400).json({ message: 'allow or deny permission matrix is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'allow or deny permission matrix is required'));
             return;
         }
         if (body.allow !== undefined && !isRecord(body.allow)) {
-            res.status(400).json({ message: 'allow must be a permission matrix object' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'allow must be a permission matrix object'));
             return;
         }
         if (body.deny !== undefined && !isRecord(body.deny)) {
-            res.status(400).json({ message: 'deny must be a permission matrix object' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'deny must be a permission matrix object'));
             return;
         }
 
         const member = await User.findById(memberId).select('teamRoleId').lean();
         if (!member) {
-            res.status(404).json({ message: 'Member not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
             return;
         }
 
@@ -972,20 +972,20 @@ export async function teamUpdateMemberOverride(req: Request, res: Response): Pro
         }
 
         await writeAudit(req, 'member_override_updated', 'team_member', memberId, undefined, { allow, deny });
-        res.json({ message: 'Member override updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Member override updated'));
     } catch (error) {
         console.error('teamUpdateMemberOverride error:', error);
-        res.status(500).json({ message: 'Failed to update member override' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update member override'));
     }
 }
 
 export async function teamGetApprovalRules(_req: Request, res: Response): Promise<void> {
     try {
         const items = await TeamApprovalRule.find({}).populate('approverRoleIds', 'name slug').sort({ module: 1, action: 1 }).lean();
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (error) {
         console.error('teamGetApprovalRules error:', error);
-        res.status(500).json({ message: 'Failed to load approval rules' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load approval rules'));
     }
 }
 
@@ -1000,15 +1000,15 @@ export async function teamCreateApprovalRule(req: Request, res: Response): Promi
         const { ids: approverRoleIds, invalid } = await resolveApproverRoleIds(body);
 
         if (!module || !action) {
-            res.status(400).json({ message: 'module and action are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'module and action are required'));
             return;
         }
         if (requiredApprovals === null) {
-            res.status(400).json({ message: 'requiredApprovals must be an integer greater than 0' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'requiredApprovals must be an integer greater than 0'));
             return;
         }
         if (invalid.length > 0) {
-            res.status(400).json({ message: `Unknown approver roles: ${invalid.join(', ')}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Unknown approver roles: ${invalid.join(', ')}`));
             return;
         }
 
@@ -1030,10 +1030,10 @@ export async function teamCreateApprovalRule(req: Request, res: Response): Promi
             description,
             approverRoleIds: approverRoleIds.map((id) => String(id)),
         });
-        res.status(201).json({ item: populatedItem || item, message: 'Approval rule created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: populatedItem || item }, 'Approval rule created'));
     } catch (error) {
         console.error('teamCreateApprovalRule error:', error);
-        res.status(500).json({ message: 'Failed to create approval rule' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to create approval rule'));
     }
 }
 
@@ -1042,17 +1042,17 @@ export async function teamUpdateApprovalRule(req: Request, res: Response): Promi
         const body = req.body as Record<string, unknown>;
         const item = await TeamApprovalRule.findById(req.params.id);
         if (!item) {
-            res.status(404).json({ message: 'Approval rule not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Approval rule not found'));
             return;
         }
         const requiredApprovals = parseRequiredApprovals(body.requiredApprovals, item.requiredApprovals || 1);
         const { ids: approverRoleIds, invalid } = await resolveApproverRoleIds(body);
         if (requiredApprovals === null) {
-            res.status(400).json({ message: 'requiredApprovals must be an integer greater than 0' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'requiredApprovals must be an integer greater than 0'));
             return;
         }
         if (invalid.length > 0) {
-            res.status(400).json({ message: `Unknown approver roles: ${invalid.join(', ')}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Unknown approver roles: ${invalid.join(', ')}`));
             return;
         }
 
@@ -1074,10 +1074,10 @@ export async function teamUpdateApprovalRule(req: Request, res: Response): Promi
             requiredApprovals: item.requiredApprovals,
             description: item.description,
         });
-        res.json({ message: 'Approval rule updated', item: populatedItem || item });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: populatedItem || item }, 'Approval rule updated'));
     } catch (error) {
         console.error('teamUpdateApprovalRule error:', error);
-        res.status(500).json({ message: 'Failed to update approval rule' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update approval rule'));
     }
 }
 
@@ -1085,10 +1085,10 @@ export async function teamDeleteApprovalRule(req: Request, res: Response): Promi
     try {
         await TeamApprovalRule.deleteOne({ _id: asObjectId(req.params.id) });
         await writeAudit(req, 'approval_rule_deleted', 'approval_rule', req.params.id);
-        res.json({ message: 'Approval rule deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Approval rule deleted'));
     } catch (error) {
         console.error('teamDeleteApprovalRule error:', error);
-        res.status(500).json({ message: 'Failed to delete approval rule' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to delete approval rule'));
     }
 }
 
@@ -1266,10 +1266,10 @@ export async function teamGetActivity(req: Request, res: Response): Promise<void
             .sort((left, right) => new Date(String(right.createdAt)).getTime() - new Date(String(left.createdAt)).getTime())
             .slice(0, 300);
 
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (error) {
         console.error('teamGetActivity error:', error);
-        res.status(500).json({ message: 'Failed to load activity logs' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load activity logs'));
     }
 }
 
@@ -1277,13 +1277,13 @@ export async function teamGetActivityById(req: Request, res: Response): Promise<
     try {
         const item = await TeamAuditLog.findById(req.params.id).populate('actorId', 'full_name username email role').lean();
         if (!item) {
-            res.status(404).json({ message: 'Activity log not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Activity log not found'));
             return;
         }
-        res.json({ item });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }));
     } catch (error) {
         console.error('teamGetActivityById error:', error);
-        res.status(500).json({ message: 'Failed to load activity log' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load activity log'));
     }
 }
 
@@ -1294,7 +1294,7 @@ export async function teamGetSecurityOverview(_req: Request, res: Response): Pro
             .sort({ updatedAt: -1 })
             .lean();
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: members,
             summary: {
                 total: members.length,
@@ -1302,10 +1302,10 @@ export async function teamGetSecurityOverview(_req: Request, res: Response): Pro
                 resetRequired: members.filter((m) => m.forcePasswordResetRequired).length,
                 twoFactorEnabled: members.filter((m) => m.twoFactorEnabled).length,
             },
-        });
+        }));
     } catch (error) {
         console.error('teamGetSecurityOverview error:', error);
-        res.status(500).json({ message: 'Failed to load security overview' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load security overview'));
     }
 }
 
@@ -1317,9 +1317,9 @@ export async function teamGetInvites(_req: Request, res: Response): Promise<void
             .sort({ createdAt: -1 })
             .limit(300)
             .lean();
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (error) {
         console.error('teamGetInvites error:', error);
-        res.status(500).json({ message: 'Failed to load invites' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load invites'));
     }
 }

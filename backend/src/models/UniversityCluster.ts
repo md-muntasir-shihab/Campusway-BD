@@ -15,6 +15,7 @@ export interface IUniversityCluster extends Document {
     name: string;
     slug: string;
     description?: string;
+    heroImageUrl?: string;
     isActive: boolean;
     memberUniversityIds: mongoose.Types.ObjectId[];
     categoryRules: string[];
@@ -23,6 +24,12 @@ export interface IUniversityCluster extends Document {
     syncPolicy: 'inherit_with_override';
     homeVisible: boolean;
     homeOrder: number;
+    /** Controls how cluster members appear on the home feed.
+     *  - 'cluster_only': Only the cluster card is shown on home (e.g. গুচ্ছ ভর্তি — single card, no individual universities).
+     *  - 'members_only': Individual university cards are shown, cluster card is hidden.
+     *  - 'both': Both cluster card and individual university cards are shown.
+     */
+    homeFeedMode: 'cluster_only' | 'members_only' | 'both';
     createdBy?: mongoose.Types.ObjectId | null;
     updatedBy?: mongoose.Types.ObjectId | null;
     createdAt: Date;
@@ -48,6 +55,7 @@ const UniversityClusterSchema = new Schema<IUniversityCluster>({
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, trim: true, unique: true },
     description: { type: String, default: '' },
+    heroImageUrl: { type: String, default: '', trim: true },
     isActive: { type: Boolean, default: true },
     memberUniversityIds: { type: [{ type: Schema.Types.ObjectId, ref: 'University' }], default: [] },
     categoryRules: { type: [String], default: [] },
@@ -56,6 +64,7 @@ const UniversityClusterSchema = new Schema<IUniversityCluster>({
     syncPolicy: { type: String, enum: ['inherit_with_override'], default: 'inherit_with_override' },
     homeVisible: { type: Boolean, default: false },
     homeOrder: { type: Number, default: 0 },
+    homeFeedMode: { type: String, enum: ['cluster_only', 'members_only', 'both'], default: 'both' },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: true });

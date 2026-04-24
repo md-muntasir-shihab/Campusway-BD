@@ -30,6 +30,7 @@ import { computeStudentProfileScore } from '../services/studentProfileScoreServi
 import { createStudentNotification } from '../services/adminAlertService';
 import * as groupMembershipService from '../services/groupMembershipService';
 import { issueSecurityToken } from '../services/securityTokenService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function normalizeRole(value: unknown, fallback: UserRole = 'student'): UserRole {
     const role = String(value || '').trim().toLowerCase();
@@ -558,10 +559,10 @@ export async function adminGetUsers(req: AuthRequest, res: Response): Promise<vo
             admins: 0,
         };
 
-        res.json({ users, total, page: pageNumber, pages, summary });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ users, total, page: pageNumber, pages, summary }));
     } catch (error) {
         console.error('adminGetUsers error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -569,7 +570,7 @@ export async function adminGetUserById(req: AuthRequest, res: Response): Promise
     try {
         const user = await User.findById(req.params.id).select('-password -twoFactorSecret').lean();
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
@@ -580,13 +581,13 @@ export async function adminGetUserById(req: AuthRequest, res: Response): Promise
 
         if (user.role === 'student') {
             const details = await loadStudentDetails(String(user._id));
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 user: mapUserForClient(user as unknown as Record<string, unknown>),
                 profile: details.profile,
                 applications: details.applications,
                 examHistory: details.examHistory,
                 loginHistory,
-            });
+            }));
             return;
         }
 
@@ -595,15 +596,15 @@ export async function adminGetUserById(req: AuthRequest, res: Response): Promise
             AuditLog.find({ actor_id: user._id }).sort({ timestamp: -1 }).limit(50).lean(),
         ]);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             user: mapUserForClient(user as unknown as Record<string, unknown>),
             profile: adminProfile,
             loginHistory,
             actionHistory,
-        });
+        }));
     } catch (error) {
         console.error('adminGetUserById error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -611,20 +612,20 @@ export async function adminGetStudentProfile(req: AuthRequest, res: Response): P
     try {
         const user = await User.findById(req.params.id).select('role');
         if (!user || user.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
         const details = await loadStudentDetails(String(req.params.id));
         if (!details.profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
 
-        res.json(details);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(details));
     } catch (error) {
         console.error('adminGetStudentProfile error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -633,7 +634,7 @@ export async function adminUpdateStudentProfile(req: AuthRequest, res: Response)
         const body = req.body as Record<string, unknown>;
         const user = await User.findById(req.params.id);
         if (!user || user.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
@@ -642,7 +643,7 @@ export async function adminUpdateStudentProfile(req: AuthRequest, res: Response)
         if (nextUsername && nextUsername !== user.username) {
             const exists = await User.exists({ username: nextUsername, _id: { $ne: user._id } });
             if (exists) {
-                res.status(400).json({ message: 'Username already in use' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Username already in use'));
                 return;
             }
             user.username = nextUsername;
@@ -650,7 +651,7 @@ export async function adminUpdateStudentProfile(req: AuthRequest, res: Response)
         if (nextEmail && nextEmail !== user.email) {
             const exists = await User.exists({ email: nextEmail, _id: { $ne: user._id } });
             if (exists) {
-                res.status(400).json({ message: 'Email already in use' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Email already in use'));
                 return;
             }
             user.email = nextEmail;
@@ -665,7 +666,7 @@ export async function adminUpdateStudentProfile(req: AuthRequest, res: Response)
 
         const profile = await StudentProfile.findOne({ user_id: user._id });
         if (!profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
 
@@ -702,14 +703,13 @@ export async function adminUpdateStudentProfile(req: AuthRequest, res: Response)
             meta: { studentId: String(user._id), source: 'admin_update' },
         });
 
-        res.json({
-            message: 'Student profile updated successfully',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             user: mapUserForClient(user.toObject() as unknown as Record<string, unknown>),
-            profile,
-        });
+            profile
+        }, 'Student profile updated successfully'));
     } catch (error) {
         console.error('adminUpdateStudentProfile error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -717,16 +717,16 @@ export async function adminGetAdminProfile(req: AuthRequest, res: Response): Pro
     try {
         const profile = await AdminProfile.findOne({ user_id: req.params.id }).lean();
         if (!profile) {
-            res.status(404).json({ message: 'Admin profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Admin profile not found'));
             return;
         }
 
         const loginHistory = await LoginActivity.find({ user_id: req.params.id }).sort({ createdAt: -1 }).limit(30).lean();
         const actionHistory = await AuditLog.find({ actor_id: req.params.id }).sort({ timestamp: -1 }).limit(50).lean();
-        res.json({ profile, loginHistory, actionHistory });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ profile, loginHistory, actionHistory }));
     } catch (error) {
         console.error('adminGetAdminProfile error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -734,7 +734,7 @@ export async function adminUpdateAdminProfile(req: AuthRequest, res: Response): 
     try {
         const user = await User.findById(req.params.id);
         if (!user || !['superadmin', 'admin', 'moderator', 'editor', 'viewer'].includes(user.role)) {
-            res.status(404).json({ message: 'Admin user not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Admin user not found'));
             return;
         }
 
@@ -764,14 +764,13 @@ export async function adminUpdateAdminProfile(req: AuthRequest, res: Response): 
             actorId: req.user?._id,
             meta: { source: 'admin_profile', editedFields: Object.keys(body) },
         });
-        res.json({
-            message: 'Admin profile updated successfully',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             user: mapUserForClient(user.toObject() as unknown as Record<string, unknown>),
-            profile,
-        });
+            profile
+        }, 'Admin profile updated successfully'));
     } catch (error) {
         console.error('adminUpdateAdminProfile error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -781,7 +780,7 @@ export async function adminCreateUser(req: AuthRequest, res: Response): Promise<
         const role = normalizeRole(body.role, 'student');
 
         if (role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Only superadmin can create superadmin accounts' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can create superadmin accounts'));
             return;
         }
 
@@ -789,13 +788,13 @@ export async function adminCreateUser(req: AuthRequest, res: Response): Promise<
         const email = String(body.email || '').trim().toLowerCase();
         const fullName = String(body.full_name || body.name || '').trim();
         if (!username || !email || !fullName) {
-            res.status(400).json({ message: 'full_name, username and email are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'full_name, username and email are required'));
             return;
         }
 
         const existing = await User.findOne({ $or: [{ username }, { email }] });
         if (existing) {
-            res.status(400).json({ message: 'Username or email already exists' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Username or email already exists'));
             return;
         }
 
@@ -874,14 +873,13 @@ export async function adminCreateUser(req: AuthRequest, res: Response): Promise<
             meta: { role: user.role, status: user.status },
         });
 
-        res.status(201).json({
-            message: 'User created successfully',
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             user: mapUserForClient(user.toObject() as unknown as Record<string, unknown>),
-            inviteSent,
-        });
+            inviteSent
+        }, 'User created successfully'));
     } catch (error) {
         console.error('adminCreateUser error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -890,12 +888,12 @@ export async function adminUpdateUser(req: AuthRequest, res: Response): Promise<
         const body = req.body as Record<string, unknown>;
         const user = await User.findById(req.params.id);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         if (user.role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Only superadmin can modify another superadmin' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can modify another superadmin'));
             return;
         }
 
@@ -904,7 +902,7 @@ export async function adminUpdateUser(req: AuthRequest, res: Response): Promise<
             if (username && username !== user.username) {
                 const exists = await User.exists({ username, _id: { $ne: user._id } });
                 if (exists) {
-                    res.status(400).json({ message: 'Username already in use' });
+                    ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Username already in use'));
                     return;
                 }
                 user.username = username;
@@ -916,7 +914,7 @@ export async function adminUpdateUser(req: AuthRequest, res: Response): Promise<
             if (email && email !== user.email) {
                 const exists = await User.exists({ email, _id: { $ne: user._id } });
                 if (exists) {
-                    res.status(400).json({ message: 'Email already in use' });
+                    ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Email already in use'));
                     return;
                 }
                 user.email = email;
@@ -931,7 +929,7 @@ export async function adminUpdateUser(req: AuthRequest, res: Response): Promise<
         if (body.role) {
             const nextRole = normalizeRole(body.role, user.role);
             if (nextRole === 'superadmin' && req.user?.role !== 'superadmin') {
-                res.status(403).json({ message: 'Only superadmin can assign superadmin role' });
+                ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can assign superadmin role'));
                 return;
             }
             user.role = nextRole;
@@ -991,13 +989,10 @@ export async function adminUpdateUser(req: AuthRequest, res: Response): Promise<
             meta: { editedFields: Object.keys(body), role: user.role, status: user.status },
         });
 
-        res.json({
-            message: 'User updated successfully',
-            user: mapUserForClient(user.toObject() as unknown as Record<string, unknown>),
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ user: mapUserForClient(user.toObject() as unknown as Record<string, unknown>) }, 'User updated successfully'));
     } catch (error) {
         console.error('adminUpdateUser error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1005,17 +1000,17 @@ export async function adminDeleteUser(req: AuthRequest, res: Response): Promise<
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         if (String(user._id) === req.user?._id) {
-            res.status(400).json({ message: 'You cannot delete your own account' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'You cannot delete your own account'));
             return;
         }
 
         if (user.role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Only superadmin can delete superadmin account' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can delete superadmin account'));
             return;
         }
 
@@ -1037,10 +1032,10 @@ export async function adminDeleteUser(req: AuthRequest, res: Response): Promise<
             meta: { role: user.role, email: user.email },
         });
 
-        res.json({ message: 'User deleted successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'User deleted successfully'));
     } catch (error) {
         console.error('adminDeleteUser error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1049,12 +1044,12 @@ export async function adminUpdateUserRole(req: AuthRequest, res: Response): Prom
         const role = normalizeRole((req.body as Record<string, unknown>).role);
         const user = await User.findById(req.params.id);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         if (role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Only superadmin can assign superadmin role' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can assign superadmin role'));
             return;
         }
 
@@ -1101,13 +1096,10 @@ export async function adminUpdateUserRole(req: AuthRequest, res: Response): Prom
             actorId: req.user?._id,
             meta: { role },
         });
-        res.json({
-            message: 'User role updated',
-            user: mapUserForClient(user.toObject() as unknown as Record<string, unknown>),
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ user: mapUserForClient(user.toObject() as unknown as Record<string, unknown>) }, 'User role updated'));
     } catch (error) {
         console.error('adminUpdateUserRole error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1115,7 +1107,7 @@ export async function adminSetUserPermissions(req: AuthRequest, res: Response): 
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
@@ -1148,10 +1140,10 @@ export async function adminSetUserPermissions(req: AuthRequest, res: Response): 
             actorId: req.user?._id,
             meta: permissions as unknown as Record<string, unknown>,
         });
-        res.json({ message: 'Permissions updated', permissions });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ permissions }, 'Permissions updated'));
     } catch (error) {
         console.error('adminSetUserPermissions error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1160,12 +1152,12 @@ export async function adminSetUserStatus(req: AuthRequest, res: Response): Promi
         const status = normalizeStatus((req.body as Record<string, unknown>).status, 'active');
         const user = await User.findById(req.params.id);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         if (user.role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Only superadmin can update superadmin status' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can update superadmin status'));
             return;
         }
 
@@ -1179,10 +1171,10 @@ export async function adminSetUserStatus(req: AuthRequest, res: Response): Promi
             actorId: req.user?._id,
             meta: { status },
         });
-        res.json({ message: `User status updated to ${status}`, status });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ status }, `User status updated to ${status}`));
     } catch (error) {
         console.error('adminSetUserStatus error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1190,12 +1182,12 @@ export async function adminToggleUserStatus(req: AuthRequest, res: Response): Pr
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         if (user.role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Cannot modify superadmin status' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Cannot modify superadmin status'));
             return;
         }
 
@@ -1208,10 +1200,10 @@ export async function adminToggleUserStatus(req: AuthRequest, res: Response): Pr
             actorId: req.user?._id,
             meta: { status: user.status, toggled: true },
         });
-        res.json({ message: `User status changed to ${user.status}`, status: user.status });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ status: user.status }, `User status changed to ${user.status}`));
     } catch (error) {
         console.error('adminToggleUserStatus error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1224,14 +1216,14 @@ export async function adminBulkUserAction(req: AuthRequest, res: Response): Prom
         const action = String(body.action || '').trim().toLowerCase();
 
         if (userIds.length === 0 || !action) {
-            res.status(400).json({ message: 'userIds and action are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'userIds and action are required'));
             return;
         }
 
         const users = await User.find({ _id: { $in: userIds } });
         const protectedUsers = users.filter((u) => u.role === 'superadmin' && req.user?.role !== 'superadmin');
         if (protectedUsers.length > 0) {
-            res.status(403).json({ message: 'Operation includes protected superadmin accounts' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Operation includes protected superadmin accounts'));
             return;
         }
 
@@ -1262,7 +1254,7 @@ export async function adminBulkUserAction(req: AuthRequest, res: Response): Prom
             const result = await User.updateMany({ _id: { $in: userIds } }, { $set: { status } });
             affected = result.modifiedCount;
         } else {
-            res.status(400).json({ message: 'Unsupported bulk action' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported bulk action'));
             return;
         }
 
@@ -1281,10 +1273,10 @@ export async function adminBulkUserAction(req: AuthRequest, res: Response): Prom
             },
         });
 
-        res.json({ message: 'Bulk action completed', action, affected });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ action, affected }, 'Bulk action completed'));
     } catch (error) {
         console.error('adminBulkUserAction error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1297,7 +1289,7 @@ export async function adminBulkStudentAction(req: AuthRequest, res: Response): P
         const action = String(body.action || '').trim().toLowerCase();
 
         if (studentIds.length === 0 || !action) {
-            res.status(400).json({ message: 'studentIds and action are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'studentIds and action are required'));
             return;
         }
 
@@ -1306,7 +1298,7 @@ export async function adminBulkStudentAction(req: AuthRequest, res: Response): P
             const users = await User.find({ _id: { $in: studentIds } });
             const protectedUsers = users.filter((u) => u.role === 'superadmin' && req.user?.role !== 'superadmin');
             if (protectedUsers.length > 0) {
-                res.status(403).json({ message: 'Operation includes protected accounts' });
+                ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Operation includes protected accounts'));
                 return;
             }
 
@@ -1327,16 +1319,16 @@ export async function adminBulkStudentAction(req: AuthRequest, res: Response): P
         } else if (action === 'add_to_group') {
             const groupId = String(body.groupId || '');
             if (!groupId) {
-                res.status(400).json({ message: 'groupId is required for this action' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'groupId is required for this action'));
                 return;
             }
             const group = await StudentGroup.findById(groupId);
             if (!group) {
-                res.status(404).json({ message: 'Target group not found' });
+                ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Target group not found'));
                 return;
             }
             if (group.type === 'dynamic') {
-                res.status(400).json({ message: 'Cannot manually add students to a dynamic group' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Cannot manually add students to a dynamic group'));
                 return;
             }
 
@@ -1352,7 +1344,7 @@ export async function adminBulkStudentAction(req: AuthRequest, res: Response): P
             await group.save();
             affected = studentIds.length;
         } else {
-            res.status(400).json({ message: 'Unsupported bulk action' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported bulk action'));
             return;
         }
 
@@ -1362,10 +1354,10 @@ export async function adminBulkStudentAction(req: AuthRequest, res: Response): P
             requested: studentIds.length,
         });
 
-        res.json({ message: 'Bulk action completed', action, affected });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ action, affected }, 'Bulk action completed'));
     } catch (error) {
         console.error('adminBulkStudentAction error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1393,7 +1385,7 @@ export async function adminBulkImportStudents(req: AuthRequest, res: Response): 
         }
 
         if (rows.length === 0) {
-            res.status(400).json({ message: 'No valid student records found. Provide JSON array or upload CSV/Excel file.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No valid student records found. Provide JSON array or upload CSV/Excel file.'));
             return;
         }
 
@@ -1402,14 +1394,14 @@ export async function adminBulkImportStudents(req: AuthRequest, res: Response): 
         if (targetPlanCode) {
             targetPlan = await SubscriptionPlan.findOne({ planCode: targetPlanCode });
             if (!targetPlan) {
-                res.status(400).json({ message: `Target subscription plan '${targetPlanCode}' not found.` });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Target subscription plan '${targetPlanCode}' not found.`));
                 return;
             }
         }
 
         // Validate target group if provided
         if (targetGroupId && !mongoose.Types.ObjectId.isValid(targetGroupId)) {
-            res.status(400).json({ message: 'Invalid targetGroupId provided.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid targetGroupId provided.'));
             return;
         }
 
@@ -1535,16 +1527,15 @@ export async function adminBulkImportStudents(req: AuthRequest, res: Response): 
             meta: { imported, skipped, total: rows.length },
         });
 
-        res.status(201).json({
-            message: `Imported ${imported} students. Skipped ${skipped}.`,
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             imported,
             skipped,
             errors,
             inviteSentCount,
-        });
+        }, `Imported ${imported} students. Skipped ${skipped}.`));
     } catch (error) {
         console.error('adminBulkImportStudents error:', error);
-        res.status(500).json({ message: 'Server error during bulk import' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during bulk import'));
     }
 }
 
@@ -1552,12 +1543,12 @@ export async function adminResetUserPassword(req: AuthRequest, res: Response): P
     try {
         const user = await User.findById(req.params.id).select('+password');
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         if (user.role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Only superadmin can reset superadmin password' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can reset superadmin password'));
             return;
         }
 
@@ -1578,15 +1569,15 @@ export async function adminResetUserPassword(req: AuthRequest, res: Response): P
             actorId: req.user?._id,
             meta: { passwordReset: true },
         });
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             message: inviteSent
                 ? 'Password reset link sent successfully.'
                 : 'Password reset enforced. No email address is available to send the reset link.',
             inviteSent,
-        });
+        }));
     } catch (error) {
         console.error('adminResetUserPassword error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1623,15 +1614,15 @@ export async function adminGetAuditLogs(req: AuthRequest, res: Response): Promis
             AuditLog.countDocuments(filter),
         ]);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             logs,
             total,
             page: pageNumber,
             pages: Math.max(1, Math.ceil(total / limitNumber)),
-        });
+        }));
     } catch (error) {
         console.error('adminGetAuditLogs error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1644,10 +1635,10 @@ export async function adminGetUserActivity(req: AuthRequest, res: Response): Pro
             AuditLog.find({ target_id: userId }).sort({ timestamp: -1 }).limit(100).lean(),
         ]);
 
-        res.json({ loginHistory, actionHistory, targetHistory });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ loginHistory, actionHistory, targetHistory }));
     } catch (error) {
         console.error('adminGetUserActivity error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1771,7 +1762,7 @@ export async function adminExportStudents(req: AuthRequest, res: Response): Prom
         res.send(buffer);
     } catch (error) {
         console.error('adminExportStudents error:', error);
-        res.status(500).json({ message: 'Server error during export' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during export'));
     }
 }
 
@@ -2074,10 +2065,10 @@ export async function adminGetStudents(req: AuthRequest, res: Response): Promise
             paymentPending: filteredRows.filter((row) => String(row.paymentStatus || '') === 'pending').length,
         };
 
-        res.json({ items, total, page: pageNumber, pages, summary, lastUpdatedAt: new Date().toISOString() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page: pageNumber, pages, summary, lastUpdatedAt: new Date().toISOString() }));
     } catch (error) {
         console.error('adminGetStudents error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2099,13 +2090,13 @@ export async function adminCreateStudent(req: AuthRequest, res: Response): Promi
         const institutionName = readFirstString(body, ['institution_name', 'institutionName']);
 
         if (!username || !email || !fullName) {
-            res.status(400).json({ message: 'full_name, username and email are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'full_name, username and email are required'));
             return;
         }
 
         const exists = await User.findOne({ $or: [{ username }, { email }] }).select('_id').lean();
         if (exists) {
-            res.status(400).json({ message: 'Username or email already exists' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Username or email already exists'));
             return;
         }
 
@@ -2233,8 +2224,7 @@ export async function adminCreateStudent(req: AuthRequest, res: Response): Promi
         });
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId: String(user._id), source: 'student_create' } });
 
-        res.status(201).json({
-            message: 'Student created successfully',
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             student: {
                 _id: String(user._id),
                 username: user.username,
@@ -2245,10 +2235,10 @@ export async function adminCreateStudent(req: AuthRequest, res: Response): Promi
             },
             inviteSent,
             paymentSyncWarning,
-        });
+        }, 'Student created successfully'));
     } catch (error) {
         console.error('adminCreateStudent error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2273,7 +2263,7 @@ export async function adminUpdateStudent(req: AuthRequest, res: Response): Promi
 
         const user = await User.findById(studentId);
         if (!user || user.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
@@ -2282,7 +2272,7 @@ export async function adminUpdateStudent(req: AuthRequest, res: Response): Promi
             if (username && username !== user.username) {
                 const exists = await User.exists({ username, _id: { $ne: user._id } });
                 if (exists) {
-                    res.status(400).json({ message: 'Username already in use' });
+                    ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Username already in use'));
                     return;
                 }
                 user.username = username;
@@ -2293,7 +2283,7 @@ export async function adminUpdateStudent(req: AuthRequest, res: Response): Promi
             if (email && email !== user.email) {
                 const exists = await User.exists({ email, _id: { $ne: user._id } });
                 if (exists) {
-                    res.status(400).json({ message: 'Email already in use' });
+                    ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Email already in use'));
                     return;
                 }
                 user.email = email;
@@ -2340,7 +2330,7 @@ export async function adminUpdateStudent(req: AuthRequest, res: Response): Promi
 
         const profile = await StudentProfile.findOne({ user_id: user._id });
         if (!profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
 
@@ -2390,8 +2380,7 @@ export async function adminUpdateStudent(req: AuthRequest, res: Response): Promi
         });
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId: String(user._id), source: 'student_update' } });
 
-        res.json({
-            message: 'Student updated successfully',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             student: {
                 _id: String(user._id),
                 username: user.username,
@@ -2403,10 +2392,10 @@ export async function adminUpdateStudent(req: AuthRequest, res: Response): Promi
                 groupIds: Array.isArray(profile.groupIds) ? profile.groupIds.map((id) => String(id)) : [],
                 subscription: getSubscriptionResponse(user.subscription as unknown as Record<string, unknown>),
             },
-        });
+        }, 'Student updated successfully'));
     } catch (error) {
         console.error('adminUpdateStudent error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2415,7 +2404,7 @@ export async function adminUpdateStudentSubscription(req: AuthRequest, res: Resp
         const studentId = req.params.id;
         const user = await User.findById(studentId);
         if (!user || user.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
@@ -2491,14 +2480,13 @@ export async function adminUpdateStudentSubscription(req: AuthRequest, res: Resp
             meta: { subscriptionUpdated: true, source: 'student_management' },
         });
 
-        res.json({
-            message: 'Student subscription updated successfully',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             subscription: getSubscriptionResponse(user.subscription as unknown as Record<string, unknown>),
-            paymentSyncWarning,
-        });
+            paymentSyncWarning
+        }, 'Student subscription updated successfully'));
     } catch (error) {
         console.error('adminUpdateStudentSubscription error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2507,14 +2495,14 @@ export async function adminUpdateStudentGroups(req: AuthRequest, res: Response):
         const studentId = String(req.params.id);
         const user = await User.findById(studentId).select('role');
         if (!user || user.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
         const body = req.body as Record<string, unknown>;
         const profile = await StudentProfile.findOne({ user_id: studentId });
         if (!profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
 
@@ -2537,13 +2525,10 @@ export async function adminUpdateStudentGroups(req: AuthRequest, res: Response):
         });
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId, source: 'group_update' } });
 
-        res.json({
-            message: 'Student groups updated successfully',
-            groupIds: finalGroupIds,
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ groupIds: finalGroupIds }, 'Student groups updated successfully'));
     } catch (error) {
         console.error('adminUpdateStudentGroups error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2552,7 +2537,7 @@ export async function adminGetStudentExams(req: AuthRequest, res: Response): Pro
         const studentId = req.params.id;
         const user = await User.findById(studentId).select('role').lean();
         if (!user || user.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
@@ -2587,10 +2572,10 @@ export async function adminGetStudentExams(req: AuthRequest, res: Response): Pro
             };
         });
 
-        res.json({ items, lastUpdatedAt: new Date().toISOString() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, lastUpdatedAt: new Date().toISOString() }));
     } catch (error) {
         console.error('adminGetStudentExams error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2599,7 +2584,7 @@ export async function adminGetStudentExtendedProfile(req: AuthRequest, res: Resp
         const studentId = req.params.id;
         const user = await User.findById(studentId).select('role full_name username email phone').lean();
         if (!user || (user as any).role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
@@ -2652,7 +2637,7 @@ export async function adminGetStudentExtendedProfile(req: AuthRequest, res: Resp
 
         const ipHistory = [...new Set(loginActivities.map((la: any) => la.ip_address).filter(Boolean))];
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             student: user,
             examHistory,
             performanceAnalytics: {
@@ -2663,10 +2648,10 @@ export async function adminGetStudentExtendedProfile(req: AuthRequest, res: Resp
             },
             deviceInfo,
             ipHistory,
-        });
+        }));
     } catch (error) {
         console.error('adminGetStudentExtendedProfile error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2686,10 +2671,10 @@ export async function adminGetStudentGroups(_req: AuthRequest, res: Response): P
             studentCount: countMap.get(String(group._id)) || 0,
         }));
 
-        res.json({ items, lastUpdatedAt: new Date().toISOString() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, lastUpdatedAt: new Date().toISOString() }));
     } catch (error) {
         console.error('adminGetStudentGroups error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2698,7 +2683,7 @@ export async function adminCreateStudentGroup(req: AuthRequest, res: Response): 
         const body = req.body as Record<string, unknown>;
         const name = String(body.name || '').trim();
         if (!name) {
-            res.status(400).json({ message: 'Group name is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Group name is required'));
             return;
         }
 
@@ -2734,10 +2719,10 @@ export async function adminCreateStudentGroup(req: AuthRequest, res: Response): 
         });
 
         await createAuditLog(req, 'student_group_created', String(item._id), 'student_group', { name: item.name, slug: item.slug });
-        res.status(201).json({ item, message: 'Student group created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item }, 'Student group created'));
     } catch (error) {
         console.error('adminCreateStudentGroup error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2771,12 +2756,12 @@ export async function adminUpdateStudentGroup(req: AuthRequest, res: Response): 
         if (body.slug !== undefined) {
             const slug = slugify(body.slug);
             if (!slug) {
-                res.status(400).json({ message: 'Invalid slug' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid slug'));
                 return;
             }
             const exists = await StudentGroup.exists({ slug, _id: { $ne: req.params.id } });
             if (exists) {
-                res.status(400).json({ message: 'Slug already exists' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Slug already exists'));
                 return;
             }
             update.slug = slug;
@@ -2784,7 +2769,7 @@ export async function adminUpdateStudentGroup(req: AuthRequest, res: Response): 
 
         const item = await StudentGroup.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
         if (!item) {
-            res.status(404).json({ message: 'Student group not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student group not found'));
             return;
         }
 
@@ -2818,10 +2803,10 @@ export async function adminUpdateStudentGroup(req: AuthRequest, res: Response): 
             added_members: addResult.added,
             removed_members: removeResult.removed,
         });
-        res.json({ item, message: 'Student group updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }, 'Student group updated'));
     } catch (error) {
         console.error('adminUpdateStudentGroup error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2830,17 +2815,17 @@ export async function adminDeleteStudentGroup(req: AuthRequest, res: Response): 
         const groupId = req.params.id;
         const item = await StudentGroup.findByIdAndDelete(groupId);
         if (!item) {
-            res.status(404).json({ message: 'Student group not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student group not found'));
             return;
         }
 
         await StudentProfile.updateMany({ groupIds: item._id }, { $pull: { groupIds: item._id } });
         await createAuditLog(req, 'student_group_deleted', String(groupId), 'student_group', { slug: item.slug });
 
-        res.json({ message: 'Student group deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Student group deleted'));
     } catch (error) {
         console.error('adminDeleteStudentGroup error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2892,7 +2877,7 @@ export async function adminExportStudentGroups(_req: AuthRequest, res: Response)
         res.send(buffer);
     } catch (error) {
         console.error('adminExportStudentGroups error:', error);
-        res.status(500).json({ message: 'Server error during group export' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during group export'));
     }
 }
 
@@ -2901,7 +2886,7 @@ export async function adminImportStudentGroups(req: AuthRequest, res: Response):
         const file = req.file;
         const uploadedBuffer = await getUploadedFileBuffer(file);
         if (!file || !uploadedBuffer) {
-            res.status(400).json({ message: 'File upload is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'File upload is required'));
             return;
         }
 
@@ -2966,32 +2951,26 @@ export async function adminImportStudentGroups(req: AuthRequest, res: Response):
             errors: errors.length,
         });
 
-        res.json({
-            message: `Group import completed. Created: ${created}, Updated: ${updated}, Skipped: ${skipped}.`,
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             created,
             updated,
             skipped,
             totalRows: rows.length,
-            errors,
-        });
+            errors
+        }, `Group import completed. Created: ${created}, Updated: ${updated}, Skipped: ${skipped}.`));
     } catch (error) {
         console.error('adminImportStudentGroups error:', error);
-        res.status(500).json({
-            message: 'Server error during group import',
-            error: process.env.NODE_ENV === 'production'
-                ? undefined
-                : (error instanceof Error ? error.message : String(error)),
-        });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during group import'));
     }
 }
 
 export async function adminGetSubscriptionPlans(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const items = await SubscriptionPlan.find().sort({ isActive: -1, priority: 1, code: 1 }).lean();
-        res.json({ items, lastUpdatedAt: new Date().toISOString() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, lastUpdatedAt: new Date().toISOString() }));
     } catch (error) {
         console.error('adminGetSubscriptionPlans error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3000,13 +2979,13 @@ export async function getPublicSubscriptionPlans(_req: Request, res: Response): 
         const items = await SubscriptionPlan.find({ isActive: true })
             .sort({ sortOrder: 1, priority: 1, code: 1 })
             .lean();
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items,
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('getPublicSubscriptionPlans error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3015,12 +2994,12 @@ export async function adminCreateSubscriptionPlan(req: AuthRequest, res: Respons
         const body = req.body as Record<string, unknown>;
         const code = slugify(body.code || body.name);
         if (!code) {
-            res.status(400).json({ message: 'Plan code is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Plan code is required'));
             return;
         }
         const exists = await SubscriptionPlan.exists({ code });
         if (exists) {
-            res.status(400).json({ message: 'Plan code already exists' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Plan code already exists'));
             return;
         }
 
@@ -3046,10 +3025,10 @@ export async function adminCreateSubscriptionPlan(req: AuthRequest, res: Respons
         });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'subscriptionPlans' } });
         await createAuditLog(req, 'subscription_plan_created', String(item._id), 'subscription_plan', { code: item.code });
-        res.status(201).json({ item, message: 'Subscription plan created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item }, 'Subscription plan created'));
     } catch (error) {
         console.error('adminCreateSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3060,12 +3039,12 @@ export async function adminUpdateSubscriptionPlan(req: AuthRequest, res: Respons
         if (body.code !== undefined) {
             const nextCode = slugify(body.code);
             if (!nextCode) {
-                res.status(400).json({ message: 'Invalid plan code' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid plan code'));
                 return;
             }
             const exists = await SubscriptionPlan.exists({ code: nextCode, _id: { $ne: req.params.id } });
             if (exists) {
-                res.status(400).json({ message: 'Plan code already exists' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Plan code already exists'));
                 return;
             }
             update.code = nextCode;
@@ -3096,16 +3075,16 @@ export async function adminUpdateSubscriptionPlan(req: AuthRequest, res: Respons
 
         const item = await SubscriptionPlan.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
         if (!item) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
 
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'subscriptionPlans' } });
         await createAuditLog(req, 'subscription_plan_updated', String(item._id), 'subscription_plan', { edited_fields: Object.keys(update) });
-        res.json({ item, message: 'Subscription plan updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }, 'Subscription plan updated'));
     } catch (error) {
         console.error('adminUpdateSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3113,7 +3092,7 @@ export async function adminToggleSubscriptionPlan(req: AuthRequest, res: Respons
     try {
         const item = await SubscriptionPlan.findById(req.params.id);
         if (!item) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
         item.isActive = !item.isActive;
@@ -3121,10 +3100,10 @@ export async function adminToggleSubscriptionPlan(req: AuthRequest, res: Respons
 
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'subscriptionPlans' } });
         await createAuditLog(req, 'subscription_plan_toggled', String(item._id), 'subscription_plan', { isActive: item.isActive });
-        res.json({ item, message: `Subscription plan ${item.isActive ? 'activated' : 'deactivated'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }, `Subscription plan ${item.isActive ? 'activated' : 'deactivated'}`));
     } catch (error) {
         console.error('adminToggleSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3161,10 +3140,10 @@ export async function adminGetProfileUpdateRequests(req: AuthRequest, res: Respo
             };
         });
 
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (error) {
         console.error('adminGetProfileUpdateRequests error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3172,13 +3151,13 @@ export async function adminApproveProfileUpdateRequest(req: AuthRequest, res: Re
     try {
         const request = await ProfileUpdateRequest.findById(req.params.id);
         if (!request || request.status !== 'pending') {
-            res.status(404).json({ message: 'Pending request not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Pending request not found'));
             return;
         }
 
         const profile = await StudentProfile.findOne({ user_id: request.student_id });
         if (!profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
 
@@ -3218,10 +3197,10 @@ export async function adminApproveProfileUpdateRequest(req: AuthRequest, res: Re
             createdBy: req.user?._id,
         });
 
-        res.json({ message: 'Profile update approved', profile });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ profile }, 'Profile update approved'));
     } catch (error) {
         console.error('adminApproveProfileUpdateRequest error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3230,7 +3209,7 @@ export async function adminRejectProfileUpdateRequest(req: AuthRequest, res: Res
         const { feedback } = req.body;
         const request = await ProfileUpdateRequest.findById(req.params.id);
         if (!request || request.status !== 'pending') {
-            res.status(404).json({ message: 'Pending request not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Pending request not found'));
             return;
         }
 
@@ -3256,9 +3235,9 @@ export async function adminRejectProfileUpdateRequest(req: AuthRequest, res: Res
             targetUserIds: [request.student_id],
             createdBy: req.user?._id,
         });
-        res.json({ message: 'Profile update rejected' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Profile update rejected'));
     } catch (error) {
         console.error('adminRejectProfileUpdateRequest error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

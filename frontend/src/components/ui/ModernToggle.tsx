@@ -37,9 +37,8 @@ export default function ModernToggle({
 
     return (
         <label
-            className={`flex items-start justify-between gap-4 cursor-pointer group select-none ${
-                disabled ? 'opacity-50 cursor-not-allowed' : ''
-            } ${className}`}
+            className={`flex items-start justify-between gap-4 cursor-pointer group select-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''
+                } ${className}`}
         >
             {label && (
                 <div className="flex flex-col flex-1 min-w-0">
@@ -60,6 +59,7 @@ export default function ModernToggle({
                     checked={checked}
                     onChange={(e) => !disabled && onChange(e.target.checked)}
                     disabled={disabled}
+                    aria-label={typeof label === 'string' ? label : 'Toggle'}
                 />
                 <motion.div
                     initial={false}
@@ -112,7 +112,7 @@ export default function ModernToggle({
 
                     {/* Status Labels (Optional text inside) */}
                     <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
-                         <span className={`text-[8px] font-bold transition-opacity duration-300 ${checked ? 'opacity-100 text-indigo-400' : 'opacity-0'}`}>
+                        <span className={`text-[8px] font-bold transition-opacity duration-300 ${checked ? 'opacity-100 text-indigo-400' : 'opacity-0'}`}>
                             ON
                         </span>
                         <span className={`text-[8px] font-bold transition-opacity duration-300 ${!checked ? 'opacity-100 text-slate-500' : 'opacity-0'}`}>

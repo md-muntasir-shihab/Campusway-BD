@@ -10,6 +10,7 @@ export interface ISubscriptionContactPreset extends Document {
     includeGuardian: boolean;
     includePlan: boolean;
     includeStatus: boolean;
+    excludeExpiredByDefault: boolean;
     isDefault: boolean;
     createdByAdminId?: mongoose.Types.ObjectId | null;
     updatedByAdminId?: mongoose.Types.ObjectId | null;
@@ -28,6 +29,7 @@ const SubscriptionContactPresetSchema = new Schema<ISubscriptionContactPreset>(
         includeGuardian: { type: Boolean, default: false },
         includePlan: { type: Boolean, default: false },
         includeStatus: { type: Boolean, default: false },
+        excludeExpiredByDefault: { type: Boolean, default: true },
         isDefault: { type: Boolean, default: false },
         createdByAdminId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
         updatedByAdminId: { type: Schema.Types.ObjectId, ref: 'User', default: null },

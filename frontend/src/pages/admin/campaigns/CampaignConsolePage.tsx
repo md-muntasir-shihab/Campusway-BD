@@ -38,7 +38,7 @@ const CAMPAIGN_TAB_TO_PATH: Record<Tab, string> = {
 };
 
 const TAB_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  dashboard: BarChart3, campaigns: Send, new: Sparkles, providers: Plug,
+  dashboard: BarChart3, campaigns: Send, new: Sparkles, templates: FileText, providers: Plug,
   triggers: Zap, notifications: Bell, logs: ClipboardList, settings: Settings,
 };
 
@@ -46,6 +46,7 @@ const CAMPAIGN_VIEW_BUTTONS: Array<{ tab: Tab; label: string }> = [
   { tab: 'dashboard', label: 'Overview' },
   { tab: 'campaigns', label: 'Campaigns' },
   { tab: 'new', label: 'New Campaign' },
+  { tab: 'templates', label: 'Templates' },
   { tab: 'providers', label: 'Providers' },
   { tab: 'triggers', label: 'Smart Triggers' },
   { tab: 'notifications', label: 'Notifications' },
@@ -436,8 +437,30 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
     }));
   }, [location.state]);
 
+  // Read URL query params for group pre-selection (from Group Detail "Send Campaign" button)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const qAudienceType = params.get('audienceType');
+    const qGroupId = params.get('audienceGroupId');
+    const qGroupName = params.get('audienceGroupName');
+    if (qAudienceType === 'group' && qGroupId) {
+      setForm(cur => ({
+        ...cur,
+        audienceType: 'group',
+        audienceRef: qGroupId,
+        campaignName: cur.campaignName || (qGroupName ? `Campaign for ${qGroupName}` : cur.campaignName),
+      }));
+    }
+  }, [location.search]);
+
   const { data: groupsData } = useQuery({ queryKey: ['student-groups'], queryFn: () => getStudentGroups() });
-  const groups = (Array.isArray(groupsData?.data) ? groupsData.data : Array.isArray(groupsData?.groups) ? groupsData.groups : []) as { _id: string; name: string }[];
+  const groups = (Array.isArray(groupsData?.data) ? groupsData.data : Array.isArray(groupsData?.groups) ? groupsData.groups : []) as { _id: string; name: string; memberCountCached?: number; memberCount?: number; department?: string }[];
+  const [groupSearch, setGroupSearch] = useState('');
+  const filteredGroups = useMemo(() => {
+    if (!groupSearch) return groups;
+    const q = groupSearch.toLowerCase();
+    return groups.filter(g => g.name.toLowerCase().includes(q) || (g.department ?? '').toLowerCase().includes(q));
+  }, [groups, groupSearch]);
   const { data: templatesData } = useQuery({ queryKey: ['campaign-templates'], queryFn: () => listTemplates({ limit: 100 }) });
   const templates = (templatesData?.items ?? []) as NotificationTemplate[];
   const filteredTemplates = useMemo(() => templates.filter(t => form.channelType === 'both' || t.channel === form.channelType), [templates, form.channelType]);
@@ -494,7 +517,7 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
             </div>
           </div>
           <div><label className={lc}>Audience Type</label><select value={form.audienceType} onChange={e => setForm(p => ({ ...p, audienceType: e.target.value as typeof form.audienceType }))} className={fc}><option value="all">All Students</option><option value="group">Student Group</option><option value="filter">Custom Filter</option><option value="manual">Manual List</option></select></div>
-          {form.audienceType === 'group' && (<div><label className={lc}>Select Group</label><select value={form.audienceRef} onChange={e => setForm(p => ({ ...p, audienceRef: e.target.value }))} className={fc}><option value="">Choose a group...</option>{groups.map(g => <option key={g._id} value={g._id}>{g.name}</option>)}</select></div>)}
+          {form.audienceType === 'group' && (<div><label className={lc}>Select Group</label><input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} className={fc} placeholder="Search groups by name or department..." /><div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">{filteredGroups.length === 0 ? <p className="p-3 text-sm text-slate-400">No groups found</p> : filteredGroups.map(g => (<button key={g._id} type="button" onClick={() => { setForm(p => ({ ...p, audienceRef: g._id })); setGroupSearch(''); }} className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${form.audienceRef === g._id ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}><span className="font-medium">{g.name}</span><span className="flex items-center gap-2 text-xs text-slate-400">{g.department && <span className="capitalize">{g.department}</span>}<span>{g.memberCountCached ?? g.memberCount ?? 0} members</span></span></button>))}</div></div>)}
           {form.audienceType === 'filter' && (<div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200">Prefilled from Subscription Contact Center.{lockedSelectedUserIds.length > 0 ? ` Locked to ${lockedSelectedUserIds.length} member${lockedSelectedUserIds.length === 1 ? '' : 's'}.` : ''}</div>)}
           <div className="grid gap-4 sm:grid-cols-2">
             <div><label className={lc}>Include user IDs</label><textarea value={form.includeUserIdsText} onChange={e => setForm(p => ({ ...p, includeUserIdsText: e.target.value }))} className={fc + ' min-h-[80px]'} placeholder="Comma or newline separated" /></div>

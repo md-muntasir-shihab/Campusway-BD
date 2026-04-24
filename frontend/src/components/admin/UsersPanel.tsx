@@ -344,14 +344,14 @@ export default function UsersPanel() {
                         <button onClick={() => void doBulk('delete')} className="px-2 py-1 bg-red-600 rounded text-white text-xs">Delete</button>
                     </>}
                 </div>
-                <div className="grid md:grid-cols-4 gap-2">
-                    <div className="md:col-span-2 relative"><Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/email/username" className="w-full pl-8 pr-2 py-2 rounded bg-slate-950/65 border border-indigo-500/20 text-white text-sm" /></div>
-                    <select value={role} onChange={(e) => setRole(e.target.value)} className="py-2 rounded bg-slate-950/65 border border-indigo-500/20 text-white text-sm"><option value="">All roles</option><option value="moderator">Moderator</option><option value="admin">Admin</option><option value="editor">Editor</option><option value="viewer">Viewer</option><option value="superadmin">Super Admin</option></select>
-                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="py-2 rounded bg-slate-950/65 border border-indigo-500/20 text-white text-sm"><option value="">All status</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="blocked">Blocked</option><option value="pending">Pending</option></select>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                    <div className="md:col-span-2 relative"><Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name/email/username" className="w-full pl-8 pr-2 py-2 rounded bg-slate-950/65 border border-indigo-500/20 text-white text-sm min-h-[44px]" /></div>
+                    <select value={role} onChange={(e) => setRole(e.target.value)} className="py-2 rounded bg-slate-950/65 border border-indigo-500/20 text-white text-sm min-h-[44px]"><option value="">All roles</option><option value="moderator">Moderator</option><option value="admin">Admin</option><option value="editor">Editor</option><option value="viewer">Viewer</option><option value="superadmin">Super Admin</option></select>
+                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="py-2 rounded bg-slate-950/65 border border-indigo-500/20 text-white text-sm min-h-[44px]"><option value="">All status</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="blocked">Blocked</option><option value="pending">Pending</option></select>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-slate-300">
+                <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+                    <table className="w-full text-sm text-slate-300 min-w-[640px]">
                         <thead className="text-xs text-slate-400"><tr><th className="p-2"><input type="checkbox" checked={users.length > 0 && selected.length === users.length} onChange={() => setSelected(selected.length === users.length ? [] : users.map((u) => u._id))} /></th><th className="p-2 text-left">User</th><th className="p-2 text-left">Role</th><th className="p-2 text-left">Status</th><th className="p-2 text-left">Institution/Roll</th><th className="p-2 text-right">Actions</th></tr></thead>
                         <tbody>{loading ? <tr><td colSpan={6} className="p-6 text-center">Loading...</td></tr> : users.map((u) => (
                             <tr key={u._id} className="border-t border-indigo-500/10">
@@ -360,43 +360,43 @@ export default function UsersPanel() {
                                 <td className="p-2"><select value={u.role} onChange={(e) => void updateUserRole(u._id, e.target.value)} className="bg-transparent border border-indigo-500/20 rounded px-2 py-1 text-xs"><option value="moderator">moderator</option><option value="admin">admin</option><option value="editor">editor</option><option value="viewer">viewer</option><option value="superadmin">superadmin</option></select></td>
                                 <td className="p-2"><select value={u.status || 'active'} onChange={(e) => void updateUserStatus(u._id, e.target.value)} className="bg-transparent border border-indigo-500/20 rounded px-2 py-1 text-xs"><option value="active">active</option><option value="suspended">suspended</option><option value="blocked">blocked</option><option value="pending">pending</option></select></td>
                                 <td className="p-2 text-xs">{u.institution_name || '-'}<br />{u.roll_number || u.registration_id || '-'}</td>
-                                <td className="p-2"><div className="flex justify-end gap-1"><button onClick={async () => { const r = await adminGetUserById(u._id); setDetails(r.data); setDetailsOpen(true); }} className="p-1.5 hover:bg-white/10 rounded"><Eye className="w-4 h-4 text-cyan-300" /></button><button onClick={() => openEdit(u)} className="p-1.5 hover:bg-white/10 rounded"><Plus className="w-4 h-4 text-indigo-300" /></button><button onClick={() => void resetUserPassword(u)} className="p-1.5 hover:bg-white/10 rounded" title="Send password reset link"><KeyRound className="w-4 h-4 text-amber-300" /></button><button onClick={async () => { const confirmed = await showConfirmDialog({ title: 'Delete user?', message: 'This user record will be removed from admin management.', confirmLabel: 'Delete user', cancelLabel: 'Keep user', tone: 'danger' }); if (!confirmed) return; await adminDeleteUser(u._id); await fetchUsers(); }} className="p-1.5 hover:bg-red-500/20 rounded"><Trash2 className="w-4 h-4 text-red-300" /></button></div></td>
+                                <td className="p-2"><div className="flex justify-end gap-1"><button onClick={async () => { const r = await adminGetUserById(u._id); setDetails(r.data); setDetailsOpen(true); }} className="p-2.5 hover:bg-white/10 rounded min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><Eye className="w-4 h-4 text-cyan-300" /></button><button onClick={() => openEdit(u)} className="p-2.5 hover:bg-white/10 rounded min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><Plus className="w-4 h-4 text-indigo-300" /></button><button onClick={() => void resetUserPassword(u)} className="p-2.5 hover:bg-white/10 rounded min-h-[44px] min-w-[44px] inline-flex items-center justify-center" title="Send password reset link"><KeyRound className="w-4 h-4 text-amber-300" /></button><button onClick={async () => { const confirmed = await showConfirmDialog({ title: 'Delete user?', message: 'This user record will be removed from admin management.', confirmLabel: 'Delete user', cancelLabel: 'Keep user', tone: 'danger' }); if (!confirmed) return; await adminDeleteUser(u._id); await fetchUsers(); }} className="p-2.5 hover:bg-red-500/20 rounded min-h-[44px] min-w-[44px] inline-flex items-center justify-center"><Trash2 className="w-4 h-4 text-red-300" /></button></div></td>
                             </tr>
                         ))}</tbody>
                     </table>
                 </div>
-                <div className="flex justify-between text-xs text-slate-500"><span>Page {page}/{pages}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-2 py-1 bg-white/5 rounded disabled:opacity-40">Prev</button><button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="px-2 py-1 bg-white/5 rounded disabled:opacity-40">Next</button></div></div>
+                <div className="flex justify-between text-xs text-slate-500"><span>Page {page}/{pages}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-2 bg-white/5 rounded disabled:opacity-40 min-h-[44px]">Prev</button><button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="px-3 py-2 bg-white/5 rounded disabled:opacity-40 min-h-[44px]">Next</button></div></div>
             </div>
 
             {formOpen && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setFormOpen(false)}><div className="w-full max-w-2xl bg-slate-900/65 rounded-2xl border border-indigo-500/20 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
                 <h3 className="text-white font-bold">{formMode === 'create' ? 'Add User' : 'Edit User'}</h3>
-                <div className="grid md:grid-cols-2 gap-2">
-                    <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="full name" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
-                    <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="username" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
-                    <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
-                    <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="password (optional)" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
-                    <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="full name" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
+                    <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="username" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
+                    <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
+                    <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="password (optional)" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
+                    <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]">
                         <option value="moderator">moderator</option>
                         <option value="admin">admin</option>
                         <option value="editor">editor</option>
                         <option value="viewer">viewer</option>
                         <option value="superadmin">superadmin</option>
                     </select>
-                    <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white">
+                    <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]">
                         <option value="active">active</option>
                         <option value="suspended">suspended</option>
                         <option value="blocked">blocked</option>
                         <option value="pending">pending</option>
                     </select>
-                    <input value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} placeholder="phone number" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
-                    <input value={form.roll_number} onChange={(e) => setForm({ ...form, roll_number: e.target.value })} placeholder="roll number" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
-                    <input value={form.registration_id} onChange={(e) => setForm({ ...form, registration_id: e.target.value })} placeholder="registration id" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
-                    <input value={form.institution_name} onChange={(e) => setForm({ ...form, institution_name: e.target.value })} placeholder="institution name" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white" />
+                    <input value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} placeholder="phone number" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
+                    <input value={form.roll_number} onChange={(e) => setForm({ ...form, roll_number: e.target.value })} placeholder="roll number" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
+                    <input value={form.registration_id} onChange={(e) => setForm({ ...form, registration_id: e.target.value })} placeholder="registration id" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
+                    <input value={form.institution_name} onChange={(e) => setForm({ ...form, institution_name: e.target.value })} placeholder="institution name" className="bg-slate-950/65 border border-indigo-500/20 rounded px-3 py-2 text-white min-h-[44px]" />
                 </div>
                 <div className="rounded-xl border border-indigo-500/20 p-3 bg-slate-950/65">
                     <p className="text-xs text-slate-400 mb-2">Role Permission Toggles</p>
-                    <div className="grid md:grid-cols-2 gap-2 text-sm text-slate-200">
-                        <label className="flex items-center gap-2">
+                    <div className="grid grid-cols-1 gap-2 text-sm text-slate-200 md:grid-cols-2">
+                        <label className="flex items-center gap-2 min-h-[44px]">
                             <input type="checkbox" checked={form.permissions.canEditExams} onChange={(e) => setForm({ ...form, permissions: { ...form.permissions, canEditExams: e.target.checked } })} />
                             Can Edit Exams
                         </label>

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import SiteSettings from '../models/Settings';
 import WebsiteSettings from '../models/WebsiteSettings';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type Placement = 'header' | 'footer' | 'home' | 'news' | 'contact';
 
@@ -56,10 +57,10 @@ export const adminGetSocialLinks = async (_req: Request, res: Response): Promise
     try {
         let settings = await SiteSettings.findOne();
         if (!settings) settings = await SiteSettings.create({});
-        res.json({ items: settings.socialLinks || [] });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: settings.socialLinks || [] }));
     } catch (error) {
         console.error('adminGetSocialLinks error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -78,7 +79,7 @@ export const adminCreateSocialLink = async (req: Request, res: Response): Promis
         };
 
         if (!payload.platform || !payload.url) {
-            res.status(400).json({ message: 'platformName and targetUrl are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'platformName and targetUrl are required'));
             return;
         }
 
@@ -87,10 +88,10 @@ export const adminCreateSocialLink = async (req: Request, res: Response): Promis
         await syncWebsiteSettingsSocialLinks(settings.socialLinks as any[]);
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'social-links' } });
 
-        res.status(201).json({ message: 'Social link created', items: settings.socialLinks || [] });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ items: settings.socialLinks || [] }, 'Social link created'));
     } catch (error) {
         console.error('adminCreateSocialLink error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -98,13 +99,13 @@ export const adminUpdateSocialLink = async (req: Request, res: Response): Promis
     try {
         const settings = await SiteSettings.findOne();
         if (!settings) {
-            res.status(404).json({ message: 'Site settings not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Site settings not found'));
             return;
         }
 
         const index = settings.socialLinks.findIndex((item: any) => String(item?._id || '') === String(req.params.id));
         if (index < 0) {
-            res.status(404).json({ message: 'Social link not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Social link not found'));
             return;
         }
         const link: any = settings.socialLinks[index];
@@ -132,10 +133,10 @@ export const adminUpdateSocialLink = async (req: Request, res: Response): Promis
         await settings.save();
         await syncWebsiteSettingsSocialLinks(settings.socialLinks as any[]);
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'social-links' } });
-        res.json({ message: 'Social link updated', items: settings.socialLinks || [] });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: settings.socialLinks || [] }, 'Social link updated'));
     } catch (error) {
         console.error('adminUpdateSocialLink error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -143,24 +144,24 @@ export const adminDeleteSocialLink = async (req: Request, res: Response): Promis
     try {
         const settings = await SiteSettings.findOne();
         if (!settings) {
-            res.status(404).json({ message: 'Site settings not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Site settings not found'));
             return;
         }
 
         const before = settings.socialLinks.length;
         settings.socialLinks = settings.socialLinks.filter((item: any) => String(item?._id || '') !== String(req.params.id));
         if (settings.socialLinks.length === before) {
-            res.status(404).json({ message: 'Social link not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Social link not found'));
             return;
         }
         await settings.save();
         await syncWebsiteSettingsSocialLinks(settings.socialLinks as any[]);
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'social-links' } });
 
-        res.json({ message: 'Social link deleted', items: settings.socialLinks || [] });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: settings.socialLinks || [] }, 'Social link deleted'));
     } catch (error) {
         console.error('adminDeleteSocialLink error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -168,7 +169,7 @@ export const getPublicSocialLinks = async (_req: Request, res: Response): Promis
     try {
         const settings = await SiteSettings.findOne().lean();
         const items = Array.isArray(settings?.socialLinks) ? settings.socialLinks : [];
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: items
                 .filter((item: any) => item?.enabled !== false && item?.url)
                 .map((item: any) => ({
@@ -180,9 +181,9 @@ export const getPublicSocialLinks = async (_req: Request, res: Response): Promis
                     enabled: item?.enabled !== false,
                     placements: normalizePlacements(item?.placements),
                 })),
-        });
+        }));
     } catch (error) {
         console.error('getPublicSocialLinks error:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };

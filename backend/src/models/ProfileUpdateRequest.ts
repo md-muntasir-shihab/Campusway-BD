@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IProfileUpdateRequest extends Document {
     student_id: mongoose.Types.ObjectId;
     requested_changes: Record<string, any>;
+    previous_values: Record<string, any>;
     status: 'pending' | 'approved' | 'rejected';
     admin_feedback?: string;
     reviewed_at?: Date;
@@ -15,6 +16,7 @@ const ProfileUpdateRequestSchema = new Schema<IProfileUpdateRequest>(
     {
         student_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         requested_changes: { type: Schema.Types.Mixed, required: true },
+        previous_values: { type: Schema.Types.Mixed, default: {} },
         status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
         admin_feedback: { type: String, trim: true },
         reviewed_at: { type: Date },

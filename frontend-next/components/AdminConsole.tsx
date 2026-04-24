@@ -28,23 +28,27 @@ import { BackupRow, DueRow, ExpenseRow, FinanceSummary, NoticeRow, PaymentRow, P
 
 type TabId = 'students' | 'plans' | 'finance' | 'expenses' | 'payouts' | 'dues' | 'notices' | 'tickets' | 'backups';
 
-const tabs: Array<{ id: TabId; label: string }> = [
-  { id: 'students', label: 'Students' },
-  { id: 'plans', label: 'Subscription Plans' },
-  { id: 'finance', label: 'Accounts & Finance' },
-  { id: 'expenses', label: 'Expenses' },
-  { id: 'payouts', label: 'Staff Payouts' },
-  { id: 'dues', label: 'Dues & Alerts' },
-  { id: 'notices', label: 'Notices' },
-  { id: 'tickets', label: 'Support Tickets' },
-  { id: 'backups', label: 'Backups' },
+const TAB_CONFIG: Array<{ id: TabId; label: string; icon: string }> = [
+  { id: 'students', label: 'Students', icon: '👥' },
+  { id: 'plans', label: 'Plans', icon: '📋' },
+  { id: 'finance', label: 'Finance', icon: '💰' },
+  { id: 'expenses', label: 'Expenses', icon: '📊' },
+  { id: 'payouts', label: 'Payouts', icon: '💳' },
+  { id: 'dues', label: 'Dues', icon: '⚠️' },
+  { id: 'notices', label: 'Notices', icon: '📢' },
+  { id: 'tickets', label: 'Tickets', icon: '🎫' },
+  { id: 'backups', label: 'Backups', icon: '💾' },
 ];
 
 function formatDate(value?: string | null): string {
-  if (!value) return 'N/A';
+  if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'N/A';
-  return date.toLocaleDateString();
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatCurrency(value: number): string {
+  return `৳${value.toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
 export default function AdminConsole() {
@@ -65,6 +69,7 @@ export default function AdminConsole() {
   const [backups, setBackups] = useState<BackupRow[]>([]);
   const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettingsPayload | null>(null);
 
+  // Form states
   const [quickStudentId, setQuickStudentId] = useState('');
   const [quickPaymentAmount, setQuickPaymentAmount] = useState('0');
   const [quickExpenseAmount, setQuickExpenseAmount] = useState('0');
@@ -96,11 +101,12 @@ export default function AdminConsole() {
   }, []);
 
   const kpis = useMemo(() => ([
-    { label: 'Income', value: finance ? `${finance.totalIncome.toFixed(2)}` : '-' },
-    { label: 'Expense', value: finance ? `${finance.totalExpenses.toFixed(2)}` : '-' },
-    { label: 'Net', value: finance ? `${finance.netProfit.toFixed(2)}` : '-' },
-    { label: 'Due Students', value: `${dues.length}` },
-  ]), [finance, dues.length]);
+    { label: 'Total Income', value: finance ? formatCurrency(finance.totalIncome) : '—', accent: 'green' },
+    { label: 'Total Expense', value: finance ? formatCurrency(finance.totalExpenses) : '—', accent: 'red' },
+    { label: 'Net Profit', value: finance ? formatCurrency(finance.netProfit) : '—', accent: 'blue' },
+    { label: 'Due Students', value: `${dues.length}`, accent: 'amber' },
+    { label: 'Active Plans', value: `${plans.filter(p => p.isActive).length}`, accent: 'violet' },
+  ]), [finance, dues.length, plans]);
 
   useEffect(() => {
     if (!token) return;
@@ -116,58 +122,21 @@ export default function AdminConsole() {
 
     (async () => {
       await Promise.all([
-        applySafely(async () => {
-          const res = await getAdminStudents(token);
-          if (!cancelled) setStudents(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getAdminPlans(token);
-          if (!cancelled) setPlans(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getFinanceSummary(token);
-          if (!cancelled) setFinance(res);
-        }),
-        applySafely(async () => {
-          const res = await getPayments(token);
-          if (!cancelled) setPayments(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getExpenses(token);
-          if (!cancelled) setExpenses(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getStaffPayouts(token);
-          if (!cancelled) setPayouts(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getDues(token);
-          if (!cancelled) setDues(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getNotices(token);
-          if (!cancelled) setNotices(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getSupportTickets(token);
-          if (!cancelled) setTickets(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getBackups(token);
-          if (!cancelled) setBackups(res.items || []);
-        }),
-        applySafely(async () => {
-          const res = await getRuntimeSettings(token);
-          if (!cancelled) setRuntimeSettings(res);
-        }),
+        applySafely(async () => { const res = await getAdminStudents(token); if (!cancelled) setStudents(res.items || []); }),
+        applySafely(async () => { const res = await getAdminPlans(token); if (!cancelled) setPlans(res.items || []); }),
+        applySafely(async () => { const res = await getFinanceSummary(token); if (!cancelled) setFinance(res); }),
+        applySafely(async () => { const res = await getPayments(token); if (!cancelled) setPayments(res.items || []); }),
+        applySafely(async () => { const res = await getExpenses(token); if (!cancelled) setExpenses(res.items || []); }),
+        applySafely(async () => { const res = await getStaffPayouts(token); if (!cancelled) setPayouts(res.items || []); }),
+        applySafely(async () => { const res = await getDues(token); if (!cancelled) setDues(res.items || []); }),
+        applySafely(async () => { const res = await getNotices(token); if (!cancelled) setNotices(res.items || []); }),
+        applySafely(async () => { const res = await getSupportTickets(token); if (!cancelled) setTickets(res.items || []); }),
+        applySafely(async () => { const res = await getBackups(token); if (!cancelled) setBackups(res.items || []); }),
+        applySafely(async () => { const res = await getRuntimeSettings(token); if (!cancelled) setRuntimeSettings(res); }),
       ]);
-
       if (!cancelled) setLoading(false);
     })();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [token]);
 
   async function refreshData() {
@@ -176,326 +145,197 @@ export default function AdminConsole() {
     setError('');
     try {
       const [studentsRes, plansRes, financeRes, paymentsRes, expensesRes, payoutsRes, duesRes, noticesRes, ticketsRes, backupsRes, runtimeRes] = await Promise.all([
-        getAdminStudents(token),
-        getAdminPlans(token),
-        getFinanceSummary(token),
-        getPayments(token),
-        getExpenses(token),
-        getStaffPayouts(token),
-        getDues(token),
-        getNotices(token),
-        getSupportTickets(token),
-        getBackups(token),
-        getRuntimeSettings(token),
+        getAdminStudents(token), getAdminPlans(token), getFinanceSummary(token), getPayments(token),
+        getExpenses(token), getStaffPayouts(token), getDues(token), getNotices(token),
+        getSupportTickets(token), getBackups(token), getRuntimeSettings(token),
       ]);
-      setStudents(studentsRes.items || []);
-      setPlans(plansRes.items || []);
-      setFinance(financeRes);
-      setPayments(paymentsRes.items || []);
-      setExpenses(expensesRes.items || []);
-      setPayouts(payoutsRes.items || []);
-      setDues(duesRes.items || []);
-      setNotices(noticesRes.items || []);
-      setTickets(ticketsRes.items || []);
-      setBackups(backupsRes.items || []);
-      setRuntimeSettings(runtimeRes);
+      setStudents(studentsRes.items || []); setPlans(plansRes.items || []); setFinance(financeRes);
+      setPayments(paymentsRes.items || []); setExpenses(expensesRes.items || []);
+      setPayouts(payoutsRes.items || []); setDues(duesRes.items || []);
+      setNotices(noticesRes.items || []); setTickets(ticketsRes.items || []);
+      setBackups(backupsRes.items || []); setRuntimeSettings(runtimeRes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   async function handleRunBackup() {
     if (!token) return;
-    setLoading(true);
-    setError('');
-    setUiMessage('');
+    setLoading(true); setError(''); setUiMessage('');
     try {
       await runBackup(token, 'incremental', 'local');
-      setUiMessage('Incremental backup started/completed successfully.');
+      setUiMessage('Incremental backup completed successfully.');
       await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run backup.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Backup failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleQuickPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!quickStudentId.trim()) {
-      setError('Student ID is required for payment entry.');
-      return;
-    }
-    setLoading(true);
-    setError('');
+    if (!quickStudentId.trim()) { setError('Student ID required.'); return; }
+    setLoading(true); setError('');
     try {
-      await createPayment(token, {
-        studentId: quickStudentId.trim(),
-        amount: Number(quickPaymentAmount || 0),
-        method: 'manual',
-        entryType: 'other_income',
-      });
-      setUiMessage('Manual payment recorded successfully.');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment create failed.');
-    } finally {
-      setLoading(false);
-    }
+      await createPayment(token, { studentId: quickStudentId.trim(), amount: Number(quickPaymentAmount || 0), method: 'manual', entryType: 'other_income' });
+      setUiMessage('Payment recorded.'); await refreshData();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Payment failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleQuickExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
-      await createExpense(token, {
-        category: quickExpenseCategory,
-        amount: Number(quickExpenseAmount || 0),
-        vendor: 'Next Hybrid Console',
-      });
-      setUiMessage('Expense entry recorded successfully.');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Expense create failed.');
-    } finally {
-      setLoading(false);
-    }
+      await createExpense(token, { category: quickExpenseCategory, amount: Number(quickExpenseAmount || 0), vendor: 'Next Hybrid Console' });
+      setUiMessage('Expense recorded.'); await refreshData();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Expense failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleCreateStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!createStudentName.trim() || !createStudentUsername.trim() || !createStudentEmail.trim()) {
-      setError('Name, username, and email are required.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setUiMessage('');
+    if (!createStudentName.trim() || !createStudentUsername.trim() || !createStudentEmail.trim()) { setError('Name, username, and email required.'); return; }
+    setLoading(true); setError(''); setUiMessage('');
     try {
       const res = await createAdminStudent(token, {
-        fullName: createStudentName.trim(),
-        username: createStudentUsername.trim(),
-        email: createStudentEmail.trim(),
+        fullName: createStudentName.trim(), username: createStudentUsername.trim(), email: createStudentEmail.trim(),
         ...(createStudentPassword.trim() ? { password: createStudentPassword.trim() } : {}),
         ...(createStudentPlanCode.trim() ? { planCode: createStudentPlanCode.trim() } : {}),
       });
-      setUiMessage(
-        res.inviteSent
-          ? 'Student created and setup link sent successfully.'
-          : 'Student created successfully.',
-      );
-      setCreateStudentName('');
-      setCreateStudentUsername('');
-      setCreateStudentEmail('');
-      setCreateStudentPassword('');
+      setUiMessage(res.inviteSent ? 'Student created & setup link sent.' : 'Student created.');
+      setCreateStudentName(''); setCreateStudentUsername(''); setCreateStudentEmail(''); setCreateStudentPassword('');
       await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Student create failed.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Create failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleAssignPlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!assignPlanStudentId.trim() || !assignPlanCode.trim()) {
-      setError('Student ID and plan code are required.');
-      return;
-    }
-
+    if (!assignPlanStudentId.trim() || !assignPlanCode.trim()) { setError('Student ID and plan code required.'); return; }
     const days = Math.max(1, Number(assignPlanDays || 30));
     const startDate = new Date();
-    const expiryDate = new Date(startDate.getTime() + days * 24 * 60 * 60 * 1000);
-
-    setLoading(true);
-    setError('');
-    setUiMessage('');
+    const expiryDate = new Date(startDate.getTime() + days * 86400000);
+    setLoading(true); setError(''); setUiMessage('');
     try {
-      await assignStudentPlan(token, assignPlanStudentId.trim(), {
-        planCode: assignPlanCode.trim(),
-        isActive: true,
-        startDate: startDate.toISOString(),
-        expiryDate: expiryDate.toISOString(),
-      });
-      setUiMessage('Student plan assigned successfully.');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Plan assign failed.');
-    } finally {
-      setLoading(false);
-    }
+      await assignStudentPlan(token, assignPlanStudentId.trim(), { planCode: assignPlanCode.trim(), isActive: true, startDate: startDate.toISOString(), expiryDate: expiryDate.toISOString() });
+      setUiMessage('Plan assigned.'); await refreshData();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Assign failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleUpdateDue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!dueStudentId.trim()) {
-      setError('Student ID is required to update due.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setUiMessage('');
+    if (!dueStudentId.trim()) { setError('Student ID required.'); return; }
+    setLoading(true); setError(''); setUiMessage('');
     try {
-      await updateDue(token, dueStudentId.trim(), {
-        computedDue: Number(dueComputed || 0),
-        manualAdjustment: Number(dueAdjustment || 0),
-        waiverAmount: Number(dueWaiver || 0),
-        note: dueNote.trim(),
-      });
-      setUiMessage('Due ledger updated successfully.');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Due update failed.');
-    } finally {
-      setLoading(false);
-    }
+      await updateDue(token, dueStudentId.trim(), { computedDue: Number(dueComputed || 0), manualAdjustment: Number(dueAdjustment || 0), waiverAmount: Number(dueWaiver || 0), note: dueNote.trim() });
+      setUiMessage('Due updated.'); await refreshData();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Due update failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleSendReminder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!reminderStudentId.trim()) {
-      setError('Student ID is required for reminder.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setUiMessage('');
-    try {
-      await sendDueReminder(token, reminderStudentId.trim());
-      setUiMessage('Due reminder dispatched successfully.');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Due reminder failed.');
-    } finally {
-      setLoading(false);
-    }
+    if (!reminderStudentId.trim()) { setError('Student ID required.'); return; }
+    setLoading(true); setError(''); setUiMessage('');
+    try { await sendDueReminder(token, reminderStudentId.trim()); setUiMessage('Reminder sent.'); await refreshData(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Reminder failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleTicketStatus(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!ticketActionId.trim()) {
-      setError('Ticket ID is required.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setUiMessage('');
-    try {
-      await updateSupportTicketStatus(token, ticketActionId.trim(), ticketStatus);
-      setUiMessage('Ticket status updated successfully.');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ticket status update failed.');
-    } finally {
-      setLoading(false);
-    }
+    if (!ticketActionId.trim()) { setError('Ticket ID required.'); return; }
+    setLoading(true); setError(''); setUiMessage('');
+    try { await updateSupportTicketStatus(token, ticketActionId.trim(), ticketStatus); setUiMessage('Status updated.'); await refreshData(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Status update failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleTicketReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!ticketActionId.trim() || !ticketReply.trim()) {
-      setError('Ticket ID and reply message are required.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setUiMessage('');
-    try {
-      await replySupportTicket(token, ticketActionId.trim(), ticketReply.trim());
-      setUiMessage('Ticket reply submitted successfully.');
-      setTicketReply('');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ticket reply failed.');
-    } finally {
-      setLoading(false);
-    }
+    if (!ticketActionId.trim() || !ticketReply.trim()) { setError('Ticket ID and reply required.'); return; }
+    setLoading(true); setError(''); setUiMessage('');
+    try { await replySupportTicket(token, ticketActionId.trim(), ticketReply.trim()); setUiMessage('Reply sent.'); setTicketReply(''); await refreshData(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Reply failed.'); }
+    finally { setLoading(false); }
   }
 
   async function handleRestoreBackup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!restoreBackupId.trim()) {
-      setError('Backup job ID is required for restore.');
-      return;
-    }
-    if (!restoreConfirmation.trim()) {
-      setError(`Confirmation is required: RESTORE ${restoreBackupId.trim()}`);
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setUiMessage('');
-    try {
-      await restoreBackup(token, restoreBackupId.trim(), restoreConfirmation.trim());
-      setUiMessage('Backup restore completed successfully.');
-      setRestoreConfirmation('');
-      await refreshData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Backup restore failed.');
-    } finally {
-      setLoading(false);
-    }
+    if (!restoreBackupId.trim()) { setError('Backup ID required.'); return; }
+    if (!restoreConfirmation.trim()) { setError(`Type: RESTORE ${restoreBackupId.trim()}`); return; }
+    setLoading(true); setError(''); setUiMessage('');
+    try { await restoreBackup(token, restoreBackupId.trim(), restoreConfirmation.trim()); setUiMessage('Restore completed.'); setRestoreConfirmation(''); await refreshData(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Restore failed.'); }
+    finally { setLoading(false); }
   }
 
   if (!token) {
     return (
-      <section className="card">
-        <h2 style={{ marginTop: 0 }}>Admin Token Required</h2>
-        <p>Login via legacy app first, then reload this page.</p>
-        <p style={{ opacity: 0.8 }}>Expected token key: <code>campusway-token</code></p>
-      </section>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div className="card-elevated" style={{ maxWidth: 420, textAlign: 'center', padding: '2.5rem 2rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔐</div>
+          <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.3rem' }}>Admin Authentication Required</h2>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+            Login via the legacy app first, then reload this page.
+          </p>
+          <p style={{ margin: '0.8rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Token key: <code style={{ background: 'rgba(52,120,246,0.12)', padding: '0.15rem 0.4rem', borderRadius: 6 }}>campusway-token</code>
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <section className="grid" style={{ gap: '1rem' }}>
-      <div className="card">
-        <h1 style={{ marginTop: 0, marginBottom: '0.4rem' }}>Admin Dashboard (Next Hybrid)</h1>
-        <p style={{ marginTop: 0, opacity: 0.85 }}>Manual subscriptions/payments, finance analytics, support, and backups.</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.8rem' }}>
-          <span className="pill">nextAdminEnabled: {runtimeSettings?.featureFlags?.nextAdminEnabled ? 'true' : 'false'}</span>
-          <span className="pill">financeDashboardV1: {runtimeSettings?.featureFlags?.financeDashboardV1 ? 'true' : 'false'}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* ── Header ── */}
+      <header className="card-elevated" style={{ padding: '1.5rem 1.8rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+              CampusWay Admin
+            </h1>
+            <p style={{ margin: '0.3rem 0 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              Subscriptions, finance, support & system management
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span className="pill" style={runtimeSettings?.featureFlags?.nextAdminEnabled ? { borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.1)', color: '#34d399' } : {}}>
+              <span className={`status-dot ${runtimeSettings?.featureFlags?.nextAdminEnabled ? 'status-dot-active' : 'status-dot-expired'}`} />
+              Next Admin
+            </span>
+            <button className="btn" onClick={refreshData} disabled={loading} style={{ padding: '0.5rem 0.85rem' }}>
+              {loading ? '⟳ Syncing...' : '↻ Refresh'}
+            </button>
+          </div>
         </div>
-        <div className="grid grid-3">
+
+        {/* KPI Row */}
+        <div className="grid" style={{ marginTop: '1.2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.7rem' }}>
           {kpis.map((item) => (
-            <article className="card" key={item.label}>
-              <p style={{ margin: 0, fontSize: '0.82rem', opacity: 0.8 }}>{item.label}</p>
-              <h2 style={{ margin: '0.35rem 0 0', fontSize: '1.25rem' }}>{item.value}</h2>
-            </article>
+            <div className="kpi-card" key={item.label} data-accent={item.accent}>
+              <p className="kpi-label">{item.label}</p>
+              <p className="kpi-value">{item.value}</p>
+            </div>
           ))}
         </div>
-      </div>
+      </header>
 
+      {/* ── Quick Actions ── */}
       <div className="grid grid-2">
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Quick Manual Payment</h3>
-          <form className="grid" onSubmit={handleQuickPayment}>
-            <input
-              value={quickStudentId}
-              onChange={(event) => setQuickStudentId(event.target.value)}
-              placeholder="Student ObjectId"
-              style={inputStyle}
-            />
-            <input
-              value={quickPaymentAmount}
-              onChange={(event) => setQuickPaymentAmount(event.target.value)}
-              placeholder="Amount"
-              type="number"
-              min={0}
-              step="0.01"
-              style={inputStyle}
-            />
+        <div className="card" style={{ padding: '1.2rem' }}>
+          <p className="section-title">💳 Quick Payment</p>
+          <form style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }} onSubmit={handleQuickPayment}>
+            <input className="input" value={quickStudentId} onChange={(e) => setQuickStudentId(e.target.value)} placeholder="Student ObjectId" />
+            <input className="input" value={quickPaymentAmount} onChange={(e) => setQuickPaymentAmount(e.target.value)} placeholder="Amount" type="number" min={0} step="0.01" />
             <button className="btn" type="submit" disabled={loading}>Record Payment</button>
           </form>
-        </section>
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Quick Expense Entry</h3>
-          <form className="grid" onSubmit={handleQuickExpense}>
-            <select value={quickExpenseCategory} onChange={(event) => setQuickExpenseCategory(event.target.value as typeof quickExpenseCategory)} style={inputStyle}>
+        </div>
+        <div className="card" style={{ padding: '1.2rem' }}>
+          <p className="section-title">📊 Quick Expense</p>
+          <form style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }} onSubmit={handleQuickExpense}>
+            <select className="input" value={quickExpenseCategory} onChange={(e) => setQuickExpenseCategory(e.target.value as typeof quickExpenseCategory)}>
               <option value="server">Server</option>
               <option value="marketing">Marketing</option>
               <option value="staff_salary">Staff Salary</option>
@@ -503,362 +343,450 @@ export default function AdminConsole() {
               <option value="tools">Tools</option>
               <option value="misc">Misc</option>
             </select>
-            <input
-              value={quickExpenseAmount}
-              onChange={(event) => setQuickExpenseAmount(event.target.value)}
-              placeholder="Amount"
-              type="number"
-              min={0}
-              step="0.01"
-              style={inputStyle}
-            />
+            <input className="input" value={quickExpenseAmount} onChange={(e) => setQuickExpenseAmount(e.target.value)} placeholder="Amount" type="number" min={0} step="0.01" />
             <button className="btn" type="submit" disabled={loading}>Record Expense</button>
           </form>
-        </section>
+        </div>
       </div>
 
-      <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <button className="btn" onClick={refreshData} disabled={loading}>Refresh</button>
-        {tabs.map((tab) => (
+      {/* ── Tab Navigation ── */}
+      <nav className="tab-nav">
+        {TAB_CONFIG.map((tab) => (
           <button
             key={tab.id}
-            className="btn"
-            style={{
-              background: tab.id === activeTab
-                ? 'linear-gradient(120deg, #2e8ef7, #00b1d9)'
-                : 'linear-gradient(120deg, rgba(58,95,165,.6), rgba(17,40,91,.6))',
-            }}
+            className={`tab-btn ${tab.id === activeTab ? 'tab-btn-active' : ''}`}
             onClick={() => setActiveTab(tab.id)}
           >
-            {tab.label}
+            <span>{tab.icon}</span> {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {error && <div className="card" style={{ borderColor: 'rgba(255,102,102,.5)' }}>{error}</div>}
-      {uiMessage && <div className="card" style={{ borderColor: 'rgba(88,211,150,.45)' }}>{uiMessage}</div>}
-      {loading && <div className="card">Loading...</div>}
+      {/* ── Alerts ── */}
+      {error && <div className="alert alert-error">⚠ {error}</div>}
+      {uiMessage && <div className="alert alert-success">✓ {uiMessage}</div>}
+      {loading && (
+        <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⟳</div>
+          Loading data...
+        </div>
+      )}
 
+      {/* ── Students Tab ── */}
       {!loading && activeTab === 'students' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Students</h3>
-          <p style={{ marginTop: 0, opacity: 0.8 }}>
-            Password reveal is superadmin-only, requires MFA confirmation, and is fully audit logged.
-          </p>
-          <div className="grid grid-2" style={{ marginBottom: '0.9rem' }}>
-            <form className="card grid" onSubmit={handleCreateStudent}>
-              <strong>Create Student</strong>
-              <input value={createStudentName} onChange={(event) => setCreateStudentName(event.target.value)} placeholder="Full name" style={inputStyle} />
-              <input value={createStudentUsername} onChange={(event) => setCreateStudentUsername(event.target.value)} placeholder="Username" style={inputStyle} />
-              <input value={createStudentEmail} onChange={(event) => setCreateStudentEmail(event.target.value)} placeholder="Email" style={inputStyle} />
-              <input value={createStudentPassword} onChange={(event) => setCreateStudentPassword(event.target.value)} placeholder="Password (optional, leave blank to send setup link)" style={inputStyle} />
-              <select value={createStudentPlanCode} onChange={(event) => setCreateStudentPlanCode(event.target.value)} style={inputStyle}>
-                <option value="">Plan (optional)</option>
-                {plans.map((plan) => (
-                  <option key={plan._id} value={plan.code}>{plan.code}</option>
-                ))}
-              </select>
-              <button className="btn" type="submit" disabled={loading}>Create Student</button>
-            </form>
-            <form className="card grid" onSubmit={handleAssignPlan}>
-              <strong>Assign/Update Plan</strong>
-              <input value={assignPlanStudentId} onChange={(event) => setAssignPlanStudentId(event.target.value)} placeholder="Student ObjectId" style={inputStyle} />
-              <select value={assignPlanCode} onChange={(event) => setAssignPlanCode(event.target.value)} style={inputStyle}>
-                <option value="">Select plan code</option>
-                {plans.map((plan) => (
-                  <option key={plan._id} value={plan.code}>{plan.code} ({plan.name})</option>
-                ))}
-              </select>
-              <input
-                value={assignPlanDays}
-                onChange={(event) => setAssignPlanDays(event.target.value)}
-                placeholder="Duration in days"
-                type="number"
-                min={1}
-                style={inputStyle}
-              />
-              <button className="btn" type="submit" disabled={loading}>Assign Plan</button>
-            </form>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div className="grid grid-2">
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <p className="section-title">➕ Create Student</p>
+              <form style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onSubmit={handleCreateStudent}>
+                <input className="input" value={createStudentName} onChange={(e) => setCreateStudentName(e.target.value)} placeholder="Full name" />
+                <input className="input" value={createStudentUsername} onChange={(e) => setCreateStudentUsername(e.target.value)} placeholder="Username" />
+                <input className="input" value={createStudentEmail} onChange={(e) => setCreateStudentEmail(e.target.value)} placeholder="Email" />
+                <input className="input" value={createStudentPassword} onChange={(e) => setCreateStudentPassword(e.target.value)} placeholder="Password (optional)" />
+                <select className="input" value={createStudentPlanCode} onChange={(e) => setCreateStudentPlanCode(e.target.value)}>
+                  <option value="">Plan (optional)</option>
+                  {plans.map((p) => <option key={p._id} value={p.code}>{p.code}</option>)}
+                </select>
+                <button className="btn" type="submit" disabled={loading}>Create Student</button>
+              </form>
+            </div>
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <p className="section-title">🔗 Assign Plan</p>
+              <form style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onSubmit={handleAssignPlan}>
+                <input className="input" value={assignPlanStudentId} onChange={(e) => setAssignPlanStudentId(e.target.value)} placeholder="Student ObjectId" />
+                <select className="input" value={assignPlanCode} onChange={(e) => setAssignPlanCode(e.target.value)}>
+                  <option value="">Select plan</option>
+                  {plans.map((p) => <option key={p._id} value={p.code}>{p.code} — {p.name}</option>)}
+                </select>
+                <input className="input" value={assignPlanDays} onChange={(e) => setAssignPlanDays(e.target.value)} placeholder="Duration (days)" type="number" min={1} />
+                <button className="btn" type="submit" disabled={loading}>Assign Plan</button>
+              </form>
+            </div>
           </div>
-          <div className="grid">
-            {students.slice(0, 20).map((row) => (
-              <article key={row._id} className="card">
-                <strong>{row.fullName || row.full_name || row.username || 'Unnamed student'}</strong>
-                <p style={{ margin: '0.35rem 0', opacity: 0.82 }}>{row.email || 'No email'}</p>
-                <span className="pill">{row.subscription?.planCode || 'No plan'}</span>
-                <span className="pill" style={{ marginLeft: '0.5rem' }}>{row.status || 'active'}</span>
-                <div style={{ marginTop: '0.55rem', display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
-                  <span className="pill">Days Left: {row.subscription?.daysLeft ?? 0}</span>
-                  <span className="pill">Batch: {row.batch || 'N/A'}</span>
-                  <span className="pill">Dept: {row.department || 'N/A'}</span>
+
+          <div className="card-elevated" style={{ padding: '1.3rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <p className="section-title" style={{ margin: 0 }}>Student Directory</p>
+              <span className="pill">{students.length} total</span>
+            </div>
+            <div className="grid" style={{ gap: '0.6rem' }}>
+              {students.slice(0, 20).map((row) => (
+                <div key={row._id} style={{
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem',
+                  borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)',
+                  background: 'rgba(8, 18, 44, 0.4)', transition: 'background 0.15s',
+                }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 'var(--radius-md)',
+                    background: 'linear-gradient(135deg, rgba(52,120,246,0.2), rgba(139,92,246,0.2))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-secondary)', flexShrink: 0,
+                  }}>
+                    {(row.fullName || row.full_name || row.username || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                        {row.fullName || row.full_name || row.username || 'Unnamed'}
+                      </span>
+                      {row.subscription?.isActive ? (
+                        <span className="pill pill-success" style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}>
+                          <span className="status-dot status-dot-active" /> Active
+                        </span>
+                      ) : row.subscription?.planCode ? (
+                        <span className="pill pill-danger" style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}>
+                          <span className="status-dot status-dot-expired" /> Expired
+                        </span>
+                      ) : null}
+                    </div>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {row.email || 'No email'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                    <span className="pill">{row.subscription?.planName || row.subscription?.planCode || 'No plan'}</span>
+                    {row.subscription?.daysLeft !== undefined && row.subscription.daysLeft > 0 ? (
+                      <span className="pill pill-warning" style={{ fontSize: '0.7rem' }}>{row.subscription.daysLeft}d left</span>
+                    ) : null}
+                    {row.batch ? <span className="pill" style={{ fontSize: '0.7rem' }}>{row.batch}</span> : null}
+                    {row.department ? <span className="pill pill-violet" style={{ fontSize: '0.7rem' }}>{row.department}</span> : null}
+                  </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {!loading && activeTab === 'plans' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Subscription Plans</h3>
-          <div className="grid grid-2">
-            {plans.map((plan) => (
-              <article key={plan._id} className="card">
-                <strong>{plan.name}</strong>
-                <p style={{ margin: '0.4rem 0', opacity: 0.82 }}>{plan.code.toUpperCase()}</p>
-                <p style={{ margin: 0 }}>Price: {plan.price ?? 0}</p>
-                <p style={{ margin: '0.35rem 0 0' }}>
-                  Duration: {plan.durationValue || plan.durationDays} {plan.durationUnit || 'days'}
-                </p>
-                <span className="pill" style={{ marginTop: '0.5rem' }}>{plan.isActive ? 'Active' : 'Inactive'}</span>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {!loading && activeTab === 'finance' && finance && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Accounts & Finance Summary</h3>
-          <div className="grid grid-2">
-            <article className="card">
-              <p>Total Income</p>
-              <h2>{finance.totalIncome.toFixed(2)}</h2>
-            </article>
-            <article className="card">
-              <p>Total Expenses</p>
-              <h2>{finance.totalExpenses.toFixed(2)}</h2>
-            </article>
-            <article className="card">
-              <p>Direct Expenses</p>
-              <h2>{finance.directExpenses.toFixed(2)}</h2>
-            </article>
-            <article className="card">
-              <p>Salary Payouts</p>
-              <h2>{finance.salaryPayouts.toFixed(2)}</h2>
-            </article>
-          </div>
-          <div style={{ marginTop: '1rem' }}>
-            <h4 style={{ margin: '0 0 0.5rem' }}>Recent Manual Payments</h4>
-            <div className="grid">
-              {payments.slice(0, 8).map((row) => (
-                <article key={row._id} className="card">
-                  <strong>
-                    {row.studentId?.username || row.studentId?.email || 'Student'} - {row.amount}
-                  </strong>
-                  <p style={{ margin: '0.35rem 0', opacity: 0.84 }}>
-                    Method: {row.method} | Type: {row.entryType}
-                  </p>
-                  <p style={{ margin: 0, opacity: 0.8 }}>Date: {formatDate(row.date)}</p>
-                </article>
               ))}
             </div>
           </div>
-        </section>
+        </div>
       )}
 
+      {/* ── Plans Tab ── */}
+      {!loading && activeTab === 'plans' && (
+        <div className="card-elevated" style={{ padding: '1.3rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <p className="section-title" style={{ margin: 0 }}>Subscription Plans</p>
+            <span className="pill">{plans.length} plans</span>
+          </div>
+          <div className="grid grid-2" style={{ gap: '0.7rem' }}>
+            {plans.map((plan) => (
+              <div key={plan._id} style={{
+                padding: '1.1rem 1.2rem', borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.5)',
+                position: 'relative', overflow: 'hidden',
+              }}>
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                  background: plan.isActive ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #6b82a8, #4a5e80)',
+                }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>{plan.name}</h4>
+                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {plan.code}
+                    </p>
+                  </div>
+                  <span className={plan.isActive ? 'pill pill-success' : 'pill'} style={{ fontSize: '0.7rem' }}>
+                    {plan.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.8rem' }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Price</p>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '1.15rem', fontWeight: 700 }}>{formatCurrency(plan.price ?? 0)}</p>
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Duration</p>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '1.15rem', fontWeight: 700 }}>
+                      {plan.durationValue || plan.durationDays} <span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{plan.durationUnit || 'days'}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Finance Tab ── */}
+      {!loading && activeTab === 'finance' && finance && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div className="grid grid-4">
+            {[
+              { label: 'Total Income', value: formatCurrency(finance.totalIncome), accent: 'green' },
+              { label: 'Total Expenses', value: formatCurrency(finance.totalExpenses), accent: 'red' },
+              { label: 'Direct Expenses', value: formatCurrency(finance.directExpenses), accent: 'amber' },
+              { label: 'Salary Payouts', value: formatCurrency(finance.salaryPayouts), accent: 'violet' },
+            ].map((item) => (
+              <div className="kpi-card" key={item.label} data-accent={item.accent}>
+                <p className="kpi-label">{item.label}</p>
+                <p className="kpi-value" style={{ fontSize: '1.3rem' }}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="card-elevated" style={{ padding: '1.3rem' }}>
+            <p className="section-title">Recent Payments</p>
+            <div className="grid" style={{ gap: '0.5rem' }}>
+              {payments.slice(0, 8).map((row) => (
+                <div key={row._id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.7rem 0.9rem', borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.35)',
+                }}>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                      {row.studentId?.full_name || row.studentId?.username || row.studentId?.email || 'Student'}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
+                      <span className="pill" style={{ fontSize: '0.68rem' }}>{row.method}</span>
+                      <span className="pill" style={{ fontSize: '0.68rem' }}>{row.entryType.replace('_', ' ')}</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: '#34d399' }}>{formatCurrency(row.amount)}</p>
+                    <p style={{ margin: '0.1rem 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatDate(row.date)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Expenses Tab ── */}
       {!loading && activeTab === 'expenses' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Expense Ledger</h3>
-          <div className="grid">
+        <div className="card-elevated" style={{ padding: '1.3rem' }}>
+          <p className="section-title">Expense Ledger</p>
+          <div className="grid" style={{ gap: '0.5rem' }}>
             {expenses.map((row) => (
-              <article key={row._id} className="card">
-                <strong>{row.category}</strong>
-                <p style={{ margin: '0.35rem 0' }}>Amount: {row.amount}</p>
-                <p style={{ margin: 0, opacity: 0.8 }}>Date: {formatDate(row.date)}</p>
-                <p style={{ margin: '0.35rem 0 0', opacity: 0.8 }}>Vendor: {row.vendor || 'N/A'}</p>
-              </article>
+              <div key={row._id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0.7rem 0.9rem', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.35)',
+              }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '0.88rem', textTransform: 'capitalize' }}>{row.category.replace('_', ' ')}</span>
+                  <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {row.vendor || 'No vendor'} · {formatDate(row.date)}
+                  </p>
+                </div>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: '#f87171' }}>{formatCurrency(row.amount)}</p>
+              </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
+      {/* ── Payouts Tab ── */}
       {!loading && activeTab === 'payouts' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Staff Payouts</h3>
-          <div className="grid">
+        <div className="card-elevated" style={{ padding: '1.3rem' }}>
+          <p className="section-title">Staff Payouts</p>
+          <div className="grid" style={{ gap: '0.5rem' }}>
             {payouts.map((row) => (
-              <article key={row._id} className="card">
-                <strong>{row.role}</strong>
-                <p style={{ margin: '0.35rem 0' }}>Amount: {row.amount}</p>
-                <p style={{ margin: 0, opacity: 0.8 }}>Period: {row.periodMonth}</p>
-                <p style={{ margin: '0.35rem 0 0', opacity: 0.8 }}>Paid At: {formatDate(row.paidAt)}</p>
-              </article>
+              <div key={row._id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0.7rem 0.9rem', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.35)',
+              }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '0.88rem', textTransform: 'capitalize' }}>{row.role}</span>
+                  <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Period: {row.periodMonth} · Paid: {formatDate(row.paidAt)}
+                  </p>
+                </div>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: '#a78bfa' }}>{formatCurrency(row.amount)}</p>
+              </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
+      {/* ── Dues Tab ── */}
       {!loading && activeTab === 'dues' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Dues & Alerts</h3>
-          <div className="grid grid-2" style={{ marginBottom: '0.9rem' }}>
-            <form className="card grid" onSubmit={handleUpdateDue}>
-              <strong>Update Due Ledger</strong>
-              <input value={dueStudentId} onChange={(event) => setDueStudentId(event.target.value)} placeholder="Student ObjectId" style={inputStyle} />
-              <input value={dueComputed} onChange={(event) => setDueComputed(event.target.value)} type="number" step="0.01" placeholder="Computed due" style={inputStyle} />
-              <input value={dueAdjustment} onChange={(event) => setDueAdjustment(event.target.value)} type="number" step="0.01" placeholder="Manual adjustment" style={inputStyle} />
-              <input value={dueWaiver} onChange={(event) => setDueWaiver(event.target.value)} type="number" step="0.01" placeholder="Waiver amount" style={inputStyle} />
-              <input value={dueNote} onChange={(event) => setDueNote(event.target.value)} placeholder="Note (optional)" style={inputStyle} />
-              <button className="btn" type="submit" disabled={loading}>Update Due</button>
-            </form>
-            <form className="card grid" onSubmit={handleSendReminder}>
-              <strong>Send Due Reminder</strong>
-              <input value={reminderStudentId} onChange={(event) => setReminderStudentId(event.target.value)} placeholder="Student ObjectId" style={inputStyle} />
-              <button className="btn" type="submit" disabled={loading}>Send Reminder</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div className="grid grid-2">
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <p className="section-title">📝 Update Due Ledger</p>
+              <form style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onSubmit={handleUpdateDue}>
+                <input className="input" value={dueStudentId} onChange={(e) => setDueStudentId(e.target.value)} placeholder="Student ObjectId" />
+                <input className="input" value={dueComputed} onChange={(e) => setDueComputed(e.target.value)} type="number" step="0.01" placeholder="Computed due" />
+                <input className="input" value={dueAdjustment} onChange={(e) => setDueAdjustment(e.target.value)} type="number" step="0.01" placeholder="Manual adjustment" />
+                <input className="input" value={dueWaiver} onChange={(e) => setDueWaiver(e.target.value)} type="number" step="0.01" placeholder="Waiver amount" />
+                <input className="input" value={dueNote} onChange={(e) => setDueNote(e.target.value)} placeholder="Note (optional)" />
+                <button className="btn" type="submit" disabled={loading}>Update Due</button>
+              </form>
+            </div>
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <p className="section-title">🔔 Send Reminder</p>
+              <form style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onSubmit={handleSendReminder}>
+                <input className="input" value={reminderStudentId} onChange={(e) => setReminderStudentId(e.target.value)} placeholder="Student ObjectId" />
+                <button className="btn" type="submit" disabled={loading}>Send Reminder</button>
+              </form>
+            </div>
+          </div>
+
+          <div className="card-elevated" style={{ padding: '1.3rem' }}>
+            <p className="section-title">Due Records</p>
+            <div className="grid" style={{ gap: '0.5rem' }}>
+              {dues.map((row) => (
+                <div key={row._id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.35)',
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                      {row.studentId?.username || row.studentId?.email || 'Student'}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                      <span className="pill" style={{ fontSize: '0.68rem' }}>Computed: {formatCurrency(row.computedDue)}</span>
+                      <span className="pill" style={{ fontSize: '0.68rem' }}>Adj: {formatCurrency(row.manualAdjustment)}</span>
+                      <span className="pill" style={{ fontSize: '0.68rem' }}>Waiver: {formatCurrency(row.waiverAmount)}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: '1.05rem', color: row.netDue > 0 ? '#fbbf24' : '#34d399' }}>
+                      {formatCurrency(row.netDue)}
+                    </p>
+                    {row.studentId?._id && (
+                      <button className="btn-ghost btn-sm" type="button" onClick={() => { setReminderStudentId(row.studentId?._id || ''); setDueStudentId(row.studentId?._id || ''); }}>
+                        Use ID
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Notices Tab ── */}
+      {!loading && activeTab === 'notices' && (
+        <div className="card-elevated" style={{ padding: '1.3rem' }}>
+          <p className="section-title">Notices</p>
+          <div className="grid" style={{ gap: '0.6rem' }}>
+            {notices.map((row) => (
+              <div key={row._id} style={{
+                padding: '0.9rem 1rem', borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.4)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>{row.title}</h4>
+                  <span className={row.isActive ? 'pill pill-success' : 'pill'} style={{ fontSize: '0.68rem' }}>
+                    {row.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{row.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Tickets Tab ── */}
+      {!loading && activeTab === 'tickets' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div className="grid grid-2">
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <p className="section-title">🔄 Update Status</p>
+              <form style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onSubmit={handleTicketStatus}>
+                <input className="input" value={ticketActionId} onChange={(e) => setTicketActionId(e.target.value)} placeholder="Ticket ObjectId" />
+                <select className="input" value={ticketStatus} onChange={(e) => setTicketStatus(e.target.value as typeof ticketStatus)}>
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </select>
+                <button className="btn" type="submit" disabled={loading}>Update Status</button>
+              </form>
+            </div>
+            <div className="card" style={{ padding: '1.2rem' }}>
+              <p className="section-title">💬 Reply</p>
+              <form style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onSubmit={handleTicketReply}>
+                <input className="input" value={ticketActionId} onChange={(e) => setTicketActionId(e.target.value)} placeholder="Ticket ObjectId" />
+                <textarea className="input" value={ticketReply} onChange={(e) => setTicketReply(e.target.value)} placeholder="Reply message" rows={3} />
+                <button className="btn" type="submit" disabled={loading}>Send Reply</button>
+              </form>
+            </div>
+          </div>
+
+          <div className="card-elevated" style={{ padding: '1.3rem' }}>
+            <p className="section-title">Ticket Queue</p>
+            <div className="grid" style={{ gap: '0.5rem' }}>
+              {tickets.map((row) => {
+                const statusColors: Record<string, string> = { open: 'pill-warning', in_progress: 'pill-violet', resolved: 'pill-success', closed: 'pill' };
+                const priorityColors: Record<string, string> = { high: 'pill-danger', medium: 'pill-warning', low: 'pill' };
+                return (
+                  <div key={row._id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.35)',
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{row.ticketNo}</span>
+                        <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{row.subject}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.25rem' }}>
+                        <span className={`pill ${statusColors[row.status] || 'pill'}`} style={{ fontSize: '0.68rem' }}>{row.status.replace('_', ' ')}</span>
+                        <span className={`pill ${priorityColors[row.priority] || 'pill'}`} style={{ fontSize: '0.68rem' }}>{row.priority}</span>
+                      </div>
+                    </div>
+                    <button className="btn-ghost btn-sm" type="button" onClick={() => setTicketActionId(row._id)}>Use ID</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Backups Tab ── */}
+      {!loading && activeTab === 'backups' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div className="card" style={{ padding: '1.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+              <p className="section-title" style={{ margin: 0 }}>🛡️ Backup Management</p>
+              <button className="btn" onClick={handleRunBackup} disabled={loading}>Run Incremental Backup</button>
+            </div>
+            <form style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} onSubmit={handleRestoreBackup}>
+              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>⚠ Restore is destructive. Requires confirmation.</p>
+              <input className="input" value={restoreBackupId} onChange={(e) => setRestoreBackupId(e.target.value)} placeholder="Backup ObjectId" />
+              <input className="input" value={restoreConfirmation} onChange={(e) => setRestoreConfirmation(e.target.value)} placeholder={`Type: RESTORE ${restoreBackupId || '<backupId>'}`} />
+              <button className="btn" type="submit" disabled={loading} style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>Restore Backup</button>
             </form>
           </div>
-          <div className="grid">
-            {dues.map((row) => (
-              <article key={row._id} className="card">
-                <strong>{row.studentId?.username || row.studentId?.email || 'Student'}</strong>
-                <p style={{ margin: '0.35rem 0' }}>Net Due: {row.netDue}</p>
-                <p style={{ margin: 0, opacity: 0.8 }}>Computed: {row.computedDue}</p>
-                <p style={{ margin: '0.35rem 0 0', opacity: 0.8 }}>
-                  Adjustment: {row.manualAdjustment} | Waiver: {row.waiverAmount}
-                </p>
-                {row.studentId?._id && (
-                  <div style={{ marginTop: '0.55rem' }}>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        setReminderStudentId(row.studentId?._id || '');
-                        setDueStudentId(row.studentId?._id || '');
-                      }}
-                    >
-                      Use This Student ID
+
+          <div className="card-elevated" style={{ padding: '1.3rem' }}>
+            <p className="section-title">Backup History</p>
+            <div className="grid" style={{ gap: '0.5rem' }}>
+              {backups.map((row) => {
+                const statusMap: Record<string, string> = { completed: 'pill-success', running: 'pill-warning', pending: 'pill', failed: 'pill-danger' };
+                return (
+                  <div key={row._id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)', background: 'rgba(8, 18, 44, 0.35)',
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', textTransform: 'uppercase' }}>{row.type}</span>
+                        <span className="pill" style={{ fontSize: '0.68rem' }}>{row.storage}</span>
+                        <span className={`pill ${statusMap[row.status] || 'pill'}`} style={{ fontSize: '0.68rem' }}>{row.status}</span>
+                      </div>
+                      <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {formatDate(row.createdAt)} · {row.localPath || row.s3Key || 'Path pending'}
+                      </p>
+                    </div>
+                    <button className="btn-ghost btn-sm" type="button" onClick={() => { setRestoreBackupId(row._id); setRestoreConfirmation(`RESTORE ${row._id}`); }}>
+                      Prepare Restore
                     </button>
                   </div>
-                )}
-              </article>
-            ))}
+                );
+              })}
+            </div>
           </div>
-        </section>
+        </div>
       )}
-
-      {!loading && activeTab === 'notices' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Notices</h3>
-          <div className="grid">
-            {notices.map((row) => (
-              <article key={row._id} className="card">
-                <strong>{row.title}</strong>
-                <p style={{ margin: '0.35rem 0' }}>{row.message}</p>
-                <span className="pill">{row.isActive ? 'Active' : 'Inactive'}</span>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {!loading && activeTab === 'tickets' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0 }}>Support Tickets</h3>
-          <div className="grid grid-2" style={{ marginBottom: '0.9rem' }}>
-            <form className="card grid" onSubmit={handleTicketStatus}>
-              <strong>Update Ticket Status</strong>
-              <input value={ticketActionId} onChange={(event) => setTicketActionId(event.target.value)} placeholder="Ticket ObjectId" style={inputStyle} />
-              <select value={ticketStatus} onChange={(event) => setTicketStatus(event.target.value as typeof ticketStatus)} style={inputStyle}>
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
-              </select>
-              <button className="btn" type="submit" disabled={loading}>Update Status</button>
-            </form>
-            <form className="card grid" onSubmit={handleTicketReply}>
-              <strong>Reply Ticket</strong>
-              <input value={ticketActionId} onChange={(event) => setTicketActionId(event.target.value)} placeholder="Ticket ObjectId" style={inputStyle} />
-              <textarea
-                value={ticketReply}
-                onChange={(event) => setTicketReply(event.target.value)}
-                placeholder="Reply message"
-                rows={3}
-                style={inputStyle}
-              />
-              <button className="btn" type="submit" disabled={loading}>Send Reply</button>
-            </form>
-          </div>
-          <div className="grid">
-            {tickets.map((row) => (
-              <article key={row._id} className="card">
-                <strong>{row.ticketNo}</strong>
-                <p style={{ margin: '0.35rem 0' }}>{row.subject}</p>
-                <span className="pill">{row.status}</span>
-                <span className="pill" style={{ marginLeft: '0.5rem' }}>{row.priority}</span>
-                <div style={{ marginTop: '0.6rem' }}>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => setTicketActionId(row._id)}
-                  >
-                    Use This Ticket ID
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {!loading && activeTab === 'backups' && (
-        <section className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.7rem' }}>
-            <h3 style={{ marginTop: 0, marginBottom: 0 }}>Backups</h3>
-            <button className="btn" onClick={handleRunBackup}>Run Incremental Backup</button>
-          </div>
-          <form className="card grid" style={{ marginTop: '0.8rem' }} onSubmit={handleRestoreBackup}>
-            <strong>Restore Backup (Destructive)</strong>
-            <input
-              value={restoreBackupId}
-              onChange={(event) => setRestoreBackupId(event.target.value)}
-              placeholder="Backup ObjectId"
-              style={inputStyle}
-            />
-            <input
-              value={restoreConfirmation}
-              onChange={(event) => setRestoreConfirmation(event.target.value)}
-              placeholder={`Type: RESTORE ${restoreBackupId || '<backupId>'}`}
-              style={inputStyle}
-            />
-            <button className="btn" type="submit" disabled={loading}>Restore Backup</button>
-          </form>
-          <div className="grid" style={{ marginTop: '0.8rem' }}>
-            {backups.map((row) => (
-              <article key={row._id} className="card">
-                <strong>{row.type.toUpperCase()} / {row.storage}</strong>
-                <p style={{ margin: '0.35rem 0' }}>Status: {row.status}</p>
-                <p style={{ margin: 0, opacity: 0.8 }}>Created: {formatDate(row.createdAt)}</p>
-                <p style={{ margin: '0.35rem 0 0', opacity: 0.8 }}>
-                  {row.localPath ? `Local: ${row.localPath}` : row.s3Key ? `S3: ${row.s3Key}` : 'Path pending'}
-                </p>
-                <div style={{ marginTop: '0.6rem' }}>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => {
-                      setRestoreBackupId(row._id);
-                      setRestoreConfirmation(`RESTORE ${row._id}`);
-                    }}
-                  >
-                    Prepare Restore Token
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-    </section>
+    </div>
   );
 }
-
-const inputStyle: CSSProperties = {
-  borderRadius: 10,
-  border: '1px solid rgba(132,170,255,0.35)',
-  background: 'rgba(8,18,44,0.55)',
-  color: '#dbe7ff',
-  padding: '0.65rem 0.75rem',
-  width: '100%',
-};

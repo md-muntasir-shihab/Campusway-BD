@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import HomeConfig from '../models/HomeConfig';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type HomeSectionRecord = {
     id: string;
@@ -151,9 +152,9 @@ export const getHomeConfig = async (req: Request, res: Response): Promise<void> 
             config.set('sections', normalizeHomeSections(config.sections));
             await config.save();
         }
-        res.json(config);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(config));
     } catch (error: any) {
-        res.status(500).json({ message: 'Error fetching home config', error: error.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Error fetching home config'));
     }
 };
 
@@ -189,8 +190,8 @@ export const updateHomeConfig = async (req: Request, res: Response): Promise<voi
             type: 'category-updated',
             meta: { action: 'home-config' },
         });
-        res.json({ message: 'Home config updated successfully', config });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({config}, 'Home config updated successfully'));
     } catch (error: any) {
-        res.status(500).json({ message: 'Error updating home config', error: error.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Error updating home config'));
     }
 };

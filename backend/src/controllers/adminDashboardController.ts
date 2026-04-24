@@ -11,6 +11,7 @@ import ExamResult from '../models/ExamResult';
 import { AuthRequest } from '../middlewares/auth';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { ensureSecureUploadUrl } from '../services/secureUploadService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function hashOtp(code: string): string {
     return crypto.createHash('sha256').update(code).digest('hex');
@@ -64,10 +65,10 @@ function normalizeCelebrationRules(raw: unknown) {
 export async function adminGetNotifications(_req: Request, res: Response): Promise<void> {
     try {
         const items = await Notification.find().sort({ publishAt: -1, createdAt: -1 }).lean();
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (err) {
         console.error('adminGetNotifications error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -88,10 +89,10 @@ export async function adminCreateNotification(req: AuthRequest, res: Response): 
         };
         const item = await Notification.create(payload);
         broadcastStudentDashboardEvent({ type: 'notification_updated', meta: { action: 'create', id: String(item._id) } });
-        res.status(201).json({ item, message: 'Notification created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({item}, 'Notification created'));
     } catch (err) {
         console.error('adminCreateNotification error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -113,14 +114,14 @@ export async function adminUpdateNotification(req: AuthRequest, res: Response): 
             { new: true, runValidators: true }
         );
         if (!item) {
-            res.status(404).json({ message: 'Notification not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Notification not found'));
             return;
         }
         broadcastStudentDashboardEvent({ type: 'notification_updated', meta: { action: 'update', id: String(item._id) } });
-        res.json({ item, message: 'Notification updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Notification updated'));
     } catch (err) {
         console.error('adminUpdateNotification error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -128,14 +129,14 @@ export async function adminDeleteNotification(req: Request, res: Response): Prom
     try {
         const item = await Notification.findByIdAndDelete(req.params.id);
         if (!item) {
-            res.status(404).json({ message: 'Notification not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Notification not found'));
             return;
         }
         broadcastStudentDashboardEvent({ type: 'notification_updated', meta: { action: 'delete', id: String(item._id) } });
-        res.json({ message: 'Notification deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Notification deleted'));
     } catch (err) {
         console.error('adminDeleteNotification error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -143,16 +144,16 @@ export async function adminToggleNotification(req: Request, res: Response): Prom
     try {
         const item = await Notification.findById(req.params.id);
         if (!item) {
-            res.status(404).json({ message: 'Notification not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Notification not found'));
             return;
         }
         item.isActive = !item.isActive;
         await item.save();
         broadcastStudentDashboardEvent({ type: 'notification_updated', meta: { action: 'toggle', id: String(item._id), isActive: item.isActive } });
-        res.json({ item, message: 'Notification status toggled' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Notification status toggled'));
     } catch (err) {
         console.error('adminToggleNotification error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -166,10 +167,10 @@ export async function adminGetStudentDashboardConfig(_req: Request, res: Respons
             await StudentDashboardConfig.updateOne({ _id: config._id }, { $set: { celebrationRules: DEFAULT_CELEBRATION_RULES } });
             config = await StudentDashboardConfig.findOne().lean();
         }
-        res.json({ config });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ config }));
     } catch (err) {
         console.error('adminGetStudentDashboardConfig error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -184,30 +185,30 @@ export async function adminUpdateStudentDashboardConfig(req: AuthRequest, res: R
         config.updatedBy = toObjectIdOrUndefined(req.user?._id);
         await config.save();
         broadcastStudentDashboardEvent({ type: 'dashboard_config_updated', meta: { updatedBy: req.user?._id } });
-        res.json({ config, message: 'Student dashboard config updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({config}, 'Student dashboard config updated'));
     } catch (err) {
         console.error('adminUpdateStudentDashboardConfig error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminGetBadges(_req: Request, res: Response): Promise<void> {
     try {
         const items = await Badge.find().sort({ createdAt: -1 }).lean();
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (err) {
         console.error('adminGetBadges error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateBadge(req: Request, res: Response): Promise<void> {
     try {
         const item = await Badge.create(req.body);
-        res.status(201).json({ item, message: 'Badge created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({item}, 'Badge created'));
     } catch (err) {
         console.error('adminCreateBadge error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -215,13 +216,13 @@ export async function adminUpdateBadge(req: Request, res: Response): Promise<voi
     try {
         const item = await Badge.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
         if (!item) {
-            res.status(404).json({ message: 'Badge not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Badge not found'));
             return;
         }
-        res.json({ item, message: 'Badge updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Badge updated'));
     } catch (err) {
         console.error('adminUpdateBadge error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -229,14 +230,14 @@ export async function adminDeleteBadge(req: Request, res: Response): Promise<voi
     try {
         const item = await Badge.findByIdAndDelete(req.params.id);
         if (!item) {
-            res.status(404).json({ message: 'Badge not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Badge not found'));
             return;
         }
         await StudentBadge.deleteMany({ badge: req.params.id });
-        res.json({ message: 'Badge deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Badge deleted'));
     } catch (err) {
         console.error('adminDeleteBadge error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -256,10 +257,10 @@ export async function adminAssignBadge(req: AuthRequest, res: Response): Promise
             { upsert: true, new: true }
         );
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId, badgeId } });
-        res.status(201).json({ item, message: 'Badge assigned' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({item}, 'Badge assigned'));
     } catch (err) {
         console.error('adminAssignBadge error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -268,10 +269,10 @@ export async function adminRevokeBadge(req: Request, res: Response): Promise<voi
         const { studentId, badgeId } = req.params;
         await StudentBadge.deleteOne({ student: studentId, badge: badgeId });
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId, badgeId, revoked: true } });
-        res.json({ message: 'Badge revoked' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Badge revoked'));
     } catch (err) {
         console.error('adminRevokeBadge error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -280,7 +281,7 @@ export async function adminIssueGuardianOtp(req: Request, res: Response): Promis
         const { studentId } = req.params;
         const profile = await StudentProfile.findOne({ user_id: studentId });
         if (!profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
 
@@ -292,10 +293,10 @@ export async function adminIssueGuardianOtp(req: Request, res: Response): Promis
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId, guardianOtpIssued: true } });
 
         // Admin-assisted flow: OTP is returned for manual offline verification.
-        res.json({ message: 'OTP issued', otp, expiresAt: profile.guardianOtpExpiresAt });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({otp, expiresAt: profile.guardianOtpExpiresAt}, 'OTP issued'));
     } catch (err) {
         console.error('adminIssueGuardianOtp error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -305,15 +306,15 @@ export async function adminConfirmGuardianOtp(req: Request, res: Response): Prom
         const { code } = req.body as { code: string };
         const profile = await StudentProfile.findOne({ user_id: studentId });
         if (!profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
         if (!profile.guardianOtpHash || !profile.guardianOtpExpiresAt || profile.guardianOtpExpiresAt.getTime() < Date.now()) {
-            res.status(400).json({ message: 'OTP not issued or expired' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'OTP not issued or expired'));
             return;
         }
         if (hashOtp(String(code || '')) !== profile.guardianOtpHash) {
-            res.status(400).json({ message: 'Invalid OTP' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid OTP'));
             return;
         }
 
@@ -324,10 +325,10 @@ export async function adminConfirmGuardianOtp(req: Request, res: Response): Prom
         await profile.save();
 
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId, guardianVerified: true } });
-        res.json({ message: 'Guardian phone verified', verifiedAt: profile.guardianPhoneVerifiedAt });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({verifiedAt: profile.guardianPhoneVerifiedAt}, 'Guardian phone verified'));
     } catch (err) {
         console.error('adminConfirmGuardianOtp error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -440,6 +441,6 @@ export async function adminExportStudentExamHistory(req: Request, res: Response)
         res.end();
     } catch (err) {
         console.error('adminExportStudentExamHistory error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

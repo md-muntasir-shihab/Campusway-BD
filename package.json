@@ -1,0 +1,17 @@
+{
+  "name": "campusway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CampusWay monorepo root — husky pre-commit hooks",
+  "scripts": {
+    "prepare": "husky",
+    "lint:backend": "cd backend && npx eslint . --ext .ts",
+    "lint:frontend": "cd frontend && npx eslint .",
+    "typecheck:backend": "cd backend && npx tsc --noEmit",
+    "typecheck:frontend": "cd frontend && npx tsc --noEmit",
+    "precommit": "npm run lint:backend && npm run lint:frontend && npm run typecheck:backend && npm run typecheck:frontend"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

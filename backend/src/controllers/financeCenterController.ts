@@ -23,6 +23,7 @@ import {
     getOrCreateFinanceSettings,
     generatePLReportPDF,
 } from '../services/financeCenterService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 // ── Helpers ─────────────────────────────────────────────
 function oid(val: unknown): mongoose.Types.ObjectId | null {
@@ -156,10 +157,10 @@ export async function fcGetDashboard(req: AuthRequest, res: Response): Promise<v
     try {
         const month = String(req.query.month || '').trim() || undefined;
         const data = await getFinanceSummary(month);
-        res.json({ ok: true, data });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data }));
     } catch (err) {
         console.error('fcGetDashboard error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -203,17 +204,17 @@ export async function fcGetTransactions(req: AuthRequest, res: Response): Promis
             FinanceTransaction.countDocuments(filter),
         ]);
 
-        res.json({ ok: true, items, total, page, limit, totalPages: Math.ceil(total / limit) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items, total, page, limit, totalPages: Math.ceil(total / limit) }));
     } catch (err) {
         console.error('fcGetTransactions error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcGetTransaction(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const txn = await FinanceTransaction.findById(id)
             .populate('studentId', 'full_name username email')
@@ -221,12 +222,12 @@ export async function fcGetTransaction(req: AuthRequest, res: Response): Promise
             .populate('createdByAdminId', 'full_name username')
             .populate('approvedByAdminId', 'full_name username')
             .lean();
-        if (!txn) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!txn) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
-        res.json({ ok: true, data: txn });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: txn }));
     } catch (err) {
         console.error('fcGetTransaction error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -234,13 +235,13 @@ export async function fcCreateTransaction(req: AuthRequest, res: Response): Prom
     try {
         const b = req.body;
         const adminId = String(req.user?._id || '');
-        if (!adminId) { res.status(401).json({ message: 'Auth required' }); return; }
+        if (!adminId) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Auth required')); return; }
 
         const direction = b.direction === 'expense' ? 'expense' : 'income';
         const amount = num(b.amount);
-        if (amount <= 0) { res.status(400).json({ message: 'Amount must be positive' }); return; }
+        if (amount <= 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Amount must be positive')); return; }
         if (!b.accountCode || !b.categoryLabel) {
-            res.status(400).json({ message: 'accountCode and categoryLabel are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'accountCode and categoryLabel are required'));
             return;
         }
 
@@ -290,20 +291,20 @@ export async function fcCreateTransaction(req: AuthRequest, res: Response): Prom
             ip: getClientIp(req),
         });
 
-        res.status(201).json({ ok: true, data: txn });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ ok: true, data: txn }));
     } catch (err) {
         console.error('fcCreateTransaction error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcUpdateTransaction(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const txn = await FinanceTransaction.findOne({ _id: id, isDeleted: false });
-        if (!txn) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!txn) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
         const b = req.body;
         const adminId = String(req.user?._id || '');
@@ -342,21 +343,21 @@ export async function fcUpdateTransaction(req: AuthRequest, res: Response): Prom
             afterSnapshot: txn.toObject() as unknown as Record<string, unknown>,
         });
 
-        res.json({ ok: true, data: txn });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: txn }));
     } catch (err) {
         console.error('fcUpdateTransaction error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcDeleteTransaction(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const adminId = String(req.user?._id || '');
         const txn = await FinanceTransaction.findOne({ _id: id, isDeleted: false });
-        if (!txn) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!txn) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
         txn.isDeleted = true;
         txn.deletedAt = new Date();
@@ -371,10 +372,10 @@ export async function fcDeleteTransaction(req: AuthRequest, res: Response): Prom
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, message: 'Deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ok: true}, 'Deleted'));
     } catch (err) {
         console.error('fcDeleteTransaction error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -382,11 +383,11 @@ export async function fcDeleteTransaction(req: AuthRequest, res: Response): Prom
 export async function fcRestoreTransaction(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const adminId = String(req.user?._id || '');
         const txn = await FinanceTransaction.findOne({ _id: id, isDeleted: true });
-        if (!txn) { res.status(404).json({ message: 'Deleted transaction not found' }); return; }
+        if (!txn) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Deleted transaction not found')); return; }
 
         txn.isDeleted = false;
         txn.deletedAt = undefined;
@@ -401,17 +402,17 @@ export async function fcRestoreTransaction(req: AuthRequest, res: Response): Pro
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, data: txn });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: txn }));
     } catch (err) {
         console.error('fcRestoreTransaction error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcBulkApproveTransactions(req: AuthRequest, res: Response): Promise<void> {
     try {
         const ids = (req.body.ids || []).map(oid).filter(Boolean);
-        if (ids.length === 0) { res.status(400).json({ message: 'No IDs provided' }); return; }
+        if (ids.length === 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No IDs provided')); return; }
 
         const adminId = String(req.user?._id || '');
         await FinanceTransaction.updateMany(
@@ -433,17 +434,17 @@ export async function fcBulkApproveTransactions(req: AuthRequest, res: Response)
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, message: `Approved ${ids.length} transactions` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true}, `Approved ${ids.length} transactions`));
     } catch (err) {
         console.error('fcBulkApproveTransactions error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcBulkMarkPaid(req: AuthRequest, res: Response): Promise<void> {
     try {
         const ids = (req.body.ids || []).map(oid).filter(Boolean);
-        if (ids.length === 0) { res.status(400).json({ message: 'No IDs provided' }); return; }
+        if (ids.length === 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No IDs provided')); return; }
 
         const adminId = String(req.user?._id || '');
         await FinanceTransaction.updateMany(
@@ -459,10 +460,10 @@ export async function fcBulkMarkPaid(req: AuthRequest, res: Response): Promise<v
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, message: `Marked ${ids.length} transactions as paid` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true}, `Marked ${ids.length} transactions as paid`));
     } catch (err) {
         console.error('fcBulkMarkPaid error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -493,17 +494,17 @@ export async function fcGetInvoices(req: AuthRequest, res: Response): Promise<vo
             FinanceInvoice.countDocuments(filter),
         ]);
 
-        res.json({ ok: true, items, total, page, limit, totalPages: Math.ceil(total / limit) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items, total, page, limit, totalPages: Math.ceil(total / limit) }));
     } catch (err) {
         console.error('fcGetInvoices error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcGetInvoice(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const inv = await FinanceInvoice.findById(id)
             .populate('studentId', 'full_name username email')
@@ -511,12 +512,12 @@ export async function fcGetInvoice(req: AuthRequest, res: Response): Promise<voi
             .populate('planId', 'name code priceBDT')
             .populate('examId', 'title')
             .lean();
-        if (!inv) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!inv) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
-        res.json({ ok: true, data: inv });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: inv }));
     } catch (err) {
         console.error('fcGetInvoice error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -525,7 +526,7 @@ export async function fcCreateInvoice(req: AuthRequest, res: Response): Promise<
         const b = req.body;
         const adminId = String(req.user?._id || '');
         const amount = num(b.amountBDT);
-        if (amount <= 0) { res.status(400).json({ message: 'Amount required' }); return; }
+        if (amount <= 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Amount required')); return; }
 
         const invoiceNo = await nextInvoiceNo();
         const inv = await FinanceInvoice.create({
@@ -553,20 +554,20 @@ export async function fcCreateInvoice(req: AuthRequest, res: Response): Promise<
             ip: getClientIp(req),
         });
 
-        res.status(201).json({ ok: true, data: inv });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ ok: true, data: inv }));
     } catch (err) {
         console.error('fcCreateInvoice error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcUpdateInvoice(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const inv = await FinanceInvoice.findOne({ _id: id, isDeleted: false });
-        if (!inv) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!inv) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
         const b = req.body;
         if (b.amountBDT !== undefined) inv.amountBDT = num(b.amountBDT);
@@ -585,20 +586,20 @@ export async function fcUpdateInvoice(req: AuthRequest, res: Response): Promise<
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, data: inv });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: inv }));
     } catch (err) {
         console.error('fcUpdateInvoice error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcMarkInvoicePaid(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const inv = await FinanceInvoice.findOne({ _id: id, isDeleted: false });
-        if (!inv) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!inv) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
         const adminId = String(req.user?._id || '');
         const settings = await getOrCreateFinanceSettings();
@@ -655,10 +656,10 @@ export async function fcMarkInvoicePaid(req: AuthRequest, res: Response): Promis
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, data: inv });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: inv }));
     } catch (err) {
         console.error('fcMarkInvoicePaid error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -695,10 +696,10 @@ export async function fcGetBudgets(req: AuthRequest, res: Response): Promise<voi
             })
         );
 
-        res.json({ ok: true, items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items }));
     } catch (err) {
         console.error('fcGetBudgets error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -707,7 +708,7 @@ export async function fcCreateBudget(req: AuthRequest, res: Response): Promise<v
         const b = req.body;
         const adminId = String(req.user?._id || '');
         if (!b.month || !b.accountCode || !b.categoryLabel) {
-            res.status(400).json({ message: 'month, accountCode, categoryLabel required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'month, accountCode, categoryLabel required'));
             return;
         }
         const budget = await FinanceBudget.create({
@@ -721,24 +722,24 @@ export async function fcCreateBudget(req: AuthRequest, res: Response): Promise<v
             notes: sanitize(b.notes),
             createdByAdminId: new mongoose.Types.ObjectId(adminId),
         });
-        res.status(201).json({ ok: true, data: budget });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ ok: true, data: budget }));
     } catch (err: any) {
         if (err.code === 11000) {
-            res.status(409).json({ message: 'Budget for this month+account already exists' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Budget for this month+account already exists'));
             return;
         }
         console.error('fcCreateBudget error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcUpdateBudget(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
         const b = req.body;
         const budget = await FinanceBudget.findById(id);
-        if (!budget) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!budget) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
         if (b.amountLimit !== undefined) budget.amountLimit = num(b.amountLimit);
         if (b.alertThresholdPercent !== undefined) budget.alertThresholdPercent = num(b.alertThresholdPercent, 80);
@@ -746,22 +747,22 @@ export async function fcUpdateBudget(req: AuthRequest, res: Response): Promise<v
         if (b.categoryLabel) budget.categoryLabel = sanitize(b.categoryLabel);
 
         await budget.save();
-        res.json({ ok: true, data: budget });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: budget }));
     } catch (err) {
         console.error('fcUpdateBudget error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcDeleteBudget(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
         await FinanceBudget.findByIdAndDelete(id);
-        res.json({ ok: true, message: 'Deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ok: true}, 'Deleted'));
     } catch (err) {
         console.error('fcDeleteBudget error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -774,10 +775,10 @@ export async function fcGetRecurringRules(req: AuthRequest, res: Response): Prom
             .sort({ isActive: -1, nextRunAtUTC: 1 })
             .populate('vendorId', 'name')
             .lean();
-        res.json({ ok: true, items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items }));
     } catch (err) {
         console.error('fcGetRecurringRules error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -786,7 +787,7 @@ export async function fcCreateRecurringRule(req: AuthRequest, res: Response): Pr
         const b = req.body;
         const adminId = String(req.user?._id || '');
         if (!b.name || !b.accountCode || !b.categoryLabel) {
-            res.status(400).json({ message: 'name, accountCode, categoryLabel required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'name, accountCode, categoryLabel required'));
             return;
         }
         const rule = await FinanceRecurringRule.create({
@@ -809,19 +810,19 @@ export async function fcCreateRecurringRule(req: AuthRequest, res: Response): Pr
             isActive: b.isActive !== false,
             createdByAdminId: new mongoose.Types.ObjectId(adminId),
         });
-        res.status(201).json({ ok: true, data: rule });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ ok: true, data: rule }));
     } catch (err) {
         console.error('fcCreateRecurringRule error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcUpdateRecurringRule(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
         const rule = await FinanceRecurringRule.findById(id);
-        if (!rule) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!rule) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
         const b = req.body;
         if (b.name) rule.name = sanitize(b.name);
@@ -841,35 +842,35 @@ export async function fcUpdateRecurringRule(req: AuthRequest, res: Response): Pr
         if (b.vendorId !== undefined) rule.vendorId = oid(b.vendorId) ?? undefined;
 
         await rule.save();
-        res.json({ ok: true, data: rule });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: rule }));
     } catch (err) {
         console.error('fcUpdateRecurringRule error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcDeleteRecurringRule(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
         await FinanceRecurringRule.findByIdAndDelete(id);
-        res.json({ ok: true, message: 'Deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ok: true}, 'Deleted'));
     } catch (err) {
         console.error('fcDeleteRecurringRule error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcRunRecurringRuleNow(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
         const adminId = String(req.user?._id || '');
         const txn = await executeRecurringRule(String(id), adminId);
-        res.json({ ok: true, data: txn });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: txn }));
     } catch (err: any) {
         console.error('fcRunRecurringRuleNow error:', err);
-        res.status(400).json({ message: err.message || 'Failed' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', err.message || 'Failed'));
     }
 }
 
@@ -879,10 +880,10 @@ export async function fcRunRecurringRuleNow(req: AuthRequest, res: Response): Pr
 export async function fcGetChartOfAccounts(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const items = await ChartOfAccounts.find({}).sort({ type: 1, code: 1 }).lean();
-        res.json({ ok: true, items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items }));
     } catch (err) {
         console.error('fcGetChartOfAccounts error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -890,7 +891,7 @@ export async function fcCreateAccount(req: AuthRequest, res: Response): Promise<
     try {
         const b = req.body;
         if (!b.code || !b.name || !b.type) {
-            res.status(400).json({ message: 'code, name, type required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'code, name, type required'));
             return;
         }
         const acct = await ChartOfAccounts.create({
@@ -902,14 +903,14 @@ export async function fcCreateAccount(req: AuthRequest, res: Response): Promise<
             isActive: b.isActive !== false,
             isSystem: false,
         });
-        res.status(201).json({ ok: true, data: acct });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ ok: true, data: acct }));
     } catch (err: any) {
         if (err.code === 11000) {
-            res.status(409).json({ message: 'Account code already exists' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Account code already exists'));
             return;
         }
         console.error('fcCreateAccount error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -919,17 +920,17 @@ export async function fcCreateAccount(req: AuthRequest, res: Response): Promise<
 export async function fcGetVendors(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const items = await FinanceVendor.find({}).sort({ name: 1 }).lean();
-        res.json({ ok: true, items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items }));
     } catch (err) {
         console.error('fcGetVendors error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcCreateVendor(req: AuthRequest, res: Response): Promise<void> {
     try {
         const b = req.body;
-        if (!b.name) { res.status(400).json({ message: 'name required' }); return; }
+        if (!b.name) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'name required')); return; }
         const vendor = await FinanceVendor.create({
             name: sanitize(b.name),
             contact: sanitize(b.contact),
@@ -941,10 +942,10 @@ export async function fcCreateVendor(req: AuthRequest, res: Response): Promise<v
             isActive: b.isActive !== false,
             createdByAdminId: new mongoose.Types.ObjectId(String(req.user?._id)),
         });
-        res.status(201).json({ ok: true, data: vendor });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ ok: true, data: vendor }));
     } catch (err) {
         console.error('fcCreateVendor error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -954,10 +955,10 @@ export async function fcCreateVendor(req: AuthRequest, res: Response): Promise<v
 export async function fcGetSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await getOrCreateFinanceSettings();
-        res.json({ ok: true, data: settings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: settings }));
     } catch (err) {
         console.error('fcGetSettings error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -999,10 +1000,10 @@ export async function fcUpdateSettings(req: AuthRequest, res: Response): Promise
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, data: settings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: settings }));
     } catch (err) {
         console.error('fcUpdateSettings error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1028,27 +1029,27 @@ export async function fcGetAuditLogs(req: AuthRequest, res: Response): Promise<v
             AuditLog.countDocuments(filter),
         ]);
 
-        res.json({ ok: true, items, total, page, limit });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items, total, page, limit }));
     } catch (err) {
         console.error('fcGetAuditLogs error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcGetAuditLogDetail(req: AuthRequest, res: Response): Promise<void> {
     try {
         const id = oid(req.params.id);
-        if (!id) { res.status(400).json({ message: 'Invalid ID' }); return; }
+        if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ID')); return; }
 
         const log = await AuditLog.findById(id)
             .populate('actor_id', 'full_name username')
             .lean();
-        if (!log) { res.status(404).json({ message: 'Not found' }); return; }
+        if (!log) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Not found')); return; }
 
-        res.json({ ok: true, data: log });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: log }));
     } catch (err) {
         console.error('fcGetAuditLogDetail error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1133,18 +1134,18 @@ export async function fcExportTransactions(req: AuthRequest, res: Response): Pro
         res.end();
     } catch (err) {
         console.error('fcExportTransactions error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcImportPreview(req: AuthRequest, res: Response): Promise<void> {
     try {
-        if (!req.file) { res.status(400).json({ message: 'File required' }); return; }
+        if (!req.file) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'File required')); return; }
 
         const workbook = XLSX.read(req.file.buffer, { type: 'buffer', raw: false });
         const sheetName = workbook.SheetNames[0];
         const worksheet = sheetName ? workbook.Sheets[sheetName] : null;
-        if (!worksheet) { res.status(400).json({ message: 'No worksheet found' }); return; }
+        if (!worksheet) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No worksheet found')); return; }
 
         const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
         const headers = rawRows[0] ? Object.keys(rawRows[0]) : [];
@@ -1163,10 +1164,10 @@ export async function fcImportPreview(req: AuthRequest, res: Response): Promise<
             return normalizedRow;
         });
 
-        res.json({ ok: true, headers, rows: rows.slice(0, 200), totalRows: rows.length, errors });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, headers, rows: rows.slice(0, 200), totalRows: rows.length, errors }));
     } catch (err) {
         console.error('fcImportPreview error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1174,7 +1175,7 @@ export async function fcImportCommit(req: AuthRequest, res: Response): Promise<v
     try {
         const { rows, mapping } = req.body;
         if (!Array.isArray(rows) || rows.length === 0) {
-            res.status(400).json({ message: 'rows required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'rows required'));
             return;
         }
         const adminId = String(req.user?._id || '');
@@ -1223,10 +1224,10 @@ export async function fcImportCommit(req: AuthRequest, res: Response): Promise<v
             ip: getClientIp(req),
         });
 
-        res.json({ ok: true, created, errors, failedRows: failedRows.slice(0, 100) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, created, errors, failedRows: failedRows.slice(0, 100) }));
     } catch (err) {
         console.error('fcImportCommit error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1253,7 +1254,7 @@ export async function fcDownloadTemplate(_req: AuthRequest, res: Response): Prom
         res.end();
     } catch (err) {
         console.error('fcDownloadTemplate error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1272,20 +1273,20 @@ export async function fcGetRefunds(req: AuthRequest, res: Response): Promise<voi
             FinanceRefund.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
             FinanceRefund.countDocuments(filter),
         ]);
-        res.json({ ok: true, items, total, page, limit, totalPages: Math.ceil(total / limit) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, items, total, page, limit, totalPages: Math.ceil(total / limit) }));
     } catch (err) {
         console.error('fcGetRefunds error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcCreateRefund(req: AuthRequest, res: Response): Promise<void> {
     try {
-        if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+        if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
         const { originalPaymentId, financeTxnId, studentId, amountBDT, reason } = req.body;
-        if (!amountBDT || amountBDT <= 0) { res.status(400).json({ message: 'amountBDT is required and must be positive' }); return; }
-        if (!reason?.trim()) { res.status(400).json({ message: 'reason is required' }); return; }
+        if (!amountBDT || amountBDT <= 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'amountBDT is required and must be positive')); return; }
+        if (!reason?.trim()) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'reason is required')); return; }
 
         const refundCode = await nextRefundCode();
         const refund = await FinanceRefund.create({
@@ -1305,20 +1306,20 @@ export async function fcCreateRefund(req: AuthRequest, res: Response): Promise<v
             details: { refundCode, amountBDT },
             ip: getClientIp(req),
         });
-        res.status(201).json({ data: refund });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ data: refund }));
     } catch (err) {
         console.error('fcCreateRefund error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function fcApproveRefund(req: AuthRequest, res: Response): Promise<void> {
     try {
-        if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+        if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
         const refund = await FinanceRefund.findById(req.params.id);
-        if (!refund || refund.isDeleted) { res.status(404).json({ message: 'Refund not found' }); return; }
-        if (refund.status !== 'requested') { res.status(400).json({ message: `Cannot approve a refund with status "${refund.status}"` }); return; }
+        if (!refund || refund.isDeleted) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Refund not found')); return; }
+        if (refund.status !== 'requested') { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Cannot approve a refund with status "${refund.status}"`)); return; }
 
         const action = req.body.action as string; // 'approve' | 'reject'
         if (action === 'reject') {
@@ -1362,10 +1363,10 @@ export async function fcApproveRefund(req: AuthRequest, res: Response): Promise<
             details: { refundCode: refund.refundCode, action },
             ip: getClientIp(req),
         });
-        res.json({ data: refund });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: refund }));
     } catch (err) {
         console.error('fcApproveRefund error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1383,6 +1384,6 @@ export async function fcGeneratePLReport(req: AuthRequest, res: Response): Promi
         res.send(pdfBuffer);
     } catch (err) {
         console.error('fcGeneratePLReport error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

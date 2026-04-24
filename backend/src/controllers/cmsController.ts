@@ -20,61 +20,61 @@ import NewsCategory from '../models/NewsCategory';
 export async function adminGetNewsCategories(_req: Request, res: Response): Promise<void> {
     try {
         const categories = await NewsCategory.find().sort({ createdAt: -1 }).lean();
-        res.json({ categories });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ categories }));
     } catch (err) {
         console.error('adminGetNewsCategories error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateNewsCategory(req: Request, res: Response): Promise<void> {
     try {
         const { name, description } = req.body;
-        if (!name) { res.status(400).json({ message: 'Category name is required' }); return; }
+        if (!name) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Category name is required')); return; }
         let slug = slugify(name, { lower: true, strict: true });
         const existing = await NewsCategory.findOne({ slug });
         if (existing) slug = `${slug}-${Date.now()}`;
 
         const category = await NewsCategory.create({ name, slug, description });
-        res.status(201).json({ category, message: 'Category created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ category }, 'Category created'));
     } catch (err) {
         console.error('adminCreateNewsCategory error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminUpdateNewsCategory(req: Request, res: Response): Promise<void> {
     try {
         const category = await NewsCategory.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!category) { res.status(404).json({ message: 'Category not found' }); return; }
-        res.json({ category, message: 'Category updated' });
+        if (!category) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ category }, 'Category updated'));
     } catch (err) {
         console.error('adminUpdateNewsCategory error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteNewsCategory(req: Request, res: Response): Promise<void> {
     try {
         const category = await NewsCategory.findByIdAndDelete(req.params.id);
-        if (!category) { res.status(404).json({ message: 'Category not found' }); return; }
-        res.json({ message: 'Category deleted' });
+        if (!category) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Category deleted'));
     } catch (err) {
         console.error('adminDeleteNewsCategory error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleNewsCategory(req: Request, res: Response): Promise<void> {
     try {
         const category = await NewsCategory.findById(req.params.id);
-        if (!category) { res.status(404).json({ message: 'Category not found' }); return; }
+        if (!category) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }
         category.isActive = !category.isActive;
         await category.save();
-        res.json({ category, message: `Category ${category.isActive ? 'activated' : 'deactivated'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ category }, `Category ${category.isActive ? 'activated' : 'deactivated'}`));
     } catch (err) {
         console.error('adminToggleNewsCategory error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -104,17 +104,17 @@ export async function adminGetNews(req: Request, res: Response): Promise<void> {
             .limit(limitNum)
             .populate('createdBy', 'fullName email')
             .lean();
-        res.json({ news, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ news, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } }));
     } catch (err) {
         console.error('adminGetNews error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateNews(req: AuthRequest, res: Response): Promise<void> {
     try {
         const data = req.body;
-        if (!data.title) { res.status(400).json({ message: 'Title is required' }); return; }
+        if (!data.title) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Title is required')); return; }
         if (!data.slug) data.slug = slugify(data.title, { lower: true, strict: true });
         const existing = await News.findOne({ slug: data.slug });
         if (existing) data.slug = `${data.slug}-${Date.now()}`;
@@ -123,41 +123,41 @@ export async function adminCreateNews(req: AuthRequest, res: Response): Promise<
         data.createdBy = req.user?._id;
         const news = await News.create(data);
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'create', newsId: String(news._id) } });
-        res.status(201).json({ news, message: 'News article created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ news }, 'News article created'));
     } catch (err) {
         console.error('adminCreateNews error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminUpdateNews(req: Request, res: Response): Promise<void> {
     try {
         const news = await News.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-        if (!news) { res.status(404).json({ message: 'News not found' }); return; }
+        if (!news) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News not found')); return; }
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'update', newsId: String(news._id) } });
-        res.json({ news, message: 'News updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ news }, 'News updated'));
     } catch (err) {
         console.error('adminUpdateNews error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteNews(req: Request, res: Response): Promise<void> {
     try {
         const news = await News.findByIdAndDelete(req.params.id);
-        if (!news) { res.status(404).json({ message: 'News not found' }); return; }
+        if (!news) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News not found')); return; }
         broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'delete', newsId: String(news._id) } });
-        res.json({ message: 'News deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'News deleted'));
     } catch (err) {
         console.error('adminDeleteNews error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleNewsPublish(req: Request, res: Response): Promise<void> {
     try {
         const news = await News.findById(req.params.id);
-        if (!news) { res.status(404).json({ message: 'News not found' }); return; }
+        if (!news) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News not found')); return; }
         news.isPublished = !news.isPublished;
         news.status = news.isPublished ? 'published' : 'draft';
         if (news.isPublished && (!news.publishDate || news.publishDate > new Date())) {
@@ -168,10 +168,10 @@ export async function adminToggleNewsPublish(req: Request, res: Response): Promi
             type: 'news-updated',
             meta: { action: news.isPublished ? 'publish' : 'unpublish', newsId: String(news._id) },
         });
-        res.json({ news, message: `News ${news.isPublished ? 'published' : 'unpublished'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ news }, `News ${news.isPublished ? 'published' : 'unpublished'}`));
     } catch (err) {
         console.error('adminToggleNewsPublish error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -203,10 +203,10 @@ export async function getPublicNews(req: Request, res: Response): Promise<void> 
             .select('-content') // exclude content in list route for performance
             .lean();
 
-        res.json({ success: true, total, currentPage: pageNum, totalPages: Math.ceil(total / limitNum), data: news });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ success: true, total, currentPage: pageNum, totalPages: Math.ceil(total / limitNum), data: news }));
     } catch (err) {
         console.error('getPublicNews error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -230,10 +230,10 @@ export async function getPublicFeaturedNews(req: Request, res: Response): Promis
                 .lean();
         }
 
-        res.json({ success: true, data: news });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ success: true, data: news }));
     } catch (err) {
         console.error('getPublicFeaturedNews error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -245,12 +245,12 @@ export async function getPublicNewsBySlug(req: Request, res: Response): Promise<
             { new: true }
         ).populate('createdBy', 'fullName').lean();
 
-        if (!news) { res.status(404).json({ success: false, message: 'News article not found' }); return; }
+        if (!news) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News article not found')); return; }
 
-        res.json({ success: true, data: news });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ success: true, data: news }));
     } catch (err) {
         console.error('getPublicNewsBySlug error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -265,20 +265,20 @@ export async function getTrendingNews(req: Request, res: Response): Promise<void
             .select('title slug featuredImage thumbnail publishDate views category')
             .lean();
 
-        res.json({ success: true, data: news });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ success: true, data: news }));
     } catch (err) {
         console.error('getTrendingNews error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getPublicNewsCategories(_req: Request, res: Response): Promise<void> {
     try {
         const categories = await NewsCategory.find({ isActive: true }).sort({ name: 1 }).lean();
-        res.json({ success: true, data: categories });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ success: true, data: categories }));
     } catch (err) {
         console.error('getPublicNewsCategories error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -290,10 +290,10 @@ export async function adminGetServiceConfig(req: Request, res: Response): Promis
     try {
         let config = await ServicePageConfig.findOne();
         if (!config) config = await ServicePageConfig.create({});
-        res.json({ config });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ config }));
     } catch (err) {
         console.error('adminGetServiceConfig error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -303,10 +303,10 @@ export async function adminUpdateServiceConfig(req: Request, res: Response): Pro
         if (!config) config = new ServicePageConfig();
         Object.assign(config, req.body);
         await config.save();
-        res.json({ config, message: 'Service page configuration updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ config }, 'Service page configuration updated'));
     } catch (err) {
         console.error('adminUpdateServiceConfig error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -316,10 +316,10 @@ export async function getPublicServiceConfig(_req: Request, res: Response): Prom
         if (!config) {
             config = await ServicePageConfig.create({});
         }
-        res.json({ config });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ config }));
     } catch (err) {
         console.error('getPublicServiceConfig error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -330,17 +330,17 @@ export async function getPublicServiceConfig(_req: Request, res: Response): Prom
 export async function adminGetServices(req: Request, res: Response): Promise<void> {
     try {
         const services = await Service.find().sort({ display_order: 1, createdAt: -1 }).lean();
-        res.json({ services });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ services }));
     } catch (err) {
         console.error('adminGetServices error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateService(req: Request, res: Response): Promise<void> {
     try {
         const ObjectData = req.body;
-        if (!ObjectData.service_title) { res.status(400).json({ message: 'Service title is required' }); return; }
+        if (!ObjectData.service_title) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Service title is required')); return; }
 
         if (!ObjectData.service_slug) {
             ObjectData.service_slug = slugify(ObjectData.service_title, { lower: true, strict: true });
@@ -352,10 +352,10 @@ export async function adminCreateService(req: Request, res: Response): Promise<v
         }
 
         const service = await Service.create(ObjectData);
-        res.status(201).json({ service, message: 'Service created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ service }, 'Service created'));
     } catch (err) {
         console.error('adminCreateService error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -369,35 +369,35 @@ export async function adminUpdateService(req: Request, res: Response): Promise<v
         }
 
         const service = await Service.findByIdAndUpdate(req.params.id, ObjectData, { new: true, runValidators: true });
-        if (!service) { res.status(404).json({ message: 'Service not found' }); return; }
-        res.json({ service, message: 'Service updated' });
+        if (!service) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ service }, 'Service updated'));
     } catch (err) {
         console.error('adminUpdateService error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteService(req: Request, res: Response): Promise<void> {
     try {
         const service = await Service.findByIdAndDelete(req.params.id);
-        if (!service) { res.status(404).json({ message: 'Service not found' }); return; }
-        res.json({ message: 'Service deleted' });
+        if (!service) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Service deleted'));
     } catch (err) {
         console.error('adminDeleteService error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleServiceStatus(req: Request, res: Response): Promise<void> {
     try {
         const service = await Service.findById(req.params.id);
-        if (!service) { res.status(404).json({ message: 'Service not found' }); return; }
+        if (!service) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Service not found')); return; }
         service.is_active = !service.is_active;
         await service.save();
-        res.json({ service, message: `Service marked as ${service.is_active ? 'active' : 'inactive'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ service }, `Service marked as ${service.is_active ? 'active' : 'inactive'}`));
     } catch (err) {
         console.error('adminToggleServiceStatus error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -405,7 +405,7 @@ export async function adminBulkImportServices(req: Request, res: Response): Prom
     try {
         const servicesData = req.body;
         if (!Array.isArray(servicesData) || servicesData.length === 0) {
-            res.status(400).json({ message: 'Invalid or empty array' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid or empty array'));
             return;
         }
 
@@ -431,10 +431,10 @@ export async function adminBulkImportServices(req: Request, res: Response): Prom
 
         const result = await Service.bulkWrite(bulkOps);
 
-        res.json({ message: `Successfully imported ${bulkOps.length} services (Upserted: ${result.upsertedCount}, Modified: ${result.modifiedCount})` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Successfully imported ${bulkOps.length} services (Upserted: ${result.upsertedCount}, Modified: ${result.modifiedCount})'));
     } catch (err) {
         console.error('adminBulkImportServices error:', err);
-        res.status(500).json({ message: 'Server error during bulk import' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during bulk import'));
     }
 }
 
@@ -456,17 +456,17 @@ export async function adminGetResources(req: Request, res: Response): Promise<vo
             .skip((pageNum - 1) * limitNum)
             .limit(limitNum)
             .lean();
-        res.json({ resources, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resources, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } }));
     } catch (err) {
         console.error('adminGetResources error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateResource(req: Request, res: Response): Promise<void> {
     try {
         const data = req.body;
-        if (!data.title || !data.type) { res.status(400).json({ message: 'Title and type are required' }); return; }
+        if (!data.title || !data.type) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Title and type are required')); return; }
         // Auto-generate slug from title
         let slug = slugify(String(data.title), { lower: true, strict: true });
         const existing = await Resource.findOne({ slug });
@@ -474,62 +474,62 @@ export async function adminCreateResource(req: Request, res: Response): Promise<
         data.slug = slug;
         const resource = await Resource.create(data);
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'resources', action: 'create', resourceId: String(resource._id) } });
-        res.status(201).json({ resource, message: 'Resource created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ resource }, 'Resource created'));
     } catch (err) {
         console.error('adminCreateResource error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminUpdateResource(req: Request, res: Response): Promise<void> {
     try {
         const resource = await Resource.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-        if (!resource) { res.status(404).json({ message: 'Resource not found' }); return; }
+        if (!resource) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Resource not found')); return; }
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'resources', action: 'update', resourceId: String(resource._id) } });
-        res.json({ resource, message: 'Resource updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resource }, 'Resource updated'));
     } catch (err) {
         console.error('adminUpdateResource error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteResource(req: Request, res: Response): Promise<void> {
     try {
         const resource = await Resource.findByIdAndDelete(req.params.id);
-        if (!resource) { res.status(404).json({ message: 'Resource not found' }); return; }
+        if (!resource) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Resource not found')); return; }
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'resources', action: 'delete', resourceId: String(resource._id) } });
-        res.json({ message: 'Resource deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Resource deleted'));
     } catch (err) {
         console.error('adminDeleteResource error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleResourcePublish(req: Request, res: Response): Promise<void> {
     try {
         const resource = await Resource.findById(req.params.id);
-        if (!resource) { res.status(404).json({ message: 'Resource not found' }); return; }
+        if (!resource) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Resource not found')); return; }
         resource.isPublic = !resource.isPublic;
         await resource.save();
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'resources', action: 'toggle-publish', resourceId: String(resource._id) } });
-        res.json({ resource, message: `Resource marked as ${resource.isPublic ? 'public' : 'private'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resource }, `Resource marked as ${resource.isPublic ? 'public' : 'private'}`));
     } catch (err) {
         console.error('adminToggleResourcePublish error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminToggleResourceFeatured(req: Request, res: Response): Promise<void> {
     try {
         const resource = await Resource.findById(req.params.id);
-        if (!resource) { res.status(404).json({ message: 'Resource not found' }); return; }
+        if (!resource) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Resource not found')); return; }
         resource.isFeatured = !resource.isFeatured;
         await resource.save();
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'resources', action: 'toggle-featured', resourceId: String(resource._id) } });
-        res.json({ resource, message: `Resource ${resource.isFeatured ? 'featured' : 'unfeatured'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resource }, `Resource ${resource.isFeatured ? 'featured' : 'unfeatured'}`));
     } catch (err) {
         console.error('adminToggleResourceFeatured error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -538,13 +538,13 @@ export async function adminGetResourceSettings(_req: Request, res: Response): Pr
         const existing = await ResourceSettings.findOne();
         if (!existing) {
             const created = await ResourceSettings.create({});
-            res.json({ settings: created.toObject() });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: created.toObject() }));
             return;
         }
-        res.json({ settings: existing.toObject() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: existing.toObject() }));
     } catch (err) {
         console.error('adminGetResourceSettings error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -615,10 +615,10 @@ export async function adminUpdateResourceSettings(req: Request, res: Response): 
             { $set: safeUpdate },
             { new: true, upsert: true, runValidators: true },
         );
-        res.json({ settings, message: 'Resource settings updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings }, 'Resource settings updated'));
     } catch (err) {
         console.error('adminUpdateResourceSettings error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -637,21 +637,21 @@ export async function adminGetContactMessages(req: Request, res: Response): Prom
             .skip((pageNum - 1) * limitNum)
             .limit(limitNum)
             .lean();
-        res.json({ messages, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ messages, pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) } }));
     } catch (err) {
         console.error('adminGetContactMessages error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminDeleteContactMessage(req: Request, res: Response): Promise<void> {
     try {
         const msg = await ContactMessage.findByIdAndDelete(req.params.id);
-        if (!msg) { res.status(404).json({ message: 'Message not found' }); return; }
-        res.json({ message: 'Message deleted' });
+        if (!msg) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Message not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Message deleted'));
     } catch (err) {
         console.error('adminDeleteContactMessage error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -667,14 +667,14 @@ export async function adminUpdateContactMessage(req: Request, res: Response): Pr
 
         const msg = await ContactMessage.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true }).lean();
         if (!msg) {
-            res.status(404).json({ message: 'Message not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Message not found'));
             return;
         }
 
-        res.json({ item: msg, message: 'Contact message updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: msg }, 'Contact message updated'));
     } catch (err) {
         console.error('adminUpdateContactMessage error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -687,13 +687,13 @@ export async function getSiteSettings(_req: Request, res: Response): Promise<voi
         const existing = await SiteSettings.findOne();
         if (!existing) {
             const created = await SiteSettings.create({});
-            res.json({ settings: created.toObject() });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: created.toObject() }));
             return;
         }
-        res.json({ settings: existing.toObject() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: existing.toObject() }));
     } catch (err) {
         console.error('getSiteSettings error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -717,12 +717,12 @@ export async function updateSiteSettings(req: AuthRequest, res: Response): Promi
 
         const unknownKeys = Object.keys(input).filter((key) => !allowedKeys.has(key));
         if (unknownKeys.length) {
-            res.status(400).json({ message: `Unknown settings keys: ${unknownKeys.join(', ')}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Unknown settings keys: ${unknownKeys.join(', ')}`));
             return;
         }
 
         if (input.socialLinks !== undefined && !Array.isArray(input.socialLinks)) {
-            res.status(400).json({ message: 'socialLinks must be an array' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'socialLinks must be an array'));
             return;
         }
 
@@ -740,10 +740,10 @@ export async function updateSiteSettings(req: AuthRequest, res: Response): Promi
             Object.assign(settings, updatePayload);
             await settings.save();
         }
-        res.json({ settings, message: 'Settings updated successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings }, 'Settings updated successfully'));
     } catch (err) {
         console.error('updateSiteSettings error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -753,6 +753,7 @@ export async function updateSiteSettings(req: AuthRequest, res: Response): Promi
 
 import User from '../models/User';
 import bcrypt from 'bcryptjs';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 export async function adminUpdateUserRole(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -760,20 +761,20 @@ export async function adminUpdateUserRole(req: AuthRequest, res: Response): Prom
         const { role } = req.body;
         const validRoles = ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent', 'student', 'chairman'];
         if (!validRoles.includes(role)) {
-            res.status(400).json({ message: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Invalid role. Must be one of: ${validRoles.join(', ')}`));
             return;
         }
         // Only superadmin can set superadmin role
         if (role === 'superadmin' && req.user?.role !== 'superadmin') {
-            res.status(403).json({ message: 'Only superadmin can assign superadmin role' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can assign superadmin role'));
             return;
         }
         const user = await User.findByIdAndUpdate(userId, { role }, { new: true });
-        if (!user) { res.status(404).json({ message: 'User not found' }); return; }
-        res.json({ user, message: `User role updated to ${role}` });
+        if (!user) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ user }, `User role updated to ${role}`));
     } catch (err) {
         console.error('adminUpdateUserRole error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -781,23 +782,22 @@ export async function adminCreateUser(req: AuthRequest, res: Response): Promise<
     try {
         const { username, email, password, fullName, role } = req.body;
         if (!username || !email || !password || !fullName) {
-            res.status(400).json({ message: 'username, email, password, fullName are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'username, email, password, fullName are required'));
             return;
         }
         const existing = await User.findOne({ $or: [{ email }, { username }] });
-        if (existing) { res.status(400).json({ message: 'User with this email or username already exists' }); return; }
+        if (existing) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'User with this email or username already exists')); return; }
         const hashedPassword = await bcrypt.hash(password, 12);
         const user = await User.create({
             username, email, password: hashedPassword, full_name: fullName,
             role: role || 'student',
         });
-        res.status(201).json({
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             user: { _id: user._id, username: user.username, email: user.email, role: user.role, fullName: user.full_name },
-            message: 'User created successfully',
-        });
+        }, 'User created successfully'));
     } catch (err) {
         console.error('adminCreateUser error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -806,18 +806,18 @@ export async function adminResetUserPassword(req: AuthRequest, res: Response): P
         const { userId } = req.params;
         const { newPassword } = req.body;
         if (!newPassword || newPassword.length < 8) {
-            res.status(400).json({ message: 'Password must be at least 8 characters' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Password must be at least 8 characters'));
             return;
         }
         const user = await User.findById(userId);
-        if (!user) { res.status(404).json({ message: 'User not found' }); return; }
+        if (!user) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found')); return; }
         user.password = await bcrypt.hash(newPassword, 12);
         user.mustChangePassword = true;
         await user.save();
-        res.json({ message: 'Password reset successfully. User must change password on next login.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Password reset successfully. User must change password on next login.'));
     } catch (err) {
         console.error('adminResetUserPassword error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -830,10 +830,10 @@ export async function adminExportNews(_req: Request, res: Response): Promise<voi
         const news = await News.find().lean();
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', 'attachment; filename=news_export.json');
-        res.json(news);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(news));
     } catch (err) {
         console.error('adminExportNews error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -842,10 +842,10 @@ export async function adminExportSubscriptionPlans(_req: Request, res: Response)
         const services = await Service.find().lean();
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', 'attachment; filename=subscription_plans_export.json');
-        res.json(services);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(services));
     } catch (err) {
         console.error('adminExportSubscriptionPlans error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -855,10 +855,10 @@ export async function adminExportUniversities(_req: Request, res: Response): Pro
         const universities = await University.find().lean();
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', 'attachment; filename=universities_export.json');
-        res.json(universities);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(universities));
     } catch (err) {
         console.error('adminExportUniversities error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -867,9 +867,9 @@ export async function adminExportStudents(_req: Request, res: Response): Promise
         const students = await User.find({ role: 'student' }).select('-password -twoFactorSecret').lean();
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', 'attachment; filename=students_export.json');
-        res.json(students);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(students));
     } catch (err) {
         console.error('adminExportStudents error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

@@ -17,6 +17,7 @@ import {
     updateAdminSupportTicketStatus as updateSupportTicketStatus,
     type SupportTicketApiItem,
 } from '../services/supportCommunicationService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function resolveTicketStudentId(ticket: SupportTicketApiItem): string {
     if (ticket.senderProfileSummary?.linkedStudentId) {
@@ -67,11 +68,11 @@ function mapSupportError(error: unknown): {
 
 function ensureStudent(req: AuthRequest, res: Response): string | null {
     if (!req.user) {
-        res.status(401).json({ message: 'Authentication required' });
+        ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
         return null;
     }
     if (req.user.role !== 'student') {
-        res.status(403).json({ message: 'Student access required' });
+        ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access required'));
         return null;
     }
     return String(req.user._id || '').trim();
@@ -91,18 +92,18 @@ async function createSupportAudit(req: AuthRequest, action: string, targetId: st
 export async function studentGetSupportEligibility(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user?._id) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
         const result = await getCanonicalSupportEligibility(String(req.user._id));
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             ...result,
             expiresAtUTC: result.expiresAtUTC ? result.expiresAtUTC.toISOString() : null,
-        });
+        }));
     } catch (error) {
         console.error('studentGetSupportEligibility error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -115,7 +116,7 @@ export async function studentCreateSupportTicket(req: AuthRequest, res: Response
         const subject = String(body.subject || '').trim();
         const message = String(body.message || '').trim();
         if (!subject || !message) {
-            res.status(400).json({ message: 'subject and message are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'subject and message are required'));
             return;
         }
 
@@ -130,11 +131,11 @@ export async function studentCreateSupportTicket(req: AuthRequest, res: Response
             ticketNo: item.ticketNo,
         });
 
-        res.status(201).json({ item, message: 'Support ticket created successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({item}, 'Support ticket created successfully'));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('studentCreateSupportTicket error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }
 
@@ -144,11 +145,11 @@ export async function studentGetSupportTickets(req: AuthRequest, res: Response):
 
     try {
         const items = await listStudentSupportTickets(studentId);
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('studentGetSupportTickets error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }
 
@@ -158,11 +159,11 @@ export async function studentGetSupportTicketById(req: AuthRequest, res: Respons
 
     try {
         const item = await getStudentSupportTicketDetail(studentId, String(req.params.id || '').trim(), { markRead: true });
-        res.json({ item });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('studentGetSupportTicketById error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }
 
@@ -173,7 +174,7 @@ export async function studentReplySupportTicket(req: AuthRequest, res: Response)
     try {
         const message = String((req.body as Record<string, unknown>)?.message || '').trim();
         if (!message) {
-            res.status(400).json({ message: 'message is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'message is required'));
             return;
         }
 
@@ -187,11 +188,11 @@ export async function studentReplySupportTicket(req: AuthRequest, res: Response)
             ticketNo: item.ticketNo,
         });
 
-        res.json({ item, message: 'Reply added successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Reply added successfully'));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('studentReplySupportTicket error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }
 
@@ -208,32 +209,32 @@ export async function adminGetSupportTickets(req: AuthRequest, res: Response): P
             priority: typeof req.query.priority === 'string' ? req.query.priority : undefined,
             search: typeof req.query.search === 'string' ? req.query.search : undefined,
         });
-        res.json(result);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(result));
     } catch (error) {
         console.error('adminGetSupportTickets error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminGetSupportTicketById(req: AuthRequest, res: Response): Promise<void> {
     try {
         const item = await getAdminSupportTicketDetail(String(req.params.id || '').trim(), { markRead: true });
-        res.json({ item });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('adminGetSupportTicketById error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }
 
 export async function adminMarkSupportTicketRead(req: AuthRequest, res: Response): Promise<void> {
     try {
         const item = await markAdminSupportTicketRead(String(req.params.id || '').trim());
-        res.json({ item, message: 'Support ticket marked as read' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Support ticket marked as read'));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('adminMarkSupportTicketRead error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }
 
@@ -284,24 +285,24 @@ export async function adminUpdateSupportTicketStatus(req: AuthRequest, res: Resp
             );
         }
 
-        res.json({ item, message: 'Support ticket updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Support ticket updated'));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('adminUpdateSupportTicketStatus error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }
 
 export async function adminReplySupportTicket(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user?._id) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
         const message = String((req.body as Record<string, unknown>)?.message || '').trim();
         if (!message) {
-            res.status(400).json({ message: 'message is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'message is required'));
             return;
         }
 
@@ -316,10 +317,10 @@ export async function adminReplySupportTicket(req: AuthRequest, res: Response): 
             ticketNo: item.ticketNo,
         });
 
-        res.json({ item, message: 'Reply added successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({item}, 'Reply added successfully'));
     } catch (error) {
         const mapped = mapSupportError(error);
         console.error('adminReplySupportTicket error:', error);
-        res.status(mapped.status).json(mapped.payload);
+        ResponseBuilder.send(res, mapped.status, ResponseBuilder.success(mapped.payload));
     }
 }

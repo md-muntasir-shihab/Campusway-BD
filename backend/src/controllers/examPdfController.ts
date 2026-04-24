@@ -4,10 +4,10 @@ import PDFDocument from "pdfkit";
 import Exam from "../models/Exam";
 import Question from "../models/Question";
 import ExamSession from "../models/ExamSession";
-import { ExamModel } from "../models/exam.model";
 import { ExamQuestionModel } from "../models/examQuestion.model";
 import { AnswerModel } from "../models/answer.model";
 import { getEligibilitySummary } from "./examController";
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type PdfExamContext = {
   kind: "modern" | "legacy";
@@ -102,40 +102,22 @@ function sanitizeFilename(value: string): string {
 }
 
 async function resolveExamContext(examId: string): Promise<PdfExamContext | null> {
-  const modernExam = await ExamModel.findById(examId).lean();
-  if (modernExam) {
-    return {
-      kind: "modern",
-      examId,
-      rawExam: modernExam as Record<string, unknown>,
-      title: safeText(modernExam.title) || "Exam",
-      subject: safeText(modernExam.subject) || "N/A",
-      category: safeText(modernExam.examCategory) || "N/A",
-      durationMinutes: Number(modernExam.durationMinutes || 0),
-      isPublished: Boolean(modernExam.isPublished),
-      solutionReleaseRule: safeText(modernExam.solutionReleaseRule) || "after_result_publish",
-      solutionsEnabled: Boolean(modernExam.solutionsEnabled),
-      examWindowEndUTC: toDate(modernExam.examWindowEndUTC),
-      resultPublishAtUTC: toDate(modernExam.resultPublishAtUTC),
-    };
-  }
-
-  const legacyExam = await Exam.findById(examId).lean();
-  if (!legacyExam) return null;
+  const exam = await Exam.findById(examId).lean();
+  if (!exam) return null;
 
   return {
     kind: "legacy",
     examId,
-    rawExam: legacyExam as Record<string, unknown>,
-    title: safeText(legacyExam.title) || "Exam",
-    subject: safeText(legacyExam.subject) || "N/A",
-    category: safeText((legacyExam as any).examCategory) || "N/A",
-    durationMinutes: Number((legacyExam as any).duration || 0),
-    isPublished: Boolean((legacyExam as any).isPublished),
-    solutionReleaseRule: safeText((legacyExam as any).solutionReleaseRule) || "after_result_publish",
-    solutionsEnabled: Boolean((legacyExam as any).solutionsEnabled),
-    examWindowEndUTC: toDate((legacyExam as any).endDate),
-    resultPublishAtUTC: toDate((legacyExam as any).resultPublishDate),
+    rawExam: exam as Record<string, unknown>,
+    title: safeText(exam.title) || "Exam",
+    subject: safeText(exam.subject) || "N/A",
+    category: safeText((exam as any).examCategory) || "N/A",
+    durationMinutes: Number((exam as any).duration || 0),
+    isPublished: Boolean((exam as any).isPublished),
+    solutionReleaseRule: safeText((exam as any).solutionReleaseRule) || "after_result_publish",
+    solutionsEnabled: Boolean((exam as any).solutionsEnabled),
+    examWindowEndUTC: toDate((exam as any).endDate),
+    resultPublishAtUTC: toDate((exam as any).resultPublishDate),
   };
 }
 
@@ -170,12 +152,12 @@ function mapLegacyQuestion(question: any, fallbackOrder = 0): PdfQuestionRow {
 function mapModernQuestion(question: any, fallbackOrder = 0): PdfQuestionRow {
   const options = Array.isArray(question.options)
     ? question.options.map((option: any) => ({
-        key: safeText(option.key).toUpperCase(),
-        text:
-          safeText(option.text_bn) ||
-          safeText(option.text_en) ||
-          safeText(option.text),
-      }))
+      key: safeText(option.key).toUpperCase(),
+      text:
+        safeText(option.text_bn) ||
+        safeText(option.text_en) ||
+        safeText(option.text),
+    }))
     : [];
 
   return {
@@ -272,45 +254,36 @@ async function requireStudentExamEligibility(
   const authReq = req as AuthRequest;
   const studentId = String(authReq.user?._id || authReq.user?.id || "").trim();
   if (!studentId) {
-    res.status(401).json({ message: "Authentication required" });
+    ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
     return null;
   }
 
   const eligibility = await getEligibilitySummary(context.rawExam, studentId);
   if (!eligibility.accessAllowed) {
-    res.status(403).json({
-      message: "You are not allowed to access this exam document.",
-      eligibility,
-    });
+    ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', "You are not allowed to access this exam document.",
+      eligibility,));
     return null;
   }
   if (eligibility.paymentRequired && !eligibility.paymentCleared) {
-    res.status(402).json({
-      message: "Payment pending. Please complete your payment to access this exam document.",
+    ResponseBuilder.send(res, 402, ResponseBuilder.error('VALIDATION_ERROR', 'Payment pending. Please complete your payment to access this exam document.', {
       paymentPending: true,
       eligibility,
-    });
+    }));
     return null;
   }
   if (options.requireProfileComplete && !eligibility.profileComplete) {
-    res.status(403).json({
-      message: "Profile completion is required before accessing this exam document.",
-      eligibility,
-    });
+    ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', "Profile completion is required before accessing this exam document.",
+      eligibility,));
     return null;
   }
   if (options.requireLiveWindow && !eligibility.windowOpen) {
-    res.status(403).json({
-      message: "This exam document is not available outside the exam window.",
-      eligibility,
-    });
+    ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', "This exam document is not available outside the exam window.",
+      eligibility,));
     return null;
   }
   if (options.requireRemainingAttempts && eligibility.attemptsLeft <= 0) {
-    res.status(403).json({
-      message: "Maximum attempt limit reached for this exam.",
-      eligibility,
-    });
+    ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', "Maximum attempt limit reached for this exam.",
+      eligibility,));
     return null;
   }
 
@@ -321,11 +294,11 @@ export async function generateQuestionsPdf(req: Request, res: Response): Promise
   try {
     const context = await resolveExamContext(String(req.params.examId || ""));
     if (!context) {
-      res.status(404).json({ message: "Exam not found" });
+      ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
       return;
     }
     if (!context.isPublished) {
-      res.status(403).json({ message: "Exam not published" });
+      ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Exam not published'));
       return;
     }
     const eligibility = await requireStudentExamEligibility(req, res, context, {
@@ -350,8 +323,7 @@ export async function generateQuestionsPdf(req: Request, res: Response): Promise
     doc
       .fontSize(10)
       .text(
-        `Subject: ${context.subject || "N/A"}  |  Category: ${
-          context.category || "N/A"
+        `Subject: ${context.subject || "N/A"}  |  Category: ${context.category || "N/A"
         }  |  Duration: ${context.durationMinutes} min`,
       );
     doc.moveDown(0.8);
@@ -360,7 +332,7 @@ export async function generateQuestionsPdf(req: Request, res: Response): Promise
     doc.end();
   } catch (err) {
     console.error("[PDF] Questions error:", err);
-    if (!res.headersSent) res.status(500).json({ message: "PDF generation failed" });
+    if (!res.headersSent) ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'PDF generation failed'));
   }
 }
 
@@ -368,15 +340,15 @@ export async function generateSolutionsPdf(req: Request, res: Response): Promise
   try {
     const context = await resolveExamContext(String(req.params.examId || ""));
     if (!context) {
-      res.status(404).json({ message: "Exam not found" });
+      ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
       return;
     }
     if (!context.isPublished) {
-      res.status(403).json({ message: "Exam not published" });
+      ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Exam not published'));
       return;
     }
     if (solutionsLocked(context)) {
-      res.status(403).json({ message: "Solutions not released yet" });
+      ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Solutions not released yet'));
       return;
     }
     const eligibility = await requireStudentExamEligibility(req, res, context);
@@ -400,7 +372,7 @@ export async function generateSolutionsPdf(req: Request, res: Response): Promise
     doc.end();
   } catch (err) {
     console.error("[PDF] Solutions error:", err);
-    if (!res.headersSent) res.status(500).json({ message: "PDF generation failed" });
+    if (!res.headersSent) ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'PDF generation failed'));
   }
 }
 
@@ -408,7 +380,7 @@ export async function generateAnswersPdf(req: Request, res: Response): Promise<v
   try {
     const context = await resolveExamContext(String(req.params.examId || ""));
     if (!context) {
-      res.status(404).json({ message: "Exam not found" });
+      ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
       return;
     }
 
@@ -418,7 +390,7 @@ export async function generateAnswersPdf(req: Request, res: Response): Promise<v
     const isAdmin = ["superadmin", "admin", "moderator", "chairman"].includes(role);
 
     if (!userId && !isAdmin) {
-      res.status(401).json({ message: "Authentication required" });
+      ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
       return;
     }
 
@@ -428,11 +400,11 @@ export async function generateAnswersPdf(req: Request, res: Response): Promise<v
     if (context.kind === "modern") {
       const answers = await AnswerModel.find({ sessionId: String(req.params.sessionId || "") }).lean();
       if (answers.length === 0) {
-        res.status(404).json({ message: "No answers found" });
+        ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No answers found'));
         return;
       }
       if (!isAdmin && String(answers[0].userId || "") !== userId) {
-        res.status(403).json({ message: "Access denied" });
+        ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Access denied'));
         return;
       }
 
@@ -452,14 +424,14 @@ export async function generateAnswersPdf(req: Request, res: Response): Promise<v
 
       const session = await ExamSession.findOne(sessionQuery).lean();
       if (!session) {
-        res.status(404).json({ message: "No answers found" });
+        ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No answers found'));
         return;
       }
 
       const orderedQuestionIds = Array.isArray((session as any).answers)
         ? (session as any).answers
-            .map((answer: { questionId: string }) => String(answer.questionId || ""))
-            .filter(Boolean)
+          .map((answer: { questionId: string }) => String(answer.questionId || ""))
+          .filter(Boolean)
         : [];
       questions = await loadQuestionsForPdf(context, orderedQuestionIds);
       selectedByQuestion = new Map(
@@ -473,7 +445,7 @@ export async function generateAnswersPdf(req: Request, res: Response): Promise<v
     }
 
     if (questions.length === 0) {
-      res.status(404).json({ message: "No answers found" });
+      ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No answers found'));
       return;
     }
 
@@ -497,6 +469,6 @@ export async function generateAnswersPdf(req: Request, res: Response): Promise<v
     doc.end();
   } catch (err) {
     console.error("[PDF] Answers error:", err);
-    if (!res.headersSent) res.status(500).json({ message: "PDF generation failed" });
+    if (!res.headersSent) ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'PDF generation failed'));
   }
 }

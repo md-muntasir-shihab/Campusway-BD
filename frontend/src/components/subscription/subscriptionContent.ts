@@ -41,9 +41,42 @@ export function getSubscriptionPlanFeatureList(plan: SubscriptionPlanPublic): st
 }
 
 export function getSubscriptionPlanMetaItems(plan: SubscriptionPlanPublic): Array<{ label: string; value: string }> {
-    return [
+    const items: Array<{ label: string; value: string }> = [
         { label: 'Billing', value: plan.billingCycle === 'one_time' ? 'One time' : (plan.billingCycle || 'Monthly') },
         { label: 'Validity', value: plan.validityLabel || plan.durationLabel || 'Admin managed' },
         { label: 'Support', value: plan.supportLevel || 'Standard' },
     ];
+    if (plan.planType && plan.planType !== 'free' && plan.planType !== 'paid') {
+        items.push({ label: 'Plan Type', value: plan.planType.charAt(0).toUpperCase() + plan.planType.slice(1) });
+    }
+    if (plan.accessScope) {
+        items.push({ label: 'Access', value: plan.accessScope });
+    }
+    if (plan.maxAttempts !== null && plan.maxAttempts !== undefined) {
+        items.push({ label: 'Max Attempts', value: plan.maxAttempts === 0 ? 'Unlimited' : String(plan.maxAttempts) });
+    }
+    return items;
+}
+
+export function getSubscriptionPlanAccessPermissions(plan: SubscriptionPlanPublic): Array<{ label: string; allowed: boolean }> {
+    return [
+        { label: 'Exams', allowed: plan.allowsExams ?? true },
+        { label: 'Premium Resources', allowed: plan.allowsPremiumResources ?? false },
+        { label: 'SMS Updates', allowed: plan.allowsSMSUpdates ?? false },
+        { label: 'Email Updates', allowed: plan.allowsEmailUpdates ?? true },
+        { label: 'Guardian Alerts', allowed: plan.allowsGuardianAlerts ?? false },
+        { label: 'Special Groups', allowed: plan.allowsSpecialGroups ?? false },
+    ];
+}
+
+export function getSubscriptionPlanIncludedModules(plan: SubscriptionPlanPublic): string[] {
+    return plan.includedModules || [];
+}
+
+export function getSubscriptionPlanDashboardPrivileges(plan: SubscriptionPlanPublic): string[] {
+    return plan.dashboardPrivileges || [];
+}
+
+export function getSubscriptionPlanTags(plan: SubscriptionPlanPublic): string[] {
+    return plan.tags || [];
 }

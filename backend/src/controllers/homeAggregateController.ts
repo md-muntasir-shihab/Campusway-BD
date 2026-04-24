@@ -29,6 +29,7 @@ import {
     isVisiblePublicUniversityRecord,
     sanitizePublicFixtureText,
 } from '../utils/publicFixtureFilters';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -95,6 +96,7 @@ type UniversityCardPreviewItem = {
     logoUrl: string;
     isHistorical?: boolean;
     endedAt?: string;
+    timelineStatus?: 'upcoming' | 'ended';
 };
 
 type HomeClusterCardItem = {
@@ -115,8 +117,10 @@ type HomeClusterCardItem = {
     examCentersPreview: string[];
     homeVisible: boolean;
     homeOrder: number;
+    homeFeedMode: 'cluster_only' | 'members_only' | 'both';
     isHistorical?: boolean;
     endedAt?: string;
+    timelineStatus?: 'upcoming' | 'ended';
 };
 
 type HomeCategoryCardItem = {
@@ -625,6 +629,7 @@ function buildHomeClusterCards(
             examCentersPreview: Array.from(new Set(members.flatMap((item) => item.examCentersPreview || []))).slice(0, 6),
             homeVisible: Boolean((cluster as { homeVisible?: unknown }).homeVisible),
             homeOrder: Number((cluster as { homeOrder?: unknown }).homeOrder || 0),
+            homeFeedMode: (['cluster_only', 'members_only', 'both'].includes(String((cluster as { homeFeedMode?: unknown }).homeFeedMode || '')) ? String((cluster as { homeFeedMode?: unknown }).homeFeedMode) : 'both') as 'cluster_only' | 'members_only' | 'both',
         });
     });
 
@@ -710,7 +715,7 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
                 .sort({ homeOrder: 1, name: 1 })
                 .lean(),
             UniversityCluster.find({ isActive: true })
-                .select('_id slug name description homeVisible homeOrder dates')
+                .select('_id slug name description homeVisible homeOrder dates homeFeedMode')
                 .sort({ homeOrder: 1, name: 1 })
                 .lean(),
             Exam.find({
@@ -1101,9 +1106,30 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             }
             return true;
         });
-        const filteredIndividualPreviewItems = filteredPreviewItems.filter((item) => !item.clusterGroup && !highlightedCategorySet.has(item.category));
+        // Build a set of cluster IDs/names that use 'cluster_only' mode — their members should NOT appear as individual cards
+        const clusterOnlyIds = new Set<string>();
+        const clusterOnlyNames = new Set<string>();
+        clusterCards.forEach((cc) => {
+            if (cc.homeFeedMode === 'cluster_only') {
+                clusterOnlyIds.add(cc.id);
+                clusterOnlyNames.add(cc.name);
+            }
+        });
+        const isHiddenByClusterMode = (item: { clusterId?: string; clusterGroup?: string }) => {
+            if (item.clusterId && clusterOnlyIds.has(item.clusterId)) return true;
+            if (item.clusterGroup && clusterOnlyNames.has(item.clusterGroup)) return true;
+            return false;
+        };
+
+        const filteredIndividualPreviewItems = filteredPreviewItems.filter((item) => {
+            if (highlightedCategorySet.has(item.category)) return false;
+            if (isHiddenByClusterMode(item)) return false;
+            if (item.clusterGroup) return false;
+            return true;
+        });
         const filteredFeaturedItems = featuredItems.filter((item) => {
             if (manualFeaturedUniversityIds.has(item.id)) return true;
+            if (isHiddenByClusterMode(item)) return false;
             return !item.clusterGroup && !highlightedCategorySet.has(item.category);
         });
 
@@ -1122,7 +1148,8 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
                 const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
                 return aTime - bTime;
             })
-            .slice(0, maxDeadlineCards);
+            .slice(0, maxDeadlineCards)
+            .map((item) => ({ ...item, timelineStatus: 'upcoming' as const }));
         const deadlineUniversitiesHistorical = filteredIndividualPreviewItems
             .filter((item) => {
                 const deadline = parseDate(item.applicationEndDate || item.applicationEnd);
@@ -1140,11 +1167,16 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             .map((item) => ({
                 ...item,
                 isHistorical: true,
+                timelineStatus: 'ended' as const,
                 endedAt: item.applicationEndDate || item.applicationEnd,
             }));
-        const deadlineUniversities = deadlineUniversitiesUpcoming.length > 0
-            ? deadlineUniversitiesUpcoming
-            : deadlineUniversitiesHistorical;
+        // Serial replacement: upcoming first, then fill remaining slots with historical
+        const deadlineUniversitiesUpcomingIds = new Set(deadlineUniversitiesUpcoming.map((item) => item.id));
+        const deadlineUniversities = [
+            ...deadlineUniversitiesUpcoming,
+            ...deadlineUniversitiesHistorical.filter((item) => !deadlineUniversitiesUpcomingIds.has(item.id)),
+        ].slice(0, maxDeadlineCards);
+
         const deadlineClustersUpcoming = filteredClusterCards
             .filter((cluster) => {
                 const deadline = parseDate(cluster.nearestDeadline || cluster.applicationEndDate);
@@ -1159,7 +1191,8 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
                 const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
                 return aTime - bTime;
             })
-            .slice(0, maxDeadlineCards);
+            .slice(0, maxDeadlineCards)
+            .map((cluster) => ({ ...cluster, timelineStatus: 'upcoming' as const }));
         const deadlineClustersHistorical = filteredClusterCards
             .filter((cluster) => {
                 const deadline = parseDate(cluster.nearestDeadline || cluster.applicationEndDate);
@@ -1177,11 +1210,15 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             .map((cluster) => ({
                 ...cluster,
                 isHistorical: true,
+                timelineStatus: 'ended' as const,
                 endedAt: cluster.nearestDeadline || cluster.applicationEndDate,
             }));
-        const deadlineClusters = deadlineClustersUpcoming.length > 0
-            ? deadlineClustersUpcoming
-            : deadlineClustersHistorical;
+        // Serial replacement for clusters
+        const deadlineClustersUpcomingIds = new Set(deadlineClustersUpcoming.map((c) => c.id));
+        const deadlineClusters = [
+            ...deadlineClustersUpcoming,
+            ...deadlineClustersHistorical.filter((c) => !deadlineClustersUpcomingIds.has(c.id)),
+        ].slice(0, maxDeadlineCards);
         const deadlineCategories: HomeCategoryCardItem[] = [];
 
         const examFallbackCount = Math.max(maxExamCards, 10);
@@ -1200,7 +1237,8 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
                 const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
                 return aTime - bTime;
             })
-            .slice(0, maxExamCards);
+            .slice(0, maxExamCards)
+            .map((item) => ({ ...item, timelineStatus: 'upcoming' as const }));
         const upcomingExamUniversitiesHistorical = filteredIndividualPreviewItems
             .map((item) => ({
                 item,
@@ -1218,11 +1256,16 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             .map(({ item, latestPastExam }) => ({
                 ...item,
                 isHistorical: true,
+                timelineStatus: 'ended' as const,
                 endedAt: latestPastExam,
             }));
-        const upcomingExamUniversities = upcomingExamUniversitiesUpcoming.length > 0
-            ? upcomingExamUniversitiesUpcoming
-            : upcomingExamUniversitiesHistorical;
+        // Serial replacement for exam universities
+        const upcomingExamUpcomingIds = new Set(upcomingExamUniversitiesUpcoming.map((item) => item.id));
+        const upcomingExamUniversities = [
+            ...upcomingExamUniversitiesUpcoming,
+            ...upcomingExamUniversitiesHistorical.filter((item) => !upcomingExamUpcomingIds.has(item.id)),
+        ].slice(0, maxExamCards);
+
         const upcomingExamClustersUpcoming = filteredClusterCards
             .filter((cluster) => {
                 const examDate = parseDate(cluster.nearestExam);
@@ -1237,7 +1280,8 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
                 const bTime = bDate ? startOfDay(bDate).getTime() : Number.POSITIVE_INFINITY;
                 return aTime - bTime;
             })
-            .slice(0, maxExamCards);
+            .slice(0, maxExamCards)
+            .map((cluster) => ({ ...cluster, timelineStatus: 'upcoming' as const }));
         const upcomingExamClustersHistorical = filteredClusterCards
             .filter((cluster) => {
                 const examDate = parseDate(cluster.nearestExam);
@@ -1255,13 +1299,17 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             .map((cluster) => ({
                 ...cluster,
                 isHistorical: true,
+                timelineStatus: 'ended' as const,
                 endedAt: cluster.nearestExam,
             }));
-        const upcomingExamClusters = upcomingExamClustersUpcoming.length > 0
-            ? upcomingExamClustersUpcoming
-            : upcomingExamClustersHistorical;
+        // Serial replacement for exam clusters
+        const upcomingExamClustersUpcomingIds = new Set(upcomingExamClustersUpcoming.map((c) => c.id));
+        const upcomingExamClusters = [
+            ...upcomingExamClustersUpcoming,
+            ...upcomingExamClustersHistorical.filter((c) => !upcomingExamClustersUpcomingIds.has(c.id)),
+        ].slice(0, maxExamCards);
         const upcomingExamCategories: HomeCategoryCardItem[] = [];
-        const preferredFeaturedClusters = filteredClusterCards.filter((cluster) => cluster.homeVisible);
+        const preferredFeaturedClusters = filteredClusterCards.filter((cluster) => cluster.homeVisible && cluster.homeFeedMode !== 'members_only');
         const featuredClusters = (
             preferredFeaturedClusters.length > 0
                 ? preferredFeaturedClusters
@@ -1604,7 +1652,7 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             dismissible: block.dismissible,
         }));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             homeSettings,
             globalSettings,
             siteSettings,
@@ -1653,9 +1701,9 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             socialLinks: globalSettings.socialLinks,
             sectionOrder,
             contentBlocksForHome,
-        });
+        }));
     } catch (error) {
         console.error('Error fetching strict home data:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };

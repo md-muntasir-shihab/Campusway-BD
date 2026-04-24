@@ -39,6 +39,7 @@ export interface SubscriptionContactPresetPayload {
     includeGuardian?: boolean;
     includePlan?: boolean;
     includeStatus?: boolean;
+    excludeExpiredByDefault?: boolean;
     isDefault?: boolean;
 }
 
@@ -46,6 +47,7 @@ export interface SubscriptionContactFilters {
     planIds?: string[];
     planCodes?: string[];
     bucket?: SubscriptionContactBucket | 'all';
+    excludeExpired?: boolean;
     subscriptionStatuses?: string[];
     accountStatuses?: string[];
     departments?: string[];
@@ -376,6 +378,8 @@ function mergeFilters(baseRules: Record<string, unknown>, input: Record<string, 
         ? normalizeStringArray(input.accountStatuses)
         : normalizeStringArray(baseRules.statuses);
     const bucket = String(input.bucket || baseRules.bucket || '').trim().toLowerCase() || 'all';
+    // Default: exclude expired members from copy/export/campaign unless explicitly requested
+    const excludeExpired = normalizeBoolean(input.excludeExpired) ?? normalizeBoolean(baseRules.excludeExpired);
 
     return {
         planIds,
@@ -388,6 +392,7 @@ function mergeFilters(baseRules: Record<string, unknown>, input: Record<string, 
         bucket: ['active', 'expired', 'renewal_due', 'cancelled_paused', 'pending', 'all'].includes(bucket)
             ? bucket as SubscriptionContactFilters['bucket']
             : 'all',
+        excludeExpired,
         subscriptionStatuses,
         accountStatuses,
         search: pickFirstString(input.search),
@@ -554,6 +559,8 @@ async function buildContext(input: Record<string, unknown> = {}): Promise<Contac
         if (filters.planIds && filters.planIds.length > 0 && !filters.planIds.includes(member.planId)) return false;
         if (filters.planCodes && filters.planCodes.length > 0 && !filters.planCodes.map((item) => item.toLowerCase()).includes(member.planCode.toLowerCase())) return false;
         if (filters.bucket && filters.bucket !== 'all' && member.bucket !== filters.bucket) return false;
+        // Default exclude expired: when excludeExpired is true (or undefined with bucket='all'), skip expired members
+        if (filters.excludeExpired === true && member.bucket === 'expired') return false;
         if (filters.subscriptionStatuses && filters.subscriptionStatuses.length > 0 && !filters.subscriptionStatuses.includes(member.subscriptionStatus)) return false;
         if (filters.accountStatuses && filters.accountStatuses.length > 0 && !filters.accountStatuses.includes(member.accountStatus)) return false;
         if (filters.departments && filters.departments.length > 0 && !filters.departments.includes(member.department)) return false;
@@ -891,8 +898,13 @@ async function buildExportResult(params: {
     adminId: string;
     actorRole?: string;
     auditAction: 'copy_preview' | 'export' | 'personal_outreach';
-}) : Promise<ExportBuildResult> {
-    const context = await buildContext(params.filters);
+}): Promise<ExportBuildResult> {
+    // Default: exclude expired members from copy/export unless explicitly set to false
+    const effectiveFilters = { ...params.filters };
+    if (effectiveFilters.excludeExpired === undefined) {
+        effectiveFilters.excludeExpired = true;
+    }
+    const context = await buildContext(effectiveFilters);
     const filteredRows = applySelection(context.members, normalizeStringArray(params.filters.selectedUserIds));
     const preset = await resolvePreset(params.presetId, params.preset);
     const structuredRows = buildStructuredRows(filteredRows, params.scope, preset as Record<string, unknown>);

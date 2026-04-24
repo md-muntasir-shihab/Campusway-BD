@@ -15,6 +15,7 @@ export default function CyberToggle({ checked, onChange, label, disabled = false
                     checked={checked}
                     disabled={disabled}
                     onChange={(event) => onChange(event.target.checked)}
+                    aria-label={label || 'Toggle'}
                 />
                 <span className="absolute inset-[2px] rounded-full bg-slate-800 transition-colors duration-300 peer-checked:bg-gradient-to-r peer-checked:from-cyan-500/50 peer-checked:to-indigo-600/50" />
                 <span className="relative z-10 h-6 w-6 rounded-full bg-slate-200 shadow-md transition-all duration-300 peer-checked:translate-x-8 peer-checked:bg-cyan-300" />

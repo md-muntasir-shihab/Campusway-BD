@@ -42,20 +42,20 @@ export default function QuestionCard({
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8" id={`question-${question._id}`}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 dark:bg-slate-900 dark:border-slate-700" id={`question-${question._id}`}>
             {/* Header info */}
             <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-lg">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-lg dark:bg-indigo-950/40 dark:text-indigo-300">
                         {questionNumber}
                     </div>
                     {question.subject && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                             {question.subject}
                         </span>
                     )}
                     {question.tags && question.tags.map(tag => (
-                        <span key={tag} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-500 border border-slate-200">
+                        <span key={tag} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
                             {tag}
                         </span>
                     ))}
@@ -63,7 +63,7 @@ export default function QuestionCard({
 
                 <button
                     onClick={onToggleReview}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isMarkedForReview ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-100'}`}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isMarkedForReview ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
                 >
                     <Flag className={`w-4 h-4 ${isMarkedForReview ? 'fill-current' : ''}`} />
                     <span className="hidden sm:inline">Review later</span>
@@ -83,7 +83,7 @@ export default function QuestionCard({
                     <img
                         src={question.questionImage}
                         alt="Question Reference"
-                        className="mt-4 rounded-xl border border-slate-200 max-h-80 object-contain bg-slate-50"
+                        className="mt-4 rounded-xl border border-slate-200 max-h-80 object-contain bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
                     />
                 )}
             </div>
@@ -91,13 +91,13 @@ export default function QuestionCard({
             {/* Options or Written Upload */}
             {isWritten ? (
                 <div className="mt-8 pt-6 border-t border-slate-200">
-                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Upload Written Answer</h4>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3 dark:text-white">Upload Written Answer</h4>
                     <p className="text-xs text-slate-500 mb-4">Write your solution on paper and upload a photo of it here for manual review.</p>
 
                     {writtenUploadUrl ? (
                         <div className="relative inline-block">
                             <img src={writtenUploadUrl} alt="Uploaded Answer" className="h-40 w-auto rounded-lg border border-slate-300 shadow-sm" />
-                            <label className="absolute -bottom-3 -right-3 bg-white border border-slate-200 shadow-sm p-2 rounded-full cursor-pointer hover:bg-slate-50 text-indigo-600">
+                            <label className="absolute -bottom-3 -right-3 bg-white border border-slate-200 shadow-sm p-2 rounded-full cursor-pointer hover:bg-slate-50 text-indigo-600 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800">
                                 <Upload className="w-4 h-4" />
                                 <CompressedImageInput accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
                             </label>
@@ -120,11 +120,11 @@ export default function QuestionCard({
                                 key={opt.id}
                                 onClick={() => onSelectOption(opt.id)}
                                 className={`w-full min-h-[56px] flex items-center p-4 rounded-xl border text-left transition-all duration-200 ${isSelected
-                                    ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500 text-indigo-900 shadow-sm'
-                                    : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50 text-slate-700'
+                                    ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500 text-indigo-900 shadow-sm dark:bg-indigo-950/40 dark:text-indigo-200'
+                                    : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-indigo-500/40 dark:hover:bg-slate-800 dark:text-slate-300'
                                     }`}
                             >
-                                <div className={`flex items-center justify-center w-8 h-8 rounded-lg font-bold mr-4 flex-shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-lg font-bold mr-4 flex-shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                                     }`}>
                                     {opt.id}
                                 </div>

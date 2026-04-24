@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import EventLog from '../models/EventLog';
 import SiteSettings from '../models/Settings';
 import { AuthRequest } from '../middlewares/auth';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const EVENT_TO_TOGGLE: Record<string, keyof ReturnType<typeof defaultAnalyticsSettings>['eventToggles']> = {
     university_apply_click: 'universityApplyClick',
@@ -132,19 +133,19 @@ export async function trackEvent(req: AuthRequest, res: Response): Promise<void>
         const body = (req.body || {}) as Record<string, unknown>;
         const eventName = String(body.eventName || '').trim().toLowerCase();
         if (!eventName) {
-            res.status(400).json({ message: 'eventName is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'eventName is required'));
             return;
         }
 
         const settings = await readAnalyticsSettings();
         if (!settings.enabled) {
-            res.status(202).json({ accepted: false, reason: 'analytics_disabled' });
+            ResponseBuilder.send(res, 202, ResponseBuilder.success({ accepted: false, reason: 'analytics_disabled' }));
             return;
         }
 
         const toggleKey = EVENT_TO_TOGGLE[eventName];
         if (toggleKey && !settings.eventToggles[toggleKey]) {
-            res.status(202).json({ accepted: false, reason: 'event_disabled' });
+            ResponseBuilder.send(res, 202, ResponseBuilder.success({ accepted: false, reason: 'event_disabled' }));
             return;
         }
 
@@ -152,7 +153,7 @@ export async function trackEvent(req: AuthRequest, res: Response): Promise<void>
             ? new mongoose.Types.ObjectId(req.user._id)
             : null;
         if (!userId && !settings.trackAnonymous) {
-            res.status(202).json({ accepted: false, reason: 'anonymous_tracking_disabled' });
+            ResponseBuilder.send(res, 202, ResponseBuilder.success({ accepted: false, reason: 'anonymous_tracking_disabled' }));
             return;
         }
 
@@ -171,30 +172,30 @@ export async function trackEvent(req: AuthRequest, res: Response): Promise<void>
             userAgent: String(req.headers['user-agent'] || '').slice(0, 255),
         });
 
-        res.status(201).json({ accepted: true, id: String(entry._id) });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ accepted: true, id: String(entry._id) }));
     } catch (error) {
         console.error('trackEvent error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getPublicAnalyticsSettings(_req: Request, res: Response): Promise<void> {
     try {
         const settings = await readAnalyticsSettings();
-        res.json({ enabled: settings.enabled, trackAnonymous: settings.trackAnonymous, eventToggles: settings.eventToggles });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ enabled: settings.enabled, trackAnonymous: settings.trackAnonymous, eventToggles: settings.eventToggles }));
     } catch (error) {
         console.error('getPublicAnalyticsSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminGetAnalyticsSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await readAnalyticsSettings();
-        res.json({ settings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings }));
     } catch (error) {
         console.error('adminGetAnalyticsSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -227,10 +228,10 @@ export async function adminUpdateAnalyticsSettings(req: AuthRequest, res: Respon
             { upsert: true, new: true, setDefaultsOnInsert: true },
         );
 
-        res.json({ settings: next, message: 'Analytics settings updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: next }, 'Analytics settings updated'));
     } catch (error) {
         console.error('adminUpdateAnalyticsSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -257,7 +258,7 @@ export async function adminGetAnalyticsOverview(req: AuthRequest, res: Response)
         const funnelMap = new Map<string, number>();
         funnel.forEach((row) => funnelMap.set(String(row._id), Number(row.count || 0)));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             range: { from: from.toISOString(), to: to.toISOString() },
             totals: totalItem,
             topEvents: topEvents.map((row) => ({ eventName: row._id, count: Number(row.count || 0) })),
@@ -267,10 +268,10 @@ export async function adminGetAnalyticsOverview(req: AuthRequest, res: Response)
                 started: funnelMap.get('exam_started') || 0,
                 submitted: funnelMap.get('exam_submitted') || 0,
             },
-        });
+        }));
     } catch (error) {
         console.error('adminGetAnalyticsOverview error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -331,6 +332,6 @@ export async function adminExportEventLogs(req: AuthRequest, res: Response): Pro
         res.status(200).send(csv);
     } catch (error) {
         console.error('adminExportEventLogs error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

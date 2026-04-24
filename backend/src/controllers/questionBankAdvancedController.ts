@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth';
 import * as svc from '../services/questionBankAdvancedService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ─── Helper ──────────────────────────────────────────── */
 function adminId(req: AuthRequest): string {
@@ -8,16 +9,16 @@ function adminId(req: AuthRequest): string {
 }
 
 function ok(res: Response, data: unknown) {
-    return res.status(200).json({ success: true, data });
+    return ResponseBuilder.send(res, 200, ResponseBuilder.success(data));
 }
 function created(res: Response, data: unknown) {
-    return res.status(201).json({ success: true, data });
+    return ResponseBuilder.send(res, 201, ResponseBuilder.created(data));
 }
 function notFound(res: Response, msg = 'Not found') {
-    return res.status(404).json({ success: false, error: msg });
+    return ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', msg));
 }
 function bad(res: Response, msg: string) {
-    return res.status(400).json({ success: false, error: msg });
+    return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', msg));
 }
 
 function param(req: AuthRequest, key: string): string {

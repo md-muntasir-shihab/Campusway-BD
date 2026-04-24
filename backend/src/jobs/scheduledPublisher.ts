@@ -1,10 +1,10 @@
 import cron from "node-cron";
-import { NewsItemModel } from "../models/newsItem.model";
+import News from "../models/News";
 
 export const startScheduledPublisher = () => {
   cron.schedule("*/1 * * * *", async () => {
     const now = new Date();
-    await NewsItemModel.updateMany(
+    await News.updateMany(
       { status: "scheduled", scheduledAt: { $lte: now } },
       { $set: { status: "published", publishedAt: now } }
     );

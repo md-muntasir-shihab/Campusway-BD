@@ -16,6 +16,7 @@ import {
     reconcileUniversityClusterAssignments,
     syncManualClusterMembership,
 } from '../services/universitySyncService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const CANONICAL_TARGET_FIELDS = [
     'category',
@@ -363,14 +364,14 @@ function validateAndNormalizeRows(rows: Record<string, unknown>[], mapping: Reco
 
 export async function adminInitUniversityImport(req: Request, res: Response): Promise<void> {
     try {
-        if (!req.file) { res.status(400).json({ message: 'No file uploaded.' }); return; }
+        if (!req.file) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded.')); return; }
         const filename = String(req.file.originalname || 'import').toLowerCase();
         if (!filename.endsWith('.csv') && !filename.endsWith('.xlsx') && !filename.endsWith('.xls') && !filename.endsWith('.tsv') && !filename.endsWith('.txt')) {
-            res.status(400).json({ message: 'Only CSV/XLSX/XLS/TSV/TXT files are supported.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Only CSV/XLSX/XLS/TSV/TXT files are supported.'));
             return;
         }
         const rows = readImportRows(req.file.buffer, filename);
-        if (rows.length === 0) { res.status(400).json({ message: 'Import file is empty.' }); return; }
+        if (rows.length === 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Import file is empty.')); return; }
 
         const headers = Object.keys(rows[0] || {});
         const job = await UniversityImportJob.create({
@@ -387,16 +388,16 @@ export async function adminInitUniversityImport(req: Request, res: Response): Pr
             failedRows: [],
         });
 
-        res.status(201).json({
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             importJobId: String(job._id),
             headers,
             sampleRows: rows.slice(0, 20),
             targetFields: CANONICAL_TARGET_FIELDS,
             suggestedMapping: buildSuggestedMapping(headers),
-        });
+        }));
     } catch (err) {
         console.error('adminInitUniversityImport error:', err);
-        res.status(500).json({ message: 'Failed to initialize import.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to initialize import.'));
     }
 }
 
@@ -404,7 +405,7 @@ export async function adminValidateUniversityImport(req: Request, res: Response)
     try {
         await backfillUniversityTaxonomyIfNeeded();
         const job = await UniversityImportJob.findById(req.params.jobId);
-        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
+        if (!job) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Import job not found.')); return; }
 
         const mapping = (req.body?.mapping || {}) as Record<string, string>;
         const defaults = (req.body?.defaults || {}) as Record<string, unknown>;
@@ -445,8 +446,7 @@ export async function adminValidateUniversityImport(req: Request, res: Response)
         job.status = 'validated';
         await job.save();
 
-        res.json({
-            importJobId: String(job._id),
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({importJobId: String(job._id),
             validationSummary: job.validationSummary,
             failedRows: failedRows.slice(0, 200),
             failedRowCount: failedRows.length,
@@ -456,11 +456,10 @@ export async function adminValidateUniversityImport(req: Request, res: Response)
             duplicates: {
                 inFile: duplicateRows,
                 inDatabase: Array.from(new Set(dbDuplicates)).filter(Boolean).sort((a, b) => a - b),
-            },
-        });
+            },}));
     } catch (err) {
         console.error('adminValidateUniversityImport error:', err);
-        res.status(500).json({ message: 'Failed to validate import.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to validate import.'));
     }
 }
 
@@ -468,8 +467,8 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
     try {
         await backfillUniversityTaxonomyIfNeeded();
         const job = await UniversityImportJob.findById(req.params.jobId);
-        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
-        if (job.status !== 'validated') { res.status(400).json({ message: 'Run validation before committing import.' }); return; }
+        if (!job) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Import job not found.')); return; }
+        if (job.status !== 'validated') { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Run validation before committing import.')); return; }
 
         const mode = String(req.body?.mode || 'update-existing').toLowerCase() === 'create-only' ? 'create-only' : 'update-existing';
         const rows = (job.normalizedRows || []) as Array<Record<string, unknown>>;
@@ -775,20 +774,17 @@ export async function adminCommitUniversityImport(req: Request, res: Response): 
             meta: { source: 'university_import', inserted, updated, failed: failedRows.length },
         });
 
-        res.json({
-            importJobId: String(job._id),
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({importJobId: String(job._id),
             commitSummary: job.commitSummary,
             createdCategories: createdCategoryNames.size,
             createdClusters: createdClusterNames.size,
             failedRows: failedRows.slice(0, 200),
             failedRowCount: failedRows.length,
-            warnings: Array.from(warnings),
-            message: `Import completed (${mode}). inserted=${inserted}, updated=${updated}, failed=${failedRows.length}`,
-        });
+            warnings: Array.from(warnings)}, 'Import completed (${mode}). inserted=${inserted}, updated=${updated}, failed=${failedRows.length}'));
     } catch (err) {
         console.error('adminCommitUniversityImport error:', err);
         const detail = err instanceof Error ? err.message : 'Unknown error';
-        res.status(500).json({ message: `Failed to commit import. ${detail}` });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to commit import. ${detail}'));
     }
 }
 
@@ -840,16 +836,15 @@ export async function adminDownloadUniversityImportTemplate(req: Request, res: R
         res.send(buffer);
     } catch (err) {
         console.error('adminDownloadUniversityImportTemplate error:', err);
-        res.status(500).json({ message: 'Failed to download template.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to download template.'));
     }
 }
 
 export async function adminGetUniversityImportJob(req: Request, res: Response): Promise<void> {
     try {
         const job = await UniversityImportJob.findById(req.params.jobId).lean();
-        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
-        res.json({
-            importJobId: String(job._id),
+        if (!job) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Import job not found.')); return; }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({importJobId: String(job._id),
             status: job.status,
             sourceFileName: job.sourceFileName,
             headers: job.headers,
@@ -861,18 +856,17 @@ export async function adminGetUniversityImportJob(req: Request, res: Response): 
             failedRows: (job.failedRows || []).slice(0, 200),
             failedRowCount: (job.failedRows || []).length,
             createdAt: job.createdAt,
-            updatedAt: job.updatedAt,
-        });
+            updatedAt: job.updatedAt,}));
     } catch (err) {
         console.error('adminGetUniversityImportJob error:', err);
-        res.status(500).json({ message: 'Failed to get import status.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to get import status.'));
     }
 }
 
 export async function adminDownloadUniversityImportErrors(req: Request, res: Response): Promise<void> {
     try {
         const job = await UniversityImportJob.findById(req.params.jobId).lean();
-        if (!job) { res.status(404).json({ message: 'Import job not found.' }); return; }
+        if (!job) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Import job not found.')); return; }
         const failedRows = job.failedRows || [];
         const headers = ['rowNumber', 'reason', 'payload'];
         const lines = failedRows.map((item) => [item.rowNumber, item.reason, JSON.stringify(item.payload || {})].map(csvEscape).join(','));
@@ -882,6 +876,6 @@ export async function adminDownloadUniversityImportErrors(req: Request, res: Res
         res.send(csv);
     } catch (err) {
         console.error('adminDownloadUniversityImportErrors error:', err);
-        res.status(500).json({ message: 'Failed to download import errors.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to download import errors.'));
     }
 }

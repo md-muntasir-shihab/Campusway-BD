@@ -12,6 +12,9 @@ import ExamProfileSyncLog from '../models/ExamProfileSyncLog';
 import { createAdminAlert } from '../services/adminAlertService';
 import { computeStudentProfileScore } from '../services/studentProfileScoreService';
 import { buildSecureUploadUrl, registerSecureUpload } from '../services/secureUploadService';
+import OtpVerification from '../models/OtpVerification';
+import { broadcastAdminLiveEvent } from '../realtime/adminLiveStream';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 // Ensure the profile exists, if not create a default one
 const ensureProfile = async (userId: string) => {
@@ -153,8 +156,8 @@ async function resolveCelebration(userId: string) {
 // @access  Private (Student)
 export const getStudentProfile = async (req: AuthRequest, res: ExpressResponse) => {
     try {
-        if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-        if (req.user.role !== 'student') return res.status(403).json({ message: 'Student access only' });
+        if (!req.user) return ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
+        if (req.user.role !== 'student') return ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
         const profile = await ensureProfile(req.user._id);
         const scoreResult = computeStudentProfileScore(
             profile.toObject() as unknown as Record<string, unknown>,
@@ -171,7 +174,7 @@ export const getStudentProfile = async (req: AuthRequest, res: ExpressResponse) 
         const examHistory = Array.isArray((profile as unknown as Record<string, unknown>).examHistory)
             ? ((profile as unknown as Record<string, unknown>).examHistory as Array<Record<string, unknown>>)
             : [];
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             ...profile.toObject(),
             date_of_birth: profile.dob,
             phone_number: profile.phone_number || profile.phone || '',
@@ -211,9 +214,9 @@ export const getStudentProfile = async (req: AuthRequest, res: ExpressResponse) 
                     };
                 }),
             },
-        });
+        }));
     } catch (err: any) {
-        res.status(500).json({ message: 'Failed to get profile', error: err.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to get profile'));
     }
 };
 
@@ -222,8 +225,8 @@ export const getStudentProfile = async (req: AuthRequest, res: ExpressResponse) 
 // @access  Private (Student)
 export const getStudentProfileUpdateRequestStatus = async (req: AuthRequest, res: ExpressResponse) => {
     try {
-        if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-        if (req.user.role !== 'student') return res.status(403).json({ message: 'Student access only' });
+        if (!req.user) return ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
+        if (req.user.role !== 'student') return ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
 
         const [pending, latestDecision] = await Promise.all([
             ProfileUpdateRequest.findOne({ student_id: req.user._id, status: 'pending' }).sort({ createdAt: -1 }).lean(),
@@ -242,12 +245,12 @@ export const getStudentProfileUpdateRequestStatus = async (req: AuthRequest, res
             };
         };
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             pendingRequest: normalize(pending as Record<string, any> | null),
             latestDecision: normalize(latestDecision as Record<string, any> | null),
-        });
+        }));
     } catch (err: any) {
-        res.status(500).json({ message: 'Failed to load profile update request status', error: err.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load profile update request status'));
     }
 };
 
@@ -256,18 +259,21 @@ export const getStudentProfileUpdateRequestStatus = async (req: AuthRequest, res
 // @access  Private (Student)
 export const updateStudentProfile = async (req: AuthRequest, res: ExpressResponse) => {
     try {
-        if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-        if (req.user.role !== 'student') return res.status(403).json({ message: 'Student access only' });
+        if (!req.user) return ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
+        if (req.user.role !== 'student') return ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
 
         // Fields that can be updated directly without approval
         const openFields = [
             'dob', 'gender', 'present_address', 'permanent_address', 'district', 'college_address', 'college_name'
         ];
 
+        // Contact fields that require OTP verification before creating a ProfileUpdateRequest
+        const contactFields = ['phone_number', 'email'];
+
         // Fields that require admin approval if they were already set
         const restrictedFields = [
             'full_name', 'phone_number', 'phone', 'guardian_name', 'guardian_phone',
-            'ssc_batch', 'hsc_batch', 'department', 'roll_number', 'registration_id', 'institution_name'
+            'ssc_batch', 'hsc_batch', 'department', 'roll_number', 'registration_id', 'institution_name', 'email'
         ];
 
         const aliasMap: Record<string, string> = {
@@ -278,9 +284,11 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
 
         const profile = await ensureProfile(req.user._id);
         const profileObj = profile.toObject() as Record<string, any>;
+        const userObj = req.user as Record<string, any>;
 
         const directUpdates: Record<string, any> = {};
         const requestedUpdates: Record<string, any> = {};
+        const previousValues: Record<string, any> = {};
 
         // 1. Process Open Fields
         for (const field of openFields) {
@@ -296,7 +304,39 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
             }
         }
 
-        // 3. Process Restricted Fields
+        // 3. Check OTP verification for contact field changes (Requirement 6.2)
+        for (const field of contactFields) {
+            const val = req.body[field];
+            if (val === undefined) continue;
+
+            const contactType = field === 'phone_number' ? 'phone' : 'email';
+            // Look up current value from profile or user
+            const currentVal = field === 'email'
+                ? (profileObj.email || userObj.email || '')
+                : (profileObj.phone_number || profileObj.phone || userObj.phone_number || '');
+            const isSet = currentVal != null && String(currentVal).trim() !== '';
+
+            if (isSet && String(currentVal) !== String(val)) {
+                // Contact is changing — require OTP verification
+                const userOid = new mongoose.Types.ObjectId(String(req.user._id));
+                const verifiedRecord = await OtpVerification.findOne({
+                    user_id: userOid,
+                    contact_type: contactType,
+                    contact_value: String(val).trim(),
+                    verified: true,
+                }).sort({ createdAt: -1 }).lean();
+
+                if (!verifiedRecord) {
+                    return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `OTP verification is required before changing your ${field === 'phone_number' ? 'phone number' : 'email'}. Please verify the new contact first.`, {
+                        requiresOtp: true,
+                        contactType,
+                        contactValue: val,
+                    }));
+                }
+            }
+        }
+
+        // 4. Process Restricted Fields
         for (const field of restrictedFields) {
             let val = req.body[field];
             if (val === undefined) {
@@ -309,7 +349,9 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
 
             if (val !== undefined) {
                 // Check if current value exists and is different
-                const currentVal = profileObj[field];
+                const currentVal = field === 'email'
+                    ? (profileObj.email || userObj.email)
+                    : profileObj[field];
                 const isSet = currentVal != null && String(currentVal).trim() !== '';
 
                 if (!isSet) {
@@ -318,6 +360,7 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
                 } else if (String(currentVal) !== String(val)) {
                     // If already set and changing, require approval
                     requestedUpdates[field] = val;
+                    previousValues[field] = currentVal;
                 }
             }
         }
@@ -352,26 +395,31 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
             await profile.save();
         }
 
-        // Handle requested updates
+        // Handle requested updates (Requirement 6.1, 6.3, 6.4, 6.5)
         let requestMsg = '';
         if (Object.keys(requestedUpdates).length > 0) {
-            // Delete existing pending request if any
+            // Replace existing pending request if any (Requirement 6.3)
             await ProfileUpdateRequest.deleteMany({ student_id: req.user._id, status: 'pending' });
+
+            const changedFieldNames = Object.keys(requestedUpdates);
 
             const request = await ProfileUpdateRequest.create({
                 student_id: req.user._id,
-                requested_changes: requestedUpdates
+                requested_changes: requestedUpdates,
+                previous_values: previousValues,
             });
+
+            // Create admin alert with changed field names and link to approval queue (Requirement 6.4)
             await createAdminAlert({
                 title: 'Profile approval required',
-                message: `A student submitted ${Object.keys(requestedUpdates).length} profile change${Object.keys(requestedUpdates).length > 1 ? 's' : ''} for review.`,
+                message: `A student submitted changes to: ${changedFieldNames.join(', ')}. Review required.`,
                 type: 'profile_update_request',
-                messagePreview: Object.keys(requestedUpdates).join(', '),
-                linkUrl: `/__cw_admin__/student-management/profile-requests?requestId=${String(request._id)}`,
+                messagePreview: changedFieldNames.join(', '),
+                linkUrl: `/__cw_admin__/pending-approvals?tab=profile-changes&requestId=${String(request._id)}`,
                 category: 'update',
                 sourceType: 'profile_update_request',
                 sourceId: String(request._id),
-                targetRoute: '/__cw_admin__/student-management/profile-requests',
+                targetRoute: '/__cw_admin__/pending-approvals',
                 targetEntityId: String(request._id),
                 priority: 'normal',
                 actorUserId: req.user._id,
@@ -380,11 +428,18 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
                 createdBy: req.user._id,
                 dedupeKey: `profile_update_request:${String(request._id)}`,
             });
+
+            // Broadcast SSE event for real-time approval queue update (Requirement 10.7)
+            broadcastAdminLiveEvent('approval-queue-updated', {
+                type: 'profile-change',
+                action: 'created',
+                requestId: String(request._id),
+            });
+
             requestMsg = ' Some changes require admin approval and have been sent for review.';
         }
 
-        res.json({
-            message: 'Profile update processed.' + requestMsg,
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             profile: {
                 ...profile.toObject(),
                 date_of_birth: profile.dob,
@@ -395,12 +450,12 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
                 guardian_phone_verified_at: (profile as any).guardianPhoneVerifiedAt || null,
             },
             pendingRequest: Object.keys(requestedUpdates).length > 0
-        });
+        }, 'Profile update processed.' + requestMsg));
 
         broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId: req.user._id } });
     } catch (err: any) {
         console.error('updateStudentProfile Error:', err);
-        res.status(500).json({ message: 'Failed to update profile', error: err.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update profile'));
     }
 };
 
@@ -409,14 +464,14 @@ export const updateStudentProfile = async (req: AuthRequest, res: ExpressRespons
 // @access  Private (Student)
 export const getStudentApplications = async (req: AuthRequest, res: ExpressResponse) => {
     try {
-        if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-        if (req.user.role !== 'student') return res.status(403).json({ message: 'Student access only' });
+        if (!req.user) return ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
+        if (req.user.role !== 'student') return ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
         const apps = await StudentApplication.find({ student_id: req.user._id })
             .populate('university_id', 'name slug logo')
             .sort({ createdAt: -1 });
-        res.json(apps);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(apps));
     } catch (err: any) {
-        res.status(500).json({ message: 'Failed to get profile', error: err.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to get profile'));
     }
 };
 
@@ -425,19 +480,19 @@ export const getStudentApplications = async (req: AuthRequest, res: ExpressRespo
 // @access  Private (Student)
 export const createStudentApplication = async (req: AuthRequest, res: ExpressResponse) => {
     try {
-        if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-        if (req.user.role !== 'student') return res.status(403).json({ message: 'Student access only' });
+        if (!req.user) return ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
+        if (req.user.role !== 'student') return ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
 
         const { university_id, program } = req.body;
 
         if (!university_id || !program) {
-            return res.status(400).json({ message: 'University and program are required' });
+            return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'University and program are required'));
         }
 
         // Check profile completion first
         const profile = await ensureProfile(req.user._id);
         if (profile.profile_completion_percentage < 60) {
-            return res.status(400).json({ message: 'Please complete at least 60% of your profile before applying.' });
+            return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Please complete at least 60% of your profile before applying.'));
         }
 
         // Prevent duplicate applications for the same program in draft/submitted
@@ -449,7 +504,7 @@ export const createStudentApplication = async (req: AuthRequest, res: ExpressRes
         });
 
         if (existing) {
-            return res.status(400).json({ message: 'You already have an active application for this program.' });
+            return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'You already have an active application for this program.'));
         }
 
         const application = await StudentApplication.create({
@@ -460,21 +515,21 @@ export const createStudentApplication = async (req: AuthRequest, res: ExpressRes
             applied_at: new Date()
         });
 
-        res.status(201).json({ message: 'Application draft created successfully', application });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ application }, 'Application draft created successfully'));
     } catch (err: any) {
-        res.status(500).json({ message: 'Failed to create application', error: err.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to create application'));
     }
 };
 
 // @desc    Upload student document
 export const uploadStudentDocument = async (req: AuthRequest, res: ExpressResponse) => {
     try {
-        if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-        if (req.user.role !== 'student') return res.status(403).json({ message: 'Student access only' });
-        if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+        if (!req.user) return ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
+        if (req.user.role !== 'student') return ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
+        if (!req.file) return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded'));
 
         const document_type = req.body.document_type || req.body.type;
-        if (!document_type) return res.status(400).json({ message: 'Document type is required' });
+        if (!document_type) return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Document type is required'));
 
         const profile = await ensureProfile(req.user._id);
         const isProfilePhoto = String(document_type).trim().toLowerCase() === 'profile_photo';
@@ -498,13 +553,12 @@ export const uploadStudentDocument = async (req: AuthRequest, res: ExpressRespon
             broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId: req.user._id } });
         }
 
-        res.json({
-            message: 'Document uploaded successfully',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             url: docUrl,
             document_type,
-            visibility: secureUpload.visibility,
-        });
+            visibility: secureUpload.visibility
+        }, 'Document uploaded successfully'));
     } catch (err: any) {
-        res.status(500).json({ message: 'Failed to upload document', error: err.message });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to upload document'));
     }
 };

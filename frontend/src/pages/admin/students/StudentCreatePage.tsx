@@ -260,7 +260,32 @@ export default function StudentCreatePage() {
               </div>
             )}
           </div>
-          <p className="mt-2 text-xs text-slate-400">Assign the student to one or more groups for exam access and communication</p>
+          <p className="mt-2 text-xs text-slate-400">Assign the student to one or more groups. Students will also be auto-added to groups matching their batch or department.</p>
+
+          {/* Auto-match preview */}
+          {(form.department || form.hsc_batch) && (() => {
+            const autoMatches = allGroups.filter(g => {
+              if (form.groupIds.includes(g._id)) return false;
+              const gAny = g as unknown as Record<string, unknown>;
+              if (form.hsc_batch && String(gAny.batch || '') === form.hsc_batch.trim()) return true;
+              if (form.department && String(gAny.department || '').toLowerCase() === form.department.trim().toLowerCase()) return true;
+              return false;
+            });
+            if (autoMatches.length === 0) return null;
+            return (
+              <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2 dark:border-indigo-800/50 dark:bg-indigo-900/10">
+                <p className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">Auto-assigned on create:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {autoMatches.map(g => (
+                    <span key={g._id} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: g.color || '#6366f1' }} />
+                      {g.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </section>
 
         {/* Subscription & Payment */}

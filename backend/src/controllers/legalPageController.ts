@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import LegalPage from '../models/LegalPage';
 import { AuthRequest } from '../middlewares/auth';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -18,14 +19,14 @@ export async function getPublicLegalPage(req: Request, res: Response): Promise<v
             .lean();
 
         if (!page) {
-            res.status(404).json({ error: 'Legal page not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Legal page not found'));
             return;
         }
 
-        res.json(page);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(page));
     } catch (err) {
         console.error('getPublicLegalPage error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -41,10 +42,10 @@ export async function listLegalPages(_req: Request, res: Response): Promise<void
             .sort({ updatedAt: -1 })
             .lean();
 
-        res.json({ pages });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ pages }));
     } catch (err) {
         console.error('listLegalPages error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -55,14 +56,14 @@ export async function getAdminLegalPage(req: Request, res: Response): Promise<vo
         const page = await LegalPage.findOne({ slug }).lean();
 
         if (!page) {
-            res.status(404).json({ error: 'Legal page not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Legal page not found'));
             return;
         }
 
-        res.json(page);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(page));
     } catch (err) {
         console.error('getAdminLegalPage error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -72,18 +73,18 @@ export async function createLegalPage(req: AuthRequest, res: Response): Promise<
         const { slug, title, htmlContent, metaTitle, metaDescription } = req.body;
 
         if (!title || !String(title).trim()) {
-            res.status(400).json({ error: 'Title is required', field: 'title' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Title is required', { field: 'title' }));
             return;
         }
 
         if (!slug || !SLUG_REGEX.test(slug)) {
-            res.status(400).json({ error: 'Invalid slug format. Use lowercase letters, numbers, and hyphens only.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid slug format. Use lowercase letters, numbers, and hyphens only.'));
             return;
         }
 
         const existing = await LegalPage.findOne({ slug }).lean();
         if (existing) {
-            res.status(409).json({ error: 'A legal page with this slug already exists' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'A legal page with this slug already exists'));
             return;
         }
 
@@ -96,10 +97,10 @@ export async function createLegalPage(req: AuthRequest, res: Response): Promise<
             lastUpdatedBy: req.user?._id ? new mongoose.Types.ObjectId(String(req.user._id)) : undefined,
         });
 
-        res.status(201).json({ page, message: 'Legal page created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({page}, 'Legal page created'));
     } catch (err) {
         console.error('createLegalPage error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -110,7 +111,7 @@ export async function updateLegalPage(req: AuthRequest, res: Response): Promise<
         const page = await LegalPage.findOne({ slug });
 
         if (!page) {
-            res.status(404).json({ error: 'Legal page not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Legal page not found'));
             return;
         }
 
@@ -124,10 +125,10 @@ export async function updateLegalPage(req: AuthRequest, res: Response): Promise<
 
         await page.save();
 
-        res.json({ page, message: 'Legal page updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({page}, 'Legal page updated'));
     } catch (err) {
         console.error('updateLegalPage error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -138,13 +139,13 @@ export async function deleteLegalPage(req: Request, res: Response): Promise<void
         const page = await LegalPage.findOneAndDelete({ slug });
 
         if (!page) {
-            res.status(404).json({ error: 'Legal page not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Legal page not found'));
             return;
         }
 
-        res.json({ message: 'Legal page deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Legal page deleted'));
     } catch (err) {
         console.error('deleteLegalPage error:', err);
-        res.status(500).json({ error: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

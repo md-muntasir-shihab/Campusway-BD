@@ -32,7 +32,7 @@ export default function ThemeSwitchPro({ className = '' }: ThemeSwitchProProps) 
             data-testid="theme-toggle"
             aria-label={MODE_LABELS[theme]}
             title={MODE_LABELS[theme]}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors hover:border-primary/50 hover:text-primary ${className}`}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:border-primary/50 hover:text-primary ${className}`}
             style={{
                 borderColor: 'var(--border)',
                 backgroundColor: 'var(--surface)',

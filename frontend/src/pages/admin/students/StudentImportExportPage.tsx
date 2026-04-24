@@ -177,7 +177,7 @@ export default function StudentImportExportPage() {
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700">
@@ -195,9 +195,8 @@ export default function StudentImportExportPage() {
               {logs.map(log => (
                 <tr key={log._id} className="text-slate-700 dark:text-slate-300">
                   <td className="py-2 pr-4">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                      log.direction === 'import' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${log.direction === 'import' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}>
                       {log.direction === 'import' ? <Upload size={10} /> : <Download size={10} />}
                       {log.direction}
                     </span>

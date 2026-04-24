@@ -21,14 +21,15 @@ export default function HeroSearchInput({
     };
 
     return (
-        <form onSubmit={handleSubmit} className={`w-full max-w-xl mx-auto ${className}`}>
+        <form onSubmit={handleSubmit} className={`w-full max-w-xl mx-auto ${className}`} role="search">
             <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/40 group-focus-within:text-white/80 transition-colors pointer-events-none" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/40 group-focus-within:text-white/80 transition-colors pointer-events-none" aria-hidden="true" />
                 <input
                     type="text"
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={placeholder}
+                    aria-label={placeholder}
                     className="w-full rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md py-3 sm:py-3.5 pl-12 pr-10 text-sm text-white placeholder-white/40 outline-none transition-all focus:border-white/30 focus:bg-white/15 focus:ring-2 focus:ring-white/10 shadow-lg shadow-black/10"
                     autoComplete="off"
                 />

@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { ExamSessionModel } from "../models/examSession.model";
+import ExamSession from "../models/ExamSession";
 import { submitSession } from "../services/examSessionService";
 
 export function startModernExamCronJobs(): void {
@@ -10,17 +10,19 @@ export function startModernExamCronJobs(): void {
       const now = new Date();
       const bufferTime = new Date(now.getTime() - 5_000);
 
-      const expired = await ExamSessionModel.find({
+      const expired = await ExamSession.find({
         status: "in_progress",
         expiresAtUTC: { $lt: bufferTime },
-      }).select("_id examId userId").lean();
+      }).select("_id examId userId exam student").lean();
 
       if (expired.length === 0) return;
 
       console.log(`[CRON-MODERN] Found ${expired.length} expired sessions. Auto-submitting...`);
       for (const session of expired) {
         try {
-          await submitSession(String(session.examId), String(session._id), String(session.userId));
+          const examId = String((session as any).examId || session.exam);
+          const userId = String((session as any).userId || session.student);
+          await submitSession(examId, String(session._id), userId);
           console.log(`[CRON-MODERN] Auto-submitted session ${session._id}`);
         } catch (err) {
           console.error(`[CRON-MODERN] Failed to auto-submit session ${session._id}:`, err);

@@ -1,0 +1,68 @@
+# docker-compose.yml — CampusWay local development stack
+# Usage: docker compose up --build
+
+services:
+  # ── MongoDB 7 ────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # ── Redis 7 ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+  # ── Backend (Express + TypeScript) ───────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5003}:${PORT:-5003}"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: ${PORT:-5003}
+      NODE_ENV: development
+      MONGODB_URI: mongodb://mongo:27017/campusway
+      MONGO_URI: mongodb://mongo:27017/campusway
+      REDIS_URL: redis://redis:6379
+      REDIS_TOKEN: ""
+      CACHE_PREFIX: "cw:"
+      CACHE_ENABLED: "true"
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-jwt-refresh-secret-change-me}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5175}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:-http://localhost:5175}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5175,http://localhost:3000}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-5003}/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  mongo-data:

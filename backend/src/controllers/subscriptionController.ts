@@ -18,6 +18,7 @@ import {
     buildPublicSubscriptionPlanExclusionQuery,
     combineMongoFilters,
 } from '../utils/publicFixtureFilters';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type ExportType = 'csv' | 'xlsx';
 type PlanMutationResult = {
@@ -743,14 +744,14 @@ export async function getPublicSubscriptionPlans(req: Request, res: Response): P
             });
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items,
             settings,
             lastUpdatedAt: subscriptionSettings?.updatedAt || null,
-        });
+        }));
     } catch (error) {
         console.error('getPublicSubscriptionPlans error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -767,13 +768,13 @@ export async function getPublicSubscriptionPlanById(req: Request, res: Response)
             ],
         }).lean();
         if (!plan) {
-            res.status(404).json({ message: 'Plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Plan not found'));
             return;
         }
-        res.json({ item: planToDto(plan as unknown as Record<string, unknown>) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: planToDto(plan as unknown as Record<string, unknown>) }));
     } catch (error) {
         console.error('getPublicSubscriptionPlanById error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -781,7 +782,7 @@ export async function getMySubscription(req: AuthRequest, res: Response): Promis
     try {
         const userId = String(req.user?._id || '');
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
@@ -802,7 +803,7 @@ export async function getMySubscription(req: AuthRequest, res: Response): Promis
             const daysLeft = isActive && expiresAtUTC
                 ? Math.max(0, Math.ceil((expiresAtUTC.getTime() - nowMs) / 86400000))
                 : null;
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 status: isActive ? 'active' : (hasAnyPlanName ? 'expired' : 'none'),
                 isActive,
                 planId: cache.planId ? String(cache.planId) : null,
@@ -814,7 +815,7 @@ export async function getMySubscription(req: AuthRequest, res: Response): Promis
                 ctaMode: resolvePlanCtaMode(cache.ctaMode, 'contact'),
                 expiresAtUTC: expiresAtUTC ? expiresAtUTC.toISOString() : null,
                 daysLeft,
-            });
+            }));
             return;
         }
 
@@ -830,7 +831,7 @@ export async function getMySubscription(req: AuthRequest, res: Response): Promis
         const daysLeft = normalizedStatus === 'active' && expiresAtUTC
             ? Math.max(0, Math.ceil((expiresAtUTC.getTime() - nowMs) / 86400000))
             : null;
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             status: normalizedStatus,
             isActive: normalizedStatus === 'active',
             rawStatus: latest.status,
@@ -845,10 +846,10 @@ export async function getMySubscription(req: AuthRequest, res: Response): Promis
             expiresAtUTC: expiresAtUTC ? expiresAtUTC.toISOString() : null,
             daysLeft,
             plan,
-        });
+        }));
     } catch (error) {
         console.error('getMySubscription error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -902,7 +903,7 @@ export async function getHomeSubscriptionPlans(req: AuthRequest, res: Response):
             expiryDate.getTime() > Date.now()
         );
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items,
             settings,
             banner: {
@@ -939,10 +940,10 @@ export async function getHomeSubscriptionPlans(req: AuthRequest, res: Response):
                 expiryDate: expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate.toISOString() : null,
                 reason: !req.user?._id ? 'not_logged_in' : (hasActivePlan ? 'active_plan' : 'subscription_required'),
             },
-        });
+        }));
     } catch (error) {
         console.error('getHomeSubscriptionPlans error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -951,7 +952,7 @@ export async function requestSubscriptionPayment(req: AuthRequest, res: Response
         const userId = String(req.user?._id || '');
         const planId = String(req.params.planId || '');
         if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(planId)) {
-            res.status(400).json({ message: 'Invalid request' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid request'));
             return;
         }
 
@@ -961,7 +962,7 @@ export async function requestSubscriptionPayment(req: AuthRequest, res: Response
             $or: [{ enabled: true }, { isActive: true }],
         }).lean();
         if (!plan) {
-            res.status(404).json({ message: 'Plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Plan not found'));
             return;
         }
 
@@ -990,16 +991,16 @@ export async function requestSubscriptionPayment(req: AuthRequest, res: Response
             recordPayment: false,
         });
 
-        res.status(201).json({
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
             message: result.subscription.status === 'active' ? 'Free plan activated' : 'Payment request submitted',
             payment: result.payment,
             subscription: result.subscription,
             invoice: result.invoice,
             plan: planDto,
-        });
+        }));
     } catch (error) {
         console.error('requestSubscriptionPayment error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1008,7 +1009,7 @@ export async function uploadSubscriptionProof(req: AuthRequest, res: Response): 
         const userId = String(req.user?._id || '');
         const planId = String(req.params.planId || '');
         if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(planId)) {
-            res.status(400).json({ message: 'Invalid request' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid request'));
             return;
         }
 
@@ -1018,7 +1019,7 @@ export async function uploadSubscriptionProof(req: AuthRequest, res: Response): 
             entryType: 'subscription',
         }).sort({ createdAt: -1 });
         if (!payment) {
-            res.status(404).json({ message: 'No payment request found for this plan' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No payment request found for this plan'));
             return;
         }
 
@@ -1051,10 +1052,10 @@ export async function uploadSubscriptionProof(req: AuthRequest, res: Response): 
         payment.status = payment.status === 'paid' ? 'paid' : 'pending';
         await payment.save();
 
-        res.json({ message: 'Payment proof uploaded', payment });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ payment }, 'Payment proof uploaded'));
     } catch (error) {
         console.error('uploadSubscriptionProof error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1063,13 +1064,13 @@ export async function adminGetSubscriptionPlans(req: AuthRequest, res: Response)
         const items = await SubscriptionPlan.find()
             .sort(PLAN_SORT)
             .lean();
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: items.map((item) => planToDto(item as unknown as Record<string, unknown>)),
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('adminGetSubscriptionPlans error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1078,13 +1079,13 @@ export async function adminGetSubscriptionPlanById(req: AuthRequest, res: Respon
         const id = safeString(req.params?.id);
         const item = await SubscriptionPlan.findOne(getPlanLookupQuery(id)).lean();
         if (!item) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
-        res.json({ item: planToDto(item as unknown as Record<string, unknown>) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: planToDto(item as unknown as Record<string, unknown>) }));
     } catch (error) {
         console.error('adminGetSubscriptionPlanById error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1098,7 +1099,7 @@ export async function adminCreateSubscriptionPlan(req: AuthRequest, res: Respons
             defaultCtaMode: resolvePlanCtaMode(settings?.defaultCtaMode, 'contact'),
         });
         if (built.error || !built.payload) {
-            res.status(400).json({ message: built.error || 'Invalid payload' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', built.error || 'Invalid payload'));
             return;
         }
 
@@ -1109,16 +1110,16 @@ export async function adminCreateSubscriptionPlan(req: AuthRequest, res: Respons
             ],
         });
         if (duplicate) {
-            res.status(400).json({ message: 'Plan code or slug already exists' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Plan code or slug already exists'));
             return;
         }
 
         const created = await SubscriptionPlan.create(built.payload);
 
-        res.status(201).json({ item: planToDto(created.toObject() as unknown as Record<string, unknown>), message: 'Subscription plan created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: planToDto(created.toObject() as unknown as Record<string, unknown>) }, 'Subscription plan created'));
     } catch (error) {
         console.error('adminCreateSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1127,13 +1128,13 @@ export async function adminUpdateSubscriptionPlan(req: AuthRequest, res: Respons
         const body = (req.body || {}) as Record<string, unknown>;
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400).json({ message: 'Invalid plan id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid plan id'));
             return;
         }
 
         const existing = await SubscriptionPlan.findById(id).lean();
         if (!existing) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
 
@@ -1145,7 +1146,7 @@ export async function adminUpdateSubscriptionPlan(req: AuthRequest, res: Respons
             defaultCtaMode: resolvePlanCtaMode(settings?.defaultCtaMode, 'contact'),
         });
         if (built.error || !built.payload) {
-            res.status(400).json({ message: built.error || 'Invalid payload' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', built.error || 'Invalid payload'));
             return;
         }
 
@@ -1157,19 +1158,19 @@ export async function adminUpdateSubscriptionPlan(req: AuthRequest, res: Respons
             ],
         });
         if (duplicate) {
-            res.status(400).json({ message: 'Plan code or slug already exists' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Plan code or slug already exists'));
             return;
         }
 
         const updated = await SubscriptionPlan.findByIdAndUpdate(id, built.payload, { new: true, runValidators: true }).lean();
         if (!updated) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
-        res.json({ item: planToDto(updated as unknown as Record<string, unknown>), message: 'Subscription plan updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: planToDto(updated as unknown as Record<string, unknown>) }, 'Subscription plan updated'));
     } catch (error) {
         console.error('adminUpdateSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1177,7 +1178,7 @@ export async function adminDeleteSubscriptionPlan(req: AuthRequest, res: Respons
     try {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400).json({ message: 'Invalid plan id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid plan id'));
             return;
         }
         const archived = await SubscriptionPlan.findByIdAndUpdate(
@@ -1195,16 +1196,13 @@ export async function adminDeleteSubscriptionPlan(req: AuthRequest, res: Respons
             { new: true }
         ).lean();
         if (!archived) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
-        res.json({
-            message: 'Subscription plan archived',
-            item: planToDto(archived as unknown as Record<string, unknown>),
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: planToDto(archived as unknown as Record<string, unknown>) }, 'Subscription plan archived'));
     } catch (error) {
         console.error('adminDeleteSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1213,7 +1211,7 @@ export async function adminToggleSubscriptionPlan(req: AuthRequest, res: Respons
         const id = String(req.params.id || '');
         const plan = await SubscriptionPlan.findById(id);
         if (!plan) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
         const enabled = !(plan.enabled !== false && plan.isActive !== false);
@@ -1222,10 +1220,10 @@ export async function adminToggleSubscriptionPlan(req: AuthRequest, res: Respons
         plan.isActive = enabled && !plan.isArchived;
         plan.updatedByAdminId = toAdminObjectId(req.user?._id);
         await plan.save();
-        res.json({ item: planToDto(plan.toObject() as unknown as Record<string, unknown>), message: enabled ? 'Plan enabled' : 'Plan disabled' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: planToDto(plan.toObject() as unknown as Record<string, unknown>), message: enabled ? 'Plan enabled' : 'Plan disabled' }));
     } catch (error) {
         console.error('adminToggleSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1233,7 +1231,7 @@ export async function adminReorderSubscriptionPlans(req: AuthRequest, res: Respo
     try {
         const rawOrder = req.body?.order || req.body?.ids || req.body?.planIds || [];
         if (!Array.isArray(rawOrder) || rawOrder.length === 0) {
-            res.status(400).json({ message: 'order array is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'order array is required'));
             return;
         }
 
@@ -1262,10 +1260,10 @@ export async function adminReorderSubscriptionPlans(req: AuthRequest, res: Respo
             .filter(Boolean) as Array<Promise<unknown>>;
 
         await Promise.all(ops);
-        res.json({ message: 'Subscription plans reordered' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Subscription plans reordered'));
     } catch (error) {
         console.error('adminReorderSubscriptionPlans error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1275,7 +1273,7 @@ export async function adminAssignSubscription(req: AuthRequest, res: Response): 
         const planId = safeString(req.body?.planId);
         const planCode = safeString(req.body?.planCode || req.body?.plan);
         if (!mongoose.Types.ObjectId.isValid(userId) || (!mongoose.Types.ObjectId.isValid(planId) && !planCode)) {
-            res.status(400).json({ message: 'userId and a valid planId or planCode are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'userId and a valid planId or planCode are required'));
             return;
         }
 
@@ -1313,7 +1311,7 @@ export async function adminAssignSubscription(req: AuthRequest, res: Response): 
         console.error('adminAssignSubscription error:', error);
         const message = error instanceof Error ? error.message : 'Server error';
         const statusCode = /not found|required|valid/i.test(message) ? 400 : 500;
-        res.status(statusCode).json({ message });
+        ResponseBuilder.send(res, statusCode, ResponseBuilder.error('SERVER_ERROR', message));
     }
 }
 
@@ -1332,7 +1330,7 @@ export async function adminLegacyAssignStudentSubscription(req: AuthRequest, res
         }
 
         if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(planId)) {
-            res.status(400).json({ message: 'Valid student id and plan reference are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid student id and plan reference are required'));
             return;
         }
 
@@ -1361,7 +1359,7 @@ export async function adminLegacyAssignStudentSubscription(req: AuthRequest, res
         await adminAssignSubscription(req, res);
     } catch (error) {
         console.error('adminLegacyAssignStudentSubscription error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1369,13 +1367,13 @@ export async function adminSuspendSubscription(req: AuthRequest, res: Response):
     try {
         const userId = safeString(req.body?.userId);
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            res.status(400).json({ message: 'userId is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'userId is required'));
             return;
         }
 
         const latest = await UserSubscription.findOne({ userId }).sort({ updatedAt: -1, createdAt: -1 });
         if (!latest) {
-            res.status(404).json({ message: 'No subscription record found for this user' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No subscription record found for this user'));
             return;
         }
         latest.status = 'suspended';
@@ -1392,10 +1390,10 @@ export async function adminSuspendSubscription(req: AuthRequest, res: Response):
             expiresAtUTC: latest.expiresAtUTC,
         });
 
-        res.json({ message: 'Subscription suspended', item: latest });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: latest }, 'Subscription suspended'));
     } catch (error) {
         console.error('adminSuspendSubscription error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1433,7 +1431,7 @@ export async function adminExportSubscriptions(req: AuthRequest, res: Response):
         sendExport(res, type, 'subscriptions_export', exportRows);
     } catch (error) {
         console.error('adminExportSubscriptions error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1473,7 +1471,7 @@ export async function adminExportSubscriptionPlans(req: AuthRequest, res: Respon
         sendExport(res, type, 'subscription_plans_export', exportRows);
     } catch (error) {
         console.error('adminExportSubscriptionPlans error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1481,12 +1479,12 @@ export async function adminToggleSubscriptionPlanFeatured(req: AuthRequest, res:
     try {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400).json({ message: 'Invalid plan id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid plan id'));
             return;
         }
         const plan = await SubscriptionPlan.findById(id);
         if (!plan) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
         plan.isFeatured = !Boolean(plan.isFeatured);
@@ -1495,10 +1493,10 @@ export async function adminToggleSubscriptionPlanFeatured(req: AuthRequest, res:
         }
         plan.updatedByAdminId = toAdminObjectId(req.user?._id);
         await plan.save();
-        res.json({ item: planToDto(plan.toObject() as unknown as Record<string, unknown>), message: plan.isFeatured ? 'Plan marked as featured' : 'Plan unfeatured' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: planToDto(plan.toObject() as unknown as Record<string, unknown>), message: plan.isFeatured ? 'Plan marked as featured' : 'Plan unfeatured' }));
     } catch (error) {
         console.error('adminToggleSubscriptionPlanFeatured error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1506,13 +1504,13 @@ export async function adminDuplicateSubscriptionPlan(req: AuthRequest, res: Resp
     try {
         const id = safeString(req.params.id);
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400).json({ message: 'Invalid plan id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid plan id'));
             return;
         }
 
         const source = await SubscriptionPlan.findById(id).lean();
         if (!source) {
-            res.status(404).json({ message: 'Subscription plan not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription plan not found'));
             return;
         }
 
@@ -1534,23 +1532,20 @@ export async function adminDuplicateSubscriptionPlan(req: AuthRequest, res: Resp
             updatedByAdminId: toAdminObjectId(req.user?._id),
         });
 
-        res.status(201).json({
-            item: planToDto(created.toObject() as unknown as Record<string, unknown>),
-            message: 'Subscription plan duplicated',
-        });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: planToDto(created.toObject() as unknown as Record<string, unknown>) }, 'Subscription plan duplicated'));
     } catch (error) {
         console.error('adminDuplicateSubscriptionPlan error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminGetSubscriptionSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await ensureSubscriptionSettings();
-        res.json({ settings: buildSettingsDto(settings as unknown as Record<string, unknown>, null) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: buildSettingsDto(settings as unknown as Record<string, unknown>, null) }));
     } catch (error) {
         console.error('adminGetSubscriptionSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1618,13 +1613,10 @@ export async function adminUpdateSubscriptionSettings(req: AuthRequest, res: Res
         };
 
         const updated = await SubscriptionSettings.findByIdAndUpdate(String(settings._id), update, { new: true, runValidators: true }).lean();
-        res.json({
-            settings: buildSettingsDto(updated as unknown as Record<string, unknown>, null),
-            message: 'Subscription settings updated',
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: buildSettingsDto(updated as unknown as Record<string, unknown>, null) }, 'Subscription settings updated'));
     } catch (error) {
         console.error('adminUpdateSubscriptionSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1667,18 +1659,10 @@ export async function adminGetUserSubscriptions(req: AuthRequest, res: Response)
         const start = (page - 1) * limit;
         const items = shaped.slice(start, start + limit);
 
-        res.json({
-            items,
-            pagination: {
-                total,
-                page,
-                limit,
-                pages: Math.max(1, Math.ceil(total / limit)),
-            },
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.paginated(items, page, limit, total));
     } catch (error) {
         console.error('adminGetUserSubscriptions error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1691,13 +1675,13 @@ export async function adminActivateUserSubscription(req: AuthRequest, res: Respo
     try {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400).json({ message: 'Invalid subscription id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid subscription id'));
             return;
         }
 
         const record = await UserSubscription.findById(id);
         if (!record) {
-            res.status(404).json({ message: 'Subscription not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription not found'));
             return;
         }
 
@@ -1723,10 +1707,10 @@ export async function adminActivateUserSubscription(req: AuthRequest, res: Respo
             expiresAtUTC,
         });
 
-        res.json({ message: 'Subscription activated', item: record });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: record }, 'Subscription activated'));
     } catch (error) {
         console.error('adminActivateUserSubscription error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1734,12 +1718,12 @@ export async function adminExpireUserSubscription(req: AuthRequest, res: Respons
     try {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400).json({ message: 'Invalid subscription id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid subscription id'));
             return;
         }
         const record = await UserSubscription.findById(id);
         if (!record) {
-            res.status(404).json({ message: 'Subscription not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription not found'));
             return;
         }
         record.status = 'expired';
@@ -1755,10 +1739,10 @@ export async function adminExpireUserSubscription(req: AuthRequest, res: Respons
             expiresAtUTC: record.expiresAtUTC,
         });
 
-        res.json({ message: 'Subscription expired', item: record });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: record }, 'Subscription expired'));
     } catch (error) {
         console.error('adminExpireUserSubscription error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1766,12 +1750,12 @@ export async function adminSuspendUserSubscriptionById(req: AuthRequest, res: Re
     try {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400).json({ message: 'Invalid subscription id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid subscription id'));
             return;
         }
         const record = await UserSubscription.findById(id);
         if (!record) {
-            res.status(404).json({ message: 'Subscription not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription not found'));
             return;
         }
         record.status = 'suspended';
@@ -1786,9 +1770,9 @@ export async function adminSuspendUserSubscriptionById(req: AuthRequest, res: Re
             expiresAtUTC: record.expiresAtUTC,
         });
 
-        res.json({ message: 'Subscription suspended', item: record });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: record }, 'Subscription suspended'));
     } catch (error) {
         console.error('adminSuspendUserSubscriptionById error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

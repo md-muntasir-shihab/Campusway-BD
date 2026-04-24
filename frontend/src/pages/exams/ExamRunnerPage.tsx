@@ -604,8 +604,8 @@ export const ExamRunnerPage = () => {
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                         {detail.access.blockReasons.map((reason) => (
-                            <span key={reason} className="badge-danger">
-                                {reason}
+                            <span key={reason} className="badge-danger" aria-label={`Blocked: ${reason}`}>
+                                ✕ {reason}
                             </span>
                         ))}
                     </div>
@@ -746,8 +746,8 @@ export const ExamRunnerPage = () => {
     }
 
     return (
-        <div className="section-container py-4 sm:py-6">
-            <div className="sticky top-16 z-40 overflow-hidden rounded-2xl border border-card-border bg-surface/95 backdrop-blur dark:bg-dark-surface/95">
+        <div className="section-container flex flex-col min-h-[100dvh] py-4 sm:py-6">
+            <div className="sticky top-0 sm:top-16 z-40 overflow-hidden rounded-2xl border border-card-border bg-surface/95 backdrop-blur dark:bg-dark-surface/95">
                 <div className="p-3">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                         {rules?.showTimer ? (
@@ -823,7 +823,7 @@ export const ExamRunnerPage = () => {
                 </div>
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_300px]">
+            <div className="mt-4 flex-1 overflow-y-auto grid gap-4 lg:grid-cols-[1fr_300px]">
                 <div className="space-y-4">
                     {questions.map((question, index) => {
                         const answer = answers[question.id];
@@ -846,8 +846,8 @@ export const ExamRunnerPage = () => {
                                         <p className="text-sm font-semibold text-text dark:text-dark-text">Q{index + 1}</p>
                                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-text-muted dark:text-dark-text/70">
                                             <span className="badge-primary">Marks: {question.marks}</span>
-                                            {typeof question.negativeMarks === "number" ? <span className="badge-danger">Negative: {question.negativeMarks}</span> : null}
-                                            {changesLeft !== null ? <span className="badge-warning">Changes left: {changesLeft}</span> : null}
+                                            {typeof question.negativeMarks === "number" ? <span className="badge-danger" aria-label={`Negative marks: ${question.negativeMarks}`}>✕ Negative: {question.negativeMarks}</span> : null}
+                                            {changesLeft !== null ? <span className="badge-warning" aria-label={`Warning: ${changesLeft} changes left`}>⚠ Changes left: {changesLeft}</span> : null}
                                         </div>
                                     </div>
                                     <button
@@ -949,6 +949,27 @@ export const ExamRunnerPage = () => {
                         </div>
                     </aside>
                 ) : null}
+            </div>
+
+            {/* Mobile sticky footer with submit button */}
+            <div className="sticky bottom-0 z-40 flex items-center justify-between gap-2 border-t border-card-border bg-surface/95 backdrop-blur px-4 py-3 sm:hidden dark:bg-dark-surface/95">
+                <span className="text-xs font-medium text-text-muted dark:text-dark-text/70">{answeredCount}/{questions.length} answered</span>
+                <div className="flex items-center gap-2">
+                    {rules?.showQuestionPalette ? (
+                        <button type="button" onClick={() => setShowMobilePalette(true)} className="btn-secondary text-xs">
+                            Palette
+                        </button>
+                    ) : null}
+                    <button
+                        type="button"
+                        onClick={() => setShowSubmitConfirm(true)}
+                        className="btn-primary text-xs"
+                        disabled={submitMutation.isPending}
+                    >
+                        <Send className="mr-1 h-3.5 w-3.5" />
+                        Submit
+                    </button>
+                </div>
             </div>
 
             {showMobilePalette && rules?.showQuestionPalette ? (

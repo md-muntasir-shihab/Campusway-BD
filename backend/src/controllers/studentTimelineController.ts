@@ -5,6 +5,7 @@ import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middlewares/auth';
 import { getClientIp } from '../utils/requestMeta';
 import { addSystemTimelineEvent } from '../services/studentTimelineService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -33,7 +34,7 @@ async function createAudit(req: AuthRequest, action: string, details?: Record<st
 /** GET /admin/students/:studentId/timeline */
 export async function adminGetStudentTimeline(req: AuthRequest, res: Response): Promise<void> {
     const studentId = asObjectId(req.params.studentId);
-    if (!studentId) { res.status(400).json({ message: 'Invalid studentId' }); return; }
+    if (!studentId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid studentId')); return; }
 
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
@@ -52,24 +53,24 @@ export async function adminGetStudentTimeline(req: AuthRequest, res: Response): 
             .lean(),
         StudentContactTimeline.countDocuments(filter),
     ]);
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
 }
 
 /** POST /admin/students/:studentId/timeline — add a manual note */
 export async function adminAddTimelineEntry(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const studentId = asObjectId(req.params.studentId);
-    if (!studentId) { res.status(400).json({ message: 'Invalid studentId' }); return; }
+    if (!studentId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid studentId')); return; }
 
     const { type, content, linkedId } = req.body as { type?: string; content?: string; linkedId?: string };
     const allowedManual = ['note', 'call', 'message', 'support_ticket_link', 'payment_note'];
     if (!type || !allowedManual.includes(type)) {
-        res.status(400).json({ message: `type must be one of: ${allowedManual.join(', ')}` });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `type must be one of: ${allowedManual.join(', ')}`));
         return;
     }
     if (!content || !content.trim()) {
-        res.status(400).json({ message: 'content is required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'content is required'));
         return;
     }
 
@@ -83,30 +84,30 @@ export async function adminAddTimelineEntry(req: AuthRequest, res: Response): Pr
     });
 
     await createAudit(req, 'timeline_entry_added', { studentId, type, entryId: entry._id });
-    res.status(201).json({ data: entry, message: 'Timeline entry added' });
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({data: entry}, 'Timeline entry added'));
 }
 
 /** DELETE /admin/students/:studentId/timeline/:entryId */
 export async function adminDeleteTimelineEntry(req: AuthRequest, res: Response): Promise<void> {
     const studentId = asObjectId(req.params.studentId);
     const entryId = asObjectId(req.params.entryId);
-    if (!studentId || !entryId) { res.status(400).json({ message: 'Invalid ids' }); return; }
+    if (!studentId || !entryId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid ids')); return; }
 
     const entry = await StudentContactTimeline.findOneAndDelete({
         _id: entryId,
         studentId,
         sourceType: 'manual',
     });
-    if (!entry) { res.status(404).json({ message: 'Entry not found or is a system event (cannot delete)' }); return; }
+    if (!entry) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Entry not found or is a system event (cannot delete)')); return; }
 
     await createAudit(req, 'timeline_entry_deleted', { studentId, entryId });
-    res.json({ message: 'Timeline entry deleted' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Timeline entry deleted'));
 }
 
 /** GET /admin/students/:studentId/timeline/summary — counts by type */
 export async function adminGetTimelineSummary(req: AuthRequest, res: Response): Promise<void> {
     const studentId = asObjectId(req.params.studentId);
-    if (!studentId) { res.status(400).json({ message: 'Invalid studentId' }); return; }
+    if (!studentId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid studentId')); return; }
 
     const summary = await StudentContactTimeline.aggregate([
         { $match: { studentId } },
@@ -115,7 +116,7 @@ export async function adminGetTimelineSummary(req: AuthRequest, res: Response): 
     ]);
 
     const total = await StudentContactTimeline.countDocuments({ studentId });
-    res.json({ summary, total });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ summary, total }));
 }
 
 /* ═══════════════════════════════════════════════════════════

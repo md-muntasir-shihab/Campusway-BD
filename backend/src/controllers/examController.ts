@@ -32,6 +32,7 @@ import {
     getExternalExamAttemptCount,
     getExternalExamAttemptCountsForStudent,
 } from '../services/externalExamAttemptService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /** Verify user subscription — returns true if user has ANY subscription plan (active or demo) */
 type SubscriptionGateResult = {
@@ -238,10 +239,10 @@ export async function getStudentExams(req: AuthRequest, res: Response): Promise<
             })
             .filter((exam) => exam !== null);
 
-        res.json({ exams: enriched, subscriptionActive: hasActiveSubscription });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ exams: enriched, subscriptionActive: hasActiveSubscription }));
     } catch (err) {
         console.error('getStudentExams error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -513,17 +514,17 @@ export async function getPublicExamList(req: AuthRequest, res: Response): Promis
             serialNo: skip + idx + 1,
         }));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items,
             page,
             limit,
             total: filteredCards.length,
             pages: Math.max(1, Math.ceil(filteredCards.length / limit)),
             serverNow: now.toISOString(),
-        });
+        }));
     } catch (err) {
         console.error('getPublicExamList error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -774,7 +775,7 @@ export async function getExamLanding(req: AuthRequest, res: Response): Promise<v
         const items = cardsToUse.slice(skip, skip + limit);
         const featured = cardsToUse.filter((card) => card.featured).slice(0, 10);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items,
             exams: items,
             total: cardsToUse.length,
@@ -787,10 +788,10 @@ export async function getExamLanding(req: AuthRequest, res: Response): Promise<v
                 byCategory: groupedByCategory,
             },
             serverNow: now.toISOString(),
-        });
+        }));
     } catch (err) {
         console.error('getExamLanding error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1388,7 +1389,7 @@ export async function getStudentExamDetails(req: AuthRequest, res: Response): Pr
             ? await Exam.findById(examRef).lean()
             : await Exam.findOne({ share_link: examRef }).lean();
         if (!exam || !exam.isPublished) {
-            res.status(404).json({ message: 'Exam not found or unavailable' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found or unavailable'));
             return;
         }
         const examId = String(exam._id || '');
@@ -1407,14 +1408,12 @@ export async function getStudentExamDetails(req: AuthRequest, res: Response): Pr
         const detailLockedForAudience = !eligibility.accessAllowed
             || (eligibility.paymentRequired && !eligibility.paymentCleared);
         if (detailLockedForAudience) {
-            res.status(403).json({
-                message: 'You are not allowed to view this exam.',
-                eligibility,
-            });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You are not allowed to view this exam.',
+                eligibility,));
             return;
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             exam: {
                 ...sanitizeExamForStudent(exam as unknown as typeof Exam.prototype),
                 attemptLimit: Number(exam.attemptLimit || 1),
@@ -1440,10 +1439,10 @@ export async function getStudentExamDetails(req: AuthRequest, res: Response): Pr
             hasActiveSession: !!activeSession,
             activeAttemptId: activeSession ? String(activeSession._id) : null,
             serverNow: new Date().toISOString(),
-        });
+        }));
     } catch (err) {
         console.error('getStudentExamDetails error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1455,11 +1454,11 @@ export async function getStudentExamById(req: AuthRequest, res: Response): Promi
 export async function startExam(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user?._id) {
-            res.status(401).json({ message: 'Authentication required.' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required.'));
             return;
         }
         if (req.user.role !== 'student') {
-            res.status(403).json({ message: 'Student access only.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only.'));
             return;
         }
 
@@ -1467,14 +1466,11 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
         const examRef = String(req.params.id || '');
 
         const user = await User.findById(studentId).lean();
-        if (!user) { res.status(404).json({ message: 'User not found.' }); return; }
+        if (!user) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found.')); return; }
 
         const security = await getSecurityConfig(false);
         if (user.role === 'student' && security.panic.disableExamStarts) {
-            res.status(423).json({
-                code: 'EXAM_STARTS_DISABLED',
-                message: 'Exam starts are temporarily disabled by administrator policy.',
-            });
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('EXAM_STARTS_DISABLED', 'Exam starts are temporarily disabled by administrator policy.'));
             return;
         }
 
@@ -1485,12 +1481,11 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
             ]);
             const completion = Number(profile?.profile_completion_percentage || 0);
             if (completion < threshold) {
-                res.status(403).json({
+                ResponseBuilder.send(res, 403, ResponseBuilder.error('VALIDATION_ERROR', `Please complete at least ${threshold}% of your profile before accessing exams.`, {
                     profileIncomplete: true,
                     requiredCompletion: threshold,
                     currentCompletion: completion,
-                    message: `Please complete at least ${threshold}% of your profile before accessing exams.`,
-                });
+                }));
                 return;
             }
         }
@@ -1499,7 +1494,7 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
             ? await Exam.findById(examRef)
             : await Exam.findOne({ share_link: examRef });
         if (!exam || !exam.isPublished) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
         const examId = String(exam._id || '');
@@ -1509,48 +1504,38 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
             if (eligibility.accessDeniedReason === 'subscription_required') {
                 const subscriptionState = await verifySubscription(studentId);
                 const expiryLabel = subscriptionState.expiryDate ? new Date(subscriptionState.expiryDate).toISOString() : null;
-                res.status(403).json({
+                ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', subscriptionState.reason === 'expired'
+                    ? `Your subscription has expired${expiryLabel ? ` on ${expiryLabel}` : ''}.`
+                    : 'Subscription required.', {
                     subscriptionRequired: true,
                     reason: subscriptionState.reason || 'inactive',
                     expiryDate: expiryLabel,
-                    message: subscriptionState.reason === 'expired'
-                        ? `Your subscription has expired${expiryLabel ? ` on ${expiryLabel}` : ''}.`
-                        : 'Subscription required.',
                     eligibility,
-                });
+                }));
                 return;
             }
 
             if (eligibility.reasons.includes('outside_exam_window')) {
-                res.status(400).json({
-                    message: 'This exam is currently unavailable.',
-                    eligibility,
-                });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'This exam is currently unavailable.', { eligibility }));
                 return;
             }
         }
         if (!eligibility.accessAllowed) {
-            res.status(403).json({
-                message: 'You are not allowed to take this exam.',
-                eligibility,
-            });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You are not allowed to take this exam.',
+                eligibility,));
             return;
         }
         if (eligibility.attemptsLeft <= 0) {
-            res.status(400).json({
-                message: `Maximum attempt limit (${exam.attemptLimit}) reached.`,
-                eligibility,
-            });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Maximum attempt limit (${exam.attemptLimit}) reached.`));
             return;
         }
 
         if (!eligibility.paymentCleared) {
-            res.status(402).json({
-                message: 'Payment pending. Please complete your payment to start this exam.',
+            ResponseBuilder.send(res, 402, ResponseBuilder.error('VALIDATION_ERROR', 'Payment pending. Please complete your payment to start this exam.', {
                 paymentPending: true,
                 pendingDueAmount: eligibility.pendingDueAmount,
                 eligibility,
-            });
+            }));
             return;
         }
 
@@ -1577,45 +1562,45 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
                     userAgent: getRequestUserAgent(req),
                     externalExamUrl: String(exam.externalExamUrl || ''),
                 });
-                res.json({
+                ResponseBuilder.send(res, 200, ResponseBuilder.success({
                     redirect: true,
                     externalExamUrl: externalAttempt.redirectUrl,
                     externalAttemptRef: externalAttempt.attemptRef,
                     exam: sanitizeExamForStudent(exam),
                     serverNow: new Date().toISOString(),
                     serverOffsetMs: 0,
-                });
+                }));
                 return;
             } catch (logErr) {
                 console.warn('[startExam external join log]', logErr);
             }
 
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 redirect: true,
                 externalExamUrl: exam.externalExamUrl,
                 exam: sanitizeExamForStudent(exam),
                 serverNow: new Date().toISOString(),
                 serverOffsetMs: 0,
-            });
+            }));
             return;
         }
 
         const isDev = process.env.NODE_ENV === 'development';
         /* ── Enforce schedule windows ── */
         if (!isDev && !isWithinScheduleWindows(exam)) {
-            res.status(400).json({ message: 'Exam window is not open.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Exam window is not open.'));
             return;
         }
 
         if (!(await canAccessExam(exam, studentId))) {
-            res.status(403).json({ message: 'You are not allowed to take this exam.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You are not allowed to take this exam.'));
             return;
         }
 
         // Check attempt limit
         const attemptCount = eligibility.attemptsUsed;
         if (attemptCount >= exam.attemptLimit) {
-            res.status(400).json({ message: `Maximum attempt limit (${exam.attemptLimit}) reached.` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Maximum attempt limit (${exam.attemptLimit}) reached.'));
             return;
         }
         const attemptNo = attemptCount + 1;
@@ -1643,16 +1628,15 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
                     },
                 });
 
-                res.status(409).json({
-                    message: 'Session expired. Auto-submission has been triggered.',
+                ResponseBuilder.send(res, 409, ResponseBuilder.error('SESSION_EXPIRED', 'Session expired. Auto-submission has been triggered.', {
                     sessionExpired: true,
                     autoSubmitted: autoSubmit.ok,
                     resultReady: autoSubmit.ok,
-                });
+                }));
                 return;
             }
             if (session.sessionLocked) {
-                res.status(423).json({ message: 'Exam session is locked due to device mismatch. Contact admin.' });
+                ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Exam session is locked due to device mismatch. Contact admin.'));
                 return;
             }
             if (session.deviceFingerprint && session.deviceFingerprint !== deviceFingerprint) {
@@ -1667,7 +1651,7 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
                     reason: session.lockReason,
                     source: 'start_exam',
                 });
-                res.status(423).json({ message: 'Device mismatch detected. Session locked.' });
+                ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Device mismatch detected. Session locked.'));
                 return;
             }
             // Resume existing session
@@ -1684,7 +1668,7 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
                 userAgent
             });
 
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 session: mapExamSessionForClient(session, examId, studentId),
                 exam: sanitizeExamForStudent(exam),
                 questions,
@@ -1692,7 +1676,7 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
                 serverOffsetMs: 0,
                 resultPublishMode: getResultPublishMode(exam.toObject() as unknown as Record<string, unknown>),
                 autosaveIntervalSec: Number((exam as any).autosave_interval_sec || 5),
-            });
+            }));
             void broadcastExamMetricsUpdate(examId, 'resume_attempt');
             return;
         }
@@ -1735,7 +1719,7 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
             userAgent
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             session: mapExamSessionForClient(session, examId, studentId),
             exam: sanitizeExamForStudent(exam),
             questions,
@@ -1743,11 +1727,11 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
             serverOffsetMs: 0,
             resultPublishMode: getResultPublishMode(exam.toObject() as unknown as Record<string, unknown>),
             autosaveIntervalSec: Number((exam as any).autosave_interval_sec || 5),
-        });
+        }));
         void broadcastExamMetricsUpdate(examId, 'attempt_started');
     } catch (err) {
         console.error('startExam error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1765,22 +1749,20 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
         }
         const session = await ExamSession.findOne(sessionQuery);
         if (!session) {
-            res.status(404).json({ message: 'No active session found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No active session found.'));
             return;
         }
         if (session.sessionLocked) {
-            res.status(423).json({
-                message: 'Session is locked due to security policy violation.',
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Session is locked due to security policy violation.', {
                 action: 'locked',
                 lockReason: String((session as any).lockReason || ''),
-            });
+            }));
             return;
         }
         if (expectedRevision !== null && Number((session as any).attemptRevision || 0) !== expectedRevision) {
-            res.status(409).json({
-                message: 'Attempt state is stale. Please refresh exam state.',
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('STALE_STATE', 'Attempt state is stale. Please refresh exam state.', {
                 latestRevision: Number((session as any).attemptRevision || 0),
-            });
+            }));
             return;
         }
 
@@ -1807,7 +1789,7 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
             }).catch((error) => {
                 console.error('autosaveExam auto-expired finalize error:', error);
             });
-            res.status(409).json({ message: 'Session expired. Auto-submission triggered.' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Session expired. Auto-submission triggered.'));
             return;
         }
 
@@ -1847,10 +1829,7 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
                     })),
                 ];
                 await session.save();
-                res.status(400).json({
-                    message: 'Answer constraints violated. Please review your last changes.',
-                    violations: merge.violations,
-                });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Answer constraints violated. Please review your last changes.', { violations: merge.violations }));
                 return;
             }
 
@@ -1909,7 +1888,7 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
                 source: 'autosave',
             });
             void broadcastExamMetricsUpdate(String(session.exam || examId), 'autosave_locked');
-            res.status(423).json({ message: 'Device mismatch detected. Session locked.' });
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Device mismatch detected. Session locked.'));
             return;
         }
         await session.save();
@@ -1940,20 +1919,15 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
             userAgent: getRequestUserAgent(req),
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             saved: true,
             savedAt: session.lastSavedAt,
             attemptRevision: Number((session as any).attemptRevision || 0),
-        });
+        }));
         void broadcastExamMetricsUpdate(String(session.exam || examId), 'autosave');
     } catch (err) {
         console.error('autosaveExam error:', err);
-        res.status(500).json({
-            message: 'Server error',
-            ...(process.env.NODE_ENV === 'production'
-                ? {}
-                : { error: err instanceof Error ? err.message : String(err) }),
-        });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1967,7 +1941,7 @@ export async function submitExam(req: AuthRequest, res: Response): Promise<void>
         const resolvedSubmissionType = resolveSubmissionType(submissionType, Boolean(isAutoSubmit));
         const exam = await Exam.findById(examId);
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
 
@@ -1979,8 +1953,7 @@ export async function submitExam(req: AuthRequest, res: Response): Promise<void>
                 .sort({ submittedAt: -1, attemptNo: -1 })
                 .lean();
             if (latestResult) {
-                res.json({
-                    message: 'Attempt already submitted.',
+                ResponseBuilder.send(res, 200, ResponseBuilder.success({
                     resultId: latestResult._id,
                     submitted: true,
                     alreadySubmitted: true,
@@ -1993,11 +1966,11 @@ export async function submitExam(req: AuthRequest, res: Response): Promise<void>
                     resultPublishDate: exam.resultPublishDate,
                     resultPublishMode: getResultPublishMode(exam.toObject() as unknown as Record<string, unknown>),
                     resultPublished: isExamResultPublished(exam.toObject() as unknown as Record<string, unknown>),
-                    attemptRevision: null,
-                });
+                    attemptRevision: null
+                }, 'Attempt already submitted.'));
                 return;
             }
-            res.status(404).json({ message: 'No session found to submit.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No session found to submit.'));
             return;
         }
 
@@ -2018,7 +1991,7 @@ export async function submitExam(req: AuthRequest, res: Response): Promise<void>
                 source: 'submit',
             });
             void broadcastExamMetricsUpdate(examId, 'submit_locked_device_mismatch');
-            res.status(423).json({ message: 'Device mismatch detected during submit. Session locked.' });
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Device mismatch detected during submit. Session locked.'));
             return;
         }
 
@@ -2095,7 +2068,7 @@ export async function submitExam(req: AuthRequest, res: Response): Promise<void>
             userAgent,
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             message: finalized.alreadySubmitted ? 'Attempt already submitted.' : 'Exam submitted successfully.',
             resultId: resultObj._id,
             submitted: true,
@@ -2110,11 +2083,11 @@ export async function submitExam(req: AuthRequest, res: Response): Promise<void>
             resultPublishMode: getResultPublishMode(exam.toObject() as unknown as Record<string, unknown>),
             resultPublished: isExamResultPublished(exam.toObject() as unknown as Record<string, unknown>),
             attemptRevision: Number(sessionObj.attemptRevision || 0),
-        });
+        }));
         void broadcastExamMetricsUpdate(examId, resolvedSubmissionType === 'forced' ? 'force_submitted' : 'submitted');
     } catch (err) {
         console.error('submitExam error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2188,7 +2161,7 @@ export async function getExamAttemptState(req: AuthRequest, res: Response): Prom
         const attemptId = normalizeObjectIdParam(req.params.attemptId);
 
         if (!attemptId) {
-            res.status(400).json({ message: 'Valid attemptId is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid attemptId is required.'));
             return;
         }
 
@@ -2198,11 +2171,11 @@ export async function getExamAttemptState(req: AuthRequest, res: Response): Prom
         ]);
 
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
         if (!session) {
-            res.status(404).json({ message: 'Attempt not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Attempt not found.'));
             return;
         }
 
@@ -2222,7 +2195,7 @@ export async function getExamAttemptState(req: AuthRequest, res: Response): Prom
             mergedAntiCheatPolicy = { ...SAFE_DEFAULTS };
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             session: {
                 ...mapExamSessionForClient(session, examId, studentId),
                 isActive: session.isActive,
@@ -2232,10 +2205,10 @@ export async function getExamAttemptState(req: AuthRequest, res: Response): Prom
             questions,
             antiCheatPolicy: mergedAntiCheatPolicy,
             serverNow: new Date().toISOString(),
-        });
+        }));
     } catch (err) {
         console.error('getExamAttemptState error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2280,11 +2253,11 @@ export async function logExamAttemptEvent(req: AuthRequest, res: Response): Prom
         const expectedRevision = parseAttemptRevision(body.attemptRevision);
 
         if (!attemptId) {
-            res.status(400).json({ message: 'Valid attemptId is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid attemptId is required.'));
             return;
         }
         if (!ATTEMPT_EVENT_TYPES.has(eventType)) {
-            res.status(400).json({ message: 'Invalid eventType.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid eventType.'));
             return;
         }
 
@@ -2294,36 +2267,34 @@ export async function logExamAttemptEvent(req: AuthRequest, res: Response): Prom
         ]);
 
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
         if (!session) {
-            res.status(404).json({ message: 'Attempt not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Attempt not found.'));
             return;
         }
         if (!session.isActive || String(session.status || '').toLowerCase() === 'submitted') {
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 logged: false,
                 ignored: true,
                 reason: 'attempt_not_active',
                 attemptRevision: Number((session as any).attemptRevision || 0),
-            });
+            }));
             return;
         }
         if (session.sessionLocked) {
-            res.status(423).json({
-                message: 'Session is locked due to security policy violation.',
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Session is locked due to security policy violation.', {
                 action: 'locked',
                 lockReason: String((session as any).lockReason || ''),
                 attemptRevision: Number((session as any).attemptRevision || 0),
-            });
+            }));
             return;
         }
         if (expectedRevision !== null && Number((session as any).attemptRevision || 0) !== expectedRevision) {
-            res.status(409).json({
-                message: 'Attempt state is stale. Please refresh exam state.',
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('STALE_STATE', 'Attempt state is stale. Please refresh exam state.', {
                 latestRevision: Number((session as any).attemptRevision || 0),
-            });
+            }));
             return;
         }
 
@@ -2476,13 +2447,13 @@ export async function logExamAttemptEvent(req: AuthRequest, res: Response): Prom
                 reason: String((session as any).lockReason || ''),
                 violationAction,
             });
-            res.status(423).json({
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Session locked.', {
                 logged: true,
                 action: 'locked',
                 lockReason: String((session as any).lockReason || ''),
                 attemptRevision: Number((session as any).attemptRevision || 0),
                 tabSwitchCount: Number(session.tabSwitchCount || 0),
-            });
+            }));
             void broadcastExamMetricsUpdate(examId, `event_locked_${eventType}`);
             return;
         }
@@ -2498,31 +2469,31 @@ export async function logExamAttemptEvent(req: AuthRequest, res: Response): Prom
             });
 
             if (submitResult.statusCode >= 400) {
-                res.status(submitResult.statusCode).json(submitResult.body);
+                ResponseBuilder.send(res, submitResult.statusCode, ResponseBuilder.error('SERVER_ERROR', 'Auto-submit failed', submitResult.body));
                 return;
             }
 
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 logged: true,
                 action: 'auto_submitted',
                 attemptRevision: Number((session as any).attemptRevision || 0),
                 violationAction,
                 submit: submitResult.body,
-            });
+            }));
             void broadcastExamMetricsUpdate(examId, `event_auto_submitted_${eventType}`);
             return;
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             logged: true,
             action,
             attemptRevision: Number((session as any).attemptRevision || 0),
             tabSwitchCount: Number(session.tabSwitchCount || 0),
             violationAction,
-        });
+        }));
     } catch (err) {
         console.error('logExamAttemptEvent error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2700,7 +2671,7 @@ export async function getExamResult(req: AuthRequest, res: Response): Promise<vo
         }
 
         if (!context.resultPublished) {
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 resultPublished: false,
                 publishDate: context.exam.resultPublishDate,
                 resultPublishMode: context.resultPublishMode,
@@ -2710,12 +2681,11 @@ export async function getExamResult(req: AuthRequest, res: Response): Promise<vo
                     totalMarks: context.exam.totalMarks,
                     totalQuestions: context.exam.totalQuestions,
                 },
-                message: 'Result not published yet',
-            });
+            }, 'Result not published yet'));
             return;
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             resultPublished: true,
             resultPublishMode: context.resultPublishMode,
             reviewSettings: context.reviewSettings,
@@ -2747,10 +2717,10 @@ export async function getExamResult(req: AuthRequest, res: Response): Promise<vo
                 negativeMarking: context.exam.negativeMarking,
                 negativeMarkValue: context.exam.negativeMarkValue,
             },
-        });
+        }));
     } catch (err) {
         console.error('getExamResult error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2766,10 +2736,7 @@ export async function getDetailedExamResult(req: AuthRequest, res: Response): Pr
         }
 
         if (!context.resultPublished) {
-            res.json({
-                resultPublished: false,
-                message: 'Result not published yet',
-            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ resultPublished: false }, 'Result not published yet'));
             return;
         }
 
@@ -2797,7 +2764,7 @@ export async function getDetailedExamResult(req: AuthRequest, res: Response): Pr
             weaknesses: [],
         };
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             resultPublished: true,
             result: {
                 obtainedMarks: Number(context.result.obtainedMarks || 0),
@@ -2816,10 +2783,10 @@ export async function getDetailedExamResult(req: AuthRequest, res: Response): Pr
                 totalMarks: context.exam.totalMarks,
                 totalQuestions: context.exam.totalQuestions,
             },
-        });
+        }));
     } catch (err) {
         console.error('getDetailedExamResult error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2837,15 +2804,15 @@ export async function getExamAttemptResult(req: AuthRequest, res: Response): Pro
 
         const nowIso = new Date().toISOString();
         if (!context.resultPublished) {
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 status: 'locked',
                 publishAtUTC: context.exam.resultPublishDate || nowIso,
                 serverNowUTC: nowIso,
-            });
+            }));
             return;
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             status: 'published',
             obtainedMarks: Number(context.result.obtainedMarks || 0),
             totalMarks: Number(context.result.totalMarks || context.exam.totalMarks || 0),
@@ -2855,10 +2822,10 @@ export async function getExamAttemptResult(req: AuthRequest, res: Response): Pro
             percentage: Number(context.result.percentage || 0),
             rank: context.rank,
             timeTakenSeconds: Number(context.result.timeTaken || 0),
-        });
+        }));
     } catch (err) {
         console.error('getExamAttemptResult error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2876,16 +2843,16 @@ export async function getExamAttemptSolutions(req: AuthRequest, res: Response): 
 
         const nowIso = new Date().toISOString();
         if (!context.resultPublished) {
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 status: 'locked',
                 publishAtUTC: context.exam.resultPublishDate || nowIso,
                 serverNowUTC: nowIso,
                 reason: 'Result not published yet',
-            });
+            }));
             return;
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             status: 'available',
             items: context.answers.map((answer, index) => ({
                 questionId: String(answer.questionId || answer.question || `q-${index + 1}`),
@@ -2896,10 +2863,10 @@ export async function getExamAttemptSolutions(req: AuthRequest, res: Response): 
                 questionImageUrl: String(answer.questionImage || answer.questionImageUrl || '').trim() || undefined,
                 explanationImageUrl: String(answer.solutionImage || answer.explanationImageUrl || '').trim() || undefined,
             })),
-        });
+        }));
     } catch (err) {
         console.error('getExamAttemptSolutions error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2914,11 +2881,11 @@ export async function getStudentExamQuestions(req: AuthRequest, res: Response): 
 
         const exam = await Exam.findById(examId);
         if (!exam || !exam.isPublished) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
         if (!(await canAccessExam(exam, studentId))) {
-            res.status(403).json({ message: 'You are not allowed to access this exam.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You are not allowed to access this exam.'));
             return;
         }
 
@@ -2938,14 +2905,14 @@ export async function getStudentExamQuestions(req: AuthRequest, res: Response): 
             questions = questions.slice(0, limit);
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             questions,
             total: questions.length,
             serverNow: new Date().toISOString(),
-        });
+        }));
     } catch (err) {
         console.error('getStudentExamQuestions error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -2957,18 +2924,18 @@ export async function streamExamAttempt(req: AuthRequest, res: Response): Promis
         const attemptId = normalizeObjectIdParam(req.params.attemptId);
 
         if (!attemptId) {
-            res.status(400).json({ message: 'Valid attemptId is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid attemptId is required.'));
             return;
         }
 
         const session = await ExamSession.findOne({ _id: attemptId, exam: examId });
         if (!session) {
-            res.status(404).json({ message: 'Attempt not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Attempt not found.'));
             return;
         }
 
         if (userRole === 'student' && String(session.student) !== userId) {
-            res.status(403).json({ message: 'You are not allowed to stream this attempt.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You are not allowed to stream this attempt.'));
             return;
         }
 
@@ -2994,7 +2961,7 @@ export async function streamExamAttempt(req: AuthRequest, res: Response): Promis
     } catch (err) {
         console.error('streamExamAttempt error:', err);
         if (!res.headersSent) {
-            res.status(500).json({ message: 'Server error' });
+            ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
         }
     }
 }
@@ -3041,24 +3008,23 @@ export async function getExamCertificate(req: AuthRequest, res: Response): Promi
         const examId = String(req.params.id || req.params.examId || '');
         const exam = await Exam.findById(examId).lean();
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found.'));
             return;
         }
 
         const result = await ExamResult.findOne({ exam: examId, student: studentId }).sort({ attemptNo: -1, submittedAt: -1 }).lean();
         if (!result) {
-            res.status(404).json({ message: 'No submitted result found for this exam.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No submitted result found for this exam.'));
             return;
         }
 
         const published = isExamResultPublished(exam as unknown as Record<string, unknown>);
         const eligibility = certificateEligibility(exam as unknown as Record<string, unknown>, result as unknown as Record<string, unknown>, published);
         if (!eligibility.eligible) {
-            res.status(403).json({
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Certificate is not available for this attempt.', {
                 eligible: false,
                 reasons: eligibility.reasons,
-                message: 'Certificate is not available for this attempt.',
-            });
+            }));
             return;
         }
 
@@ -3117,7 +3083,7 @@ export async function getExamCertificate(req: AuthRequest, res: Response): Promi
             return;
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             eligible: true,
             certificate: {
                 certificateId: certificate.certificateId,
@@ -3128,10 +3094,10 @@ export async function getExamCertificate(req: AuthRequest, res: Response): Promi
                 downloadUrl,
                 templateVersion: String(((exam as any).certificateSettings || {}).templateVersion || 'v1'),
             },
-        });
+        }));
     } catch (err) {
         console.error('getExamCertificate error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -3140,7 +3106,7 @@ export async function verifyExamCertificate(req: AuthRequest, res: Response): Pr
         const certificateId = String(req.params.certificateId || '').trim();
         const token = String(req.query.token || '').trim();
         if (!certificateId) {
-            res.status(400).json({ valid: false, message: 'certificateId is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'certificateId is required.', { valid: false }));
             return;
         }
 
@@ -3151,11 +3117,11 @@ export async function verifyExamCertificate(req: AuthRequest, res: Response): Pr
             .lean();
 
         if (!certificate) {
-            res.status(404).json({ valid: false, message: 'Certificate not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Certificate not found.'));
             return;
         }
         if (token && token !== String(certificate.verifyToken || '')) {
-            res.status(401).json({ valid: false, message: 'Invalid certificate token.' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Invalid certificate token.'));
             return;
         }
 
@@ -3163,7 +3129,7 @@ export async function verifyExamCertificate(req: AuthRequest, res: Response): Pr
         const studentData = (certificate.studentId || {}) as unknown as Record<string, unknown>;
         const resultData = (certificate.resultId || {}) as unknown as Record<string, unknown>;
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             valid: true,
             certificate: {
                 certificateId: certificate.certificateId,
@@ -3187,10 +3153,10 @@ export async function verifyExamCertificate(req: AuthRequest, res: Response): Pr
                 totalMarks: Number(resultData.totalMarks || 0),
                 submittedAt: resultData.submittedAt || null,
             },
-        });
+        }));
     } catch (err) {
         console.error('verifyExamCertificate error:', err);
-        res.status(500).json({ valid: false, message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 

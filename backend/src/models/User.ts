@@ -1,5 +1,21 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+/**
+ * User model — represents a platform user (admin, student, moderator, etc.).
+ *
+ * Key fields:
+ * - `full_name`, `username`, `email`: Identity fields (username and email are unique)
+ * - `password`: Bcrypt hash (excluded from queries by default via `select: false`)
+ * - `role`: One of superadmin | admin | moderator | editor | viewer | support_agent | finance_agent | student | chairman
+ * - `status`: active | suspended | blocked | pending
+ * - `permissions` / `permissionsV2`: Granular permission flags
+ * - `twoFactorEnabled`, `twoFactorSecret`: 2FA configuration
+ * - `subscription`: Embedded subscription snapshot (plan, dates, status)
+ * - `loginAttempts`, `lockUntil`: Account lockout tracking
+ *
+ * @collection users
+ */
+
 export type UserRole =
     | 'superadmin'
     | 'admin'
@@ -40,6 +56,11 @@ export interface IUser extends Document {
     profile_photo?: string;
     emailVerifiedAt?: Date | null;
     emailVerificationPendingAt?: Date | null;
+    approvedBy?: mongoose.Types.ObjectId | null;
+    approvedAt?: Date | null;
+    rejectedBy?: mongoose.Types.ObjectId | null;
+    rejectedAt?: Date | null;
+    rejectionReason?: string | null;
     mustChangePassword: boolean;
     passwordResetRequired: boolean;
     passwordSetByAdminId?: mongoose.Types.ObjectId;
@@ -151,6 +172,11 @@ const UserSchema = new Schema<IUser>(
         profile_photo: { type: String, trim: true },
         emailVerifiedAt: { type: Date, default: null },
         emailVerificationPendingAt: { type: Date, default: null },
+        approvedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        approvedAt: { type: Date, default: null },
+        rejectedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        rejectedAt: { type: Date, default: null },
+        rejectionReason: { type: String, trim: true, default: null },
         mustChangePassword: { type: Boolean, default: false },
         passwordResetRequired: { type: Boolean, default: false },
         passwordSetByAdminId: { type: Schema.Types.ObjectId, ref: 'User', default: null },

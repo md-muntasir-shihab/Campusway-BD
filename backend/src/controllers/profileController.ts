@@ -13,6 +13,7 @@ import { getStudentDashboardAggregate } from '../services/studentDashboardServic
 import StudentDashboardConfig from '../models/StudentDashboardConfig';
 import StudentResult from '../models/ExamResult';
 import { computeStudentProfileScore } from '../services/studentProfileScoreService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ─────────────────────────────────────────
    Helpers
@@ -117,7 +118,7 @@ export async function getProfile(req: AuthRequest, res: Response): Promise<void>
             .select('-password -twoFactorSecret')
             .lean();
 
-        if (!user) { res.status(404).json({ message: 'User not found.' }); return; }
+        if (!user) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found.')); return; }
 
         let profileData: any = null;
         if (user.role === 'student') {
@@ -135,8 +136,7 @@ export async function getProfile(req: AuthRequest, res: Response): Promise<void>
 
         const celebration = user.role === 'student' ? await resolveCelebration(String(user._id)) : null;
 
-        res.json({
-            user: {
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({user: {
                 ...user,
                 profile: user.role === 'student'
                     ? {
@@ -153,11 +153,10 @@ export async function getProfile(req: AuthRequest, res: Response): Promise<void>
             },
             loginHistory,
             actionHistory,
-            celebration,
-        });
+            celebration,}));
     } catch (err) {
         console.error('getProfile error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -168,7 +167,7 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
     try {
         const userId = req.user!._id;
         const user = await User.findById(userId);
-        if (!user) { res.status(404).json({ message: 'User not found.' }); return; }
+        if (!user) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found.')); return; }
 
         if (user.role === 'student') {
             const allowed = [
@@ -184,7 +183,7 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
 
             const profile = await StudentProfile.findOne({ user_id: userId });
             if (!profile) {
-                res.status(404).json({ message: 'Profile not found.' });
+                ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Profile not found.'));
                 return;
             }
 
@@ -215,14 +214,11 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
                 ).select('full_name profile_photo')
                 : await User.findById(userId).select('full_name profile_photo');
 
-            res.json({
-                message: 'Profile updated.',
-                profile,
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({profile,
                 user: {
                     full_name: updatedUser?.full_name || normalizedFullName || user.full_name,
                     profile_photo: updatedUser?.profile_photo || normalizedProfilePhoto || '',
-                },
-            });
+                }}, 'Profile updated.'));
         } else {
             const allowed = ['admin_name', 'profile_photo'];
             const updates: Record<string, unknown> = {};
@@ -282,18 +278,15 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
                 ).select('full_name profile_photo')
                 : await User.findById(userId).select('full_name profile_photo');
 
-            res.json({
-                message: 'Profile updated.',
-                profile,
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({profile,
                 user: {
                     full_name: updatedUser?.full_name || normalizedAdminName || user.full_name,
                     profile_photo: updatedUser?.profile_photo || normalizedProfilePhoto || '',
-                },
-            });
+                }}, 'Profile updated.'));
         }
     } catch (err) {
         console.error('updateProfile error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -304,7 +297,7 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
 export async function getProfileDashboard(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
@@ -331,8 +324,7 @@ export async function getProfileDashboard(req: AuthRequest, res: Response): Prom
             resultPublished: true,
         }));
 
-        res.json({
-            user: {
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({user: {
                 _id: payload.header.userId,
                 fullName: payload.header.name,
                 email: payload.header.email,
@@ -366,10 +358,9 @@ export async function getProfileDashboard(req: AuthRequest, res: Response): Prom
             featuredUniversities: payload.featuredUniversities,
             badges: payload.badges,
             progress: payload.progress,
-            lastUpdatedAt: payload.lastUpdatedAt || nowIso,
-        });
+            lastUpdatedAt: payload.lastUpdatedAt || nowIso,}));
     } catch (err) {
         console.error('getProfileDashboard error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

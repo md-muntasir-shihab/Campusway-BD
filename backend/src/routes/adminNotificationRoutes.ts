@@ -110,12 +110,14 @@ router.get('/notifications/campaigns', ...adminAuth, async (req: AuthRequest, re
         const type = req.query.type as string | undefined;
         const originModule = req.query.originModule as string | undefined;
         const originEntityId = req.query.originEntityId as string | undefined;
+        const audienceGroupId = req.query.audienceGroupId as string | undefined;
 
         const query: Record<string, unknown> = {};
         if (status) query.status = status;
         if (type) query.type = type;
         if (originModule) query.originModule = originModule;
         if (originEntityId) query.originEntityId = originEntityId;
+        if (audienceGroupId) query.targetGroupId = audienceGroupId;
 
         const [jobs, total] = await Promise.all([
             NotificationJob.find(query)

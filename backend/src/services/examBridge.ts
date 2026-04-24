@@ -1,10 +1,10 @@
 /**
- * Exam Model Bridge — maps between the modern (exam.model.ts → `exams` collection)
+ * Exam Model Bridge — maps between the modern (formerly exam.model.ts → `exams` collection)
  * and the rich (Exam.ts → `exam_collection`) field names. The consolidation target
  * is the rich model; this bridge allows modern routes to transition incrementally.
  *
- * Usage: When migrating a modern route, replace `import { ExamModel } from '../models/exam.model'`
- * with `import { ExamModel } from '../services/examBridge'` — the query interface is identical.
+ * Usage: Import from this bridge when you need field-name mapping between
+ * the modern API format and the canonical Exam model.
  */
 import Exam, { type IExam } from '../models/Exam';
 

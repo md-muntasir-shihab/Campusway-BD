@@ -4,6 +4,7 @@ import ExamResult from '../models/ExamResult';
 import QuestionBankQuestion from '../models/QuestionBankQuestion';
 import QuestionBankAnalytics from '../models/QuestionBankAnalytics';
 import { AuthRequest } from '../middlewares/auth';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -85,13 +86,13 @@ export async function adminGetWeakTopics(req: AuthRequest, res: Response): Promi
     // Also get available subjects for filtering
     const subjects = await QuestionBankQuestion.distinct('subject');
 
-    res.json({ weakTopics, subjects });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ weakTopics, subjects }));
 }
 
 /** GET /admin/analytics/weak-topics/by-student/:studentId */
 export async function adminGetStudentWeakTopics(req: AuthRequest, res: Response): Promise<void> {
     const studentId = asObjectId(req.params.studentId);
-    if (!studentId) { res.status(400).json({ message: 'Invalid studentId' }); return; }
+    if (!studentId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid studentId')); return; }
 
     const pipeline: mongoose.PipelineStage[] = [
         { $match: { student: studentId } },
@@ -140,7 +141,7 @@ export async function adminGetStudentWeakTopics(req: AuthRequest, res: Response)
     const weakTopics = topics.filter((t) => t.accuracy <= 50);
     const strongTopics = topics.filter((t) => t.accuracy > 70);
 
-    res.json({ allTopics: topics, weakTopics, strongTopics });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ allTopics: topics, weakTopics, strongTopics }));
 }
 
 /** GET /admin/analytics/weak-topics/question-difficulty — hardest questions */
@@ -156,7 +157,7 @@ export async function adminGetHardestQuestions(req: AuthRequest, res: Response):
         })
         .lean();
 
-    res.json({ questions: hardest });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ questions: hardest }));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -165,7 +166,7 @@ export async function adminGetHardestQuestions(req: AuthRequest, res: Response):
 
 /** GET /api/student/me/weak-topics */
 export async function getStudentWeakTopics(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Not authenticated' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated')); return; }
     const studentId = new mongoose.Types.ObjectId(req.user._id);
 
     const pipeline: mongoose.PipelineStage[] = [
@@ -210,5 +211,5 @@ export async function getStudentWeakTopics(req: AuthRequest, res: Response): Pro
     ];
 
     const weakTopics = await ExamResult.aggregate(pipeline);
-    res.json({ weakTopics });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ weakTopics }));
 }

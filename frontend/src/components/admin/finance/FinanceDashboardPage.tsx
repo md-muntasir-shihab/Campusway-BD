@@ -10,6 +10,7 @@ import {
     DollarSign, CreditCard, FileText, Download, ArrowUpRight, ArrowDownRight,
     BookOpen, GraduationCap, Briefcase, Activity,
 } from 'lucide-react';
+import { useTheme } from '../../../hooks/useTheme';
 import type { FcBudgetStatus, FcActivityItem } from '../../../types/finance';
 
 
@@ -31,6 +32,10 @@ const DONUT_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#0
 export default function FinanceDashboardPage() {
     const [month, setMonth] = useState(monthKey());
     const { data, isLoading } = useFcDashboard(month);
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
+    const chartLabelColor = isDark ? '#e9f1ff' : '#102a43';
+    const chartGridColor = isDark ? 'rgba(148,163,184,0.15)' : 'rgba(0,0,0,0.06)';
 
     const months = useMemo(() => Array.from({ length: 12 }, (_, i) => monthKey(-i)), []);
 
@@ -107,10 +112,10 @@ export default function FinanceDashboardPage() {
                     <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Income vs Expense Trend</h3>
                     <ResponsiveContainer width="100%" height={240}>
                         <AreaChart data={dailyCashflowTrend}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                            <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={v => v.slice(5)} />
-                            <YAxis tick={{ fontSize: 10 }} />
-                            <Tooltip formatter={((v: number) => `৳${fmt(v)}`) as any} />
+                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: chartLabelColor }} tickFormatter={v => v.slice(5)} />
+                            <YAxis tick={{ fontSize: 10, fill: chartLabelColor }} />
+                            <Tooltip formatter={((v: number) => `৳${fmt(v)}`) as any} contentStyle={{ background: isDark ? '#0f1b33' : '#fff', border: `1px solid ${isDark ? 'rgba(148,163,184,0.3)' : '#e2e8f0'}`, color: chartLabelColor }} />
                             <Area type="monotone" dataKey="income" stroke="#22c55e" fill="#22c55e" fillOpacity={0.12} strokeWidth={2} name="Income" />
                             <Area type="monotone" dataKey="expense" stroke="#ef4444" fill="#ef4444" fillOpacity={0.12} strokeWidth={2} name="Expense" />
                         </AreaChart>
@@ -120,14 +125,14 @@ export default function FinanceDashboardPage() {
 
             {/* ── Dual Donuts: Income by Source + Expense by Category ── */}
             <div className="grid gap-4 md:grid-cols-2">
-                <DonutWidget title="Income by Source" data={incomeBySource.length > 0 ? incomeBySource.map(d => ({ name: d.source, value: d.total })) : topIncomeSources.map(d => ({ name: d.category, value: d.total }))} />
-                <DonutWidget title="Expense by Category" data={expenseByCategory.length > 0 ? expenseByCategory.map(d => ({ name: d.category, value: d.total })) : topExpenseCategories.map(d => ({ name: d.category, value: d.total }))} />
+                <DonutWidget title="Income by Source" data={incomeBySource.length > 0 ? incomeBySource.map(d => ({ name: d.source, value: d.total })) : topIncomeSources.map(d => ({ name: d.category, value: d.total }))} labelColor={chartLabelColor} isDark={isDark} />
+                <DonutWidget title="Expense by Category" data={expenseByCategory.length > 0 ? expenseByCategory.map(d => ({ name: d.category, value: d.total })) : topExpenseCategories.map(d => ({ name: d.category, value: d.total }))} labelColor={chartLabelColor} isDark={isDark} />
             </div>
 
             {/* ── Top Income / Top Expense bar charts ── */}
             <div className="grid gap-4 md:grid-cols-2">
-                <MiniBar title="Top Income Sources" data={topIncomeSources} color="#22c55e" />
-                <MiniBar title="Top Expense Categories" data={topExpenseCategories} color="#ef4444" />
+                <MiniBar title="Top Income Sources" data={topIncomeSources} color="#22c55e" labelColor={chartLabelColor} gridColor={chartGridColor} isDark={isDark} />
+                <MiniBar title="Top Expense Categories" data={topExpenseCategories} color="#ef4444" labelColor={chartLabelColor} gridColor={chartGridColor} isDark={isDark} />
             </div>
 
             {/* ── Budget Alerts & Warnings ── */}
@@ -186,15 +191,15 @@ function KpiCard({ icon, label, value, color, sub, change }: {
             <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.03] duration-500 group-hover:scale-150 ${c.text} bg-current dark:opacity-5 transition-transform`} />
             <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-[1rem] ${c.iconBg} ${c.icon} shadow-inner`}>{icon}</div>
             <div className="relative z-10 min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
-            <p className={`mt-1 break-words text-2xl font-black tracking-tight sm:text-3xl ${c.text}`}>{value}</p>
-            {sub && <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{sub}</p>}
-            {change != null && change !== 0 && (
-                <div className={`mt-3 flex items-center gap-1 text-[11px] font-bold ${change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+                <p className={`mt-1 break-words text-2xl font-black tracking-tight sm:text-3xl ${c.text}`}>{value}</p>
+                {sub && <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{sub}</p>}
+                {change != null && change !== 0 && (
+                    <div className={`mt-3 flex items-center gap-1 text-[11px] font-bold ${change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {change > 0 ? <ArrowUpRight strokeWidth={3} size={14} /> : <ArrowDownRight strokeWidth={3} size={14} />}
                         {Math.abs(change).toFixed(1)}% <span className="font-medium text-slate-400 dark:text-slate-500">vs prev</span>
                     </div>
-            )}
+                )}
             </div>
         </div>
     );
@@ -214,7 +219,7 @@ function SecondaryKpi({ icon, label, value }: { icon: React.ReactNode; label: st
 }
 
 /* ── Donut Widget ───────────────────────────────────────── */
-function DonutWidget({ title, data }: { title: string; data: { name: string; value: number }[] }) {
+function DonutWidget({ title, data, labelColor, isDark }: { title: string; data: { name: string; value: number }[]; labelColor: string; isDark: boolean }) {
     if (!data.length) return (
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
@@ -225,7 +230,7 @@ function DonutWidget({ title, data }: { title: string; data: { name: string; val
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
             <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
+                <PieChart style={{ background: 'transparent' }}>
                     <Pie
                         data={data}
                         dataKey="value"
@@ -238,8 +243,8 @@ function DonutWidget({ title, data }: { title: string; data: { name: string; val
                     >
                         {data.map((_, i) => <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={((v: number) => `৳${fmt(v)}`) as any} />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                    <Tooltip formatter={((v: number) => `৳${fmt(v)}`) as any} contentStyle={{ background: isDark ? '#0f1b33' : '#fff', border: `1px solid ${isDark ? 'rgba(148,163,184,0.3)' : '#e2e8f0'}`, color: labelColor }} />
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: 11, color: labelColor }} />
                 </PieChart>
             </ResponsiveContainer>
         </div>
@@ -247,16 +252,16 @@ function DonutWidget({ title, data }: { title: string; data: { name: string; val
 }
 
 /* ── Mini Bar Chart ─────────────────────────────────────── */
-function MiniBar({ title, data, color }: { title: string; data: { category: string; total: number }[]; color: string }) {
+function MiniBar({ title, data, color, labelColor, gridColor, isDark }: { title: string; data: { category: string; total: number }[]; color: string; labelColor: string; gridColor: string; isDark: boolean }) {
     if (!data.length) return null;
     return (
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
             <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={data} layout="vertical">
-                    <XAxis type="number" tick={{ fontSize: 10 }} />
-                    <YAxis type="category" dataKey="category" width={100} tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={((v: number) => `৳${fmt(v)}`) as any} />
+                <BarChart data={data} layout="vertical" style={{ background: 'transparent' }}>
+                    <XAxis type="number" tick={{ fontSize: 10, fill: labelColor }} />
+                    <YAxis type="category" dataKey="category" width={100} tick={{ fontSize: 10, fill: labelColor }} />
+                    <Tooltip formatter={((v: number) => `৳${fmt(v)}`) as any} contentStyle={{ background: isDark ? '#0f1b33' : '#fff', border: `1px solid ${isDark ? 'rgba(148,163,184,0.3)' : '#e2e8f0'}`, color: labelColor }} />
                     <Bar dataKey="total" fill={color} radius={[0, 4, 4, 0]} />
                 </BarChart>
             </ResponsiveContainer>

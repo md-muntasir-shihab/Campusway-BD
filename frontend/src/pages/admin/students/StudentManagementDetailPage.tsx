@@ -6,8 +6,9 @@ import {
   AlertTriangle, Headphones, Settings, Heart, FileText, DollarSign,
   ChevronLeft, GraduationCap,
   CheckCircle, XCircle, Clock, Lock, Unlock, Send, RefreshCcw,
-  Edit, Save, X, Plus, Trash2, Eye,
+  Edit, Save, X, Plus, Trash2, Eye, ShieldCheck,
 } from 'lucide-react';
+import VerificationStatusBadge from '../../../components/admin/students/VerificationStatusBadge';
 import {
   getStudentUnified, updateStudent, suspendStudent, activateStudent,
   assignSubscription, extendSubscription,
@@ -375,6 +376,14 @@ function OverviewTab({ s, setTab }: { s: S; setTab: (t: Tab) => void }) {
             </div>
           ) : <p className="text-sm text-slate-400">No groups</p>}
         </Card>
+        <Card title="Verification Status" icon={ShieldCheck}>
+          <VerificationStatusBadge
+            studentId={s._id}
+            phoneVerifiedAt={s.phoneVerifiedAt}
+            emailVerifiedAt={s.emailVerifiedAt}
+            onReset={() => { }}
+          />
+        </Card>
       </div>
     </div>
   );
@@ -573,7 +582,7 @@ function PaymentsTab({ id, s }: { id: string; s: S }) {
       </div>
 
       <Card title="Payment Records" icon={DollarSign}>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700">
@@ -632,7 +641,7 @@ function FinanceTab({ id, s, setAdjModal }: { id: string; s: S; setAdjModal: (b:
           <Plus size={12} /> Adjustment
         </button>
       }>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700">
@@ -739,7 +748,7 @@ function ResultsTab({ s }: { s: S }) {
   const results = s.exams?.recentResults ?? [];
   return (
     <Card title="All Results" icon={FileText}>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700">
@@ -963,7 +972,7 @@ function ExtendedProfileTab({ studentId }: { studentId: string }) {
       {/* Exam History */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Exam History</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full text-sm">
             <thead><tr className="text-xs text-slate-500 border-b"><th className="text-left p-2">Exam</th><th className="text-left p-2">Subject</th><th className="text-right p-2">Score</th><th className="text-right p-2">%</th><th className="text-right p-2">Date</th></tr></thead>
             <tbody>
@@ -989,7 +998,7 @@ function ExtendedProfileTab({ studentId }: { studentId: string }) {
             <span key={i} className="inline-block mr-2 mb-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-mono dark:bg-slate-800">{ip}</span>
           ))}
         </div>
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <table className="w-full text-sm">
             <thead><tr className="text-xs text-slate-500 border-b"><th className="text-left p-2">IP</th><th className="text-left p-2">User Agent</th><th className="text-right p-2">Time</th></tr></thead>
             <tbody>

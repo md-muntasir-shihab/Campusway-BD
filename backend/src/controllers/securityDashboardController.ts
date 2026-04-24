@@ -6,6 +6,7 @@ import AuditLog from '../models/AuditLog';
 import SecurityAlertLog from '../models/SecurityAlertLog';
 import BackupJob from '../models/BackupJob';
 import User from '../models/User';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /**
  * GET /admin/security/dashboard
@@ -82,8 +83,7 @@ export async function getSecurityDashboardMetrics(_req: AuthRequest, res: Respon
             { $project: { date: '$_id', count: 1, _id: 0 } },
         ]);
 
-        res.json({
-            activeSessions: totalActiveSessions,
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({activeSessions: totalActiveSessions,
             adminActiveSessions,
             suspiciousLogins24h,
             failedLogins24h,
@@ -104,11 +104,10 @@ export async function getSecurityDashboardMetrics(_req: AuthRequest, res: Respon
                 : null,
             totalUsers,
             blockedUsers,
-            failureTrend,
-        });
+            failureTrend,}));
     } catch (error) {
         console.error('getSecurityDashboardMetrics error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -145,9 +144,9 @@ export async function getAuditLogsList(req: AuthRequest, res: Response): Promise
             AuditLog.countDocuments(filter),
         ]);
 
-        res.json({ items, total, page, pages: Math.ceil(total / limit) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
     } catch (error) {
         console.error('getAuditLogsList error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

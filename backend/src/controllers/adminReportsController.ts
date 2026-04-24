@@ -11,6 +11,7 @@ import Resource from '../models/Resource';
 import EventLog from '../models/EventLog';
 import Question from '../models/Question';
 import { AuthRequest } from '../middlewares/auth';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function parseDateRange(query: Record<string, unknown>, defaultDays = 30): { from: Date; to: Date } {
     const now = new Date();
@@ -75,7 +76,7 @@ export async function adminGetReportsSummary(req: AuthRequest, res: Response): P
         const paid = paymentSummary[0] || { amount: 0, count: 0 };
         const resourceTotal = Number(resourceDownloadCounter[0]?.total || 0);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             range: { from: from.toISOString(), to: to.toISOString() },
             dailyNewStudents: dailyStudents.map((row) => ({ date: row._id, count: Number(row.count || 0) })),
             activeSubscriptions,
@@ -94,10 +95,10 @@ export async function adminGetReportsSummary(req: AuthRequest, res: Response): P
                 eventCount: resourceEventCount,
                 totalCounter: resourceTotal,
             },
-        });
+        }));
     } catch (error) {
         console.error('adminGetReportsSummary error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -112,7 +113,7 @@ export async function adminExportReportsSummary(req: AuthRequest, res: Response)
 
         const data = capture.payload;
         if (!data) {
-            res.status(500).json({ message: 'Failed to build summary report' });
+            ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to build summary report'));
             return;
         }
 
@@ -151,7 +152,7 @@ export async function adminExportReportsSummary(req: AuthRequest, res: Response)
         res.status(200).send(csv);
     } catch (error) {
         console.error('adminExportReportsSummary error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -159,7 +160,7 @@ export async function adminGetExamInsights(req: AuthRequest, res: Response): Pro
     try {
         const examId = String(req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id'));
             return;
         }
 
@@ -262,7 +263,7 @@ export async function adminGetExamInsights(req: AuthRequest, res: Response): Pro
             .filter((item) => item.tabSwitchCount > 0 || item.cheatFlags > 0)
             .sort((a, b) => (b.tabSwitchCount + b.cheatFlags) - (a.tabSwitchCount + a.cheatFlags));
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             examId,
             totalResults: results.length,
             questionWiseAccuracy,
@@ -270,10 +271,10 @@ export async function adminGetExamInsights(req: AuthRequest, res: Response): Pro
             timeTakenDistribution: timeDistribution,
             topScorers,
             suspiciousActivity,
-        });
+        }));
     } catch (error) {
         console.error('adminGetExamInsights error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -292,7 +293,7 @@ export async function adminExportExamInsights(req: AuthRequest, res: Response): 
         }
         const data = capture.payload;
         if (!data) {
-            res.status(500).json({ message: 'Failed to generate insights' });
+            ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to generate insights'));
             return;
         }
 
@@ -354,6 +355,6 @@ export async function adminExportExamInsights(req: AuthRequest, res: Response): 
         res.status(200).send(csv);
     } catch (error) {
         console.error('adminExportExamInsights error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

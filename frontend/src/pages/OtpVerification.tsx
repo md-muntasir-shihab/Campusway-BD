@@ -27,12 +27,12 @@ export default function OtpVerificationPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-10">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 sm:p-8 dark:bg-slate-900">
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-xl bg-indigo-600 mx-auto mb-3 flex items-center justify-center">
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Verify Login</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Verify Login</h1>
           <p className="text-sm text-slate-500 mt-1">
             Complete your 2FA verification to continue.
           </p>

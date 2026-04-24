@@ -38,13 +38,13 @@ export default function ExamHeader({ exam, timeLeftFormatted, isTimeUp, isSaving
     if (!exam) return null;
 
     return (
-        <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+        <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm dark:bg-slate-900 dark:border-slate-700">
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3">
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                         <img src={buildMediaUrl(settings?.logoUrl || settings?.logo || '/logo.svg')} alt="Logo" className="h-7 sm:h-8 w-auto object-contain shrink-0" />
                         <div className="min-w-0">
-                            <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{exam.title}</h1>
+                            <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate dark:text-white">{exam.title}</h1>
                             <p className="text-[11px] text-slate-500 truncate">
                                 {exam.subject || 'General'} • Answered {answeredCount}/{totalQuestions}
                             </p>
@@ -52,7 +52,7 @@ export default function ExamHeader({ exam, timeLeftFormatted, isTimeUp, isSaving
                     </div>
                     <button
                         onClick={toggleFullscreen}
-                        className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+                        className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
                         title="Toggle Fullscreen"
                         aria-label="Toggle Fullscreen"
                     >
@@ -61,7 +61,7 @@ export default function ExamHeader({ exam, timeLeftFormatted, isTimeUp, isSaving
                 </div>
 
                 <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className={`inline-flex w-fit items-center gap-2 px-3 py-1.5 rounded-full font-mono text-base sm:text-lg font-bold border ${isTimeUp ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-slate-50 text-slate-800 border-slate-200'}`}>
+                    <div className={`inline-flex w-fit items-center gap-2 px-3 py-1.5 rounded-full font-mono text-base sm:text-lg font-bold border ${isTimeUp ? 'bg-red-50 text-red-600 border-red-200 animate-pulse dark:bg-red-950/40 dark:text-red-400 dark:border-red-800' : 'bg-slate-50 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700'}`}>
                         <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                         {timeLeftFormatted}
                     </div>
@@ -71,7 +71,7 @@ export default function ExamHeader({ exam, timeLeftFormatted, isTimeUp, isSaving
                             <div className="text-[11px] font-medium text-slate-500 mb-1">
                                 Progress {progressPercentage}%
                             </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden dark:bg-slate-800">
                                 <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progressPercentage}%` }} />
                             </div>
                         </div>

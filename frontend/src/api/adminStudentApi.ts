@@ -118,6 +118,9 @@ export const bulkDeleteStudentGroups = (ids: string[]) =>
 export const addGroupMembers = (groupId: string, studentIds: string[]) =>
   api.post(`/admin/student-groups/${groupId}/members/add`, { studentIds }).then(r => r.data);
 
+export const validateGroupMemberIds = (groupId: string, studentIds: string[]) =>
+  api.post(`/admin/student-groups/${groupId}/members/add`, { studentIds, dryRun: true }).then(r => r.data);
+
 export const removeGroupMembers = (groupId: string, studentIds: string[]) =>
   api.post(`/admin/student-groups/${groupId}/members/remove`, { studentIds }).then(r => r.data);
 
@@ -135,6 +138,9 @@ export const importGroupMembersPreview = (groupId: string, formData: FormData) =
 
 export const importGroupMembersCommit = (groupId: string, studentIds: string[]) =>
   api.post(`/admin/student-groups/${groupId}/members/import/commit`, { studentIds }).then(r => r.data);
+
+export const previewDynamicRules = (groupId: string, rules: Record<string, unknown>) =>
+  api.post(`/admin/student-groups/${groupId}/rules/preview`, { rules }).then(r => r.data);
 
 // Subscriptions
 export const getSubscriptions = (filters: { status?: string; q?: string; page?: number; limit?: number }) =>

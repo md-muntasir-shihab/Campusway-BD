@@ -41,6 +41,7 @@ import {
   adminUpdateUniversity,
   adminUpdateUniversityCategory,
   adminUpdateUniversityCluster,
+  adminUploadMedia,
   adminValidateUniversityImport,
 } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -73,6 +74,7 @@ type ClusterForm = {
   name: string;
   slug: string;
   description: string;
+  heroImageUrl: string;
   isActive: boolean;
   categoryRules: string[];
   categoryRuleIds: string[];
@@ -89,6 +91,7 @@ type ClusterForm = {
   };
   homeVisible: boolean;
   homeOrder: number;
+  homeFeedMode: 'cluster_only' | 'members_only' | 'both';
 };
 
 type FeaturedUniversityEntry = HomeSettingsConfig['featuredUniversities'][number];
@@ -102,7 +105,7 @@ const DEFAULT_FORM: UniversityForm = {
 };
 
 const DEFAULT_CLUSTER_FORM: ClusterForm = {
-  name: '', slug: '', description: '', isActive: true, categoryRules: [], categoryRuleIds: [], manualMembers: [], dates: {}, homeVisible: false, homeOrder: 0,
+  name: '', slug: '', description: '', heroImageUrl: '', isActive: true, categoryRules: [], categoryRuleIds: [], manualMembers: [], dates: {}, homeVisible: false, homeOrder: 0, homeFeedMode: 'both',
 };
 
 type CategoryForm = {
@@ -830,7 +833,7 @@ export default function UniversitiesPanel() {
       const source = payload.cluster || cluster;
       const memberIds = (payload.members || []).map((m) => String(m._id));
       setClusterForm({
-        name: source.name || '', slug: source.slug || '', description: source.description || '', isActive: source.isActive !== false,
+        name: source.name || '', slug: source.slug || '', description: source.description || '', heroImageUrl: source.heroImageUrl || '', isActive: source.isActive !== false,
         categoryRules: source.categoryRules || [],
         categoryRuleIds: source.categoryRuleIds || [],
         manualMembers: memberIds.length ? memberIds : source.memberUniversityIds || [],
@@ -844,6 +847,7 @@ export default function UniversitiesPanel() {
           admissionWebsite: source.dates?.admissionWebsite || '',
           examCentersText: serializeExamCentersText(source.dates?.examCenters),
         }, homeVisible: Boolean(source.homeVisible), homeOrder: Number(source.homeOrder || 0),
+        homeFeedMode: (['cluster_only', 'members_only', 'both'].includes(String((source as { homeFeedMode?: string }).homeFeedMode || '')) ? (source as { homeFeedMode?: string }).homeFeedMode! : 'both') as ClusterForm['homeFeedMode'],
       });
       setClusterModal(source);
     } catch { toast.error('Cluster details load failed'); }
@@ -854,7 +858,7 @@ export default function UniversitiesPanel() {
     setSavingCluster(true);
     try {
       const payload = {
-        name: clusterForm.name, slug: clusterForm.slug, description: clusterForm.description, isActive: clusterForm.isActive,
+        name: clusterForm.name, slug: clusterForm.slug, description: clusterForm.description, heroImageUrl: clusterForm.heroImageUrl, isActive: clusterForm.isActive,
         categoryRules: clusterForm.categoryRules,
         categoryRuleIds: clusterForm.categoryRuleIds,
         memberUniversityIds: clusterForm.manualMembers,
@@ -869,6 +873,7 @@ export default function UniversitiesPanel() {
           examCenters: clusterForm.dates.examCentersText || '',
         },
         homeVisible: clusterForm.homeVisible, homeOrder: Number(clusterForm.homeOrder || 0),
+        homeFeedMode: clusterForm.homeFeedMode,
       };
       if (clusterModal === 'create') await adminCreateUniversityCluster(payload);
       else if (clusterModal && typeof clusterModal === 'object') await adminUpdateUniversityCluster(clusterModal._id, payload);
@@ -937,28 +942,65 @@ export default function UniversitiesPanel() {
   };
   const permanentDeleteCluster = async (cluster: AdminUniversityCluster) => {
     const memberCount = Number(cluster.memberCount || cluster.memberUniversityIds?.length || 0);
+
+    let deleteMode: 'cluster_only' | 'cascade' | 'detach' = 'cluster_only';
+
     if (memberCount > 0) {
-      toast.error('Permanent delete is allowed only for empty clusters');
-      return;
+      // Show choice dialog for non-empty clusters
+      const choice = await showConfirmDialog({
+        title: `Delete cluster "${cluster.name}"?`,
+        message: `This cluster has ${memberCount} linked ${memberCount === 1 ? 'university' : 'universities'}. Choose how to proceed:`,
+        description: '• "Delete All" — Cluster and all linked universities will be archived.\n• "Detach & Delete" — Cluster is deleted, universities are kept but detached.\n• Cancel to abort.',
+        confirmLabel: 'Delete All (Cascade)',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      });
+      if (!choice) {
+        // Try detach option
+        const detachChoice = await showConfirmDialog({
+          title: `Detach universities instead?`,
+          message: `Keep all ${memberCount} universities safe and only delete the cluster "${cluster.name}"?`,
+          description: 'Universities will be detached from this cluster but remain active.',
+          confirmLabel: 'Detach & Delete Cluster',
+          cancelLabel: 'Cancel',
+          tone: 'danger',
+        });
+        if (!detachChoice) return;
+        deleteMode = 'detach';
+      } else {
+        deleteMode = 'cascade';
+      }
+    } else {
+      const confirmed = await showConfirmDialog({
+        title: 'Permanently delete cluster?',
+        message: `This will permanently remove "${cluster.name}".`,
+        description: 'This empty cluster will be permanently deleted.',
+        confirmLabel: 'Delete permanently',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
     }
-    const confirmed = await showConfirmDialog({
-      title: 'Permanently delete cluster?',
-      message: `This will permanently remove "${cluster.name}".`,
-      description: 'Only empty clusters can be permanently deleted.',
-      confirmLabel: 'Delete permanently',
-      cancelLabel: 'Cancel',
-      tone: 'danger',
-    });
-    if (!confirmed) return;
+
     try {
       const proof = await promptForSensitiveActionProof({
         actionLabel: 'permanently delete university cluster',
-        defaultReason: `Permanently delete empty cluster ${cluster._id}`,
+        defaultReason: deleteMode === 'cascade'
+          ? `Permanently delete cluster ${cluster._id} and all ${memberCount} linked universities`
+          : deleteMode === 'detach'
+            ? `Delete cluster ${cluster._id}, detach ${memberCount} universities`
+            : `Permanently delete empty cluster ${cluster._id}`,
         requireOtpHint: true,
       });
       if (!proof) return;
-      await adminDeleteUniversityClusterPermanent(cluster._id, proof);
-      toast.success('Cluster permanently deleted');
+      await adminDeleteUniversityClusterPermanent(cluster._id, proof, deleteMode);
+      toast.success(
+        deleteMode === 'cascade'
+          ? `Cluster and ${memberCount} universities deleted`
+          : deleteMode === 'detach'
+            ? `Cluster deleted, ${memberCount} universities detached`
+            : 'Cluster permanently deleted',
+      );
       await invalidateUniversityQueries();
       await loadClusters();
       await loadUniversities();
@@ -1589,7 +1631,7 @@ export default function UniversitiesPanel() {
             <button type="button" onClick={openClusterCreate} disabled={!canManageTaxonomy} className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:opacity-90 shadow-lg shadow-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-40"><Plus className="w-4 h-4" /> New Cluster</button>
           </div>
           <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 p-4 text-sm text-amber-100">
-            Disable keeps linked universities safe. Permanent delete is available only when a cluster has zero linked universities.
+            Disable keeps linked universities safe. Permanent Delete supports cascade (delete all) or detach (keep universities) modes.
             <div className="mt-3 flex flex-wrap gap-2">
               {(['all', 'active', 'inactive'] as const).map((view) => (
                 <button
@@ -1616,11 +1658,21 @@ export default function UniversitiesPanel() {
                 <div className="grid grid-cols-1 gap-2 rounded-xl border border-slate-700/20 bg-slate-950/30 p-3 text-[11px] sm:grid-cols-2">
                   <p className="text-slate-500 font-medium">Members</p><p className="text-indigo-300 font-bold">{c.memberCount || c.memberUniversityIds?.length || 0}</p>
                   <p className="text-slate-500 font-medium">Home Feed</p><p className="text-slate-300 font-bold">{c.homeVisible ? `Visible (#${c.homeOrder})` : 'Hidden'}</p>
+                  <p className="text-slate-500 font-medium">Feed Mode</p><p className="text-slate-300 font-bold">{c.homeFeedMode === 'cluster_only' ? '🏷️ Cluster Only' : c.homeFeedMode === 'members_only' ? '🎓 Members Only' : '📋 Both'}</p>
                   <p className="text-slate-500 font-medium">Warnings</p><p className="text-amber-300 font-bold">{c.resolution?.warnings?.length || 0}</p>
                   <p className="text-slate-500 font-medium">Centers</p><p className="text-slate-300 font-bold">{c.dates?.examCenters?.length || 0}</p>
+                  <p className="text-slate-500 font-medium">Total Seats</p><p className="text-cyan-300 font-bold">{c.seatStats?.totalSeats?.toLocaleString() || '—'}</p>
+                  <p className="text-slate-500 font-medium">Sci / Arts / Com</p><p className="font-bold"><span className="text-emerald-300">{c.seatStats?.scienceSeats || 0}</span> / <span className="text-violet-300">{c.seatStats?.artsSeats || 0}</span> / <span className="text-amber-300">{c.seatStats?.commerceSeats || 0}</span></p>
                 </div>
+                {(c.categoryRules?.length > 0 || c.categoryRuleIds?.length > 0) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(c.categoryRules || []).map((cat) => (
+                      <span key={cat} className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">{cat}</span>
+                    ))}
+                  </div>
+                )}
                 <div className="rounded-xl border border-slate-700/20 bg-slate-950/30 px-3 py-2 text-[11px] text-slate-400">
-                  Disable keeps linked universities untouched. Use Permanent Delete only for empty clusters.
+                  Disable keeps linked universities untouched. Permanent Delete supports cascade (delete all) or detach (keep universities) modes.
                 </div>
                 <div className="mt-auto grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <button type="button" disabled={!canManageTaxonomy} onClick={() => void openClusterEdit(c)} className="rounded-full bg-indigo-500/10 px-2 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-40">Edit</button>
@@ -1629,7 +1681,7 @@ export default function UniversitiesPanel() {
                   <button type="button" disabled={!canDeleteTaxonomy} onClick={() => void deactivateCluster(c._id)} className="rounded-full bg-rose-500/10 px-2 py-1.5 text-[11px] font-bold text-rose-300 hover:bg-rose-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-40">Disable</button>
                   <button
                     type="button"
-                    disabled={!canDeleteTaxonomy || Number(c.memberCount || c.memberUniversityIds?.length || 0) > 0}
+                    disabled={!canDeleteTaxonomy}
                     onClick={() => void permanentDeleteCluster(c)}
                     className="rounded-full bg-red-600/15 px-2 py-1.5 text-[11px] font-bold text-red-300 hover:bg-red-600/25 transition-all disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -1852,7 +1904,7 @@ export default function UniversitiesPanel() {
 
                 <AdminDateField label="Science Exam Date" value={form.scienceExamDate} onChange={(next) => setForm((prev) => ({ ...prev, scienceExamDate: next }))} />
                 <AdminDateField label="Business Exam Date" value={form.businessExamDate} onChange={(next) => setForm((prev) => ({ ...prev, businessExamDate: next }))} />
-                <AdminDateField label="Arts Exam Date" value={form.artsExamDate} onChange={(next) => setForm((prev) => ({ ...prev, artsExamDate: next }))} />
+                <AdminDateField label="Humanities Exam Date" value={form.artsExamDate} onChange={(next) => setForm((prev) => ({ ...prev, artsExamDate: next }))} />
 
                 <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Contact Phone</label><input value={form.contactNumber || ''} onChange={(e) => setForm((prev) => ({ ...prev, contactNumber: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
                 <div className="space-y-1.5 lg:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Full Address</label><input value={form.address || ''} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
@@ -1983,7 +2035,7 @@ export default function UniversitiesPanel() {
                   <AdminDateField label="Shared App Start" value={categoryForm.sharedConfig.applicationStartDate} onChange={(next) => setCategoryForm((prev) => ({ ...prev, sharedConfig: { ...prev.sharedConfig, applicationStartDate: next } }))} />
                   <AdminDateField label="Shared App End" value={categoryForm.sharedConfig.applicationEndDate} onChange={(next) => setCategoryForm((prev) => ({ ...prev, sharedConfig: { ...prev.sharedConfig, applicationEndDate: next } }))} />
                   <AdminDateField label="Science Exam" value={categoryForm.sharedConfig.scienceExamDate} onChange={(next) => setCategoryForm((prev) => ({ ...prev, sharedConfig: { ...prev.sharedConfig, scienceExamDate: next } }))} />
-                  <AdminDateField label="Arts Exam" value={categoryForm.sharedConfig.artsExamDate} onChange={(next) => setCategoryForm((prev) => ({ ...prev, sharedConfig: { ...prev.sharedConfig, artsExamDate: next } }))} />
+                  <AdminDateField label="Humanities Exam" value={categoryForm.sharedConfig.artsExamDate} onChange={(next) => setCategoryForm((prev) => ({ ...prev, sharedConfig: { ...prev.sharedConfig, artsExamDate: next } }))} />
                   <AdminDateField label="Business Exam" value={categoryForm.sharedConfig.businessExamDate} onChange={(next) => setCategoryForm((prev) => ({ ...prev, sharedConfig: { ...prev.sharedConfig, businessExamDate: next } }))} />
                   <div className="space-y-1.5 md:col-span-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Exam Centers</label>
@@ -2031,6 +2083,57 @@ export default function UniversitiesPanel() {
                     placeholder="Write a clear cluster description, rule summary, or public-facing explanation."
                     className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/70 px-4 py-3 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all resize-y shadow-inner shadow-slate-950/20"
                   />
+                </div>
+
+                <div className="space-y-1.5 lg:col-span-3">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Hero Background Image</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={clusterForm.heroImageUrl}
+                      onChange={(e) => setClusterForm((p) => ({ ...p, heroImageUrl: e.target.value }))}
+                      placeholder="Paste URL or upload an image"
+                      className="flex-1 rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
+                    />
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-500/20">
+                      <Upload className="h-4 w-4" />
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e: ChangeEvent<HTMLInputElement>) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const uploadToast = toast.loading('Uploading image...');
+                          try {
+                            const res = await adminUploadMedia(file, { visibility: 'public', category: 'admin_upload' });
+                            const url = res.data?.url || '';
+                            if (url) {
+                              setClusterForm((p) => ({ ...p, heroImageUrl: url }));
+                              toast.success('Image uploaded', { id: uploadToast });
+                            } else {
+                              toast.error('Upload returned no URL', { id: uploadToast });
+                            }
+                          } catch {
+                            toast.error('Upload failed', { id: uploadToast });
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+                  {clusterForm.heroImageUrl && (
+                    <div className="mt-2 relative rounded-xl overflow-hidden border border-slate-700/30 h-28 group">
+                      <img src={clusterForm.heroImageUrl} alt="Hero preview" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      <button
+                        type="button"
+                        onClick={() => setClusterForm((p) => ({ ...p, heroImageUrl: '' }))}
+                        className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-600"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <AdminDateField label="Master App Start" value={clusterForm.dates.applicationStartDate} onChange={(next) => setClusterForm((p) => ({ ...p, dates: { ...p.dates, applicationStartDate: next } }))} />
@@ -2100,6 +2203,37 @@ export default function UniversitiesPanel() {
                   <span className="text-xs text-slate-300 group-hover:text-white transition-colors uppercase font-bold tracking-wider">Show on Home Page</span>
                 </label>
               </div>
+
+              {/* Home Feed Mode selector */}
+              {clusterForm.homeVisible && (
+                <div className="rounded-2xl border border-slate-700/30 bg-slate-950/40 p-4 space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Home Feed Display Mode</h4>
+                  <p className="text-[11px] text-slate-400 ml-1">কিভাবে হোম পেজে দেখাবে — শুধু ক্লাস্টার কার্ড, শুধু ভার্সিটি কার্ড, নাকি দুটোই?</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {([
+                      { value: 'cluster_only' as const, label: 'Cluster Only', emoji: '🏷️', hint: 'শুধু ক্লাস্টার কার্ড দেখাবে (গুচ্ছ ভর্তির মতো)। আলাদা ভার্সিটি কার্ড হোমে দেখাবে না।' },
+                      { value: 'members_only' as const, label: 'Members Only', emoji: '🎓', hint: 'শুধু ভার্সিটি কার্ড আলাদা আলাদা দেখাবে। ক্লাস্টার কার্ড হোমে দেখাবে না।' },
+                      { value: 'both' as const, label: 'Both', emoji: '📋', hint: 'ক্লাস্টার কার্ড এবং আলাদা ভার্সিটি কার্ড দুটোই দেখাবে।' },
+                    ]).map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setClusterForm((p) => ({ ...p, homeFeedMode: opt.value }))}
+                        className={`rounded-xl border p-3 text-left transition-all ${clusterForm.homeFeedMode === opt.value
+                          ? 'border-cyan-500/40 bg-cyan-500/10 ring-1 ring-cyan-500/20'
+                          : 'border-slate-700/30 bg-slate-900/40 hover:border-slate-600/40'
+                          }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{opt.emoji}</span>
+                          <span className={`text-xs font-bold uppercase tracking-wider ${clusterForm.homeFeedMode === opt.value ? 'text-cyan-300' : 'text-slate-400'}`}>{opt.label}</span>
+                        </div>
+                        <p className="mt-1.5 text-[10px] text-slate-500 leading-relaxed">{opt.hint}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-slate-700/30 bg-slate-950/40 p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">

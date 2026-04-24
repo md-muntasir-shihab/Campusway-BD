@@ -273,7 +273,7 @@ export default function StudentManagementListPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200/60 bg-slate-50/50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/30 dark:text-slate-400">

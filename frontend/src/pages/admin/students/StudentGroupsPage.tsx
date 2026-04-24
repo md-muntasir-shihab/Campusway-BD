@@ -1,20 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   getStudentGroups, createStudentGroup, updateStudentGroup, deleteStudentGroup,
   canDeleteStudentGroup, exportStudentGroups, exportGroupMembers, bulkUpdateStudentGroups, bulkDeleteStudentGroups,
 } from '../../../api/adminStudentApi';
-import { adminUi } from '../../../lib/appRoutes';
+import { adminUi, ADMIN_DASHBOARD } from '../../../lib/appRoutes';
+import { useModuleAccess } from '../../../hooks/useModuleAccess';
 import {
   Plus, Search, Users, X, Palette, Tag,
   Star, MoreVertical, Pencil, Trash2, CheckCircle, XCircle,
-  Megaphone, BookOpen, Download,
+  Megaphone, BookOpen, Download, ChevronDown, Info, Settings, Zap,
 } from 'lucide-react';
 import { ADMIN_PATHS } from '../../../routes/adminPaths';
 import { downloadFile } from '../../../utils/download';
 import ModernToggle from '../../../components/ui/ModernToggle';
 import { showConfirmDialog } from '../../../lib/appDialog';
+import RuleBuilder, { type DynamicRuleSet } from '../../../components/admin/students/RuleBuilder';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
 type GroupType = 'manual' | 'dynamic';
@@ -47,8 +49,32 @@ const GROUP_BULK_FIELDS = [
   { label: 'Active', value: 'isActive' },
 ] as const;
 
+const COLOR_SWATCHES = ['#6366f1', '#ef4444', '#22c55e', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6'];
+
+const generateSlug = (name: string) =>
+  name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
 const inputCls = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:border-indigo-400';
 const labelCls = 'block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1';
+
+function CollapsibleSection({ title, icon, children, defaultOpen = true }: {
+  title: string; icon: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between py-1 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+      >
+        <span className="flex items-center gap-1.5">{icon} {title}</span>
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </div>
+  );
+}
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   if (!open) return null;
@@ -65,17 +91,19 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
   );
 }
 
-function GroupCard({ g, selected, onToggleSelect, onEdit, onDelete, onOpen, onExport, onNavigate }: {
+function GroupCard({ g, selected, onToggleSelect, onEdit, onDelete, onOpen, onExport, onNavigate, canDelete, canExport }: {
   g: Record<string, unknown>;
   selected: boolean;
   onToggleSelect: () => void;
   onEdit: () => void; onDelete: () => void; onOpen: () => void; onExport: () => void;
   onNavigate: (path: string) => void;
+  canDelete: boolean;
+  canExport: boolean;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const color = (g.color as string) || '#6366f1';
   const style = (g.cardStyleVariant as CardStyle) || 'solid';
-  const memberCount = (g.memberCount as number) ?? (g.studentCount as number) ?? 0;
+  const memberCount = (g.memberCountCached as number) ?? (g.memberCount as number) ?? (g.studentCount as number) ?? 0;
 
   const cardBg = style === 'gradient'
     ? { background: `linear-gradient(135deg, ${color}15, ${color}05)` }
@@ -130,12 +158,16 @@ function GroupCard({ g, selected, onToggleSelect, onEdit, onDelete, onOpen, onEx
               <button onClick={() => { setShowMenu(false); onNavigate(ADMIN_PATHS.exams); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700">
                 <BookOpen size={12} /> Create Exam
               </button>
-              <button onClick={() => { setShowMenu(false); onExport(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700">
-                <Download size={12} /> Export
-              </button>
-              <button onClick={() => { setShowMenu(false); onDelete(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                <Trash2 size={12} /> Delete
-              </button>
+              {canExport && (
+                <button onClick={() => { setShowMenu(false); onExport(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700">
+                  <Download size={12} /> Export
+                </button>
+              )}
+              {canDelete && (
+                <button onClick={() => { setShowMenu(false); onDelete(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <Trash2 size={12} /> Delete
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -172,6 +204,11 @@ function GroupCard({ g, selected, onToggleSelect, onEdit, onDelete, onOpen, onEx
 export default function StudentGroupsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { hasAccess } = useModuleAccess();
+  const canView = hasAccess('students_groups', 'view');
+  const canCreate = hasAccess('students_groups', 'create');
+  const canDelete = hasAccess('students_groups', 'delete');
+  const canExport = hasAccess('students_groups', 'export');
   const [toast, setToast] = useState<Toast>({ show: false, message: '', type: 'success' });
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -180,12 +217,23 @@ export default function StudentGroupsPage() {
   const [bulkValue, setBulkValue] = useState('');
   const [groupModal, setGroupModal] = useState<{ open: boolean; editId?: string }>({ open: false });
   const [form, setForm] = useState<GroupForm>(EMPTY_FORM);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string; name: string; safe?: boolean }>({ open: false, id: '', name: '' });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string; name: string; safe?: boolean; blockers?: { activeMemberCount?: number; linkedExams?: { _id: string; title: string }[]; linkedCampaigns?: { _id: string; campaignName: string }[] } }>({ open: false, id: '', name: '' });
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [nameError, setNameError] = useState(false);
+  const [dynamicRules, setDynamicRules] = useState<DynamicRuleSet>({});
 
   const showToast = (message: string, type: Toast['type'] = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast(p => ({ ...p, show: false })), 3000);
   };
+
+  // Redirect to dashboard if admin lacks view permission
+  useEffect(() => {
+    if (!canView) {
+      showToast('Insufficient permissions to view student groups', 'error');
+      navigate(ADMIN_DASHBOARD, { replace: true });
+    }
+  }, [canView, navigate]);
 
   const { data: groupsData, isLoading } = useQuery({
     queryKey: ['admin-student-groups'],
@@ -205,7 +253,7 @@ export default function StudentGroupsPage() {
   ), [rawGroups, search]);
   const allVisibleSelected = filteredGroups.length > 0 && filteredGroups.every((g) => selectedIds.includes(String(g._id)));
 
-  const openCreate = () => { setForm(EMPTY_FORM); setGroupModal({ open: true }); };
+  const openCreate = () => { setForm(EMPTY_FORM); setNameError(false); setDynamicRules({}); setGroupModal({ open: true }); };
   const openEdit = (g: Record<string, unknown>) => {
     setForm({
       name: (g.name as string) ?? '',
@@ -224,16 +272,26 @@ export default function StudentGroupsPage() {
       defaultCommunicationAudience: (g.defaultCommunicationAudience as string) ?? '',
     });
     setGroupModal({ open: true, editId: g._id as string });
+    setDynamicRules((g.rules as DynamicRuleSet) ?? {});
+    setNameError(false);
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) {
+      setNameError(true);
+      return;
+    }
+    setNameError(false);
     try {
+      const payload: Record<string, unknown> = { ...form };
+      if (form.type === 'dynamic') {
+        payload.rules = dynamicRules;
+      }
       if (groupModal.editId) {
-        await updateStudentGroup(groupModal.editId, form as unknown as Record<string, unknown>);
+        await updateStudentGroup(groupModal.editId, payload);
         showToast('Group updated');
       } else {
-        await createStudentGroup(form as unknown as Record<string, unknown>);
+        await createStudentGroup(payload);
         showToast('Group created');
       }
       qc.invalidateQueries({ queryKey: ['admin-student-groups'] });
@@ -244,7 +302,7 @@ export default function StudentGroupsPage() {
   const confirmDelete = async (id: string, name: string) => {
     try {
       const res = await canDeleteStudentGroup(id);
-      setDeleteConfirm({ open: true, id, name, safe: res.canDelete ?? res.safe ?? true });
+      setDeleteConfirm({ open: true, id, name, safe: res.canDelete ?? res.safe ?? true, blockers: res.blockers });
     } catch {
       setDeleteConfirm({ open: true, id, name, safe: true });
     }
@@ -344,7 +402,7 @@ export default function StudentGroupsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 overflow-x-hidden">
       {/* Toast */}
       {toast.show && (
         <div className={`fixed right-4 top-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
@@ -364,17 +422,56 @@ export default function StudentGroupsPage() {
             <p className="text-xs text-slate-500">{rawGroups.length} group{rawGroups.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <select aria-label="Export format" value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'csv' | 'xlsx')} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
-            <option value="xlsx">XLSX</option>
-            <option value="csv">CSV</option>
-          </select>
-          <button onClick={() => void handleExport()} className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
-            <Download size={14} /> Export
+
+        {/* Desktop header actions (visible ≥768px) */}
+        <div className="hidden md:flex items-center gap-2">
+          {canExport && (
+            <>
+              <select aria-label="Export format" value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'csv' | 'xlsx')} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                <option value="xlsx">XLSX</option>
+                <option value="csv">CSV</option>
+              </select>
+              <button onClick={() => void handleExport()} className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
+                <Download size={14} /> Export
+              </button>
+            </>
+          )}
+          {canCreate && (
+            <button onClick={openCreate} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+              <Plus size={14} /> New Group
+            </button>
+          )}
+        </div>
+
+        {/* Mobile overflow menu (visible <768px) */}
+        <div className="relative md:hidden">
+          <button
+            onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            aria-label="More actions"
+          >
+            <MoreVertical size={20} />
           </button>
-          <button onClick={openCreate} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            <Plus size={14} /> New Group
-          </button>
+          {headerMenuOpen && (
+            <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+              {canExport && (
+                <button
+                  onClick={() => { setHeaderMenuOpen(false); void handleExport(); }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  <Download size={14} /> Export ({exportFormat.toUpperCase()})
+                </button>
+              )}
+              {canCreate && (
+                <button
+                  onClick={() => { setHeaderMenuOpen(false); openCreate(); }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  <Plus size={14} /> New Group
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -391,40 +488,40 @@ export default function StudentGroupsPage() {
               Select visible
             </label>
             {selectedIds.length > 0 && (
-              <>
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:w-auto">
                 <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">{selectedIds.length} selected</span>
                 <select aria-label="Bulk edit field" value={bulkField} onChange={(e) => {
                   const nextField = e.target.value as (typeof GROUP_BULK_FIELDS)[number]['value'];
                   setBulkField(nextField);
                   setBulkValue(nextField === 'isFeatured' || nextField === 'isActive' ? 'true' : '');
-                }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                }} className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
                   {GROUP_BULK_FIELDS.map((field) => <option key={field.value} value={field.value}>{field.label}</option>)}
                 </select>
                 {bulkField === 'department' && (
-                  <select aria-label="Department value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                  <select aria-label="Department value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
                     <option value="">Choose department</option>
                     {DEPARTMENTS.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
                 )}
                 {bulkField === 'defaultExamVisibility' && (
-                  <select aria-label="Visibility value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                  <select aria-label="Visibility value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
                     <option value="">Choose visibility</option>
                     {EXAM_VIS.map((item) => <option key={item} value={item}>{item.replace(/_/g, ' ')}</option>)}
                   </select>
                 )}
                 {bulkField === 'isFeatured' || bulkField === 'isActive' ? (
-                  <select aria-label="Boolean value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                  <select aria-label="Boolean value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
                     <option value="true">True</option>
                     <option value="false">False</option>
                   </select>
                 ) : null}
                 {bulkField === 'batch' && (
-                  <input aria-label="Batch value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder="Batch value" className={inputCls} />
+                  <input aria-label="Batch value" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder="Batch value" className={`${inputCls} w-full sm:w-auto`} />
                 )}
-                <button onClick={() => void handleBulkUpdate()} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Bulk Edit</button>
-                <button onClick={() => void handleBulkDelete()} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Bulk Delete</button>
-                <button onClick={() => setSelectedIds([])} className="ml-auto text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Clear</button>
-              </>
+                <button onClick={() => void handleBulkUpdate()} className="w-full sm:w-auto rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Bulk Edit</button>
+                <button onClick={() => void handleBulkDelete()} className="w-full sm:w-auto rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Bulk Delete</button>
+                <button onClick={() => setSelectedIds([])} className="w-full sm:w-auto sm:ml-auto text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Clear</button>
+              </div>
             )}
           </div>
         )}
@@ -432,7 +529,7 @@ export default function StudentGroupsPage() {
 
       {/* Grid */}
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-36 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700" />
           ))}
@@ -443,7 +540,7 @@ export default function StudentGroupsPage() {
           <p className="text-sm text-slate-500">{search ? 'No groups match your search' : 'No groups yet. Create one to get started.'}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredGroups.map(g => (
             <GroupCard
               key={g._id as string}
@@ -455,6 +552,8 @@ export default function StudentGroupsPage() {
               onEdit={() => openEdit(g)}
               onDelete={() => confirmDelete(g._id as string, g.name as string)}
               onNavigate={(path) => navigate(path)}
+              canDelete={canDelete}
+              canExport={canExport}
             />
           ))}
         </div>
@@ -462,40 +561,63 @@ export default function StudentGroupsPage() {
 
       {/* Create/Edit Modal */}
       <Modal open={groupModal.open} onClose={() => setGroupModal({ open: false })} title={groupModal.editId ? 'Edit Group' : 'Create Group'}>
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className={labelCls}>Group Name *</label>
-              <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. HSC 2025 Science" />
-            </div>
-            <div>
-              <label className={labelCls}>Short Code</label>
-              <input className={inputCls} value={form.shortCode} onChange={e => set('shortCode', e.target.value)} placeholder="e.g. H25S" maxLength={10} />
-            </div>
-            <div>
-              <label className={labelCls}>Type</label>
-              <select className={inputCls} value={form.type} onChange={e => set('type', e.target.value)}>
-                <option value="manual">Manual</option>
-                <option value="dynamic">Dynamic</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelCls}>Description</label>
-              <textarea className={`${inputCls} resize-none`} rows={2} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Optional description" />
-            </div>
-          </div>
-
-          {/* Appearance */}
-          <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
-            <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
-              <Palette size={12} /> Appearance
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-3">
+          {/* Basic Info Section */}
+          <CollapsibleSection title="Basic Info" icon={<Info size={12} />} defaultOpen={true}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Group Name *</label>
+                <input
+                  className={`${inputCls} ${nameError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  value={form.name}
+                  onChange={e => { set('name', e.target.value); if (e.target.value.trim()) setNameError(false); }}
+                  placeholder="e.g. HSC 2025 Science"
+                />
+                {nameError && (
+                  <p className="mt-1 text-xs text-red-500">Group name is required</p>
+                )}
+                {form.name.trim() && (
+                  <p className="mt-1 text-xs text-slate-400">slug: {generateSlug(form.name)}</p>
+                )}
+              </div>
               <div>
+                <label className={labelCls}>Short Code</label>
+                <input className={inputCls} value={form.shortCode} onChange={e => set('shortCode', e.target.value)} placeholder="e.g. H25S" maxLength={10} />
+              </div>
+              <div>
+                <label className={labelCls}>Type</label>
+                <select className={inputCls} value={form.type} onChange={e => set('type', e.target.value)}>
+                  <option value="manual">Manual</option>
+                  <option value="dynamic">Dynamic</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Description</label>
+                <textarea className={`${inputCls} resize-none`} rows={2} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Optional description" />
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* Appearance Section */}
+          <CollapsibleSection title="Appearance" icon={<Palette size={12} />} defaultOpen={false}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="sm:col-span-3">
                 <label className={labelCls}>Color</label>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  {COLOR_SWATCHES.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => set('color', c)}
+                      className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${form.color === c ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: c }}
+                      aria-label={`Select color ${c}`}
+                    />
+                  ))}
+                </div>
                 <div className="flex items-center gap-2">
                   <input type="color" value={form.color} onChange={e => set('color', e.target.value)} className="h-8 w-8 cursor-pointer rounded border-0" />
-                  <input className={inputCls} value={form.color} onChange={e => set('color', e.target.value)} maxLength={7} />
+                  <input className={inputCls} value={form.color} onChange={e => set('color', e.target.value)} placeholder="#hex" maxLength={7} />
                 </div>
               </div>
               <div>
@@ -509,13 +631,10 @@ export default function StudentGroupsPage() {
                 <input className={inputCls} type="number" min={0} value={form.sortOrder} onChange={e => set('sortOrder', parseInt(e.target.value) || 0)} />
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
 
-          {/* Organization */}
-          <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
-            <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
-              <Tag size={12} /> Organization
-            </div>
+          {/* Organization Section */}
+          <CollapsibleSection title="Organization" icon={<Tag size={12} />} defaultOpen={false}>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className={labelCls}>Department</label>
@@ -535,21 +654,42 @@ export default function StudentGroupsPage() {
                 </select>
               </div>
             </div>
-            <div className="mt-4 flex items-center">
-              <ModernToggle
-                label={<span className="flex items-center gap-2"><Star size={14} className="text-amber-500" /> Featured group</span>}
-                checked={form.isFeatured}
-                onChange={v => set('isFeatured', v)}
-                size="sm"
-              />
+          </CollapsibleSection>
+
+          {/* Policy Defaults Section */}
+          <CollapsibleSection title="Policy Defaults" icon={<Settings size={12} />} defaultOpen={false}>
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <ModernToggle
+                  label={<span className="flex items-center gap-2"><Star size={14} className="text-amber-500" /> Featured Group</span>}
+                  checked={form.isFeatured}
+                  onChange={v => set('isFeatured', v)}
+                  size="sm"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Communication Audience</label>
+                <input className={inputCls} value={form.defaultCommunicationAudience} onChange={e => set('defaultCommunicationAudience', e.target.value)} placeholder="e.g. all_members" />
+              </div>
             </div>
-          </div>
+          </CollapsibleSection>
+
+          {/* Dynamic Rules Section - only when type is dynamic */}
+          {form.type === 'dynamic' && (
+            <CollapsibleSection title="Dynamic Rules" icon={<Zap size={12} />} defaultOpen={true}>
+              <RuleBuilder
+                rules={dynamicRules}
+                onChange={setDynamicRules}
+                groupId={groupModal.editId}
+              />
+            </CollapsibleSection>
+          )}
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
             <button onClick={() => setGroupModal({ open: false })} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
               Cancel
             </button>
-            <button onClick={handleSave} disabled={!form.name.trim()} className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+            <button onClick={handleSave} className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
               {groupModal.editId ? 'Update Group' : 'Create Group'}
             </button>
           </div>
@@ -560,8 +700,20 @@ export default function StudentGroupsPage() {
       <Modal open={deleteConfirm.open} onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })} title="Delete Group">
         <div className="space-y-4">
           {deleteConfirm.safe === false && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
-              This group has active members or linked exams. Deleting will archive memberships, not remove student data.
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400 space-y-1">
+              <p className="font-medium">This group has active dependencies:</p>
+              <ul className="list-disc pl-4 text-xs space-y-0.5">
+                {(deleteConfirm.blockers?.activeMemberCount ?? 0) > 0 && (
+                  <li>{deleteConfirm.blockers!.activeMemberCount} active member(s)</li>
+                )}
+                {(deleteConfirm.blockers?.linkedExams?.length ?? 0) > 0 && (
+                  <li>{deleteConfirm.blockers!.linkedExams!.length} linked exam(s): {deleteConfirm.blockers!.linkedExams!.map(e => e.title).join(', ')}</li>
+                )}
+                {(deleteConfirm.blockers?.linkedCampaigns?.length ?? 0) > 0 && (
+                  <li>{deleteConfirm.blockers!.linkedCampaigns!.length} linked campaign(s): {deleteConfirm.blockers!.linkedCampaigns!.map(c => c.campaignName).join(', ')}</li>
+                )}
+              </ul>
+              <p className="text-xs mt-1">Deleting will archive memberships, not remove student data.</p>
             </div>
           )}
           <p className="text-sm text-slate-600 dark:text-slate-400">

@@ -190,26 +190,26 @@ export default function StudentSecurity() {
     return (
         <div className="space-y-6">
             <SEO title="Security" description="Manage your CampusWay account security. Enable 2FA, review sessions, and change your password." />
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Security Overview</p>
-                        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Security Center</h1>
+                        <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Security Center</h1>
                         <p className="mt-1 max-w-2xl text-sm text-slate-600">
                             Review verification status, manage your sessions, and protect your account with an authenticator app.
                         </p>
                     </div>
                     <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-                            <div className="flex items-center gap-2 font-medium text-slate-800"><MailCheck className="h-4 w-4" /> Email</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/40">
+                            <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-200"><MailCheck className="h-4 w-4" /> Email</div>
                             <p className="mt-1">{user?.emailVerified ? 'Verified' : 'Verification pending'}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-                            <div className="flex items-center gap-2 font-medium text-slate-800"><ShieldCheck className="h-4 w-4" /> 2FA</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/40">
+                            <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-200"><ShieldCheck className="h-4 w-4" /> 2FA</div>
                             <p className="mt-1">{user?.twoFactorEnabled ? `Enabled${user?.twoFactorMethod ? ` (${user.twoFactorMethod})` : ''}` : 'Not enabled'}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-                            <div className="flex items-center gap-2 font-medium text-slate-800"><Laptop2 className="h-4 w-4" /> Sessions</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/40">
+                            <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-200"><Laptop2 className="h-4 w-4" /> Sessions</div>
                             <p className="mt-1">{sessions.filter((item) => item.status === 'active').length} active</p>
                         </div>
                     </div>
@@ -217,10 +217,10 @@ export default function StudentSecurity() {
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <div className="flex items-center gap-2">
-                        <KeyRound className="h-5 w-5 text-slate-700" />
-                        <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
+                        <KeyRound className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Change Password</h2>
                     </div>
                     <p className="mt-2 text-sm text-slate-600">Update your password and revoke older sessions automatically.</p>
                     <div className="mt-4 grid gap-3">
@@ -233,10 +233,10 @@ export default function StudentSecurity() {
                     </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <div className="flex items-center gap-2">
-                        <Smartphone className="h-5 w-5 text-slate-700" />
-                        <h2 className="text-lg font-semibold text-slate-900">Authenticator App</h2>
+                        <Smartphone className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Authenticator App</h2>
                     </div>
                     <p className="mt-2 text-sm text-slate-600">
                         Use a time-based authenticator app and keep the backup codes in a safe offline place.
@@ -249,7 +249,7 @@ export default function StudentSecurity() {
                             </button>
                         ) : (
                             <div className="grid gap-3 sm:grid-cols-2">
-                                <button onClick={regenerateCodes} disabled={backupLoading} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+                                <button onClick={regenerateCodes} disabled={backupLoading} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                                     {backupLoading ? 'Refreshing...' : 'Regenerate backup codes'}
                                 </button>
                                 <button onClick={disableAuthenticator} disabled={disableLoading} className="rounded-2xl border border-rose-200 px-4 py-3 text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
@@ -260,11 +260,11 @@ export default function StudentSecurity() {
                     </div>
 
                     {setupData ? (
-                        <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 space-y-5">
+                        <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 space-y-5 dark:border-slate-700 dark:bg-slate-800/40">
                             {/* QR Code */}
                             <div className="flex flex-col items-center gap-3">
-                                <p className="text-sm font-semibold text-slate-900">Scan with your Authenticator App</p>
-                                <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">Scan with your Authenticator App</p>
+                                <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100 dark:bg-slate-900 dark:border-slate-700">
                                     <QRCodeSVG
                                         value={setupData.otpAuthUrl}
                                         size={180}
@@ -281,11 +281,11 @@ export default function StudentSecurity() {
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Manual Entry Key</p>
                                 <div className="flex items-center gap-2">
-                                    <code className="flex-1 break-all rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700 border border-slate-200">{setupData.secret}</code>
+                                    <code className="flex-1 break-all rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700">{setupData.secret}</code>
                                     <button
                                         type="button"
                                         onClick={() => { navigator.clipboard.writeText(setupData.secret); toast.success('Secret copied!'); }}
-                                        className="shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition"
+                                        className="shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
                                         title="Copy secret"
                                     >
                                         <Copy className="w-4 h-4" />
@@ -300,7 +300,7 @@ export default function StudentSecurity() {
                                 <p className="text-[11px] text-slate-400 mb-2">Save these codes in a safe place. Each can be used once if you lose access to your authenticator.</p>
                                 <div className="grid gap-1.5 sm:grid-cols-2">
                                     {setupData.backupCodes.map((code) => (
-                                        <div key={code} className="rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700 border border-slate-200 flex items-center gap-2">
+                                        <div key={code} className="rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700 border border-slate-200 flex items-center gap-2 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700">
                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                                             {code}
                                         </div>
@@ -311,7 +311,7 @@ export default function StudentSecurity() {
                             {/* Verify code input */}
                             {!user?.twoFactorEnabled ? (
                                 <div className="space-y-3 pt-3 border-t border-slate-200">
-                                    <p className="text-sm font-medium text-slate-900">Verify Setup</p>
+                                    <p className="text-sm font-medium text-slate-900 dark:text-white">Verify Setup</p>
                                     <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400 text-center tracking-[0.3em] font-mono" type="text" inputMode="numeric" maxLength={6} placeholder="Enter 6-digit code" value={setupCode} onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, ''))} />
                                     <button onClick={completeAuthenticatorSetup} disabled={verifyingSetup || setupCode.length < 6} className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
                                         {verifyingSetup ? 'Verifying...' : 'Confirm & Enable 2FA'}
@@ -323,10 +323,10 @@ export default function StudentSecurity() {
                 </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-900">Sessions & Devices</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Sessions & Devices</h2>
                         <p className="mt-1 text-sm text-slate-600">Review your active sessions and revoke anything you do not recognize.</p>
                     </div>
                     <button onClick={logoutEverywhere} className="inline-flex items-center justify-center rounded-2xl border border-rose-200 px-4 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50">
@@ -342,7 +342,7 @@ export default function StudentSecurity() {
                     ) : sessions.map((session) => (
                         <div key={session.sessionId} className="flex flex-col gap-3 rounded-2xl border border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between">
                             <div className="min-w-0">
-                                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                                <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
                                     <Laptop2 className="h-4 w-4 text-slate-500" />
                                     <span className="truncate">{session.deviceInfo || 'Unknown device'}</span>
                                     {session.current ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Current</span> : null}
@@ -360,7 +360,7 @@ export default function StudentSecurity() {
                                 ) : null}
                             </div>
                             {!session.current ? (
-                                <button onClick={() => revokeSession(session.sessionId)} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                <button onClick={() => revokeSession(session.sessionId)} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                                     <Trash2 className="h-4 w-4" />
                                     Revoke
                                 </button>

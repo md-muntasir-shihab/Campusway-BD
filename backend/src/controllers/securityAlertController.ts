@@ -5,6 +5,7 @@ import SecuritySettings from '../models/SecuritySettings';
 import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middlewares/auth';
 import { getClientIp } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -52,7 +53,7 @@ export async function adminGetSecurityAlerts(req: AuthRequest, res: Response): P
         SecurityAlertLog.countDocuments(filter),
         SecurityAlertLog.countDocuments({ isRead: false }),
     ]);
-    res.json({ items, total, page, pages: Math.ceil(total / limit), unreadCount });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit), unreadCount }));
 }
 
 /** GET /admin/security-alerts/summary — counts by severity */
@@ -68,31 +69,31 @@ export async function adminGetSecurityAlertSummary(_req: AuthRequest, res: Respo
         ]),
         SecurityAlertLog.countDocuments({ isRead: false }),
     ]);
-    res.json({ bySeverity, byType, unread });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ bySeverity, byType, unread }));
 }
 
 /** POST /admin/security-alerts/:id/read */
 export async function adminMarkAlertRead(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const alert = await SecurityAlertLog.findByIdAndUpdate(id, { $set: { isRead: true } }, { new: true });
-    if (!alert) { res.status(404).json({ message: 'Alert not found' }); return; }
-    res.json({ data: alert, message: 'Marked as read' });
+    if (!alert) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found')); return; }
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: alert }, 'Marked as read'));
 }
 
 /** POST /admin/security-alerts/mark-all-read */
 export async function adminMarkAllAlertsRead(_req: AuthRequest, res: Response): Promise<void> {
     await SecurityAlertLog.updateMany({ isRead: false }, { $set: { isRead: true } });
-    res.json({ message: 'All alerts marked as read' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'All alerts marked as read'));
 }
 
 /** POST /admin/security-alerts/:id/resolve */
 export async function adminResolveAlert(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const alert = await SecurityAlertLog.findByIdAndUpdate(id, {
         $set: {
@@ -101,20 +102,20 @@ export async function adminResolveAlert(req: AuthRequest, res: Response): Promis
             resolvedByAdminId: new mongoose.Types.ObjectId(String(req.user._id)),
         },
     }, { new: true });
-    if (!alert) { res.status(404).json({ message: 'Alert not found' }); return; }
+    if (!alert) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found')); return; }
     await createAudit(req, 'security_alert_resolved', { alertId: id, type: alert.type });
-    res.json({ data: alert, message: 'Alert resolved' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: alert }, 'Alert resolved'));
 }
 
 /** DELETE /admin/security-alerts/:id */
 export async function adminDeleteAlert(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const alert = await SecurityAlertLog.findByIdAndDelete(id);
-    if (!alert) { res.status(404).json({ message: 'Alert not found' }); return; }
+    if (!alert) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found')); return; }
     await createAudit(req, 'security_alert_deleted', { alertId: id });
-    res.json({ message: 'Alert deleted' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Alert deleted'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -125,19 +126,19 @@ export async function adminDeleteAlert(req: AuthRequest, res: Response): Promise
 export async function adminGetMaintenanceStatus(_req: AuthRequest, res: Response): Promise<void> {
     const settings = await SecuritySettings.findOne({ key: 'global' }).lean();
     if (!settings) {
-        res.json({ maintenanceMode: false, blockNewRegistrations: false, panic: {} });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ maintenanceMode: false, blockNewRegistrations: false, panic: {} }));
         return;
     }
-    res.json({
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({
         maintenanceMode: settings.siteAccess?.maintenanceMode ?? false,
         blockNewRegistrations: settings.siteAccess?.blockNewRegistrations ?? false,
         panic: settings.panic || {},
-    });
+    }));
 }
 
 /** PUT /admin/maintenance/status */
 export async function adminUpdateMaintenanceStatus(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const { maintenanceMode, blockNewRegistrations, panic } = req.body as Record<string, unknown>;
     const update: Record<string, unknown> = {};
@@ -161,7 +162,7 @@ export async function adminUpdateMaintenanceStatus(req: AuthRequest, res: Respon
     );
 
     await createAudit(req, 'maintenance_status_updated', update);
-    res.json({ message: 'Maintenance status updated' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Maintenance status updated'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -174,11 +175,11 @@ export async function getPublicSystemStatus(_req: AuthRequest, res: Response): P
         .select('siteAccess.maintenanceMode panic.readOnlyMode')
         .lean();
 
-    res.json({
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({
         operational: !(settings?.siteAccess?.maintenanceMode),
         maintenanceMode: settings?.siteAccess?.maintenanceMode ?? false,
         readOnlyMode: settings?.panic?.readOnlyMode ?? false,
-    });
+    }));
 }
 
 /* ═══════════════════════════════════════════════════════════

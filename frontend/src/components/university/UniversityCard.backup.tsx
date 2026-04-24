@@ -754,7 +754,7 @@ const UniversityCard = memo(function UniversityCard({
 
                 <div className="grid grid-cols-3 gap-2">
                     <UnitDateChip label="Science" value={university.scienceExamDate || university.examDateScience} />
-                    <UnitDateChip label="Arts" value={university.artsExamDate || university.examDateArts} />
+                    <UnitDateChip label="Humanities" value={university.artsExamDate || university.examDateArts} />
                     <UnitDateChip label="Business" value={university.businessExamDate || university.examDateBusiness} />
                 </div>
                 {mergedConfig.showExamCentersPreview && examCenterPreview.length > 0 && (

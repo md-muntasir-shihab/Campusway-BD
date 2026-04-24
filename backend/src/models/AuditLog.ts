@@ -1,5 +1,19 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+/**
+ * AuditLog model — records admin and system actions for accountability and compliance.
+ *
+ * Key fields:
+ * - `actor_id`: ObjectId of the user who performed the action
+ * - `action`: Human-readable action name (e.g. "update_exam", "delete_student")
+ * - `module`: Subsystem the action belongs to (e.g. "exams", "finance")
+ * - `status`: success | warning | failed | pending
+ * - `target_id` / `target_type`: The entity affected by the action
+ * - `before` / `after`: Snapshots for diff tracking
+ * - `ip_address`: Client IP at the time of the action
+ *
+ * @collection auditlogs
+ */
 export interface IAuditLog extends Document {
     actor_id: mongoose.Types.ObjectId;
     actor_role?: string;

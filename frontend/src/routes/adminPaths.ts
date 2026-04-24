@@ -13,6 +13,7 @@ import {
     Zap,
     HelpCircle,
     CheckCircle,
+    ClipboardCheck,
 } from 'lucide-react';
 
 export type AdminMenuIcon = ComponentType<{ className?: string }>;
@@ -140,6 +141,7 @@ export const ADMIN_PATHS = {
     teamSecurity: adminUi('team/security'),
     teamInvites: adminUi('team/invites'),
     approvals: adminUi('approvals'),
+    pendingApprovals: adminUi('pending-approvals'),
     legalPages: adminUi('legal-pages'),
     founderDetails: adminUi('founder-details'),
 } as const;
@@ -218,7 +220,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
         matchPrefixes: [adminUi('question-bank')],
     },
 
-    // 7. Student Management
+    // 7. Student Management (includes Pending Approvals)
     {
         key: 'students',
         label: 'Student Management',
@@ -233,6 +235,12 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
             adminUi('student-groups-v2'),
             adminUi('notification-center'),
             adminUi('settings/student-settings'),
+            adminUi('pending-approvals'),
+        ],
+        children: [
+            { key: 'studentsList', label: 'All Students', path: ADMIN_PATHS.studentMgmtList },
+            { key: 'pendingApprovals', label: 'Pending Approvals', path: ADMIN_PATHS.pendingApprovals },
+            { key: 'profileRequests', label: 'Profile Requests', path: ADMIN_PATHS.studentMgmtProfileRequests },
         ],
     },
 

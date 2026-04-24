@@ -1,5 +1,5 @@
-import { NewsItemModel } from "../models/newsItem.model";
-import { AuditLogModel } from "../models/auditLog.model";
+import News from "../models/News";
+import AuditLog from "../models/AuditLog";
 
 const writeAudit = async (payload: {
   actorId?: string;
@@ -9,12 +9,12 @@ const writeAudit = async (payload: {
   ip?: string;
   userAgent?: string;
 }) => {
-  await AuditLogModel.create({ targetType: "news", ...payload });
+  await AuditLog.create({ targetType: "news", ...payload });
 };
 
 export const approveAndPublishNow = async (id: string, actorId?: string) => {
-  const before = await NewsItemModel.findById(id).lean();
-  const after = await NewsItemModel.findByIdAndUpdate(
+  const before = await News.findById(id).lean();
+  const after = await News.findByIdAndUpdate(
     id,
     { status: "published", publishedAt: new Date(), approvedByAdminId: actorId, scheduledAt: null },
     { new: true }
@@ -24,8 +24,8 @@ export const approveAndPublishNow = async (id: string, actorId?: string) => {
 };
 
 export const scheduleNews = async (id: string, when: Date, actorId?: string) => {
-  const before = await NewsItemModel.findById(id).lean();
-  const after = await NewsItemModel.findByIdAndUpdate(
+  const before = await News.findById(id).lean();
+  const after = await News.findByIdAndUpdate(
     id,
     { status: "scheduled", scheduledAt: when, approvedByAdminId: actorId },
     { new: true }
@@ -35,8 +35,8 @@ export const scheduleNews = async (id: string, when: Date, actorId?: string) => 
 };
 
 export const rejectNews = async (id: string, actorId?: string) => {
-  const before = await NewsItemModel.findById(id).lean();
-  const after = await NewsItemModel.findByIdAndUpdate(id, { status: "rejected" }, { new: true });
+  const before = await News.findById(id).lean();
+  const after = await News.findByIdAndUpdate(id, { status: "rejected" }, { new: true });
   if (after) await writeAudit({ actorId, action: "reject", targetId: id, beforeAfterDiff: { before, after } });
   return after;
 };

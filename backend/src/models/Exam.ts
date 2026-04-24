@@ -1,6 +1,23 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import type { AntiCheatOverrides } from '../types/antiCheat';
 
+/**
+ * Exam model — represents an exam definition in the `exam_collection` collection.
+ *
+ * Key fields:
+ * - `title` / `title_bn`: Exam name in English and Bengali
+ * - `subject`: Primary subject for the exam
+ * - `startDate` / `endDate`: Legacy single exam window
+ * - `scheduleWindows`: Advanced multi-window scheduling
+ * - `duration`: Time limit in minutes once a student starts
+ * - `status`: Lifecycle state — draft | scheduled | live | closed
+ * - `deliveryMode`: internal (in-app MCQ) or external_link (redirect)
+ * - `createdBy`: ObjectId of the admin who created the exam
+ * - `totalParticipants`, `avgScore`, `highestScore`, `lowestScore`: Cached analytics
+ *
+ * @collection exam_collection
+ */
+
 /* ── Schedule Window sub-schema ── */
 export interface IScheduleWindow {
     startDateTimeUTC: Date;

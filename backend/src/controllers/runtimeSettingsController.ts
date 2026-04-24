@@ -10,6 +10,7 @@ import {
 } from '../services/runtimeSettingsService';
 import { SecurityConfig } from '../services/securityConfigService';
 import { getClientIp } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type RuntimeSettingsPayload = {
     security?: Partial<SecurityConfig>;
@@ -151,16 +152,16 @@ function validateRuntimeSettingsPayload(payload: RuntimeSettingsPayload): string
 export async function getRuntimeSettings(_req: AuthRequest, res: Response): Promise<void> {
     try {
         const snapshot = await getRuntimeSettingsSnapshot(true);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             security: snapshot.security,
             featureFlags: snapshot.featureFlags,
             updatedAt: snapshot.updatedAt,
             updatedBy: snapshot.updatedBy,
             runtimeVersion: snapshot.runtimeVersion,
-        });
+        }));
     } catch (error) {
         console.error('getRuntimeSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -169,7 +170,7 @@ export async function updateRuntimeSettingsController(req: AuthRequest, res: Res
         const payload = (req.body || {}) as RuntimeSettingsPayload;
         const validationError = validateRuntimeSettingsPayload(payload);
         if (validationError) {
-            res.status(400).json({ message: validationError });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', validationError));
             return;
         }
 
@@ -200,16 +201,16 @@ export async function updateRuntimeSettingsController(req: AuthRequest, res: Res
             },
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             security: after.security,
             featureFlags: after.featureFlags,
             updatedAt: after.updatedAt,
             updatedBy: after.updatedBy,
             runtimeVersion: after.runtimeVersion,
-        });
+        }));
     } catch (error) {
         console.error('updateRuntimeSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -220,14 +221,14 @@ export async function getAdminUiLayoutSettings(_req: AuthRequest, res: Response)
             .lean();
 
         const layout = normalizeAdminUiLayout(settings?.adminUiLayout as Record<string, unknown> | undefined);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             layout,
             updatedAt: settings?.updatedAt || null,
             updatedBy: settings?.updatedBy ? String(settings.updatedBy) : null,
-        });
+        }));
     } catch (error) {
         console.error('getAdminUiLayoutSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -235,7 +236,7 @@ export async function updateAdminUiLayoutSettings(req: AuthRequest, res: Respons
     try {
         const payload = (req.body || {}) as AdminUiLayoutPayload;
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-            res.status(400).json({ message: 'Body must be an object' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Body must be an object'));
             return;
         }
 
@@ -243,14 +244,14 @@ export async function updateAdminUiLayoutSettings(req: AuthRequest, res: Respons
             (key) => !(ADMIN_UI_LAYOUT_KEYS as readonly string[]).includes(key),
         );
         if (unknownKeys.length > 0) {
-            res.status(400).json({ message: `Unknown keys: ${unknownKeys.join(', ')}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Unknown keys: ${unknownKeys.join(', ')}`));
             return;
         }
 
         const hasSidebarOrder = Object.prototype.hasOwnProperty.call(payload, 'sidebarOrder');
         const hasSettingsCardOrder = Object.prototype.hasOwnProperty.call(payload, 'settingsCardOrder');
         if (!hasSidebarOrder && !hasSettingsCardOrder) {
-            res.status(400).json({ message: 'At least one of sidebarOrder or settingsCardOrder is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'At least one of sidebarOrder or settingsCardOrder is required'));
             return;
         }
 
@@ -288,13 +289,13 @@ export async function updateAdminUiLayoutSettings(req: AuthRequest, res: Respons
             },
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             layout: afterLayout,
             updatedAt: updated?.updatedAt || null,
             updatedBy: updated?.updatedBy ? String(updated.updatedBy) : null,
-        });
+        }));
     } catch (error) {
         console.error('updateAdminUiLayoutSettings error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

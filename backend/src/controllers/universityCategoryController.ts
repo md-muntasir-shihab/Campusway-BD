@@ -11,6 +11,7 @@ import {
     renameUniversityCategoryReferences,
     syncUniversityCategorySharedConfig,
 } from '../services/universitySyncService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function normalizeSlug(name: string, requestedSlug?: string): string {
     const source = requestedSlug || name;
@@ -78,15 +79,13 @@ export async function adminGetUniversityCategoryMaster(req: Request, res: Respon
             if (name) countMap.set(name, Number(item.count || 0));
         });
 
-        res.json({
-            categories: categories.map((item) => ({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({categories: categories.map((item) => ({
                 ...item,
                 count: countMap.get(String(item.name || '').trim()) || 0,
-            })),
-        });
+            })),}));
     } catch (err) {
         console.error('adminGetUniversityCategoryMaster error:', err);
-        res.status(500).json({ message: 'Failed to fetch university categories.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to fetch university categories.'));
     }
 }
 
@@ -95,14 +94,14 @@ export async function adminCreateUniversityCategory(req: Request, res: Response)
         const payload = req.body || {};
         const name = String(payload.name || '').trim();
         if (!name) {
-            res.status(400).json({ message: 'Category name is required.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Category name is required.'));
             return;
         }
 
         const slug = normalizeSlug(name, String(payload.slug || ''));
         const exists = await UniversityCategory.findOne({ $or: [{ name }, { slug }] }).lean();
         if (exists) {
-            res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CATEGORY_DUPLICATE', 'Category name or slug already exists.'));
             return;
         }
 
@@ -126,14 +125,14 @@ export async function adminCreateUniversityCategory(req: Request, res: Response)
             meta: { action: 'create', categoryId: String(category._id) },
         });
 
-        res.status(201).json({ category, message: 'University category created.' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({category}, 'University category created.'));
     } catch (err) {
         if ((err as { code?: number }).code === 11000) {
-            res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CATEGORY_DUPLICATE', 'Category name or slug already exists.'));
             return;
         }
         console.error('adminCreateUniversityCategory error:', err);
-        res.status(500).json({ message: 'Failed to create university category.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to create university category.'));
     }
 }
 
@@ -142,7 +141,7 @@ export async function adminUpdateUniversityCategory(req: Request, res: Response)
         const payload = req.body || {};
         const category = await UniversityCategory.findById(req.params.id);
         if (!category) {
-            res.status(404).json({ message: 'Category not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found.'));
             return;
         }
 
@@ -151,7 +150,7 @@ export async function adminUpdateUniversityCategory(req: Request, res: Response)
         if (payload.name !== undefined) {
             const nextName = String(payload.name || '').trim();
             if (!nextName) {
-                res.status(400).json({ message: 'Category name cannot be empty.' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Category name cannot be empty.'));
                 return;
             }
             category.name = nextName;
@@ -165,7 +164,7 @@ export async function adminUpdateUniversityCategory(req: Request, res: Response)
                 $or: [{ name: category.name }, { slug: category.slug }],
             }).select('_id').lean();
             if (duplicate) {
-                res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+                ResponseBuilder.send(res, 409, ResponseBuilder.error('CATEGORY_DUPLICATE', 'Category name or slug already exists.'));
                 return;
             }
         }
@@ -189,14 +188,14 @@ export async function adminUpdateUniversityCategory(req: Request, res: Response)
             meta: { action: 'update', categoryId: String(category._id) },
         });
 
-        res.json({ category, message: 'University category updated.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({category}, 'University category updated.'));
     } catch (err) {
         if ((err as { code?: number }).code === 11000) {
-            res.status(409).json({ message: 'Category name or slug already exists.', code: 'CATEGORY_DUPLICATE' });
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CATEGORY_DUPLICATE', 'Category name or slug already exists.'));
             return;
         }
         console.error('adminUpdateUniversityCategory error:', err);
-        res.status(500).json({ message: 'Failed to update university category.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to update university category.'));
     }
 }
 
@@ -204,7 +203,7 @@ export async function adminToggleUniversityCategory(req: Request, res: Response)
     try {
         const category = await UniversityCategory.findById(req.params.id);
         if (!category) {
-            res.status(404).json({ message: 'Category not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found.'));
             return;
         }
         category.isActive = !category.isActive;
@@ -216,10 +215,10 @@ export async function adminToggleUniversityCategory(req: Request, res: Response)
             meta: { action: 'toggle', categoryId: String(category._id), isActive: category.isActive },
         });
 
-        res.json({ category, message: `Category ${category.isActive ? 'activated' : 'deactivated'}.` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ category}, `Category ${category.isActive ? 'activated' : 'deactivated'}.`));
     } catch (err) {
         console.error('adminToggleUniversityCategory error:', err);
-        res.status(500).json({ message: 'Failed to toggle category status.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to toggle category status.'));
     }
 }
 
@@ -227,7 +226,7 @@ export async function adminDeleteUniversityCategory(req: Request, res: Response)
     try {
         const category = await UniversityCategory.findById(req.params.id);
         if (!category) {
-            res.status(404).json({ message: 'Category not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found.'));
             return;
         }
 
@@ -240,10 +239,10 @@ export async function adminDeleteUniversityCategory(req: Request, res: Response)
             meta: { action: 'delete', categoryId: String(category._id) },
         });
 
-        res.json({ message: 'Category archived (soft delete).' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Category archived (soft delete).'));
     } catch (err) {
         console.error('adminDeleteUniversityCategory error:', err);
-        res.status(500).json({ message: 'Failed to archive category.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to archive category.'));
     }
 }
 
@@ -251,7 +250,7 @@ export async function adminSyncUniversityCategoryConfig(req: Request, res: Respo
     try {
         const category = await UniversityCategory.findById(req.params.id);
         if (!category) {
-            res.status(404).json({ message: 'Category not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found.'));
             return;
         }
 
@@ -271,13 +270,10 @@ export async function adminSyncUniversityCategoryConfig(req: Request, res: Respo
             meta: { action: 'sync', categoryId: String(category._id), ...syncResult },
         });
 
-        res.json({
-            category,
-            syncResult,
-            message: 'Category configuration synced to universities.',
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({category,
+            syncResult}, 'Category configuration synced to universities.'));
     } catch (err) {
         console.error('adminSyncUniversityCategoryConfig error:', err);
-        res.status(500).json({ message: 'Failed to sync category configuration.' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to sync category configuration.'));
     }
 }

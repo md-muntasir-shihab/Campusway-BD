@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ChevronLeft, Save } from 'lucide-react';
+import { ChevronLeft, Save, X } from 'lucide-react';
 import {
     createAdminExam,
     getAdminExam,
@@ -10,6 +10,7 @@ import {
     listAdminExamQuestions,
     bulkAttachQuestions,
 } from '../../../api/adminExamApi';
+import { getStudentGroups } from '../../../api/adminStudentApi';
 import ModernToggle from '../../../components/ui/ModernToggle';
 import QuestionSelector from '../../../components/admin/exams/QuestionSelector';
 import {
@@ -72,6 +73,7 @@ export default function ExamFormPage() {
 function ExamFormInner() {
     const { examId } = useParams<{ examId?: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const qc = useQueryClient();
     const { state: selectorState, dispatch: selectorDispatch } = useQuestionSelector();
 
@@ -79,6 +81,29 @@ function ExamFormInner() {
     const [form, setForm] = useState<ExamFormData>({ ...DEFAULT_FORM });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof ExamFormData, string>>>({});
+
+    // Target group IDs for group_only visibility
+    const [targetGroupIds, setTargetGroupIds] = useState<string[]>([]);
+
+    // Pre-select group from query params (when navigating from Group Detail Exams tab)
+    useEffect(() => {
+        const preselectedGroupId = searchParams.get('targetGroupId');
+        if (preselectedGroupId && !isEdit) {
+            setTargetGroupIds((prev) => prev.includes(preselectedGroupId) ? prev : [...prev, preselectedGroupId]);
+            setForm((prev) => ({ ...prev, visibilityMode: 'group_only' }));
+        }
+    }, [searchParams, isEdit]);
+
+    // Fetch groups for the group picker
+    const { data: allGroups } = useQuery({
+        queryKey: ['admin-student-groups-for-exam'],
+        queryFn: () => getStudentGroups(),
+        enabled: form.visibilityMode === 'group_only',
+    });
+
+    const groupsList = (
+        Array.isArray(allGroups) ? allGroups : ((allGroups as Record<string, unknown>)?.groups ?? [])
+    ) as Record<string, unknown>[];
 
     /* ── Fetch existing exam + questions for edit mode ── */
     const fetchExam = useCallback(async (id: string) => {
@@ -102,6 +127,14 @@ function ExamFormInner() {
                 visibilityMode: exam.visibilityMode ?? 'all_students',
                 description: exam.description ?? '',
             });
+
+            // Load existing targetGroupIds
+            const existingTargetGroupIds = Array.isArray(exam.targetGroupIds)
+                ? exam.targetGroupIds.map(String)
+                : [];
+            if (existingTargetGroupIds.length > 0) {
+                setTargetGroupIds(existingTargetGroupIds);
+            }
 
             // Populate the right panel with currently assigned questions
             try {
@@ -180,6 +213,9 @@ function ExamFormInner() {
         if (!form.subject.trim()) errs.subject = 'Subject is required';
         if (!form.durationMinutes || form.durationMinutes <= 0) errs.durationMinutes = 'Duration must be greater than 0';
         if (!form.totalMarks || form.totalMarks <= 0) errs.totalMarks = 'Total marks must be greater than 0';
+        if (form.visibilityMode === 'group_only' && targetGroupIds.length === 0) {
+            errs.visibilityMode = 'At least one target group is required for group-only visibility';
+        }
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -253,6 +289,7 @@ function ExamFormInner() {
             attemptLimit: form.attemptLimit,
             status: form.status,
             visibilityMode: form.visibilityMode,
+            targetGroupIds: form.visibilityMode === 'group_only' ? targetGroupIds : [],
             description: form.description.trim(),
         };
         if (isEdit) updateMutation.mutate(payload);
@@ -343,7 +380,68 @@ function ExamFormInner() {
                             <option value="subscription_only">Subscription Only</option>
                             <option value="custom">Custom</option>
                         </select>
+                        {fieldError('visibilityMode')}
                     </label>
+
+                    {/* ── Group Picker (visible when visibilityMode is group_only) ── */}
+                    {form.visibilityMode === 'group_only' && (
+                        <div className="block md:col-span-2">
+                            <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">
+                                Target Groups <span className="text-red-500">*</span>
+                            </span>
+                            {/* Selected groups */}
+                            {targetGroupIds.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                                    {targetGroupIds.map((gid) => {
+                                        const grp = groupsList.find((g) => String(g._id) === gid);
+                                        const grpColor = (grp?.color as string) || '#6366f1';
+                                        const grpName = (grp?.name as string) || gid;
+                                        const memberCount = (grp?.memberCountCached ?? grp?.memberCount ?? 0) as number;
+                                        return (
+                                            <span
+                                                key={gid}
+                                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                            >
+                                                <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: grpColor }} />
+                                                {grpName}
+                                                {grp && <span className="text-slate-400">({memberCount})</span>}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTargetGroupIds((prev) => prev.filter((id) => id !== gid))}
+                                                    className="ml-0.5 text-slate-400 hover:text-red-500"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {/* Group dropdown */}
+                            <select
+                                className="admin-input mt-1"
+                                value=""
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val && !targetGroupIds.includes(val)) {
+                                        setTargetGroupIds((prev) => [...prev, val]);
+                                    }
+                                }}
+                            >
+                                <option value="">Select a group to add...</option>
+                                {groupsList
+                                    .filter((g) => !targetGroupIds.includes(String(g._id)))
+                                    .map((g) => {
+                                        const memberCount = (g.memberCountCached ?? g.memberCount ?? 0) as number;
+                                        return (
+                                            <option key={String(g._id)} value={String(g._id)}>
+                                                {g.name as string} ({memberCount} members)
+                                            </option>
+                                        );
+                                    })}
+                            </select>
+                        </div>
+                    )}
                     <label className="block md:col-span-2">
                         <span className="text-xs font-semibold text-text-muted dark:text-dark-text/65 uppercase tracking-wider">Description</span>
                         <textarea value={form.description} onChange={(e) => setField('description', e.target.value)} placeholder="Exam description..." className="admin-input mt-1 min-h-[60px]" />

@@ -510,7 +510,7 @@ function surface(title: string, subtitle: string | undefined, children: ReactNod
 }
 
 function inputClass(multiline = false): string {
-    return `w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:focus:border-cyan-500 ${multiline ? 'min-h-[132px]' : ''}`;
+    return `w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:focus:border-cyan-500 dark:focus:bg-slate-800 ${multiline ? 'min-h-[132px]' : ''}`;
 }
 
 function statCard(label: string, value: string, accent = false) {
@@ -538,7 +538,7 @@ function toggleCard(label: string, checked: boolean, onChange: (next: boolean) =
         <button
             type="button"
             onClick={() => onChange(!checked)}
-            className="flex w-full items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-cyan-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:hover:border-cyan-500/60"
+            className="flex w-full items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-cyan-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:hover:border-cyan-500/60 dark:hover:bg-slate-800"
         >
             <div>
                 <p className="text-sm font-medium text-slate-900 dark:text-white">{label}</p>

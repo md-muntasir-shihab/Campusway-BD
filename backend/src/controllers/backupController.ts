@@ -16,6 +16,7 @@ import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
 import { AuthRequest } from '../middlewares/auth';
 import { getClientIp } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const DEFAULT_BACKUP_DIR = path.resolve(process.cwd(), 'backup-snapshots');
 
@@ -120,13 +121,13 @@ function checksum(content: string): string {
 export async function adminRunBackup(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
         const requestedBy = asObjectId(req.user._id);
         if (!requestedBy) {
-            res.status(400).json({ message: 'Invalid actor id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid actor id'));
             return;
         }
 
@@ -174,10 +175,7 @@ export async function adminRunBackup(req: AuthRequest, res: Response): Promise<v
                 checksum: digest,
             });
 
-            res.status(201).json({
-                message: 'Backup completed successfully',
-                item: job,
-            });
+            ResponseBuilder.send(res, 201, ResponseBuilder.created({item: job}, 'Backup completed successfully'));
         } catch (error) {
             job.status = 'failed';
             job.error = (error as Error).message;
@@ -186,7 +184,7 @@ export async function adminRunBackup(req: AuthRequest, res: Response): Promise<v
         }
     } catch (error) {
         console.error('adminRunBackup error:', error);
-        res.status(500).json({ message: 'Failed to run backup' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to run backup'));
     }
 }
 
@@ -206,10 +204,10 @@ export async function adminListBackups(req: AuthRequest, res: Response): Promise
             BackupJob.countDocuments(),
         ]);
 
-        res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) }));
     } catch (error) {
         console.error('adminListBackups error:', error);
-        res.status(500).json({ message: 'Failed to load backup jobs' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load backup jobs'));
     }
 }
 
@@ -217,7 +215,7 @@ export async function adminDownloadBackup(req: AuthRequest, res: Response): Prom
     try {
         const item = await BackupJob.findById(req.params.id).lean();
         if (!item || !item.localPath) {
-            res.status(404).json({ message: 'Backup file not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Backup file not found'));
             return;
         }
 
@@ -225,7 +223,7 @@ export async function adminDownloadBackup(req: AuthRequest, res: Response): Prom
         try {
             await fs.access(filePath);
         } catch {
-            res.status(404).json({ message: 'Backup file is unavailable on disk' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Backup file is unavailable on disk'));
             return;
         }
 
@@ -236,14 +234,14 @@ export async function adminDownloadBackup(req: AuthRequest, res: Response): Prom
         res.download(filePath, downloadName);
     } catch (error) {
         console.error('adminDownloadBackup error:', error);
-        res.status(500).json({ message: 'Failed to download backup file' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to download backup file'));
     }
 }
 
 export async function adminRestoreBackup(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
@@ -251,13 +249,13 @@ export async function adminRestoreBackup(req: AuthRequest, res: Response): Promi
         const confirmation = String(body.confirmation || '').trim();
         const expected = `RESTORE ${req.params.id}`;
         if (confirmation !== expected) {
-            res.status(400).json({ message: `Invalid confirmation text. Use: ${expected}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid confirmation text. Use: ${expected}'));
             return;
         }
 
         const item = await BackupJob.findById(req.params.id);
         if (!item || !item.localPath) {
-            res.status(404).json({ message: 'Backup job not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Backup job not found'));
             return;
         }
 
@@ -271,7 +269,7 @@ export async function adminRestoreBackup(req: AuthRequest, res: Response): Promi
         const data = parsed.data || {};
         const requestedBy = asObjectId(req.user._id);
         if (!requestedBy) {
-            res.status(400).json({ message: 'Invalid actor id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid actor id'));
             return;
         }
 
@@ -363,13 +361,10 @@ export async function adminRestoreBackup(req: AuthRequest, res: Response): Promi
             metadata: parsed.metadata || {},
         });
 
-        res.json({
-            message: 'Restore completed successfully',
-            restoredFrom: String(item._id),
-            preRestoreSnapshotId: String(preRestore._id),
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({restoredFrom: String(item._id),
+            preRestoreSnapshotId: String(preRestore._id)}, 'Restore completed successfully'));
     } catch (error) {
         console.error('adminRestoreBackup error:', error);
-        res.status(500).json({ message: 'Failed to restore backup' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to restore backup'));
     }
 }

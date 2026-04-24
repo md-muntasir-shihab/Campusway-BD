@@ -429,8 +429,8 @@ export default function NewsPanel() {
                         </div>
                     ) : (
                         <div className="bg-slate-900/60 backdrop-blur-sm rounded-3xl border border-indigo-500/10 overflow-hidden shadow-xl">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
+                            <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+                                <table className="w-full text-sm min-w-[700px]">
                                     <thead>
                                         <tr className="border-b border-indigo-500/10 bg-slate-950/30">
                                             <th className="text-left py-5 px-6 text-[10px] uppercase tracking-widest text-slate-400 font-bold">Article Details</th>

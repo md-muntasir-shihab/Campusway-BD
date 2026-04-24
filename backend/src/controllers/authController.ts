@@ -21,9 +21,11 @@ import { buildTotpOtpAuthUrl, consumeBackupCode, generateBackupCodes, generateOt
 import { getRuntimeSettingsSnapshot } from '../services/runtimeSettingsService';
 import { calculatePasswordExpiryDate, getPasswordPolicyForRole, isPasswordCompliant } from '../services/securityCenterService';
 import { clearPersistentRateLimit, consumePersistentRateLimit } from '../services/securityRateLimitService';
+import { isApprovalEnabled } from '../services/profileApprovalService';
 import { findValidSecurityToken, incrementSecurityTokenAttempts, invalidateSecurityTokens, issueSecurityToken, markSecurityTokenConsumed } from '../services/securityTokenService';
 import { logAuthFailure } from '../services/securityAuditLogger';
 import { checkAuthFailureSpike } from '../services/securityAlertService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const IS_PROD_AUTH = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-jwt-secret-for-production-please-change-immediately-cw';
@@ -552,7 +554,7 @@ export async function login(req: Request, res: Response): Promise<void> {
         const portal = normalizePortal(req.body.portal);
 
         if (!identifier || !password) {
-            res.status(400).json({ message: 'Username/email and password are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Username/email and password are required'));
             return;
         }
 
@@ -563,12 +565,12 @@ export async function login(req: Request, res: Response): Promise<void> {
 
         const user = await User.findOne(lookup).select('+password +twoFactorSecret');
         if (!user) {
-            res.status(401).json({ message: getGenericAuthMessage(security, 'Invalid credentials') });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', getGenericAuthMessage(security, 'Invalid credentials')));
             return;
         }
 
         if (!portalAllowsRole(portal, user.role)) {
-            res.status(403).json({ message: portal ? roleMismatchMessage(portal) : 'Account role mismatch for this portal.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', portal ? roleMismatchMessage(portal) : 'Account role mismatch for this portal.'));
             return;
         }
 
@@ -580,10 +582,7 @@ export async function login(req: Request, res: Response): Promise<void> {
                 identifier,
                 reason: 'student_login_disabled_by_policy',
             });
-            res.status(423).json({
-                code: 'STUDENT_LOGIN_DISABLED',
-                message: 'Student logins are temporarily disabled by administrator policy.',
-            });
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('STUDENT_LOGIN_DISABLED', 'Student logins are temporarily disabled by administrator policy.'));
             return;
         }
 
@@ -600,7 +599,7 @@ export async function login(req: Request, res: Response): Promise<void> {
             const msg = status === 'pending'
                 ? 'Your account is pending email verification. Please check your inbox.'
                 : 'Account is suspended or blocked. Contact support.';
-            res.status(403).json({ message: msg });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', msg));
             return;
         }
 
@@ -612,7 +611,7 @@ export async function login(req: Request, res: Response): Promise<void> {
                 identifier,
                 reason: 'email_not_verified',
             });
-            res.status(403).json({ message: 'Email verification is required before login.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Email verification is required before login.'));
             return;
         }
 
@@ -624,9 +623,7 @@ export async function login(req: Request, res: Response): Promise<void> {
                 identifier,
                 reason: 'account_locked',
             });
-            res.status(423).json({
-                message: `Account locked. Try again after ${Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000)} minutes.`,
-            });
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('AUTHENTICATION_ERROR', `Account locked. Try again after ${Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000)} minutes.`));
             return;
         }
 
@@ -660,7 +657,7 @@ export async function login(req: Request, res: Response): Promise<void> {
             }).catch(() => { /* audit logging must never crash */ });
             checkAuthFailureSpike(failIp).catch(() => { /* alert check must never crash */ });
 
-            res.status(401).json({ message: getGenericAuthMessage(security, 'Invalid credentials') });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', getGenericAuthMessage(security, 'Invalid credentials')));
             return;
         }
 
@@ -750,7 +747,7 @@ export async function login(req: Request, res: Response): Promise<void> {
 
         if (needsTwoFactor(user!, security)) {
             const challenge = await issueOtpChallenge(user!, security);
-            res.json({ requires2fa: true, ...challenge });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ requires2fa: true, ...challenge }));
             return;
         }
 
@@ -765,14 +762,14 @@ export async function login(req: Request, res: Response): Promise<void> {
         setRefreshCookie(res, session.refreshToken, security.session.refreshTokenTTLDays);
         const userPayload = await buildUserPayload(user);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             token: session.accessToken,
             user: userPayload,
             suspiciousLogin,
-        });
+        }));
     } catch (error) {
         console.error('login error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -790,27 +787,27 @@ export async function refresh(req: Request, res: Response): Promise<void> {
     try {
         const refreshToken = req.cookies?.refresh_token;
         if (!refreshToken) {
-            res.status(401).json({ message: 'No refresh token provided' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'No refresh token provided'));
             return;
         }
 
         const decoded = jwt.verify(refreshToken, REFRESH_SECRET) as { _id: string; sessionId?: string };
         const user = await User.findById(decoded._id);
         if (!user || (user.status !== 'active' && user.status !== 'pending')) {
-            res.status(403).json({ message: 'User not found or inactive' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'User not found or inactive'));
             return;
         }
 
         const security = await getSecurityConfig(true);
         if (!decoded.sessionId && isLegacyTokenBlocked(security)) {
-            res.status(401).json({ message: 'Legacy token is no longer allowed. Please login again.', code: 'LEGACY_TOKEN_NOT_ALLOWED' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('LEGACY_TOKEN_NOT_ALLOWED', 'Legacy token is no longer allowed. Please login again.'));
             return;
         }
 
         if (decoded.sessionId) {
             const session = await ActiveSession.findOne({ session_id: decoded.sessionId, status: 'active' });
             if (!session) {
-                res.status(401).json({ message: 'Session invalidated', code: 'SESSION_INVALIDATED' });
+                ResponseBuilder.send(res, 401, ResponseBuilder.error('SESSION_INVALIDATED', 'Session invalidated'));
                 return;
             }
         }
@@ -831,7 +828,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
         }
         setRefreshCookie(res, newRefreshToken, security.session.refreshTokenTTLDays);
         setAccessCookie(res, token, security.session.accessTokenTTLMinutes);
-        res.json({ token });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ token }));
     } catch {
         // Audit log expired token failure and check for auth_failure_spike (Req 12.3, 13.1)
         const refreshFailIp = getClientIp(req);
@@ -844,7 +841,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
         }).catch(() => { /* audit logging must never crash */ });
         checkAuthFailureSpike(refreshFailIp).catch(() => { /* alert check must never crash */ });
 
-        res.status(403).json({ message: 'Invalid or expired refresh token' });
+        ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Invalid or expired refresh token'));
     }
 }
 
@@ -881,7 +878,7 @@ export async function logout(req: AuthRequest, res: Response): Promise<void> {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
     });
-    res.json({ message: 'Logged out successfully' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Logged out successfully'));
 }
 
 export async function verify2fa(req: Request, res: Response): Promise<void> {
@@ -1018,7 +1015,7 @@ export async function verify2fa(req: Request, res: Response): Promise<void> {
         setAccessCookie(res, session.accessToken, security.session.accessTokenTTLMinutes);
         setRefreshCookie(res, session.refreshToken, security.session.refreshTokenTTLDays);
         const userPayload = await buildUserPayload(user);
-        res.json({ token: session.accessToken, user: userPayload });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ token: session.accessToken, user: userPayload }));
     } catch (error) {
         console.error('verify2fa error:', error);
         respondOtpError(res, 500, 'OTP_SERVER_ERROR', 'Server error');
@@ -1064,10 +1061,7 @@ export async function resendOtp(req: Request, res: Response): Promise<void> {
 
         const challenge = await issueOtpChallenge(user, security);
 
-        res.json({
-            message: 'New OTP sent successfully',
-            ...challenge,
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ...challenge }, 'New OTP sent successfully'));
     } catch (error) {
         console.error('resendOtp error:', error);
         respondOtpError(res, 500, 'OTP_SERVER_ERROR', 'Server error');
@@ -1079,10 +1073,10 @@ export async function checkSession(req: AuthRequest, res: Response): Promise<voi
         const security = await getSecurityConfig(true);
         if (!req.user?.sessionId) {
             if (isLegacyTokenBlocked(security)) {
-                res.status(401).json({ valid: false, code: 'LEGACY_TOKEN_NOT_ALLOWED' });
+                ResponseBuilder.send(res, 401, ResponseBuilder.error('LEGACY_TOKEN_NOT_ALLOWED', 'Invalid session'));
                 return;
             }
-            res.json({ valid: true });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ valid: true }));
             return;
         }
 
@@ -1092,7 +1086,7 @@ export async function checkSession(req: AuthRequest, res: Response): Promise<voi
         }).lean();
 
         if (!session) {
-            res.status(401).json({ valid: false, code: 'SESSION_INVALIDATED' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('SESSION_INVALIDATED', 'Invalid session'));
             return;
         }
 
@@ -1100,25 +1094,25 @@ export async function checkSession(req: AuthRequest, res: Response): Promise<voi
             const authHeader = req.headers.authorization || '';
             const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
             if (!token || hashToken(token) !== session.jwt_token_hash) {
-                res.status(401).json({ valid: false, code: 'SESSION_INVALIDATED' });
+                ResponseBuilder.send(res, 401, ResponseBuilder.error('SESSION_INVALIDATED', 'Invalid session'));
                 return;
             }
         }
 
-        res.json({ valid: true });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ valid: true }));
     } catch {
-        res.json({ valid: true });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ valid: true }));
     }
 }
 
 export function sessionStream(req: AuthRequest, res: Response): void {
     if (!req.user) {
-        res.status(401).json({ message: 'Not authenticated' });
+        ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
         return;
     }
 
     if (!req.user.sessionId) {
-        res.status(400).json({ code: 'SESSION_ID_REQUIRED', message: 'Session token required for stream.' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Session token required for stream.', { code: 'SESSION_ID_REQUIRED' }));
         return;
     }
 
@@ -1156,10 +1150,10 @@ export async function getActiveSessions(req: AuthRequest, res: Response): Promis
         ]);
 
         const pages = Math.max(1, Math.ceil(total / limitNum));
-        res.json({ items, sessions: items, total, page: pageNum, pages });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, sessions: items, total, page: pageNum, pages }));
     } catch (error) {
         console.error('getActiveSessions error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1171,7 +1165,7 @@ export async function forceLogoutUser(req: AuthRequest, res: Response): Promise<
         const reason = String(body.reason || 'admin_force_logout').trim() || 'admin_force_logout';
 
         if (!userId && !sessionId) {
-            res.status(400).json({ message: 'userId or sessionId is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'userId or sessionId is required'));
             return;
         }
 
@@ -1202,15 +1196,14 @@ export async function forceLogoutUser(req: AuthRequest, res: Response): Promise<
             },
         });
 
-        res.json({
-            message: 'Session termination completed',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             terminatedCount: termination.terminatedCount,
             sessionIds: termination.sessionIds,
-            terminatedAt: termination.terminatedAt,
-        });
+            terminatedAt: termination.terminatedAt
+        }, 'Session termination completed'));
     } catch (error) {
         console.error('forceLogoutUser error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1256,24 +1249,19 @@ export async function getTwoFactorUsers(req: AuthRequest, res: Response): Promis
         ]);
 
         const pages = Math.max(1, Math.ceil(total / limitNum));
-        res.json({
-            items: users.map((user) => ({
-                _id: user._id,
-                username: user.username,
-                email: user.email,
-                fullName: user.full_name || user.username,
-                role: user.role,
-                twoFactorEnabled: Boolean(user.twoFactorEnabled),
-                two_factor_method: user.two_factor_method || null,
-                lastLogin: user.lastLogin || null,
-            })),
-            total,
-            page: pageNum,
-            pages,
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.paginated(users.map((user) => ({
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            fullName: user.full_name || user.username,
+            role: user.role,
+            twoFactorEnabled: Boolean(user.twoFactorEnabled),
+            two_factor_method: user.two_factor_method || null,
+            lastLogin: user.lastLogin || null,
+        })), pageNum, limitNum, total));
     } catch (error) {
         console.error('getTwoFactorUsers error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1283,13 +1271,13 @@ export async function updateTwoFactorUser(req: AuthRequest, res: Response): Prom
         const body = req.body as { twoFactorEnabled?: boolean; two_factor_method?: TwoFactorMethod | null };
 
         if (body.twoFactorEnabled === undefined && body.two_factor_method === undefined) {
-            res.status(400).json({ message: 'twoFactorEnabled or two_factor_method is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'twoFactorEnabled or two_factor_method is required'));
             return;
         }
 
         const user = await User.findById(id);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
@@ -1324,8 +1312,7 @@ export async function updateTwoFactorUser(req: AuthRequest, res: Response): Prom
             },
         });
 
-        res.json({
-            message: '2FA settings updated',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             user: {
                 _id: user._id,
                 username: user.username,
@@ -1333,10 +1320,10 @@ export async function updateTwoFactorUser(req: AuthRequest, res: Response): Prom
                 twoFactorEnabled: user.twoFactorEnabled,
                 two_factor_method: user.two_factor_method,
             },
-        });
+        }, '2FA settings updated'));
     } catch (error) {
         console.error('updateTwoFactorUser error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1345,7 +1332,7 @@ export async function resetTwoFactorUser(req: AuthRequest, res: Response): Promi
         const { id } = req.params;
         const user = await User.findById(id).select('+twoFactorSecret +twoFactorBackupCodes');
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
@@ -1368,10 +1355,10 @@ export async function resetTwoFactorUser(req: AuthRequest, res: Response): Promi
             ip_address: getClientIp(req),
         });
 
-        res.json({ message: 'User 2FA reset successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'User 2FA reset successfully'));
     } catch (error) {
         console.error('resetTwoFactorUser error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1448,10 +1435,10 @@ export async function getTwoFactorFailures(req: AuthRequest, res: Response): Pro
             };
         });
 
-        res.json({ items, total, page: pageNum, pages });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page: pageNum, pages }));
     } catch (error) {
         console.error('getTwoFactorFailures error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1459,7 +1446,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     try {
         const runtime = await getRuntimeSettingsSnapshot(true);
         if (!runtime.featureFlags.studentRegistrationEnabled) {
-            res.status(403).json({ message: 'Student self-registration is currently disabled. Please contact admin.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student self-registration is currently disabled. Please contact admin.'));
             return;
         }
 
@@ -1470,21 +1457,18 @@ export async function register(req: Request, res: Response): Promise<void> {
         const phone = String(req.body.phone || '').trim();
         const security = await getSecurityConfig(true);
         if (security.panic.disableStudentLogins) {
-            res.status(423).json({
-                code: 'STUDENT_LOGIN_DISABLED',
-                message: 'Student registration is temporarily disabled by administrator policy.',
-            });
+            ResponseBuilder.send(res, 423, ResponseBuilder.error('STUDENT_LOGIN_DISABLED', 'Student registration is temporarily disabled by administrator policy.'));
             return;
         }
 
         if (!fullName || !email || !username) {
-            res.status(400).json({ message: 'Full name, username, email and password are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Full name, username, email and password are required'));
             return;
         }
 
         const passwordPolicyResult = isPasswordCompliant(password, security.passwordPolicies.student);
         if (!passwordPolicyResult.ok) {
-            res.status(400).json({ message: passwordPolicyResult.message || 'Password does not meet policy requirements.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', passwordPolicyResult.message || 'Password does not meet policy requirements.'));
             return;
         }
 
@@ -1492,18 +1476,20 @@ export async function register(req: Request, res: Response): Promise<void> {
             $or: [{ email }, { username }],
         });
         if (existingUser) {
-            res.status(400).json({ message: 'Email or username already exists' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Email or username already exists'));
             return;
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
+        // Requirements 5.1, 10.6: Set status based on profileApprovalEnabled setting
+        const approvalEnabled = await isApprovalEnabled();
         const newUser = await User.create({
             full_name: fullName,
             email,
             username,
             password: hashedPassword,
             role: 'student',
-            status: 'pending',
+            status: approvalEnabled ? 'pending' : 'active',
             phone_number: phone || undefined,
             permissions: resolvePermissions('student'),
             permissionsV2: resolvePermissionsV2('student'),
@@ -1538,22 +1524,20 @@ export async function register(req: Request, res: Response): Promise<void> {
             html: `<p>Hello ${fullName},</p><p>Please verify your email by clicking the link below:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>This link expires in ${security.verificationRecovery.emailVerificationExpiryHours} hours.</p>`,
         });
 
-        res.status(201).json({
-            message: 'Registration successful. Please verify your email from the inbox.',
-        });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created(null, 'Registration successful. Please verify your email from the inbox.'));
     } catch (error) {
         console.error('register error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getOauthProviders(_req: Request, res: Response): Promise<void> {
     try {
         const status = getOauthStatus();
-        res.json(status);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(status));
     } catch (error) {
         console.error('getOauthProviders error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1561,37 +1545,25 @@ export async function startOauth(req: Request, res: Response): Promise<void> {
     try {
         const provider = getOauthProvider(String(req.params.provider || ''));
         if (!provider) {
-            res.status(400).json({ message: 'Unsupported OAuth provider' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported OAuth provider'));
             return;
         }
 
         const status = getOauthStatus();
         const providerStatus = status.providers.find((item) => item.id === provider);
         if (!status.oauthEnabled || !providerStatus?.enabled) {
-            res.status(200).json({
-                ok: false,
-                code: 'OAUTH_DISABLED',
-                message: `${provider} sign-in is disabled`,
-            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.error('OAUTH_DISABLED', `${provider} sign-in is disabled`));
             return;
         }
         if (!providerStatus.configured) {
-            res.status(200).json({
-                ok: false,
-                code: 'OAUTH_NOT_CONFIGURED',
-                message: `${provider} OAuth credentials are not configured`,
-            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.error('OAUTH_NOT_CONFIGURED', `${provider} OAuth credentials are not configured`));
             return;
         }
 
-        res.status(501).json({
-            ok: false,
-            code: 'OAUTH_PROVIDER_PENDING',
-            message: `${provider} OAuth handshake endpoint is ready but provider wiring is pending`,
-        });
+        ResponseBuilder.send(res, 501, ResponseBuilder.error('OAUTH_PROVIDER_PENDING', `${provider} OAuth handshake endpoint is ready but provider wiring is pending`));
     } catch (error) {
         console.error('startOauth error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1599,29 +1571,21 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
     try {
         const provider = getOauthProvider(String(req.params.provider || ''));
         if (!provider) {
-            res.status(400).json({ message: 'Unsupported OAuth provider' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported OAuth provider'));
             return;
         }
 
         const status = getOauthStatus();
         const providerStatus = status.providers.find((item) => item.id === provider);
         if (!status.oauthEnabled || !providerStatus?.enabled || !providerStatus?.configured) {
-            res.status(200).json({
-                ok: false,
-                code: 'OAUTH_UNAVAILABLE',
-                message: `${provider} sign-in is currently unavailable`,
-            });
+            ResponseBuilder.send(res, 200, ResponseBuilder.error('OAUTH_UNAVAILABLE', `${provider} sign-in is currently unavailable`));
             return;
         }
 
-        res.status(501).json({
-            ok: false,
-            code: 'OAUTH_PROVIDER_PENDING',
-            message: `${provider} callback handler is not finalized yet`,
-        });
+        ResponseBuilder.send(res, 501, ResponseBuilder.error('OAUTH_PROVIDER_PENDING', `${provider} callback handler is not finalized yet`));
     } catch (error) {
         console.error('oauthCallback error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1629,19 +1593,19 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
     try {
         const token = String(req.query.token || '').trim();
         if (!token) {
-            res.status(400).json({ message: 'Token is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Token is required'));
             return;
         }
 
         const tokenDoc = await findValidSecurityToken(token, 'email_verification');
         if (!tokenDoc) {
-            res.status(400).json({ message: 'Invalid or expired token' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid or expired token'));
             return;
         }
 
         const user = await User.findById(tokenDoc.userId);
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
@@ -1651,10 +1615,10 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
         await user.save();
         await markSecurityTokenConsumed(tokenDoc);
 
-        res.json({ message: 'Email verified successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Email verified successfully'));
     } catch (error) {
         console.error('verifyEmail error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1664,7 +1628,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
         const identifier = String(identifierRaw || '').trim().toLowerCase();
 
         if (!identifier) {
-            res.status(400).json({ message: 'Email or username is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Email or username is required'));
             return;
         }
 
@@ -1674,7 +1638,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
         const user = await User.findOne(lookup);
 
         if (!user) {
-            res.json({ message: 'If the account exists, a password reset link has been sent.' });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'If the account exists, a password reset link has been sent.'));
             return;
         }
 
@@ -1696,10 +1660,10 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
             html: `<p>Hello ${user.full_name || user.username},</p><p>Use this link to reset your CampusWay password:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in ${security.verificationRecovery.passwordResetExpiryMinutes} minutes.</p>`,
         });
 
-        res.json({ message: 'If the account exists, a password reset link has been sent.' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'If the account exists, a password reset link has been sent.'));
     } catch (error) {
         console.error('forgotPassword error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1709,7 +1673,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
         const newPassword = String(req.body.newPassword || '');
 
         if (!token) {
-            res.status(400).json({ message: 'Valid token and new password are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid token and new password are required'));
             return;
         }
 
@@ -1717,13 +1681,13 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
             await findValidSecurityToken(token, 'password_reset') ||
             await findValidSecurityToken(token, 'set_password');
         if (!tokenDoc) {
-            res.status(400).json({ message: 'Invalid or expired token' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid or expired token'));
             return;
         }
 
         const user = await User.findById(tokenDoc.userId).select('+password +passwordHistory');
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
@@ -1731,7 +1695,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
         const passwordPolicy = getPasswordPolicyForUserRole(security, user.role);
         const passwordPolicyResult = isPasswordCompliant(newPassword, passwordPolicy);
         if (!passwordPolicyResult.ok) {
-            res.status(400).json({ message: passwordPolicyResult.message || 'Password does not meet policy requirements.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', passwordPolicyResult.message || 'Password does not meet policy requirements.'));
             return;
         }
 
@@ -1755,23 +1719,23 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
             ip_address: getClientIp(req),
         });
 
-        res.json({ message: 'Password reset successful' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Password reset successful'));
     } catch (error) {
         console.error('resetPassword error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getMe(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
         const user = await User.findById(req.user._id);
         if (!user || ['suspended', 'blocked'].includes(user.status)) {
-            res.status(403).json({ message: 'User not found or blocked' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'User not found or blocked'));
             return;
         }
 
@@ -1804,7 +1768,7 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
             profilePhoto = profilePhoto || String(adminProfile?.profile_photo || '').trim();
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             user: {
                 _id: user._id,
                 username: user.username,
@@ -1827,24 +1791,24 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
                 subscription: getSubscriptionSummary(user),
                 student_meta: studentMeta,
             },
-        });
+        }));
     } catch (error) {
         console.error('getMe error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function changePassword(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
         const currentPassword = String(req.body.currentPassword || '');
         const newPassword = String(req.body.newPassword || '');
         if (!currentPassword) {
-            res.status(400).json({ message: 'Current password and new password are required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Current password and new password are required'));
             return;
         }
 
@@ -1852,20 +1816,20 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
         const passwordPolicy = getPasswordPolicyForUserRole(security, req.user.role);
         const passwordPolicyResult = isPasswordCompliant(newPassword, passwordPolicy);
         if (!passwordPolicyResult.ok) {
-            res.status(400).json({ message: passwordPolicyResult.message || 'Password does not meet policy requirements.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', passwordPolicyResult.message || 'Password does not meet policy requirements.'));
             return;
         }
 
         const user = await User.findById(req.user._id).select('+password +passwordHistory');
         if (!user || ['suspended', 'blocked'].includes(user.status)) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
             // Wrong current password is a validation failure, not an auth-session failure.
-            res.status(400).json({ message: 'Current password is incorrect' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Current password is incorrect'));
             return;
         }
 
@@ -1886,17 +1850,17 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
             ip_address: getClientIp(req),
         });
 
-        res.json({ message: 'Password changed successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Password changed successfully'));
     } catch (error) {
         console.error('changePassword error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function getMySecuritySessions(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
@@ -1905,7 +1869,7 @@ export async function getMySecuritySessions(req: AuthRequest, res: Response): Pr
             .limit(25)
             .lean();
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             sessions: sessions.map((session) => ({
                 sessionId: session.session_id,
                 status: session.status,
@@ -1920,23 +1884,23 @@ export async function getMySecuritySessions(req: AuthRequest, res: Response): Pr
                 riskScore: session.risk_score || 0,
                 riskFlags: Array.isArray(session.risk_flags) ? session.risk_flags : [],
             })),
-        });
+        }));
     } catch (error) {
         console.error('getMySecuritySessions error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function revokeMySecuritySession(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
         const sessionId = String(req.params.sessionId || req.body?.sessionId || '').trim();
         if (!sessionId) {
-            res.status(400).json({ message: 'sessionId is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'sessionId is required'));
             return;
         }
 
@@ -1956,17 +1920,17 @@ export async function revokeMySecuritySession(req: AuthRequest, res: Response): 
             details: { sessionId, terminatedCount: result.terminatedCount },
         });
 
-        res.json({ message: 'Session revoked successfully', terminatedCount: result.terminatedCount });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ terminatedCount: result.terminatedCount }, 'Session revoked successfully'));
     } catch (error) {
         console.error('revokeMySecuritySession error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function logoutAllMySessions(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
@@ -1984,29 +1948,29 @@ export async function logoutAllMySessions(req: AuthRequest, res: Response): Prom
             details: { terminatedCount: result.terminatedCount },
         });
 
-        res.json({ message: 'Logged out from all devices', terminatedCount: result.terminatedCount });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ terminatedCount: result.terminatedCount }, 'Logged out from all devices'));
     } catch (error) {
         console.error('logoutAllMySessions error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function beginTotpSetup(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
         const currentPassword = String(req.body?.currentPassword || '');
         const user = await User.findById(req.user._id).select('+password +twoFactorSecret +twoFactorBackupCodes');
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
 
         if (!currentPassword || !(await bcrypt.compare(currentPassword, user.password))) {
-            res.status(400).json({ message: 'Current password is incorrect' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Current password is incorrect'));
             return;
         }
 
@@ -2028,35 +1992,35 @@ export async function beginTotpSetup(req: AuthRequest, res: Response): Promise<v
             ip_address: getClientIp(req),
         });
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             secret,
             otpAuthUrl: buildTotpOtpAuthUrl({
                 accountName: user.email || user.username,
                 secret,
             }),
             backupCodes: backupCodes.plainCodes,
-        });
+        }));
     } catch (error) {
         console.error('beginTotpSetup error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function confirmTotpSetup(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
         const code = String(req.body?.code || '').trim();
         const user = await User.findById(req.user._id).select('+twoFactorSecret +twoFactorBackupCodes');
         if (!user || !user.twoFactorSecret) {
-            res.status(400).json({ message: 'No pending authenticator setup found' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No pending authenticator setup found'));
             return;
         }
         if (!verifyTotpCode(user.twoFactorSecret, code)) {
-            res.status(400).json({ message: 'Invalid authenticator code. Ensure device time is automatic and try the latest 6-digit code.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid authenticator code. Ensure device time is automatic and try the latest 6-digit code.'));
             return;
         }
 
@@ -2074,28 +2038,28 @@ export async function confirmTotpSetup(req: AuthRequest, res: Response): Promise
             ip_address: getClientIp(req),
         });
 
-        res.json({ message: 'Authenticator app enabled successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Authenticator app enabled successfully'));
     } catch (error) {
         console.error('confirmTotpSetup error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function regenerateBackupCodes(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
         const currentPassword = String(req.body?.currentPassword || '');
         const user = await User.findById(req.user._id).select('+password +twoFactorBackupCodes +twoFactorSecret');
         if (!user || !user.twoFactorEnabled) {
-            res.status(404).json({ message: 'User not found or 2FA is not enabled' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found or 2FA is not enabled'));
             return;
         }
         if (!currentPassword || !(await bcrypt.compare(currentPassword, user.password))) {
-            res.status(400).json({ message: 'Current password is incorrect' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Current password is incorrect'));
             return;
         }
 
@@ -2113,28 +2077,28 @@ export async function regenerateBackupCodes(req: AuthRequest, res: Response): Pr
             ip_address: getClientIp(req),
         });
 
-        res.json({ backupCodes: backupCodes.plainCodes });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ backupCodes: backupCodes.plainCodes }));
     } catch (error) {
         console.error('regenerateBackupCodes error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function disableTwoFactor(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Not authenticated' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
             return;
         }
 
         const currentPassword = String(req.body?.currentPassword || '');
         const user = await User.findById(req.user._id).select('+password +twoFactorSecret +twoFactorBackupCodes');
         if (!user) {
-            res.status(404).json({ message: 'User not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
             return;
         }
         if (!currentPassword || !(await bcrypt.compare(currentPassword, user.password))) {
-            res.status(400).json({ message: 'Current password is incorrect' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Current password is incorrect'));
             return;
         }
 
@@ -2156,10 +2120,10 @@ export async function disableTwoFactor(req: AuthRequest, res: Response): Promise
             ip_address: getClientIp(req),
         });
 
-        res.json({ message: 'Two-factor authentication disabled' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Two-factor authentication disabled'));
     } catch (error) {
         console.error('disableTwoFactor error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 

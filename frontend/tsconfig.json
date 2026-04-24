@@ -24,6 +24,9 @@
         "paths": {
             "@/*": [
                 "./src/*"
+            ],
+            "@shared/*": [
+                "../backend/src/types/shared/*"
             ]
         }
     },

@@ -65,8 +65,8 @@ export default function StudentsListPage() {
 
   const filterParams =
     filterStatus === 'expiring' ? { expiringDays: 7 } :
-    filterStatus === 'score_low' ? { profileScoreMin: 0 } :
-    { status: filterStatus || undefined };
+      filterStatus === 'score_low' ? { profileScoreMin: 0 } :
+        { status: filterStatus || undefined };
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-students', dSearch, filterStatus, page],
@@ -251,7 +251,7 @@ export default function StudentsListPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto border-t border-gray-200 dark:border-gray-700">
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 border-t border-gray-200 dark:border-gray-700">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800/60">
             <tr>

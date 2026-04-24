@@ -38,14 +38,14 @@ export default function CertificateVerifyPage() {
     const isValid = Boolean(payload?.valid) && !error;
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/60 to-white py-16 px-4">
-            <div className="max-w-2xl mx-auto bg-white/95 border border-slate-200 rounded-3xl shadow-xl p-8">
+            <div className="max-w-2xl mx-auto bg-white/95 border border-slate-200 rounded-3xl shadow-xl p-8 dark:bg-slate-900/95 dark:border-slate-700">
                 <div className="flex items-center gap-3">
                     {isValid ? (
                         <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                     ) : (
                         <ShieldAlert className="w-8 h-8 text-rose-600" />
                     )}
-                    <h1 className="text-2xl font-extrabold text-slate-900">
+                    <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
                         {isValid ? 'Certificate Verified' : 'Certificate Invalid'}
                     </h1>
                 </div>

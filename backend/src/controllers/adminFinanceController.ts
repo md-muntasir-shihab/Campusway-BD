@@ -19,6 +19,7 @@ import { createStudentNotification } from '../services/adminAlertService';
 import { createIncomeFromPayment } from '../services/financeCenterService';
 import { activateSubscriptionFromPayment, recomputeStudentDueLedger } from '../services/subscriptionLifecycleService';
 import { escapeRegex } from '../utils/escapeRegex';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type DateRange = { from?: Date; to?: Date };
 const SECURE_FINANCE_ACCESS_ROLES = ['superadmin', 'admin', 'finance_agent', 'moderator'];
@@ -158,7 +159,7 @@ async function settleSuccessfulPayment(
     try {
         const sourceType = payment.entryType === 'subscription' ? 'subscription_payment'
             : payment.entryType === 'exam_fee' ? 'exam_payment'
-            : 'manual_income';
+                : 'manual_income';
         await createIncomeFromPayment({
             paymentId: String(payment._id),
             studentId: String(payment.studentId),
@@ -297,15 +298,15 @@ export async function adminGetPayments(req: AuthRequest, res: Response): Promise
             ManualPayment.countDocuments(filter),
         ]);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: items.map((item) => toCanonicalPayment(item)),
             total,
             page,
             pages: Math.max(1, Math.ceil(total / limit)),
-        });
+        }));
     } catch (error) {
         console.error('adminGetPayments error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -412,39 +413,39 @@ export async function adminExportPayments(req: AuthRequest, res: Response): Prom
         res.end();
     } catch (error) {
         console.error('adminExportPayments error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreatePayment(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
         const body = req.body as Record<string, unknown>;
         const studentId = asObjectId(body.studentId);
         if (!studentId) {
-            res.status(400).json({ message: 'Valid studentId is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid studentId is required'));
             return;
         }
 
         const student = await User.findById(studentId).select('role');
         if (!student || student.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
         const recordedBy = asObjectId(req.user._id);
         if (!recordedBy) {
-            res.status(400).json({ message: 'Invalid actor id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid actor id'));
             return;
         }
 
         const amount = numeric(body.amount, -1);
         if (amount < 0) {
-            res.status(400).json({ message: 'Amount must be non-negative' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Amount must be non-negative'));
             return;
         }
 
@@ -516,10 +517,10 @@ export async function adminCreatePayment(req: AuthRequest, res: Response): Promi
 
         await broadcastSummary({});
 
-        res.status(201).json({ item: toCanonicalPayment(created.toObject()), message: 'Payment recorded successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item: toCanonicalPayment(created.toObject()) }, 'Payment recorded successfully'));
     } catch (error) {
         console.error('adminCreatePayment error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -527,7 +528,7 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
     try {
         const existing = await ManualPayment.findById(req.params.id);
         if (!existing) {
-            res.status(404).json({ message: 'Payment entry not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Payment entry not found'));
             return;
         }
 
@@ -537,7 +538,7 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
         if (body.amount !== undefined) {
             const amount = numeric(body.amount, -1);
             if (amount < 0) {
-                res.status(400).json({ message: 'Amount must be non-negative' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Amount must be non-negative'));
                 return;
             }
             update.amount = amount;
@@ -546,7 +547,7 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
         if (body.date !== undefined) {
             const date = parseDate(body.date);
             if (!date) {
-                res.status(400).json({ message: 'Invalid date' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid date'));
                 return;
             }
             update.date = date;
@@ -555,7 +556,7 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
         if (body.method !== undefined) {
             const methodRaw = String(body.method || '').trim();
             if (!paymentMethods().includes(methodRaw)) {
-                res.status(400).json({ message: 'Invalid payment method' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid payment method'));
                 return;
             }
             update.method = methodRaw;
@@ -564,7 +565,7 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
         if (body.entryType !== undefined) {
             const entryTypeRaw = String(body.entryType || '').trim();
             if (!paymentEntryTypes().includes(entryTypeRaw)) {
-                res.status(400).json({ message: 'Invalid entry type' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid entry type'));
                 return;
             }
             update.entryType = entryTypeRaw;
@@ -580,7 +581,7 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
         if (body.status !== undefined) {
             const nextStatus = String(body.status || '').trim();
             if (!['pending', 'paid', 'failed', 'refunded', 'rejected'].includes(nextStatus)) {
-                res.status(400).json({ message: 'Invalid payment status' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid payment status'));
                 return;
             }
             update.status = nextStatus;
@@ -616,7 +617,7 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
 
         const item = await ManualPayment.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
         if (!item) {
-            res.status(404).json({ message: 'Payment entry not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Payment entry not found'));
             return;
         }
 
@@ -638,10 +639,10 @@ export async function adminUpdatePayment(req: AuthRequest, res: Response): Promi
         });
         await broadcastSummary({});
 
-        res.json({ item: toCanonicalPayment(item.toObject()), message: 'Payment updated successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: toCanonicalPayment(item.toObject()) }, 'Payment updated successfully'));
     } catch (error) {
         console.error('adminUpdatePayment error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -651,18 +652,18 @@ export async function adminApprovePayment(req: AuthRequest, res: Response): Prom
         const { status, remarks } = req.body;
 
         if (!['paid', 'rejected'].includes(status)) {
-            res.status(400).json({ message: 'Invalid status. Use paid or rejected.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid status. Use paid or rejected.'));
             return;
         }
 
         const payment = await ManualPayment.findById(paymentId);
         if (!payment) {
-            res.status(404).json({ message: 'Payment not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Payment not found'));
             return;
         }
 
         if (payment.status !== 'pending') {
-            res.status(400).json({ message: `Payment is already ${payment.status}` });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Payment is already ${payment.status}'));
             return;
         }
 
@@ -702,10 +703,10 @@ export async function adminApprovePayment(req: AuthRequest, res: Response): Prom
 
         await broadcastSummary({});
 
-        res.json({ message: `Payment ${status} successfully`, item: toCanonicalPayment(payment.toObject()) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item: toCanonicalPayment(payment.toObject()) }, `Payment ${status} successfully`));
     } catch (error) {
         console.error('adminApprovePayment error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -713,7 +714,7 @@ export async function adminGetStudentPayments(req: AuthRequest, res: Response): 
     try {
         const studentId = asObjectId(req.params.id);
         if (!studentId) {
-            res.status(400).json({ message: 'Invalid student id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid student id'));
             return;
         }
 
@@ -730,10 +731,10 @@ export async function adminGetStudentPayments(req: AuthRequest, res: Response): 
             .filter((item) => String((item as { status?: string }).status || '') === 'paid')
             .reduce((sum, item) => sum + numeric((item as { amount?: number }).amount, 0), 0);
 
-        res.json({ items: items.map((item) => toCanonicalPayment(item)), totalPaid });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: items.map((item) => toCanonicalPayment(item)), totalPaid }));
     } catch (error) {
         console.error('adminGetStudentPayments error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 export async function adminGetExpenses(req: AuthRequest, res: Response): Promise<void> {
@@ -758,24 +759,24 @@ export async function adminGetExpenses(req: AuthRequest, res: Response): Promise
             ExpenseEntry.countDocuments(filter),
         ]);
 
-        res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) }));
     } catch (error) {
         console.error('adminGetExpenses error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateExpense(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
         const body = req.body as Record<string, unknown>;
         const amount = numeric(body.amount, -1);
         if (amount < 0) {
-            res.status(400).json({ message: 'Amount must be non-negative' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Amount must be non-negative'));
             return;
         }
 
@@ -785,7 +786,7 @@ export async function adminCreateExpense(req: AuthRequest, res: Response): Promi
 
         const recordedBy = asObjectId(req.user._id);
         if (!recordedBy) {
-            res.status(400).json({ message: 'Invalid actor id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid actor id'));
             return;
         }
 
@@ -814,10 +815,10 @@ export async function adminCreateExpense(req: AuthRequest, res: Response): Promi
         });
         await broadcastSummary({});
 
-        res.status(201).json({ item, message: 'Expense recorded successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item }, 'Expense recorded successfully'));
     } catch (error) {
         console.error('adminCreateExpense error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -829,7 +830,7 @@ export async function adminUpdateExpense(req: AuthRequest, res: Response): Promi
         if (body.amount !== undefined) {
             const amount = numeric(body.amount, -1);
             if (amount < 0) {
-                res.status(400).json({ message: 'Amount must be non-negative' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Amount must be non-negative'));
                 return;
             }
             update.amount = amount;
@@ -838,7 +839,7 @@ export async function adminUpdateExpense(req: AuthRequest, res: Response): Promi
         if (body.date !== undefined) {
             const date = parseDate(body.date);
             if (!date) {
-                res.status(400).json({ message: 'Invalid date' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid date'));
                 return;
             }
             update.date = date;
@@ -848,7 +849,7 @@ export async function adminUpdateExpense(req: AuthRequest, res: Response): Promi
             const category = String(body.category || '').trim();
             const allowed = ['server', 'marketing', 'staff_salary', 'moderator_salary', 'tools', 'misc'];
             if (!allowed.includes(category)) {
-                res.status(400).json({ message: 'Invalid category' });
+                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid category'));
                 return;
             }
             update.category = category;
@@ -860,7 +861,7 @@ export async function adminUpdateExpense(req: AuthRequest, res: Response): Promi
 
         const item = await ExpenseEntry.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
         if (!item) {
-            res.status(404).json({ message: 'Expense entry not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Expense entry not found'));
             return;
         }
 
@@ -875,10 +876,10 @@ export async function adminUpdateExpense(req: AuthRequest, res: Response): Promi
         });
         await broadcastSummary({});
 
-        res.json({ item, message: 'Expense updated successfully' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }, 'Expense updated successfully'));
     } catch (error) {
         console.error('adminUpdateExpense error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -904,48 +905,48 @@ export async function adminGetStaffPayouts(req: AuthRequest, res: Response): Pro
             StaffPayout.countDocuments(filter),
         ]);
 
-        res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) }));
     } catch (error) {
         console.error('adminGetStaffPayouts error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminCreateStaffPayout(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
         const body = req.body as Record<string, unknown>;
         const userId = asObjectId(body.userId);
         if (!userId) {
-            res.status(400).json({ message: 'Valid userId is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid userId is required'));
             return;
         }
 
         const targetUser = await User.findById(userId).select('role');
         if (!targetUser || targetUser.role === 'student') {
-            res.status(404).json({ message: 'Staff user not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Staff user not found'));
             return;
         }
 
         const amount = numeric(body.amount, -1);
         if (amount < 0) {
-            res.status(400).json({ message: 'Amount must be non-negative' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Amount must be non-negative'));
             return;
         }
 
         const periodMonth = String(body.periodMonth || '').trim();
         if (!/^\d{4}\-(0[1-9]|1[0-2])$/.test(periodMonth)) {
-            res.status(400).json({ message: 'periodMonth must use YYYY-MM format' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'periodMonth must use YYYY-MM format'));
             return;
         }
 
         const recordedBy = asObjectId(req.user._id);
         if (!recordedBy) {
-            res.status(400).json({ message: 'Invalid actor id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid actor id'));
             return;
         }
 
@@ -978,10 +979,10 @@ export async function adminCreateStaffPayout(req: AuthRequest, res: Response): P
         });
         await broadcastSummary({});
 
-        res.status(201).json({ item, message: 'Staff payout recorded successfully' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ item }, 'Staff payout recorded successfully'));
     } catch (error) {
         console.error('adminCreateStaffPayout error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -989,7 +990,7 @@ export async function adminGetFinanceSummary(req: AuthRequest, res: Response): P
     try {
         const range = parseDateRange(req.query as Record<string, unknown>);
         const summary = await readSummary(range);
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             totalIncome: summary.income,
             totalExpenses: summary.expense + summary.payouts,
             directExpenses: summary.expense,
@@ -999,10 +1000,10 @@ export async function adminGetFinanceSummary(req: AuthRequest, res: Response): P
                 from: range.from || null,
                 to: range.to || null,
             },
-        });
+        }));
     } catch (error) {
         console.error('adminGetFinanceSummary error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1025,10 +1026,10 @@ export async function adminGetFinanceRevenueSeries(req: AuthRequest, res: Respon
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([period, amount]) => ({ period, amount }));
 
-        res.json({ bucket, series });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ bucket, series }));
     } catch (error) {
         console.error('adminGetFinanceRevenueSeries error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1071,10 +1072,10 @@ export async function adminGetFinanceExpenseBreakdown(req: AuthRequest, res: Res
             .map(([category, amount]) => ({ category, amount }))
             .sort((a, b) => b.amount - a.amount);
 
-        res.json({ items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
     } catch (error) {
         console.error('adminGetFinanceExpenseBreakdown error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 export async function adminGetFinanceCashflow(req: AuthRequest, res: Response): Promise<void> {
@@ -1124,10 +1125,10 @@ export async function adminGetFinanceCashflow(req: AuthRequest, res: Response): 
                 net: value.income - value.expense,
             }));
 
-        res.json({ bucket, items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ bucket, items }));
     } catch (error) {
         console.error('adminGetFinanceCashflow error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1154,10 +1155,10 @@ export async function adminGetFinanceStudentGrowth(req: AuthRequest, res: Respon
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([period, count]) => ({ period, count }));
 
-        res.json({ bucket, items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ bucket, items }));
     } catch (error) {
         console.error('adminGetFinanceStudentGrowth error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1175,10 +1176,10 @@ export async function adminGetFinancePlanDistribution(_req: AuthRequest, res: Re
             { $sort: { count: -1 } }
         ]);
 
-        res.json({ distribution });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ distribution }));
     } catch (error) {
         console.error('adminGetFinancePlanDistribution error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1213,7 +1214,7 @@ export async function adminGetFinanceTestBoard(req: AuthRequest, res: Response):
             ]),
         ]);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             liveIncome: summary.income,
             liveExpense: summary.expense + summary.payouts,
             netPosition: summary.net,
@@ -1224,10 +1225,10 @@ export async function adminGetFinanceTestBoard(req: AuthRequest, res: Response):
                 amount: numeric(item.total, 0),
             })),
             asOf: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('adminGetFinanceTestBoard error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1252,23 +1253,23 @@ export async function adminGetDues(req: AuthRequest, res: Response): Promise<voi
             StudentDueLedger.countDocuments(filter),
         ]);
 
-        res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) }));
     } catch (error) {
         console.error('adminGetDues error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
 export async function adminUpdateDue(req: AuthRequest, res: Response): Promise<void> {
     try {
         if (!req.user) {
-            res.status(401).json({ message: 'Authentication required' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
             return;
         }
 
         const studentId = asObjectId(req.params.studentId);
         if (!studentId) {
-            res.status(400).json({ message: 'Invalid student id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid student id'));
             return;
         }
 
@@ -1280,7 +1281,7 @@ export async function adminUpdateDue(req: AuthRequest, res: Response): Promise<v
 
         const updatedBy = asObjectId(req.user._id);
         if (!updatedBy) {
-            res.status(400).json({ message: 'Invalid actor id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid actor id'));
             return;
         }
 
@@ -1313,10 +1314,10 @@ export async function adminUpdateDue(req: AuthRequest, res: Response): Promise<v
             netDue,
         });
 
-        res.json({ item, message: 'Due ledger updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ item }, 'Due ledger updated'));
     } catch (error) {
         console.error('adminUpdateDue error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1324,13 +1325,13 @@ export async function adminSendDueReminder(req: AuthRequest, res: Response): Pro
     try {
         const studentId = asObjectId(req.params.studentId);
         if (!studentId) {
-            res.status(400).json({ message: 'Invalid student id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid student id'));
             return;
         }
 
         const ledger = await StudentDueLedger.findOne({ studentId }).lean();
         if (!ledger) {
-            res.status(404).json({ message: 'Due ledger not found for this student' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Due ledger not found for this student'));
             return;
         }
 
@@ -1340,7 +1341,7 @@ export async function adminSendDueReminder(req: AuthRequest, res: Response): Pro
         ]);
 
         if (!student || student.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
@@ -1354,8 +1355,7 @@ export async function adminSendDueReminder(req: AuthRequest, res: Response): Pro
             },
         });
 
-        res.json({
-            message: 'Due reminder logged successfully',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             student: {
                 _id: student._id,
                 username: student.username,
@@ -1368,10 +1368,10 @@ export async function adminSendDueReminder(req: AuthRequest, res: Response): Pro
                 inApp: true,
             },
             netDue: ledger.netDue,
-        });
+        }, 'Due reminder logged successfully'));
     } catch (error) {
         console.error('adminSendDueReminder error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1409,8 +1409,7 @@ export async function adminDispatchReminders(req: AuthRequest, res: Response): P
             },
         });
 
-        res.json({
-            message: 'Reminder dispatch completed',
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             summary: {
                 expiryReminderCount: expiringUsers.length,
                 expiryHighPriorityCount: highPriorityExpiring.length,
@@ -1421,10 +1420,10 @@ export async function adminDispatchReminders(req: AuthRequest, res: Response): P
                     inApp: true,
                 },
             },
-        });
+        }, 'Reminder dispatch completed'));
     } catch (error) {
         console.error('adminDispatchReminders error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -1432,7 +1431,7 @@ export async function adminGetStudentLtv(req: AuthRequest, res: Response): Promi
     try {
         const studentId = asObjectId(req.params.id);
         if (!studentId) {
-            res.status(400).json({ message: 'Invalid student id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid student id'));
             return;
         }
 
@@ -1443,7 +1442,7 @@ export async function adminGetStudentLtv(req: AuthRequest, res: Response): Promi
         ]);
 
         if (!student || student.role !== 'student') {
-            res.status(404).json({ message: 'Student not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student not found'));
             return;
         }
 
@@ -1451,7 +1450,7 @@ export async function adminGetStudentLtv(req: AuthRequest, res: Response): Promi
         const firstPaymentDate = payments.length ? (payments[0] as { date?: Date }).date || null : null;
         const lastPaymentDate = payments.length ? (payments[payments.length - 1] as { date?: Date }).date || null : null;
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             student: {
                 _id: student._id,
                 username: student.username,
@@ -1466,9 +1465,9 @@ export async function adminGetStudentLtv(req: AuthRequest, res: Response): Promi
                 lastPaymentDate,
                 avgTransactionValue: payments.length > 0 ? Number((lifetimeIncome / payments.length).toFixed(2)) : 0,
             },
-        });
+        }));
     } catch (error) {
         console.error('adminGetStudentLtv error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

@@ -24,6 +24,7 @@ export type StudentRow = {
     plan?: string;
     planCode?: string;
     planName?: string;
+    startDate?: string | null;
     expiryDate?: string | null;
     isActive?: boolean;
     daysLeft?: number;
@@ -128,10 +129,23 @@ export type StudentDashboardProfile = {
     username?: string;
     email?: string;
   };
+  name?: string;
+  profilePicture?: string;
+  profileCompletionPercentage?: number;
+  overallRank?: number | null;
+  groupRank?: number | null;
+  welcomeMessage?: string;
   subscription?: {
-    planCode?: string;
-    expiryDate?: string | null;
     isActive?: boolean;
+    planId?: string;
+    planSlug?: string;
+    planCode?: string;
+    planName?: string;
+    expiryDate?: string | null;
+    daysLeft?: number | null;
+    ctaLabel?: string;
+    ctaUrl?: string;
+    ctaMode?: string;
   };
 };
 

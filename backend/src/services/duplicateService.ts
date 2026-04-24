@@ -1,4 +1,4 @@
-import { NewsItemModel } from "../models/newsItem.model";
+import News from "../models/News";
 import { hashKey, normalizeTitle } from "../utils/content";
 
 type DuplicateCheckInput = {
@@ -15,17 +15,17 @@ export const buildDuplicateKeyHash = (input: DuplicateCheckInput) => {
 export const findDuplicate = async (input: DuplicateCheckInput) => {
   const reasons: string[] = [];
 
-  const byUrl = await NewsItemModel.findOne({ originalArticleUrl: input.originalArticleUrl }).sort({ createdAt: -1 });
+  const byUrl = await News.findOne({ originalArticleUrl: input.originalArticleUrl }).sort({ createdAt: -1 });
   if (byUrl) reasons.push("same_url");
 
   let byGuid = null;
   if (input.rssGuid) {
-    byGuid = await NewsItemModel.findOne({ rssGuid: input.rssGuid }).sort({ createdAt: -1 });
+    byGuid = await News.findOne({ rssGuid: input.rssGuid }).sort({ createdAt: -1 });
     if (byGuid) reasons.push("same_guid");
   }
 
   const normalized = normalizeTitle(input.title);
-  const byTitle = await NewsItemModel.findOne({ duplicateKeyHash: hashKey(normalized) }).sort({ createdAt: -1 });
+  const byTitle = await News.findOne({ duplicateKeyHash: hashKey(normalized) }).sort({ createdAt: -1 });
   if (byTitle) reasons.push("similar_title");
 
   const duplicateOf = byUrl || byGuid || byTitle;

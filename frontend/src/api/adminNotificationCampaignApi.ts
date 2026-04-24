@@ -153,6 +153,7 @@ export interface SubscriptionContactCenterPreset {
   includeGuardian: boolean;
   includePlan: boolean;
   includeStatus: boolean;
+  excludeExpiredByDefault: boolean;
   isDefault: boolean;
   updatedAt: string | null;
 }
@@ -173,6 +174,7 @@ export interface SubscriptionContactCenterFilters {
   planIds?: string[];
   planCodes?: string[];
   bucket?: string;
+  excludeExpired?: boolean;
   subscriptionStatuses?: string[];
   accountStatuses?: string[];
   departments?: string[];

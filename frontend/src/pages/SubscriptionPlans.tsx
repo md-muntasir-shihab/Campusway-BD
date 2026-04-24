@@ -148,6 +148,7 @@ export default function SubscriptionPlansPage() {
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
                                     placeholder="Search plan names, features, and highlights"
+                                    aria-label="Search subscription plans"
                                     className="w-full rounded-full border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none ring-0 transition focus:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                                 />
                             </div>

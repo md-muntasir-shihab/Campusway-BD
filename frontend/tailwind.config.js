@@ -76,6 +76,7 @@ export default {
                 'float-slow': 'floatSlow 6s ease-in-out infinite',
                 'float-slow-reverse': 'floatSlowReverse 8s ease-in-out infinite',
                 'gradient-shift': 'gradientShift 8s ease-in-out infinite',
+                'progress-bar': 'progressBar 1.8s ease-in-out infinite',
             },
             keyframes: {
                 fadeIn: {
@@ -104,6 +105,11 @@ export default {
                 gradientShift: {
                     '0%, 100%': { backgroundPosition: '0% 50%' },
                     '50%': { backgroundPosition: '100% 50%' },
+                },
+                progressBar: {
+                    '0%': { width: '0%', marginLeft: '0%' },
+                    '50%': { width: '60%', marginLeft: '20%' },
+                    '100%': { width: '0%', marginLeft: '100%' },
                 },
             },
         },

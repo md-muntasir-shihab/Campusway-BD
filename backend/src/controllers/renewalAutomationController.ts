@@ -7,6 +7,7 @@ import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middlewares/auth';
 import { syncUserSubscriptionCache } from '../services/subscriptionLifecycleService';
 import { getClientIp } from '../utils/requestMeta';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -77,7 +78,7 @@ export async function adminGetActiveSubscriptions(req: AuthRequest, res: Respons
             .lean(),
         UserSubscription.countDocuments(filter),
     ]);
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
 }
 
 /** GET /admin/subscriptions/stats — summary counts */
@@ -93,24 +94,24 @@ export async function adminGetSubscriptionStats(_req: AuthRequest, res: Response
         SubscriptionAutomationLog.countDocuments({ action: 'renewed' }),
     ]);
 
-    res.json({ active, expired, expiringSoon, autoRenewEnabled, totalRenewals: totalRevenue });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ active, expired, expiringSoon, autoRenewEnabled, totalRenewals: totalRevenue }));
 }
 
 /** POST /admin/subscriptions/:id/extend — manually extend */
 export async function adminExtendSubscription(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const { days } = req.body as { days?: number };
     if (!days || days < 1 || days > 365) {
-        res.status(400).json({ message: 'days must be between 1 and 365' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'days must be between 1 and 365'));
         return;
     }
 
     const sub = await UserSubscription.findById(id);
-    if (!sub) { res.status(404).json({ message: 'Subscription not found' }); return; }
+    if (!sub) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription not found')); return; }
 
     const base = sub.expiresAtUTC && sub.expiresAtUTC > new Date() ? sub.expiresAtUTC : new Date();
     sub.expiresAtUTC = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
@@ -127,18 +128,18 @@ export async function adminExtendSubscription(req: AuthRequest, res: Response): 
     });
 
     await createAudit(req, 'subscription_extended', { subscriptionId: id, days });
-    res.json({ data: sub, message: `Subscription extended by ${days} days` });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: sub}, `Subscription extended by ${days} days`));
 }
 
 /** POST /admin/subscriptions/:id/expire — force expire */
 export async function adminExpireSubscription(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const sub = await UserSubscription.findById(id);
-    if (!sub) { res.status(404).json({ message: 'Subscription not found' }); return; }
+    if (!sub) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription not found')); return; }
 
     sub.status = 'expired';
     sub.expiresAtUTC = new Date();
@@ -154,21 +155,21 @@ export async function adminExpireSubscription(req: AuthRequest, res: Response): 
     });
 
     await createAudit(req, 'subscription_force_expired', { subscriptionId: id });
-    res.json({ data: sub, message: 'Subscription expired' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: sub}, 'Subscription expired'));
 }
 
 /** POST /admin/subscriptions/:id/reactivate — reactivate expired */
 export async function adminReactivateSubscription(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const { days } = req.body as { days?: number };
-    if (!days || days < 1) { res.status(400).json({ message: 'days required' }); return; }
+    if (!days || days < 1) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'days required')); return; }
 
     const sub = await UserSubscription.findById(id);
-    if (!sub) { res.status(404).json({ message: 'Subscription not found' }); return; }
+    if (!sub) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription not found')); return; }
 
     sub.status = 'active';
     sub.expiresAtUTC = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -184,22 +185,22 @@ export async function adminReactivateSubscription(req: AuthRequest, res: Respons
     });
 
     await createAudit(req, 'subscription_reactivated', { subscriptionId: id, days });
-    res.json({ data: sub, message: 'Subscription reactivated' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: sub}, 'Subscription reactivated'));
 }
 
 /** PATCH /admin/subscriptions/:id/auto-renew — toggle auto-renew */
 export async function adminToggleAutoRenew(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const sub = await UserSubscription.findById(id);
-    if (!sub) { res.status(404).json({ message: 'Subscription not found' }); return; }
+    if (!sub) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Subscription not found')); return; }
 
     sub.autoRenewEnabled = !sub.autoRenewEnabled;
     await sub.save();
 
     await createAudit(req, 'subscription_auto_renew_toggled', { subscriptionId: id, autoRenewEnabled: sub.autoRenewEnabled });
-    res.json({ data: sub, message: `Auto-renew ${sub.autoRenewEnabled ? 'enabled' : 'disabled'}` });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ data: sub}, `Auto-renew ${sub.autoRenewEnabled ? 'enabled' : 'disabled'}`));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -229,13 +230,13 @@ export async function adminGetAutomationLogs(req: AuthRequest, res: Response): P
             .lean(),
         SubscriptionAutomationLog.countDocuments(filter),
     ]);
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
 }
 
 /** GET /admin/subscriptions/:studentId/history — subscription history for a student */
 export async function adminGetStudentSubscriptionHistory(req: AuthRequest, res: Response): Promise<void> {
     const studentId = asObjectId(req.params.studentId);
-    if (!studentId) { res.status(400).json({ message: 'Invalid studentId' }); return; }
+    if (!studentId) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid studentId')); return; }
 
     const [subscriptions, logs] = await Promise.all([
         UserSubscription.find({ userId: studentId })
@@ -247,5 +248,5 @@ export async function adminGetStudentSubscriptionHistory(req: AuthRequest, res: 
             .limit(50)
             .lean(),
     ]);
-    res.json({ subscriptions, automationLogs: logs });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ subscriptions, automationLogs: logs }));
 }

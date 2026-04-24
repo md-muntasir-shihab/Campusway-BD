@@ -11,6 +11,7 @@ import {
     type SensitiveActionDialogOptions,
     type SensitiveActionDialogResult,
 } from '../../lib/appDialog';
+import FocusTrap from '../common/FocusTrap';
 
 function toneToClasses(tone: DialogTone = 'default') {
     if (tone === 'danger') {
@@ -51,34 +52,48 @@ function DialogShell({
 }) {
     const styles = toneToClasses(tone);
 
+    // Lock body scroll when dialog is open
+    useEffect(() => {
+        const original = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = original; };
+    }, []);
+
+    const dialogTitleId = `dialog-title-${title.replace(/\s+/g, '-').toLowerCase()}`;
+
     return (
         <div
             role="dialog"
             aria-modal="true"
+            aria-labelledby={dialogTitleId}
             className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
         >
-            <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-slate-900/95 shadow-[0_28px_90px_rgba(2,8,23,0.55)]">
-                <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
-                    <div className="min-w-0">
-                        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${styles.badge}`}>
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Secure action
+            <FocusTrap active>
+                <div className="w-full max-w-lg max-h-[calc(100dvh-3rem)] overflow-y-auto rounded-[28px] border border-card-border dark:border-white/10 bg-surface dark:bg-slate-900/95 shadow-[0_28px_90px_rgba(2,8,23,0.55)]">
+                    <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-card-border dark:border-white/10 px-3 py-4 sm:px-6 sm:py-5 bg-surface dark:bg-slate-900/95">
+                        <div className="min-w-0">
+                            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${styles.badge}`}>
+                                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                                Secure action
+                            </div>
+                            <h2 id={dialogTitleId} className="mt-3 text-xl font-semibold text-text dark:text-white">{title}</h2>
+                            {subtitle ? <p className="mt-1 text-sm leading-6 text-text-muted dark:text-slate-400">{subtitle}</p> : null}
                         </div>
-                        <h2 className="mt-3 text-xl font-semibold text-white">{title}</h2>
-                        {subtitle ? <p className="mt-1 text-sm leading-6 text-slate-400">{subtitle}</p> : null}
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="rounded-full border border-card-border dark:border-white/10 p-2 text-text-muted dark:text-slate-400 transition hover:bg-black/5 dark:hover:bg-white/5 hover:text-text dark:hover:text-white"
+                            aria-label="Close dialog"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
                     </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-full border border-white/10 p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
-                        aria-label="Close dialog"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
+                    <div className="px-3 py-4 sm:px-6 sm:py-5">{children}</div>
+                    <div className="border-t border-card-border dark:border-white/10 px-3 py-3 sm:px-6 sm:py-4">{footer}</div>
                 </div>
-                <div className="px-6 py-5">{children}</div>
-                <div className="border-t border-white/10 px-6 py-4">{footer}</div>
-            </div>
+            </FocusTrap>
         </div>
     );
 }
@@ -111,10 +126,10 @@ function ConfirmDialog({
             }
         >
             <div className="flex gap-3">
-                <div className={`mt-0.5 rounded-2xl border border-white/10 bg-white/5 p-3 ${styles.accent}`}>
-                    <AlertTriangle className="h-5 w-5" />
+                <div className={`mt-0.5 rounded-2xl border border-card-border dark:border-white/10 bg-black/5 dark:bg-white/5 p-3 ${styles.accent}`}>
+                    <AlertTriangle className="h-5 w-5" aria-hidden="true" />
                 </div>
-                <p className="text-sm leading-7 text-slate-200">{options.message}</p>
+                <p className="text-sm leading-7 text-text dark:text-slate-200">{options.message}</p>
             </div>
         </DialogShell>
     );
@@ -161,14 +176,14 @@ function PromptDialog({
             }
         >
             <div className="space-y-4">
-                <p className="text-sm leading-7 text-slate-200">{options.message}</p>
+                <p className="text-sm leading-7 text-text dark:text-slate-200">{options.message}</p>
                 {normalizedExpectedValue ? (
                     <div className={`rounded-2xl border px-4 py-3 text-sm ${styles.badge}`}>
                         Type exactly: <span className="font-mono font-semibold">{normalizedExpectedValue}</span>
                     </div>
                 ) : null}
                 <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-text-muted dark:text-slate-400">
                         {options.inputLabel || 'Input'}
                     </label>
                     <input
@@ -178,7 +193,7 @@ function PromptDialog({
                         maxLength={options.maxLength}
                         onChange={(event) => setValue(event.target.value)}
                         placeholder={options.placeholder}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
+                        className="w-full rounded-2xl border border-card-border dark:border-white/10 bg-surface2 dark:bg-slate-950/70 px-4 py-3 text-sm text-text dark:text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
                     />
                 </div>
             </div>
@@ -208,7 +223,7 @@ function AlertDialog({
                 </div>
             }
         >
-            <p className="text-sm leading-7 text-slate-200">{options.message}</p>
+            <p className="text-sm leading-7 text-text dark:text-slate-200">{options.message}</p>
         </DialogShell>
     );
 }
@@ -255,7 +270,7 @@ function SensitiveActionDialog({
         >
             <div className="space-y-4">
                 <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-text-muted dark:text-slate-400">
                         Reason
                     </label>
                     <input
@@ -264,11 +279,11 @@ function SensitiveActionDialog({
                         aria-label="Reason"
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
+                        className="w-full rounded-2xl border border-card-border dark:border-white/10 bg-surface2 dark:bg-slate-950/70 px-4 py-3 text-sm text-text dark:text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
                     />
                 </div>
                 <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-text-muted dark:text-slate-400">
                         Current password
                     </label>
                     <input
@@ -276,11 +291,11 @@ function SensitiveActionDialog({
                         aria-label="Current password"
                         value={currentPassword}
                         onChange={(event) => setCurrentPassword(event.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
+                        className="w-full rounded-2xl border border-card-border dark:border-white/10 bg-surface2 dark:bg-slate-950/70 px-4 py-3 text-sm text-text dark:text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
                     />
                 </div>
                 <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-text-muted dark:text-slate-400">
                         Authenticator or backup code
                     </label>
                     <input
@@ -292,9 +307,9 @@ function SensitiveActionDialog({
                             ? 'Enter authenticator or backup code if 2FA is enabled'
                             : 'Enter code if required'
                         }
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
+                        className="w-full rounded-2xl border border-card-border dark:border-white/10 bg-surface2 dark:bg-slate-950/70 px-4 py-3 text-sm text-text dark:text-white outline-none transition focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/40"
                     />
-                    <p className="mt-2 text-xs leading-6 text-slate-500">
+                    <p className="mt-2 text-xs leading-6 text-text-muted dark:text-slate-500">
                         Leave this blank only if your account does not require a second factor for this action.
                     </p>
                 </div>

@@ -1,0 +1,37 @@
+#!/bin/sh
+
+echo "🔍 Running pre-commit checks..."
+
+# Backend linting
+echo "📦 Linting backend..."
+cd backend && npx eslint . --ext .ts || {
+  echo "❌ Backend lint failed"
+  exit 1
+}
+cd ..
+
+# Frontend linting
+echo "📦 Linting frontend..."
+cd frontend && npx eslint . || {
+  echo "❌ Frontend lint failed"
+  exit 1
+}
+cd ..
+
+# Backend type-checking
+echo "🔎 Type-checking backend..."
+cd backend && npx tsc --noEmit || {
+  echo "❌ Backend type-check failed"
+  exit 1
+}
+cd ..
+
+# Frontend type-checking
+echo "🔎 Type-checking frontend..."
+cd frontend && npx tsc --noEmit || {
+  echo "❌ Frontend type-check failed"
+  exit 1
+}
+cd ..
+
+echo "✅ All pre-commit checks passed"

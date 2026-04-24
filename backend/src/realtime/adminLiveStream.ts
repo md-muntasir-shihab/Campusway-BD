@@ -9,6 +9,7 @@ export type AdminLiveEventName =
     | 'forced-submit'
     | 'autosave'
     | 'exam-metrics-updated'
+    | 'approval-queue-updated'
     | 'ping';
 
 const clients = new Set<Response>();

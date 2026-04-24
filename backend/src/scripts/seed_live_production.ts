@@ -7,9 +7,14 @@
 
 import fetch from 'node-fetch';
 
-const BASE_URL = 'https://campusway-backend.onrender.com/api';
-const ADMIN_EMAIL = 'admin@campusway.com';
-const ADMIN_PASSWORD = 'admin123456';
+const BASE_URL = process.env.SEED_API_URL || 'http://localhost:5003/api';
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'admin@campusway.com';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || '';
+
+if (!ADMIN_PASSWORD) {
+  console.error('[SEED] SEED_ADMIN_PASSWORD env var is required. Aborting.');
+  process.exit(1);
+}
 
 let TOKEN = '';
 
@@ -395,7 +400,7 @@ async function createStudents() {
     const payload = {
       full_name: name,
       email,
-      password: 'CampusWay@2025',
+      password: process.env.SEED_STUDENT_PASSWORD || 'CampusWay@2025',
       phone_number: phone,
       department: dept,
       ssc_batch: sscBatch,

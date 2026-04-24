@@ -312,8 +312,8 @@ function ImportWizard({ groups, plans, onSuccess, onClose }: {
 
                     <div className="bg-indigo-500/5 p-4 rounded-2xl border border-indigo-500/10 text-left">
                         <h4 className="text-xs font-bold text-indigo-400 uppercase mb-2">Data Preview</h4>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-[11px] text-slate-400">
+                        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                            <table className="w-full text-[11px] text-slate-400 min-w-[320px]">
                                 <thead>
                                     <tr className="border-b border-white/5">
                                         <th className="text-left py-1 pr-4">Email</th>

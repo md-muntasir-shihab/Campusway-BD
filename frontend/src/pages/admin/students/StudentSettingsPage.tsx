@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
 import { getStudentSettings, updateStudentSettings } from '../../../api/adminStudentApi';
+import { useProfileApprovalSetting } from '../../../hooks/useApprovalQueries';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
 
@@ -63,6 +64,8 @@ export default function StudentSettingsPage({ noShell }: { noShell?: boolean } =
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<Toast>({ show: false, message: '', type: 'success' });
   const [newDay, setNewDay] = useState('');
+
+  const { data: approvalSetting, toggle: approvalToggle } = useProfileApprovalSetting();
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-student-settings'],
@@ -157,6 +160,23 @@ export default function StudentSettingsPage({ noShell }: { noShell?: boolean } =
             onChange={v => set('passwordResetOnExpiry', v)}
             label="Require password reset on subscription expiry"
           />
+        </Section>
+
+        {/* Profile Approval */}
+        <Section title="Profile Approval">
+          <Toggle
+            value={approvalSetting?.profileApprovalEnabled ?? true}
+            onChange={v => {
+              approvalToggle.mutate(v, {
+                onSuccess: () => showToast('Profile approval setting updated'),
+                onError: () => showToast('Failed to update setting', 'error'),
+              });
+            }}
+            label="Require admin approval for new student registrations"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            When enabled, newly registered students start with pending status and require admin approval before gaining full access.
+          </p>
         </Section>
 
         {/* Reminder Schedule */}

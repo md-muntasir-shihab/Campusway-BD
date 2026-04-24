@@ -19,10 +19,10 @@ export default function ExamSidebar({
 }: Props) {
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 lg:sticky lg:top-24 h-fit lg:max-h-[calc(100vh-8rem)] flex flex-col">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 lg:sticky lg:top-24 h-fit lg:max-h-[calc(100vh-8rem)] flex flex-col dark:bg-slate-900 dark:border-slate-700">
             <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center justify-between">
                 Question Palette
-                <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{totalQuestions} Items</span>
+                <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full dark:bg-slate-800 dark:text-slate-400">{totalQuestions} Items</span>
             </h3>
 
             {/* Legend */}
@@ -48,7 +48,7 @@ export default function ExamSidebar({
                         const isAnswered = answeredKeys.has(qId);
                         const isReview = markedForReviewKeys.has(qId);
 
-                        let baseColor = 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400';
+                        let baseColor = 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:border-slate-500';
                         if (isAnswered) baseColor = 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600';
                         else if (isReview) baseColor = 'bg-amber-400 text-amber-900 border-amber-500 hover:bg-amber-500';
                         // if skipped -> we can only detect skipped if it was visited but not answered. We'll simplify to 'visited' state tracking if requested later.

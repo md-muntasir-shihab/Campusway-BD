@@ -4,6 +4,7 @@ import HomeAlert from '../models/HomeAlert';
 import LiveAlertAck from '../models/LiveAlertAck';
 import StudentProfile from '../models/StudentProfile';
 import { AuthRequest } from '../middlewares/auth';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type AlertTarget = {
     type: 'all' | 'groups' | 'users';
@@ -59,10 +60,10 @@ export async function getPublicAlerts(_req: Request, res: Response): Promise<voi
             .lean();
 
         const activeAlerts = alerts.filter((alert) => isInWindow(alert.startAt, alert.endAt, now));
-        res.json({ alerts: activeAlerts });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ alerts: activeAlerts }));
     } catch (err) {
         console.error('getPublicAlerts error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -70,7 +71,7 @@ export async function getActiveStudentAlerts(req: AuthRequest, res: Response): P
     try {
         const studentId = String(req.user?._id || '');
         if (!studentId) {
-            res.status(401).json({ message: 'Unauthorized' });
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized'));
             return;
         }
 
@@ -113,10 +114,10 @@ export async function getActiveStudentAlerts(req: AuthRequest, res: Response): P
             );
         }
 
-        res.json({ alerts: items });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ alerts: items }));
     } catch (err) {
         console.error('getActiveStudentAlerts error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -125,19 +126,19 @@ export async function ackStudentAlert(req: AuthRequest, res: Response): Promise<
         const studentId = String(req.user?._id || '');
         const alertId = String(req.params.id || req.params.alertId || '');
         if (!studentId || !alertId || !mongoose.Types.ObjectId.isValid(alertId)) {
-            res.status(400).json({ message: 'Invalid alert acknowledgement request.' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid alert acknowledgement request.'));
             return;
         }
 
         const alert = await HomeAlert.findById(alertId).lean();
         if (!alert || !alert.isActive || alert.status !== 'published') {
-            res.status(404).json({ message: 'Alert not found.' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found.'));
             return;
         }
 
         const targeted = await isTargetedToStudent(alert as unknown as Record<string, unknown>, studentId);
         if (!targeted) {
-            res.status(403).json({ message: 'Alert not targeted to this user.' });
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Alert not targeted to this user.'));
             return;
         }
 
@@ -154,10 +155,10 @@ export async function ackStudentAlert(req: AuthRequest, res: Response): Promise<
             await HomeAlert.updateOne({ _id: alertId }, { $inc: { 'metrics.acknowledgements': 1 } });
         }
 
-        res.json({ acknowledged: true, alertId });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ acknowledged: true, alertId }));
     } catch (err) {
         console.error('ackStudentAlert error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -188,13 +189,11 @@ export async function adminGetAlerts(req: Request, res: Response): Promise<void>
             },
         }));
 
-        res.json({
-            alerts: items,
-            pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },
-        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({alerts: items,
+            pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },}));
     } catch (err) {
         console.error('adminGetAlerts error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -203,7 +202,7 @@ export async function adminCreateAlert(req: AuthRequest, res: Response): Promise
         const body = (req.body || {}) as Record<string, unknown>;
         const message = String(body.message || '').trim();
         if (!message) {
-            res.status(400).json({ message: 'Alert message is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Alert message is required'));
             return;
         }
 
@@ -227,10 +226,10 @@ export async function adminCreateAlert(req: AuthRequest, res: Response): Promise
             endAt: body.endAt ? new Date(String(body.endAt)) : undefined,
             createdBy: req.user?._id,
         });
-        res.status(201).json({ alert, message: 'Alert created' });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({alert}, 'Alert created'));
     } catch (err) {
         console.error('adminCreateAlert error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -254,13 +253,13 @@ export async function adminUpdateAlert(req: Request, res: Response): Promise<voi
 
         const alert = await HomeAlert.findByIdAndUpdate(id, update, { new: true });
         if (!alert) {
-            res.status(404).json({ message: 'Alert not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found'));
             return;
         }
-        res.json({ alert, message: 'Alert updated' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({alert}, 'Alert updated'));
     } catch (err) {
         console.error('adminUpdateAlert error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -268,14 +267,14 @@ export async function adminDeleteAlert(req: Request, res: Response): Promise<voi
     try {
         const alert = await HomeAlert.findByIdAndDelete(req.params.id);
         if (!alert) {
-            res.status(404).json({ message: 'Alert not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found'));
             return;
         }
         await LiveAlertAck.deleteMany({ alertId: alert._id });
-        res.json({ message: 'Alert deleted' });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Alert deleted'));
     } catch (err) {
         console.error('adminDeleteAlert error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -283,15 +282,15 @@ export async function adminToggleAlert(req: Request, res: Response): Promise<voi
     try {
         const alert = await HomeAlert.findById(req.params.id);
         if (!alert) {
-            res.status(404).json({ message: 'Alert not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found'));
             return;
         }
         alert.isActive = !alert.isActive;
         await alert.save();
-        res.json({ alert, message: `Alert ${alert.isActive ? 'enabled' : 'disabled'}` });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ alert}, `Alert ${alert.isActive ? 'enabled' : 'disabled'}`));
     } catch (err) {
         console.error('adminToggleAlert error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -299,7 +298,7 @@ export async function adminPublishAlert(req: Request, res: Response): Promise<vo
     try {
         const alert = await HomeAlert.findById(req.params.id);
         if (!alert) {
-            res.status(404).json({ message: 'Alert not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Alert not found'));
             return;
         }
 
@@ -308,12 +307,12 @@ export async function adminPublishAlert(req: Request, res: Response): Promise<vo
         alert.status = publish ? 'published' : 'draft';
         alert.isActive = publish;
         await alert.save();
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             alert,
             message: publish ? 'Alert published' : 'Alert unpublished',
-        });
+        }));
     } catch (err) {
         console.error('adminPublishAlert error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

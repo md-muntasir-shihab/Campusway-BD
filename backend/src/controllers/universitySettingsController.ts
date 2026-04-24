@@ -2,6 +2,7 @@ import { Response } from 'express';
 import type { AuthRequest } from '../middlewares/auth';
 import UniversitySettingsModel, { getUniversitySettingsDefaults } from '../models/UniversitySettings';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function pickString(value: unknown, fallback = ''): string {
     if (value === null || value === undefined) return fallback;
@@ -12,16 +13,16 @@ export const getUniversitySettings = async (_req: AuthRequest, res: Response): P
     try {
         const doc = await UniversitySettingsModel.findOne().lean();
         if (!doc) {
-            res.json({
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
                 ok: true,
                 data: getUniversitySettingsDefaults(),
-            });
+            }));
             return;
         }
-        res.json({ ok: true, data: doc });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: doc }));
     } catch (error) {
         console.error('getUniversitySettings error:', error);
-        res.status(500).json({ ok: false, message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -32,18 +33,16 @@ export const getPublicUniversityBrowseSettings = async (_req: AuthRequest, res: 
             .select('defaultCategory enableClusterFilterOnUniversities enableClusterFilterOnHome allowCustomCategories')
             .lean();
 
-        res.json({
-            ok: true,
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ok: true,
             settings: {
                 defaultCategory: pickString(doc?.defaultCategory, defaults.defaultCategory),
                 enableClusterFilterOnUniversities: doc?.enableClusterFilterOnUniversities ?? defaults.enableClusterFilterOnUniversities,
                 enableClusterFilterOnHome: doc?.enableClusterFilterOnHome ?? defaults.enableClusterFilterOnHome,
                 allowCustomCategories: doc?.allowCustomCategories ?? defaults.allowCustomCategories,
-            },
-        });
+            },}));
     } catch (error) {
         console.error('getPublicUniversityBrowseSettings error:', error);
-        res.status(500).json({ ok: false, message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -99,10 +98,10 @@ export const updateUniversitySettings = async (req: AuthRequest, res: Response):
             meta: { section: 'university-settings' },
         });
 
-        res.json({ ok: true, data: updated });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, data: updated }));
     } catch (error) {
         console.error('updateUniversitySettings error:', error);
-        res.status(500).json({ ok: false, message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 

@@ -438,7 +438,7 @@ export default function ContactPage() {
                                         >
                                             <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                                 {item.iconUrl ? (
-                                                    <img src={item.iconUrl} alt={item.name} className="h-5 w-5 object-contain" />
+                                                    <img src={item.iconUrl} alt={item.name} className="h-5 w-5 object-contain" loading="lazy" />
                                                 ) : item.icon ? (
                                                     <item.icon className="h-5 w-5" />
                                                 ) : (
@@ -456,7 +456,7 @@ export default function ContactPage() {
                                         <div className="flex min-h-[82px] flex-col items-start justify-between gap-2 opacity-70">
                                             <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-surface2 text-text-muted dark:bg-dark-surface dark:text-dark-text/60">
                                                 {item.iconUrl ? (
-                                                    <img src={item.iconUrl} alt={item.name} className="h-5 w-5 object-contain" />
+                                                    <img src={item.iconUrl} alt={item.name} className="h-5 w-5 object-contain" loading="lazy" />
                                                 ) : item.icon ? (
                                                     <item.icon className="h-5 w-5" />
                                                 ) : (

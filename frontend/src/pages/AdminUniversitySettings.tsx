@@ -113,7 +113,7 @@ const DEFAULT_HOME_UNIVERSITY: Pick<
     },
 };
 
-type QuickClusterState = Pick<AdminUniversityCluster, '_id' | 'name' | 'homeVisible' | 'homeOrder'> & { memberCount: number };
+type QuickClusterState = Pick<AdminUniversityCluster, '_id' | 'name' | 'homeVisible' | 'homeOrder' | 'homeFeedMode'> & { memberCount: number };
 
 type UniversitySettingsDraft = {
     settings: AdminUniversitySettingsData;
@@ -1444,6 +1444,23 @@ export default function AdminUniversitySettingsPage() {
                                                 )),
                                             }) : prev)}
                                         />
+                                        <div className="col-span-full">
+                                            <label className="text-xs font-medium cw-muted mb-1 block">Feed Mode</label>
+                                            <select
+                                                value={cluster.homeFeedMode || 'both'}
+                                                onChange={(e) => setLocal((prev) => prev ? ({
+                                                    ...prev,
+                                                    clusters: prev.clusters.map((entry, entryIndex) => (
+                                                        entryIndex === index ? { ...entry, homeFeedMode: e.target.value as 'cluster_only' | 'members_only' | 'both' } : entry
+                                                    )),
+                                                }) : prev)}
+                                                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm cw-text"
+                                            >
+                                                <option value="both">Both (Cluster + Members)</option>
+                                                <option value="cluster_only">Cluster Only (গুচ্ছ)</option>
+                                                <option value="members_only">Members Only</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             ))}

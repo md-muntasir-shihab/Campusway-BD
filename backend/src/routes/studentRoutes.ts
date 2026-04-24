@@ -50,11 +50,20 @@ import {
     checkWatchlistStatus,
 } from '../controllers/studentWatchlistController';
 import { getStudentWeakTopics } from '../controllers/weakTopicController';
+import {
+    requestOtpHandler,
+    verifyOtpHandler,
+    resendOtpHandler,
+} from '../controllers/otpController';
 
 const router = Router();
 
 // Apply auth middleware to all student routes
 router.use(authenticate);
+
+// Restrict pending students to read-only access (Requirements: 5.2)
+import { restrictPendingStudent } from '../middlewares/restrictPendingStudent';
+router.use(restrictPendingStudent);
 
 import { uploadMiddleware } from '../controllers/mediaController';
 
@@ -109,5 +118,10 @@ router.get('/watchlist/check', checkWatchlistStatus);
 
 // Weak Topics
 router.get('/me/weak-topics', getStudentWeakTopics);
+
+// OTP Verification Routes
+router.post('/otp/request', requestOtpHandler);
+router.post('/otp/verify', verifyOtpHandler);
+router.post('/otp/resend', resendOtpHandler);
 
 export default router;

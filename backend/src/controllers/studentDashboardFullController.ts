@@ -21,10 +21,11 @@ import {
     getExamHistoryAndProgress,
     getOverallRankForStudent,
 } from '../services/studentDashboardService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 function ensureStudent(req: AuthRequest, res: Response): string | null {
-    if (!req.user) { res.status(401).json({ message: 'Not authenticated' }); return null; }
-    if (req.user.role !== 'student') { res.status(403).json({ message: 'Student access only' }); return null; }
+    if (!req.user) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated')); return null; }
+    if (req.user.role !== 'student') { ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only')); return null; }
     return req.user._id;
 }
 
@@ -101,7 +102,7 @@ export async function getStudentDashboardFull(req: AuthRequest, res: Response): 
         // Section config
         const sections = config.sections || {};
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             header,
             quickStatus: {
                 profileScore: header.profileCompletionPercentage,
@@ -159,10 +160,10 @@ export async function getStudentDashboardFull(req: AuthRequest, res: Response): 
                 celebrationRules: config.celebrationRules,
             },
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (err) {
         console.error('getStudentDashboardFull error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -519,7 +520,7 @@ export async function getStudentDashboardSectionsConfig(req: AuthRequest, res: R
         if (!studentId) return;
 
         const config = await ensureDashboardConfig();
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             sections: config.sections || {},
             config: {
                 enableRecommendations: config.enableRecommendations ?? true,
@@ -530,9 +531,9 @@ export async function getStudentDashboardSectionsConfig(req: AuthRequest, res: R
                 renewalCtaText: config.renewalCtaText || 'Renew Now',
                 renewalCtaUrl: config.renewalCtaUrl || '/subscription-plans',
             },
-        });
+        }));
     } catch (err) {
         console.error('getStudentDashboardSectionsConfig error:', err);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

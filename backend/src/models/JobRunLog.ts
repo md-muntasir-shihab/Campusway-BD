@@ -8,6 +8,7 @@ export interface IJobRunLog extends Document {
     endedAt?: Date | null;
     durationMs?: number | null;
     status: JobRunStatus;
+    retryCount?: number;
     summary?: Record<string, unknown>;
     errorMessage?: string;
     errorStackSnippet?: string;
@@ -21,6 +22,7 @@ const JobRunLogSchema = new Schema<IJobRunLog>(
         startedAt: { type: Date, required: true, default: Date.now, index: true },
         endedAt: { type: Date, default: null },
         durationMs: { type: Number, default: null },
+        retryCount: { type: Number, default: 0 },
         status: {
             type: String,
             enum: ['running', 'success', 'failed'],

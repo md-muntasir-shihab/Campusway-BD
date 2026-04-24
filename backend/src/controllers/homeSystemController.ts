@@ -16,6 +16,7 @@ import SiteSettings from '../models/Settings';
 import { addHomeStreamClient, broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { getAggregatedHomeData as getStrictAggregatedHomeData } from './homeAggregateController';
 import { PUBLIC_BRAND_ASSETS, resolveStoredBrandAsset } from '../utils/brandAssets';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const DEFAULT_SOCIAL_LINKS = {
     facebook: '',
@@ -191,7 +192,7 @@ export const getSettings = async (req: Request, res: Response) => {
         }, {});
 
         const base = settings.toObject();
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             ...base,
             siteName: String(base.websiteName || ''),
             logoUrl: String(base.logo || ''),
@@ -202,9 +203,9 @@ export const getSettings = async (req: Request, res: Response) => {
                 ...socialLinksFromList,
             },
             socialLinksList,
-        });
+        }));
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -332,13 +333,10 @@ export const updateSettings = async (req: Request, res: Response) => {
         console.log('Settings updated in DB:', settings);
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'website-settings' } });
 
-        res.json({ message: 'Settings updated successfully', settings });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings }, 'Settings updated successfully'));
     } catch (error) {
         console.error('Settings save error:', error);
-        res.status(500).json({
-            message: 'Internal Server Error',
-            error: error instanceof Error ? error.message : String(error)
-        });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -352,9 +350,9 @@ export const updateHome = async (req: Request, res: Response) => {
         await home.save();
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'home' } });
 
-        res.json({ message: 'Home page updated successfully', home });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ home }, 'Home page updated successfully'));
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -376,9 +374,9 @@ export const updateHero = async (req: Request, res: Response) => {
 
         await home.save();
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'hero' } });
-        res.json({ message: 'Hero section updated', heroSection: home.heroSection });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ heroSection: home.heroSection }, 'Hero section updated'));
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -399,9 +397,9 @@ export const updatePromotionalBanner = async (req: Request, res: Response) => {
 
         await home.save();
         broadcastHomeStreamEvent({ type: 'banner-updated', meta: { section: 'promotionalBanner' } });
-        res.json({ message: 'Banner updated', promotionalBanner: home.promotionalBanner });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ promotionalBanner: home.promotionalBanner }, 'Banner updated'));
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -419,9 +417,9 @@ export const updateAnnouncement = async (req: Request, res: Response) => {
 
         await home.save();
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'announcement' } });
-        res.json({ message: 'Announcement updated', announcementBar: home.announcementBar });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ announcementBar: home.announcementBar }, 'Announcement updated'));
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -432,9 +430,9 @@ export const getStats = async (req: Request, res: Response) => {
         const totalUniversities = await University.countDocuments();
         const totalResults = await ExamResult.countDocuments();
 
-        res.json({ totalStudents, totalExams, totalUniversities, totalResults });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ totalStudents, totalExams, totalUniversities, totalResults }));
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 
@@ -447,9 +445,9 @@ export const updateStats = async (req: Request, res: Response) => {
         home.statistics = { ...home.statistics, ...payload };
         await home.save();
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'statistics' } });
-        res.json({ message: 'Stats updated', statistics: home.statistics });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ statistics: home.statistics }, 'Stats updated'));
     } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
 

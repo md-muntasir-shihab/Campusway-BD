@@ -22,6 +22,7 @@ import { getExternalExamAttemptCount } from '../services/externalExamAttemptServ
 import { computeStudentProfileScore } from '../services/studentProfileScoreService';
 import { getSecurityConfig } from '../services/securityConfigService';
 import { buildSecureUploadUrl, registerSecureUpload } from '../services/secureUploadService';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 type StudentPaymentItem = {
     _id: string;
@@ -40,11 +41,11 @@ type StudentPaymentItem = {
 
 function ensureStudent(req: AuthRequest, res: Response): string | null {
     if (!req.user) {
-        res.status(401).json({ message: 'Authentication required' });
+        ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
         return null;
     }
     if (req.user.role !== 'student') {
-        res.status(403).json({ message: 'Student access only' });
+        ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
         return null;
     }
     return req.user._id;
@@ -184,7 +185,7 @@ export async function getStudentMe(req: AuthRequest, res: Response): Promise<voi
         ]);
 
         if (!user || !profile) {
-            res.status(404).json({ message: 'Student profile not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Student profile not found'));
             return;
         }
 
@@ -197,7 +198,7 @@ export async function getStudentMe(req: AuthRequest, res: Response): Promise<voi
         const totalPaid = payments.reduce((sum, item) => sum + Number((item as { amount?: number }).amount || 0), 0);
         const pendingDue = Number((dueLedger as { netDue?: number } | null)?.netDue || 0);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             student: {
                 _id: String(user._id),
                 username: user.username,
@@ -237,10 +238,10 @@ export async function getStudentMe(req: AuthRequest, res: Response): Promise<voi
             },
             profile: profile,
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('getStudentMe error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -259,17 +260,17 @@ export async function getStudentMeExams(req: AuthRequest, res: Response): Promis
         const missed = cards.filter((item) => item.status === 'completed' && Number(item.attemptsUsed || 0) === 0);
         const completed = history.history;
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             live,
             upcoming,
             completed,
             missed,
             all: cards,
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('getStudentMeExams error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -280,7 +281,7 @@ export async function getStudentMeExamById(req: AuthRequest, res: Response): Pro
 
         const examId = String(req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id'));
             return;
         }
 
@@ -302,7 +303,7 @@ export async function getStudentMeExamById(req: AuthRequest, res: Response): Pro
         ]);
 
         if (!exam) {
-            res.status(404).json({ message: 'Exam not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
             return;
         }
 
@@ -340,9 +341,9 @@ export async function getStudentMeExamById(req: AuthRequest, res: Response): Pro
         const subscriptionExpiryTime = subscriptionExpiryRaw ? new Date(String(subscriptionExpiryRaw)).getTime() : 0;
         const subscriptionActive = Boolean(
             activeSubscription || (
-            persistedSubscription.isActive &&
-            Number.isFinite(subscriptionExpiryTime) &&
-            subscriptionExpiryTime > Date.now()
+                persistedSubscription.isActive &&
+                Number.isFinite(subscriptionExpiryTime) &&
+                subscriptionExpiryTime > Date.now()
             )
         );
         const planEligible = requiredPlanCodes.length === 0 || requiredPlanCodes.includes(studentPlanCode);
@@ -363,8 +364,7 @@ export async function getStudentMeExamById(req: AuthRequest, res: Response): Pro
             || (Array.isArray(exam.allowedUsers) && exam.allowedUsers.some((id) => String(id) === studentId));
 
         if (!userEligible || !groupEligible || !visibilityGroupEligible || !assignedEligible) {
-            res.status(403).json({
-                message: 'You are not assigned to this exam.',
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You are not assigned to this exam.', {
                 eligibility: {
                     eligible: false,
                     checks: {
@@ -375,7 +375,7 @@ export async function getStudentMeExamById(req: AuthRequest, res: Response): Pro
                         },
                     },
                 },
-            });
+            }));
             return;
         }
 
@@ -393,7 +393,7 @@ export async function getStudentMeExamById(req: AuthRequest, res: Response): Pro
             exam.isPublished
         );
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             exam: {
                 ...exam,
                 attemptsUsed,
@@ -434,10 +434,10 @@ export async function getStudentMeExamById(req: AuthRequest, res: Response): Pro
             },
             latestResult: myResult || null,
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('getStudentMeExamById error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -452,16 +452,16 @@ export async function getStudentMeResults(req: AuthRequest, res: Response): Prom
             return sum + Number(item.percentage || 0) + rankBonus;
         }, 0);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: payload.history,
             progress: payload.progress,
             badges: payload.badges,
             leaderboardPoints,
             lastUpdatedAt: payload.lastUpdatedAt,
-        });
+        }));
     } catch (error) {
         console.error('getStudentMeResults error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -472,7 +472,7 @@ export async function getStudentMeResultByExam(req: AuthRequest, res: Response):
 
         const examId = String(req.params.examId || '').trim();
         if (!mongoose.Types.ObjectId.isValid(examId)) {
-            res.status(400).json({ message: 'Invalid exam id' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam id'));
             return;
         }
 
@@ -482,7 +482,7 @@ export async function getStudentMeResultByExam(req: AuthRequest, res: Response):
             .lean();
 
         if (!result) {
-            res.status(404).json({ message: 'Result not found' });
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Result not found'));
             return;
         }
 
@@ -497,7 +497,7 @@ export async function getStudentMeResultByExam(req: AuthRequest, res: Response):
         const wrongCount = Number(result.wrongCount || answers.filter((item) => (item as { selectedAnswer?: string; isCorrect?: boolean }).selectedAnswer && !(item as { isCorrect?: boolean }).isCorrect).length);
         const unansweredCount = Math.max(0, Number(exam.totalQuestions || answers.length) - correctCount - wrongCount);
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             result: {
                 resultId: String(result._id),
                 examId: String(exam._id || examId),
@@ -518,10 +518,10 @@ export async function getStudentMeResultByExam(req: AuthRequest, res: Response):
                 answers,
             },
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('getStudentMeResultByExam error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -577,7 +577,7 @@ export async function getStudentMePayments(req: AuthRequest, res: Response): Pro
             .reduce((sum, item) => sum + Number(item.amount || 0), 0);
         const lastPaid = payments.find((item) => String(item.status || '') === 'paid') || null;
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             summary: {
                 totalPaid,
                 pendingAmount: pendingDue,
@@ -590,10 +590,10 @@ export async function getStudentMePayments(req: AuthRequest, res: Response): Pro
             },
             items,
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('getStudentMePayments error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -658,10 +658,10 @@ export async function getStudentMeNotifications(req: AuthRequest, res: Response)
         const items = allItems.filter((item) => !type || type === 'all' || item.kind === type);
         const unreadCount = allItems.filter((item) => !item.isRead).length;
 
-        res.json({ items, unreadCount, lastUpdatedAt: new Date().toISOString() });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, unreadCount, lastUpdatedAt: new Date().toISOString() }));
     } catch (error) {
         console.error('getStudentMeNotifications error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -698,7 +698,7 @@ export async function markStudentNotificationsRead(req: AuthRequest, res: Respon
         }
 
         if (targetIds.length === 0) {
-            res.json({ updated: 0 });
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ updated: 0 }));
             return;
         }
 
@@ -711,10 +711,10 @@ export async function markStudentNotificationsRead(req: AuthRequest, res: Respon
         }));
         await StudentNotificationRead.bulkWrite(bulkOps);
 
-        res.json({ updated: targetIds.length });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ updated: targetIds.length }));
     } catch (error) {
         console.error('markStudentNotificationsRead error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -741,15 +741,15 @@ export async function getStudentMeResources(req: AuthRequest, res: Response): Pr
             .lean();
 
         const categories = Array.from(new Set(rows.map((row) => String(row.category || 'General'))));
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: rows,
             categories,
             total: rows.length,
             lastUpdatedAt: new Date().toISOString(),
-        });
+        }));
     } catch (error) {
         console.error('getStudentMeResources error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -775,7 +775,7 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
             myRank = me?.rank || null;
         }
 
-        res.json({
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
             items: topStudents.map((s, idx) => ({
                 id: s.user_id,
                 name: s.full_name,
@@ -786,10 +786,10 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
             total,
             myRank,
             lastUpdatedAt: new Date().toISOString()
-        });
+        }));
     } catch (error) {
         console.error('getLeaderboard error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
 
@@ -814,7 +814,7 @@ export async function studentSubmitPaymentProof(req: AuthRequest, res: Response)
         }
 
         if (!amount || Number(amount) <= 0) {
-            res.status(400).json({ message: 'Valid amount is required' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Valid amount is required'));
             return;
         }
 
@@ -856,12 +856,9 @@ export async function studentSubmitPaymentProof(req: AuthRequest, res: Response)
             dedupeKey: `payment_review:${String(payment._id)}`,
         });
 
-        res.status(201).json({
-            message: 'Payment proof submitted. Waiting for admin approval.',
-            paymentId: payment._id
-        });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({ paymentId: payment._id }, 'Payment proof submitted. Waiting for admin approval.'));
     } catch (error) {
         console.error('studentSubmitPaymentProof error:', error);
-        res.status(500).json({ message: 'Server error' });
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }

@@ -35,27 +35,29 @@ export default function AdminTabNav({ tabs, className = '' }: AdminTabNavProps) 
 
     return (
         <div className={`mb-5 -mx-1 ${className}`}>
-            <div className="flex flex-wrap gap-1 rounded-2xl border border-slate-200/80 bg-slate-100/60 p-1 dark:border-slate-800/80 dark:bg-slate-900/60">
-                {tabs.map((tab) => {
-                    const active = isTabActive(tab, location.pathname, location.search);
-                    const Icon = tab.icon;
-                    return (
-                        <Link
-                            key={tab.key}
-                            to={tab.path}
-                            className={`
-                                inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-150
-                                ${active
-                                    ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-sm shadow-indigo-500/20'
-                                    : 'text-slate-600 hover:bg-white/80 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-indigo-300'
-                                }
-                            `}
-                        >
-                            {Icon && <Icon className="h-3.5 w-3.5 flex-shrink-0" />}
-                            <span>{tab.label}</span>
-                        </Link>
-                    );
-                })}
+            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                <div className="flex gap-1 rounded-2xl border border-slate-200/80 bg-slate-100/60 p-1 dark:border-slate-800/80 dark:bg-slate-900/60 md:flex-wrap min-w-max md:min-w-0">
+                    {tabs.map((tab) => {
+                        const active = isTabActive(tab, location.pathname, location.search);
+                        const Icon = tab.icon;
+                        return (
+                            <Link
+                                key={tab.key}
+                                to={tab.path}
+                                className={`
+                                    inline-flex items-center gap-1.5 rounded-xl px-3.5 min-h-[44px] min-w-[44px] justify-center text-sm font-medium transition-all duration-150 whitespace-nowrap
+                                    ${active
+                                        ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-sm shadow-indigo-500/20'
+                                        : 'text-slate-600 hover:bg-white/80 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-indigo-300'
+                                    }
+                                `}
+                            >
+                                {Icon && <Icon className="h-3.5 w-3.5 flex-shrink-0" />}
+                                <span>{tab.label}</span>
+                            </Link>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

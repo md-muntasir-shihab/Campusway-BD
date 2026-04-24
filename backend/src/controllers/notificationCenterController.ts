@@ -12,6 +12,7 @@ import { sendNotificationToStudent } from '../services/notificationProviderServi
 import { encrypt } from '../services/cryptoService';
 import { executeCampaign, retryFailedDeliveries } from '../services/notificationOrchestrationService';
 import { createSecurityAlert } from './securityAlertController';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */
 
@@ -59,7 +60,7 @@ export async function adminGetNotificationSummary(_req: AuthRequest, res: Respon
         NotificationTemplate.countDocuments({ isEnabled: true }),
     ]);
 
-    res.json({ queued, sentToday, failedToday, activeProviders: providers, activeTemplates: templates });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ queued, sentToday, failedToday, activeProviders: providers, activeTemplates: templates }));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -73,14 +74,14 @@ export async function adminGetProviders(_req: AuthRequest, res: Response): Promi
         .sort({ createdAt: -1 })
         .lean()
         .then((rows) => rows.map((row) => sanitizeProvider(row as unknown as Record<string, unknown>)));
-    res.json({ items });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
 }
 
 export async function adminCreateProvider(req: AuthRequest, res: Response): Promise<void> {
     const { type, provider, displayName, isEnabled, credentials, senderConfig, rateLimit } = req.body;
 
     if (!type || !provider || !displayName) {
-        res.status(400).json({ message: 'type, provider, displayName required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'type, provider, displayName required'));
         return;
     }
 
@@ -102,12 +103,12 @@ export async function adminCreateProvider(req: AuthRequest, res: Response): Prom
         `${displayName} credentials were added or updated.`,
         { providerId: String(doc._id), provider, type, actorUserId: req.user?._id || null },
     );
-    res.status(201).json({ data: sanitizeProvider(doc.toObject() as unknown as Record<string, unknown>), message: 'Provider created' });
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({data: sanitizeProvider(doc.toObject() as unknown as Record<string, unknown>)}, 'Provider created'));
 }
 
 export async function adminUpdateProvider(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const { displayName, isEnabled, credentials, senderConfig, rateLimit } = req.body;
     const update: Record<string, unknown> = {};
@@ -121,7 +122,7 @@ export async function adminUpdateProvider(req: AuthRequest, res: Response): Prom
     const doc = await NotificationProvider.findByIdAndUpdate(id, { $set: update }, { new: true })
         .select('+credentialsEncrypted')
         .lean();
-    if (!doc) { res.status(404).json({ message: 'Provider not found' }); return; }
+    if (!doc) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Provider not found')); return; }
 
     await createAudit(req, 'notification_provider_updated', { providerId: id });
     if (credentials !== undefined) {
@@ -133,15 +134,15 @@ export async function adminUpdateProvider(req: AuthRequest, res: Response): Prom
             { providerId: String(id), actorUserId: req.user?._id || null },
         );
     }
-    res.json({ data: sanitizeProvider(doc as unknown as Record<string, unknown>), message: 'Provider updated' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: sanitizeProvider(doc as unknown as Record<string, unknown>)}, 'Provider updated'));
 }
 
 export async function adminDeleteProvider(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const doc = await NotificationProvider.findByIdAndDelete(id);
-    if (!doc) { res.status(404).json({ message: 'Provider not found' }); return; }
+    if (!doc) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Provider not found')); return; }
 
     await createAudit(req, 'notification_provider_deleted', { providerId: id });
     await createSecurityAlert(
@@ -151,19 +152,19 @@ export async function adminDeleteProvider(req: AuthRequest, res: Response): Prom
         `${String(doc.displayName || doc.provider || 'Provider')} was removed from the communication hub.`,
         { providerId: String(id), actorUserId: req.user?._id || null },
     );
-    res.json({ message: 'Provider deleted' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Provider deleted'));
 }
 
 export async function adminTestProvider(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const provider = await NotificationProvider.findById(id).lean();
-    if (!provider) { res.status(404).json({ message: 'Provider not found' }); return; }
+    if (!provider) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Provider not found')); return; }
 
     // For now just return success - actual test integration depends on provider
     await createAudit(req, 'notification_provider_test', { providerId: id });
-    res.json({ message: 'Test send initiated', success: true });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({success: true}, 'Test send initiated'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -177,20 +178,20 @@ export async function adminGetTemplates(req: AuthRequest, res: Response): Promis
     if (req.query.isEnabled === 'false') filter.isEnabled = false;
 
     const items = await NotificationTemplate.find(filter).sort({ key: 1 }).lean();
-    res.json({ items });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
 }
 
 export async function adminCreateTemplate(req: AuthRequest, res: Response): Promise<void> {
     const { key, channel, subject, body, placeholdersAllowed, isEnabled } = req.body;
 
     if (!key || !channel || !body) {
-        res.status(400).json({ message: 'key, channel, body required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'key, channel, body required'));
         return;
     }
 
     const existing = await NotificationTemplate.findOne({ key: key.toUpperCase(), channel }).lean();
     if (existing) {
-        res.status(409).json({ message: 'Template with this key and channel already exists' });
+        ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Template with this key and channel already exists'));
         return;
     }
 
@@ -204,12 +205,12 @@ export async function adminCreateTemplate(req: AuthRequest, res: Response): Prom
     });
 
     await createAudit(req, 'notification_template_created', { templateId: doc._id, key });
-    res.status(201).json({ data: doc, message: 'Template created' });
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({data: doc}, 'Template created'));
 }
 
 export async function adminUpdateTemplate(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const { subject, body, placeholdersAllowed, isEnabled } = req.body;
     const update: Record<string, unknown> = {};
@@ -220,21 +221,21 @@ export async function adminUpdateTemplate(req: AuthRequest, res: Response): Prom
     if (typeof isEnabled === 'boolean') update.isEnabled = isEnabled;
 
     const doc = await NotificationTemplate.findByIdAndUpdate(id, { $set: update }, { new: true }).lean();
-    if (!doc) { res.status(404).json({ message: 'Template not found' }); return; }
+    if (!doc) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Template not found')); return; }
 
     await createAudit(req, 'notification_template_updated', { templateId: id });
-    res.json({ data: doc, message: 'Template updated' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: doc}, 'Template updated'));
 }
 
 export async function adminDeleteTemplate(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const doc = await NotificationTemplate.findByIdAndDelete(id);
-    if (!doc) { res.status(404).json({ message: 'Template not found' }); return; }
+    if (!doc) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Template not found')); return; }
 
     await createAudit(req, 'notification_template_deleted', { templateId: id });
-    res.json({ message: 'Template deleted' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Template deleted'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -261,16 +262,16 @@ export async function adminGetJobs(req: AuthRequest, res: Response): Promise<voi
         NotificationJob.countDocuments(filter),
     ]);
 
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
 }
 
 export async function adminSendNotification(req: AuthRequest, res: Response): Promise<void> {
-    if (!req.user?._id) { res.status(401).json({ message: 'Unauthorized' }); return; }
+    if (!req.user?._id) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Unauthorized')); return; }
 
     const { channel, target, templateKey, targetStudentId, targetGroupId, targetStudentIds, targetFilterJson, payloadOverrides, scheduledAtUTC, customBody, customSubject, campaignName, guardianTargeted, recipientMode } = req.body;
 
     if (!channel || !target || !templateKey) {
-        res.status(400).json({ message: 'channel, target, templateKey required' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'channel, target, templateKey required'));
         return;
     }
 
@@ -281,7 +282,7 @@ export async function adminSendNotification(req: AuthRequest, res: Response): Pr
                 ? JSON.parse(targetFilterJson)
                 : targetFilterJson;
         } catch {
-            res.status(400).json({ message: 'Invalid targetFilterJson' });
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid targetFilterJson'));
             return;
         }
     }
@@ -308,27 +309,25 @@ export async function adminSendNotification(req: AuthRequest, res: Response): Pr
     });
 
     await createAudit(req, 'notification_job_created', { jobId: result.jobId, templateKey, target });
-    res.status(201).json({
-        data: { jobId: result.jobId, sent: result.sent, failed: result.failed, skipped: result.skipped },
-        message: scheduledAtUTC ? 'Notification job scheduled' : 'Notification job queued or processed',
-    });
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({data: { jobId: result.jobId, sent: result.sent, failed: result.failed, skipped: result.skipped },
+        message: scheduledAtUTC ? 'Notification job scheduled' : 'Notification job queued or processed',}));
 }
 
 export async function adminRetryFailedJob(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const job = await NotificationJob.findById(id);
-    if (!job) { res.status(404).json({ message: 'Job not found' }); return; }
+    if (!job) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Job not found')); return; }
 
     if (job.status !== 'failed' && job.status !== 'partial') {
-        res.status(400).json({ message: 'Only failed or partial jobs can be retried' });
+        ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Only failed or partial jobs can be retried'));
         return;
     }
 
     const result = await retryFailedDeliveries(String(id), String(req.user!._id));
     await createAudit(req, 'notification_job_retried', { jobId: id, ...result });
-    res.json({ data: result, message: 'Failed deliveries retried' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({data: result}, 'Failed deliveries retried'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -362,7 +361,7 @@ export async function adminGetDeliveryLogs(req: AuthRequest, res: Response): Pro
         NotificationDeliveryLog.countDocuments(filter),
     ]);
 
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, page, pages: Math.ceil(total / limit) }));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -371,7 +370,7 @@ export async function adminGetDeliveryLogs(req: AuthRequest, res: Response): Pro
 
 export async function studentGetNotifications(req: AuthRequest, res: Response): Promise<void> {
     const studentId = asObjectId(req.user?._id);
-    if (!studentId) { res.status(401).json({ message: 'Auth required' }); return; }
+    if (!studentId) { ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Auth required')); return; }
 
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
@@ -397,17 +396,17 @@ export async function studentGetNotifications(req: AuthRequest, res: Response): 
         Notification.countDocuments({ ...filter, isActive: true }),
     ]);
 
-    res.json({ items, total, unread, page, pages: Math.ceil(total / limit) });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success({ items, total, unread, page, pages: Math.ceil(total / limit) }));
 }
 
 export async function studentMarkNotificationRead(req: AuthRequest, res: Response): Promise<void> {
     const id = asObjectId(req.params.id);
-    if (!id) { res.status(400).json({ message: 'Invalid id' }); return; }
+    if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     // Mark as read by deactivating
-    res.json({ message: 'Notification marked as read' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Notification marked as read'));
 }
 
 export async function studentMarkAllNotificationsRead(_req: AuthRequest, res: Response): Promise<void> {
-    res.json({ message: 'All notifications marked as read' });
+    ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'All notifications marked as read'));
 }

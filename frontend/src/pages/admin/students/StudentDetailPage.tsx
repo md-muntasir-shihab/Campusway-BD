@@ -391,7 +391,7 @@ export default function StudentDetailPage() {
             <div className="flex justify-end">
               <button onClick={() => setSendNotiModal(true)} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Send Notification</button>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 rounded-xl border border-gray-200 dark:border-gray-700">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
