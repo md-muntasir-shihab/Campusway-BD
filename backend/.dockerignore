@@ -12,3 +12,8 @@ coverage
 backup-snapshots
 .tmp-*
 .trigger
+src/__tests__
+src/**/*.test.ts
+src/**/*.spec.ts
+src/**/*.prop.test.ts
+e2e
