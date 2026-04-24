@@ -448,18 +448,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             payload.portal = portal;
         }
         const res = await api.post(endpoint, payload);
-        if (res.data.requires2fa) {
+        // Support both ResponseBuilder envelope { success, data: { token, user } }
+        // and legacy flat response { token, user }
+        const body = res.data?.data ?? res.data;
+        if (body.requires2fa) {
             setPending2FA({
-                tempToken: res.data.tempToken,
-                method: res.data.method,
-                maskedEmail: res.data.maskedEmail,
-                expiresInSeconds: res.data.expiresInSeconds,
+                tempToken: body.tempToken,
+                method: body.method,
+                maskedEmail: body.maskedEmail,
+                expiresInSeconds: body.expiresInSeconds,
             });
-            return res.data;
+            return body;
         }
 
-        completeLogin(res.data.token, res.data.user);
-        return res.data;
+        completeLogin(body.token, body.user);
+        return body;
     }, [completeLogin]);
 
     const logout = useCallback(async () => {

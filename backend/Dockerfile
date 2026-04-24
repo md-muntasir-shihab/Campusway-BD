@@ -7,9 +7,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Copy source and compile TypeScript
+# Copy source and compile TypeScript (exclude test files)
 COPY tsconfig.json ./
 COPY src ./src
+RUN rm -rf src/__tests__ && find src -name '*.test.ts' -o -name '*.spec.ts' -o -name '*.prop.test.ts' | xargs rm -f 2>/dev/null; true
 RUN npm run build
 
 # ── Stage 2: Production ──────────────────────────────────────────────────────
