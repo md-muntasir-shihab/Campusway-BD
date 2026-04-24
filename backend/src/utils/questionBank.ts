@@ -738,7 +738,7 @@ export function validateQuestionPayload(payload: Record<string, unknown>): Valid
 
     // 3. correctKey validation
     const optionKeys = (options || []).map(o => o.key);
-    if (!optionKeys.includes(payload.correctKey as string)) {
+    if (!optionKeys.includes(payload.correctKey as typeof optionKeys[number])) {
         errors.push('correctKey must match one of the option keys');
     }
 

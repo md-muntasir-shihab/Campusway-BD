@@ -13,6 +13,7 @@ import ConsentRecord from '../models/ConsentRecord';
 
 // ─── Channels and purposes ───────────────────────────────────────────────────
 
+type ConsentSource = 'user' | 'admin_override' | 'api';
 const ALL_CHANNELS: readonly string[] = ['sms', 'email'] as const;
 const ALL_PURPOSES: readonly string[] = ['transactional', 'promotional'] as const;
 
@@ -39,7 +40,7 @@ export async function setConsent(
     channel: string,
     purpose: string,
     optedIn: boolean,
-    source: string,
+    source: ConsentSource,
     actorId: mongoose.Types.ObjectId,
 ): Promise<void> {
     await ConsentRecord.updateOne(
@@ -62,7 +63,7 @@ export async function setConsent(
  */
 export async function globalUnsubscribe(
     userId: mongoose.Types.ObjectId,
-    source: string,
+    source: ConsentSource,
     actorId: mongoose.Types.ObjectId,
 ): Promise<void> {
     const now = new Date();
@@ -97,7 +98,7 @@ export async function globalUnsubscribe(
 export async function categoryUnsubscribe(
     userId: mongoose.Types.ObjectId,
     purpose: string,
-    source: string,
+    source: ConsentSource,
     actorId: mongoose.Types.ObjectId,
 ): Promise<void> {
     const now = new Date();
