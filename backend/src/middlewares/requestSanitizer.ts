@@ -158,7 +158,7 @@ export function validateRequest(schemas: ValidateRequestOptions) {
                 });
                 return;
             }
-            req.query = result.data;
+            req.query = result.data as typeof req.query;
         }
 
         if (schemas.params) {
@@ -175,7 +175,7 @@ export function validateRequest(schemas: ValidateRequestOptions) {
                 });
                 return;
             }
-            req.params = result.data;
+            req.params = result.data as typeof req.params;
         }
 
         next();

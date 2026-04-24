@@ -242,16 +242,16 @@ async function getExamPreview(examId: string): Promise<{
         .lean();
 
     const previewQuestions = questions.map((q) => ({
-        orderIndex: q.orderIndex,
-        question_en: q.question_en,
-        question_bn: q.question_bn,
-        questionImageUrl: q.questionImageUrl,
+        orderIndex: q.orderIndex as number,
+        question_en: q.question_en ?? undefined,
+        question_bn: q.question_bn ?? undefined,
+        questionImageUrl: q.questionImageUrl ?? undefined,
         options: (q.options || []).map((opt: any) => ({
-            key: opt.key,
-            text_en: opt.text_en,
-            text_bn: opt.text_bn,
+            key: opt.key as string,
+            text_en: opt.text_en ?? undefined,
+            text_bn: opt.text_bn ?? undefined,
         })),
-        marks: q.marks,
+        marks: q.marks as number,
     }));
 
     return {
@@ -280,8 +280,8 @@ async function attachQuestionsToExam(
     const examQuestionDocs = bankQuestions.map((bq, index) => ({
         examId,
         fromBankQuestionId: bq._id.toString(),
-        orderIndex: index,
-        marks: marksPerQuestion,
+        orderIndex: index as number,
+        marks: marksPerQuestion as number,
         question_en: bq.question_en || '',
         question_bn: bq.question_bn || '',
         questionImageUrl: bq.questionImageUrl || '',

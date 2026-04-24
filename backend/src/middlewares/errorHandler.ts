@@ -10,8 +10,9 @@ import { logger } from '../utils/logger';
 async function captureWithSentry(err: Error, req: Request): Promise<void> {
     if (!process.env.SENTRY_DSN) return;
     try {
+        // @ts-ignore
         const Sentry = await import('@sentry/node');
-        Sentry.withScope((scope) => {
+        Sentry.withScope((scope: any) => {
             scope.setTag('requestId', req.requestId ?? 'unknown');
             scope.setExtra('path', req.path);
             scope.setExtra('method', req.method);

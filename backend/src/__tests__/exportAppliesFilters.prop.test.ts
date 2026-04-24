@@ -150,14 +150,15 @@ describe('Feature: exam-question-bank, Property 10: Export applies current filte
                 let dbQuestions;
                 if (filters.q) {
                     // When search text is active, apply the same $or regex
+                    const q = filters.q as string;
                     dbQuestions = await QuestionBankQuestion.find({
                         ...dbFilter,
                         $or: [
-                            { question_en: { $regex: filters.q, $options: 'i' } },
-                            { question_bn: { $regex: filters.q, $options: 'i' } },
-                            { subject: { $regex: filters.q, $options: 'i' } },
-                            { topic: { $regex: filters.q, $options: 'i' } },
-                            { tags: { $elemMatch: { $regex: filters.q, $options: 'i' } } },
+                            { question_en: { $regex: q, $options: 'i' } },
+                            { question_bn: { $regex: q, $options: 'i' } },
+                            { subject: { $regex: q, $options: 'i' } },
+                            { topic: { $regex: q, $options: 'i' } },
+                            { tags: { $elemMatch: { $regex: q, $options: 'i' } } },
                         ],
                     }).lean();
                 } else {
@@ -172,9 +173,8 @@ describe('Feature: exam-question-bank, Property 10: Export applies current filte
                     expect(listIds.has(id)).toBe(true);
                 }
                 for (const id of listIds) {
-                    expect(dbIds.has(id)).toBe(true);
+                    expect(dbIds.has(id as string)).toBe(true);
                 }
-
                 // 7. Verify the export count matches list count
                 //    (exportQuestionsPdf calls listBankQuestions internally)
                 expect(listResult.questions.length).toBe(dbQuestions.length);

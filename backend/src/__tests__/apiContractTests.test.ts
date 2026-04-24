@@ -203,7 +203,7 @@ const SubscriptionPaymentResponseDataSchema = z.object({
     message: z.string(),
     payment: PaymentRecordSchema,
     subscription: SubscriptionRecordSchema,
-    invoice: z.record(z.unknown()).nullable(),
+    invoice: z.record(z.string(), z.unknown()).nullable(),
     plan: SubscriptionPlanDtoSchema,
 });
 

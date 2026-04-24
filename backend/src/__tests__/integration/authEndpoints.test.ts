@@ -80,7 +80,7 @@ function hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function generateTestAccessToken(userId: string, sessionId: string, expiresIn = '15m'): string {
+function generateTestAccessToken(userId: string, sessionId: string, expiresIn: string = '15m'): string {
     return jwt.sign(
         {
             _id: userId,
@@ -93,16 +93,16 @@ function generateTestAccessToken(userId: string, sessionId: string, expiresIn = 
             sessionId,
         },
         JWT_SECRET,
-        { expiresIn }
+        { expiresIn } as jwt.SignOptions
     );
 }
 
-function generateTestRefreshToken(userId: string, sessionId: string, expiresIn = '7d'): string {
-    return jwt.sign({ _id: userId, sessionId }, REFRESH_SECRET, { expiresIn });
+function generateTestRefreshToken(userId: string, sessionId: string, expiresIn: string = '7d'): string {
+    return jwt.sign({ _id: userId, sessionId }, REFRESH_SECRET, { expiresIn } as jwt.SignOptions);
 }
 
 function generateExpiredRefreshToken(userId: string, sessionId: string): string {
-    return jwt.sign({ _id: userId, sessionId }, REFRESH_SECRET, { expiresIn: '-1s' });
+    return jwt.sign({ _id: userId, sessionId }, REFRESH_SECRET, { expiresIn: '-1s' } as jwt.SignOptions);
 }
 
 function generateExpiredAccessToken(userId: string, sessionId: string): string {
@@ -118,7 +118,7 @@ function generateExpiredAccessToken(userId: string, sessionId: string): string {
             sessionId,
         },
         JWT_SECRET,
-        { expiresIn: '-1s' }
+        { expiresIn: '-1s' } as jwt.SignOptions
     );
 }
 
