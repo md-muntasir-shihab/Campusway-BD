@@ -3,9 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first (layer cache)
+# Install ALL dependencies (including dev) for build
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # Copy source and compile TypeScript (exclude test files)
 COPY tsconfig.json ./
