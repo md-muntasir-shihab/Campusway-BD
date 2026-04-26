@@ -40,4 +40,8 @@ services:
         value: "true"
       - key: CACHE_PREFIX
         value: "cw:"
+      - key: ALLOW_DEFAULT_SETUP
+        value: "true"
+      - key: ADMIN_SECRET_PATH
+        value: campusway-secure-admin
 
