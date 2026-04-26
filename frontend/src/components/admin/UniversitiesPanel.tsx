@@ -155,11 +155,11 @@ const IMPORT_FIELDS = [
 ];
 
 const COLUMN_MAP: Record<string, string> = {
+  name: 'Name',
+  shortForm: 'Short',
   category: 'Category',
   clusterGroup: 'Cluster',
-  name: 'Name',
-  shortForm: 'Short Form',
-  establishedYear: 'Established',
+  establishedYear: 'Est.',
   applicationStartDate: 'App Start',
   applicationEndDate: 'App End',
   examDateScience: 'Science Exam',
@@ -167,15 +167,10 @@ const COLUMN_MAP: Record<string, string> = {
   examDateBusiness: 'Business Exam',
   totalSeats: 'Total Seats',
   seatsScienceEng: 'Science Seats',
-  seatsArtsHum: 'Arts Seats',
+  seatsArtsHum: 'Humanities Seats',
   seatsBusiness: 'Business Seats',
   contactNumber: 'Contact',
   address: 'Address',
-  email: 'Email',
-  websiteUrl: 'Website',
-  admissionUrl: 'Admission Site',
-  examCenters: 'Exam Centers',
-  logoUrl: 'Logo',
   updatedAt: 'Updated',
 };
 
@@ -186,23 +181,18 @@ const COLUMN_VISIBILITY: Record<string, string> = {
   shortForm: "table-cell",
   category: "table-cell",
   clusterGroup: "hidden xl:table-cell",
+  establishedYear: "hidden 2xl:table-cell",
   applicationStartDate: "hidden xl:table-cell",
   applicationEndDate: "hidden xl:table-cell",
   examDateScience: "hidden 2xl:table-cell",
-  examDateBusiness: "hidden 2xl:table-cell",
   examDateArts: "hidden 2xl:table-cell",
-  establishedYear: "hidden 2xl:table-cell",
+  examDateBusiness: "hidden 2xl:table-cell",
   totalSeats: "hidden lg:table-cell",
   seatsScienceEng: "hidden 2xl:table-cell",
   seatsArtsHum: "hidden 2xl:table-cell",
   seatsBusiness: "hidden 2xl:table-cell",
   contactNumber: "hidden 2xl:table-cell",
   address: "hidden 2xl:table-cell",
-  email: "hidden 2xl:table-cell",
-  websiteUrl: "hidden 2xl:table-cell",
-  admissionUrl: "hidden 2xl:table-cell",
-  examCenters: "hidden 2xl:table-cell",
-  logoUrl: "hidden 2xl:table-cell",
   updatedAt: "hidden md:table-cell",
 };
 
@@ -1478,55 +1468,81 @@ export default function UniversitiesPanel() {
                   ) : universities.length === 0 ? (
                     <tr><td colSpan={SORT_COLUMNS.length + 2} className="px-3 py-12 text-center text-slate-500">No universities found</td></tr>
                   ) : (
-                    universities.map((u) => (
-                      <tr key={u._id} className="hover:bg-indigo-500/[0.05] transition-colors group">
-                        <td className="px-3 py-2">
-                          <button type="button" onClick={() => toggleRowSelection(u._id)} className="text-indigo-400/60 group-hover:text-indigo-400 transition-colors">
-                            {selectedIds.includes(u._id) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                          </button>
-                        </td>
-                        {SORT_COLUMNS.map((k) => {
-                          const val = (u as any)[k];
-                          let display = val || '-';
-                          if (k.toLowerCase().includes('date') && !k.toLowerCase().includes('desc')) {
-                            display = dateText(val);
-                          } else if (k === 'examCenters') {
-                            display = serializeExamCentersText(val) || 'N/A';
-                          } else if (k === 'updatedAt') {
-                            display = dateText(val);
-                          }
-                          return (
-                            <td key={k} className={`px-3 py-2.5 ${COLUMN_VISIBILITY[k] || ''} ${k === 'name' ? 'text-white font-bold' : 'text-slate-400'} max-w-[200px] truncate`} title={String(display || '')}>
-                              {display}
-                            </td>
-                          );
-                        })}
-                        <td className="px-2 py-2 sticky right-0 bg-slate-900/90 backdrop-blur-md shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.3)] z-10">
-                          <div className="flex flex-col gap-1 min-w-[90px]">
-                            <div className="flex items-center gap-1">
-                              {homeFeaturedOrderMap.has(u._id) ? (
-                                <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan-200">
-                                  #{homeFeaturedOrderMap.get(u._id)}
-                                </span>
-                              ) : null}
-                              <button
-                                type="button"
-                                disabled={savingHomeFeaturedSelection}
-                                onClick={() => void toggleUniversityHomeFeatured(u)}
-                                className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:opacity-40 ${homeFeaturedOrderMap.has(u._id) ? 'bg-cyan-500/10 text-cyan-300' : 'bg-sky-500/10 text-sky-300'}`}
-                              >
-                                {homeFeaturedOrderMap.has(u._id) ? 'Hide' : 'Show'}
-                              </button>
+                    universities.map((u) => {
+                      const isAdmissionOpen = u.applicationEndDate && new Date(u.applicationEndDate) > new Date();
+                      return (
+                        <tr key={u._id} className="hover:bg-indigo-500/[0.05] transition-colors group">
+                          <td className="px-3 py-2">
+                            <button type="button" onClick={() => toggleRowSelection(u._id)} className="text-indigo-400/60 group-hover:text-indigo-400 transition-colors">
+                              {selectedIds.includes(u._id) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                            </button>
+                          </td>
+                          {SORT_COLUMNS.map((k) => {
+                            const val = (u as any)[k];
+                            let display: React.ReactNode = val || '-';
+                            if (k === 'name') {
+                              display = (
+                                <div className="flex items-center gap-2 min-w-[160px]">
+                                  {u.logoUrl ? (
+                                    <img src={u.logoUrl.startsWith('http') ? u.logoUrl : `https://campusway-backend.onrender.com/${u.logoUrl}`} alt="" className="w-6 h-6 rounded-md object-cover ring-1 ring-white/10 flex-shrink-0" />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-md bg-indigo-500/20 flex items-center justify-center flex-shrink-0 text-[9px] font-bold text-indigo-300">{(u.shortForm || u.name || '?').slice(0, 2).toUpperCase()}</div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-white font-bold truncate">{u.name || '-'}</p>
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                      <span className={`inline-block w-1.5 h-1.5 rounded-full ${u.isActive !== false ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                                      <span className={`text-[9px] ${u.isActive !== false ? 'text-emerald-400' : 'text-slate-500'}`}>{u.isActive !== false ? 'Active' : 'Inactive'}</span>
+                                      {isAdmissionOpen && <span className="text-[9px] text-cyan-400 ml-1">• Open</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            } else if (k === 'category') {
+                              display = <span className="rounded-md bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300 whitespace-nowrap">{val || '-'}</span>;
+                            } else if (k === 'clusterGroup') {
+                              display = val ? <span className="rounded-md bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-300 whitespace-nowrap">{val}</span> : <span className="text-slate-600">—</span>;
+                            } else if (k === 'totalSeats' || k === 'seatsScienceEng' || k === 'seatsArtsHum' || k === 'seatsBusiness') {
+                              const num = Number(val);
+                              display = Number.isFinite(num) && num > 0 ? num.toLocaleString() : <span className="text-slate-600">N/A</span>;
+                            } else if (k.toLowerCase().includes('date') && !k.toLowerCase().includes('desc')) {
+                              display = dateText(val);
+                            } else if (k === 'updatedAt') {
+                              display = dateText(val);
+                            }
+                            return (
+                              <td key={k} className={`px-3 py-2.5 ${COLUMN_VISIBILITY[k] || ''} ${k === 'name' ? '' : 'text-slate-400'} max-w-[200px] truncate`} title={String(val || '')}>
+                                {display}
+                              </td>
+                            );
+                          })}
+                          <td className="px-2 py-2 sticky right-0 bg-slate-900/90 backdrop-blur-md shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.3)] z-10">
+                            <div className="flex flex-col gap-1 min-w-[90px]">
+                              <div className="flex items-center gap-1">
+                                {homeFeaturedOrderMap.has(u._id) ? (
+                                  <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan-200">
+                                    #{homeFeaturedOrderMap.get(u._id)}
+                                  </span>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  disabled={savingHomeFeaturedSelection}
+                                  onClick={() => void toggleUniversityHomeFeatured(u)}
+                                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:opacity-40 ${homeFeaturedOrderMap.has(u._id) ? 'bg-cyan-500/10 text-cyan-300' : 'bg-sky-500/10 text-sky-300'}`}
+                                >
+                                  {homeFeaturedOrderMap.has(u._id) ? 'Hide' : 'Show'}
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => openEdit(u)} className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">Edit</button>
+                                <button type="button" onClick={() => void adminToggleUniversityStatus(u._id).then(async () => { await invalidateUniversityQueries(); await loadUniversities(); })} className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${u.isActive ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{u.isActive ? 'Off' : 'On'}</button>
+                                <button type="button" onClick={() => void deleteOne(u._id)} className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">Del</button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <button type="button" onClick={() => openEdit(u)} className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">Edit</button>
-                              <button type="button" onClick={() => void adminToggleUniversityStatus(u._id).then(async () => { await invalidateUniversityQueries(); await loadUniversities(); })} className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${u.isActive ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{u.isActive ? 'Off' : 'On'}</button>
-                              <button type="button" onClick={() => void deleteOne(u._id)} className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">Del</button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
