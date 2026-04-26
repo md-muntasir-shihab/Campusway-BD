@@ -1509,6 +1509,22 @@ router.get('/founder', requirePermission('site_settings', 'view'), getAdminFound
 router.put('/founder', requirePermission('site_settings', 'edit'), upsertFounder);
 
 /* ═══════════════════════════════════════════════════════════
+   TESTIMONIALS & PARTNERS
+   ═══════════════════════════════════════════════════════════ */
+import {
+    adminGetTestimonials, adminCreateTestimonial, adminUpdateTestimonial, adminDeleteTestimonial,
+    adminGetPartners, adminCreatePartner, adminUpdatePartner, adminDeletePartner,
+} from '../controllers/testimonialPartnerController';
+router.get('/testimonials', requirePermission('site_settings', 'view'), adminGetTestimonials);
+router.post('/testimonials', requirePermission('site_settings', 'create'), adminCreateTestimonial);
+router.put('/testimonials/:id', requirePermission('site_settings', 'edit'), adminUpdateTestimonial);
+router.delete('/testimonials/:id', requirePermission('site_settings', 'delete'), adminDeleteTestimonial);
+router.get('/partners', requirePermission('site_settings', 'view'), adminGetPartners);
+router.post('/partners', requirePermission('site_settings', 'create'), adminCreatePartner);
+router.put('/partners/:id', requirePermission('site_settings', 'edit'), adminUpdatePartner);
+router.delete('/partners/:id', requirePermission('site_settings', 'delete'), adminDeletePartner);
+
+/* ═══════════════════════════════════════════════════════════
    WEAK TOPIC DETECTION (Analytics)
    ═══════════════════════════════════════════════════════════ */
 router.get('/analytics/weak-topics', requirePermission('reports_analytics', 'view'), adminGetWeakTopics);

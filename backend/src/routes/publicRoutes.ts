@@ -265,6 +265,11 @@ router.get('/services-config', getPublicServiceConfig);
 router.get('/service-categories', getServiceCategories);
 router.get('/services/:id', getServiceDetails);
 
+/* ── Public — Testimonials & Partners ── */
+import { getPublicTestimonials, getPublicPartners } from '../controllers/testimonialPartnerController';
+router.get('/testimonials', getPublicTestimonials);
+router.get('/partners', getPublicPartners);
+
 /* ── Public — Contact Submit ── */
 router.post('/contact', requireAppCheck, contactRateLimiter, optionalAuthenticate, submitPublicContactMessage);
 
