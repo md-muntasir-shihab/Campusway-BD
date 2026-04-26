@@ -333,6 +333,15 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
         module: 'founder_details',
         matchPrefixes: [adminUi('founder-details')],
     },
+    // 16. Testimonials & Partners
+    {
+        key: 'testimonials',
+        label: 'Testimonials',
+        path: ADMIN_PATHS.testimonials,
+        icon: MessageSquare,
+        module: 'site_settings',
+        matchPrefixes: [adminUi('testimonials')],
+    },
 ];
 
 export function isAdminPathActive(pathname: string, item: AdminMenuItem): boolean {

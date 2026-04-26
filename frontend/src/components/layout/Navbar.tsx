@@ -164,12 +164,12 @@ export default function Navbar() {
                         <button
                             type="button"
                             onClick={openSearch}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-card-border/70 dark:border-dark-border/70 px-2.5 text-text-muted dark:text-dark-text/70 hover:bg-primary/5 hover:text-primary transition-colors"
+                            className="group inline-flex h-10 items-center gap-2 rounded-2xl border border-card-border/60 dark:border-white/[0.08] bg-surface/60 dark:bg-white/[0.04] px-3.5 text-text-muted dark:text-dark-text/60 hover:border-primary/40 hover:bg-primary/5 hover:text-primary dark:hover:border-indigo-400/30 dark:hover:text-indigo-300 transition-all duration-200 shadow-sm hover:shadow-md"
                             aria-label="Open search (Ctrl+K)"
                         >
-                            <Search className="w-4 h-4" />
-                            <span className="hidden sm:inline text-xs">Search</span>
-                            <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border border-card-border/50 dark:border-dark-border/50 bg-surface/50 dark:bg-dark-surface/50 px-1 py-0.5 text-[10px] text-text-muted/60 dark:text-dark-text/40">
+                            <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            <span className="hidden sm:inline text-xs font-medium">Search</span>
+                            <kbd className="hidden md:inline-flex items-center gap-0.5 rounded-lg border border-card-border/40 dark:border-white/[0.08] bg-surface2/80 dark:bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-text-muted/50 dark:text-dark-text/30 ml-1">
                                 ⌘K
                             </kbd>
                         </button>
