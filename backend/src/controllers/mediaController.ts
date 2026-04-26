@@ -9,10 +9,16 @@ import { getFirebaseStorageBucket } from '../config/firebaseAdmin';
 import { buildSecureUploadUrl, registerSecureUpload } from '../services/secureUploadService';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
-// Ensure the upload directory exists
+// Ensure the upload directory exists (graceful in read-only / containerised envs)
 const uploadDir = path.join(__dirname, '../../public/uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+try {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+} catch {
+    // In production containers the directory is pre-created by the Dockerfile;
+    // if it still fails, uploads will fall back to Firebase Storage.
+    console.warn('[MediaController] Could not create upload dir — using Firebase Storage only');
 }
 
 /**
@@ -256,8 +262,12 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
         }
 
         // Runtime check: ensure upload directory exists before local storage write
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
+        try {
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+        } catch {
+            // Fallback: directory may not be writable in containerised envs
         }
 
         // Construct the public URL for the uploaded file

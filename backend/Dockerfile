@@ -31,6 +31,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy compiled output from builder
 COPY --from=builder /app/dist ./dist
 
+# Create upload directory with correct ownership before switching user
+RUN mkdir -p /app/public/uploads && chown -R appuser:appgroup /app/public
+
 # Switch to non-root user
 USER appuser
 
