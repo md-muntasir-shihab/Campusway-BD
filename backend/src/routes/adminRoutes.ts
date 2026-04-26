@@ -2,6 +2,10 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import {
+    adminGetTestimonials, adminCreateTestimonial, adminUpdateTestimonial, adminDeleteTestimonial,
+    adminGetPartners, adminCreatePartner, adminUpdatePartner, adminDeletePartner,
+} from '../controllers/testimonialPartnerController';
 import ExcelJS from 'exceljs';
 import { authenticate, authorize, authorizePermission, forbidden, requirePermission, requireRole } from '../middlewares/auth';
 import { enforceAdminPanelPolicy, enforceAdminReadOnlyMode } from '../middlewares/securityGuards';
@@ -1511,10 +1515,6 @@ router.put('/founder', requirePermission('site_settings', 'edit'), upsertFounder
 /* ═══════════════════════════════════════════════════════════
    TESTIMONIALS & PARTNERS
    ═══════════════════════════════════════════════════════════ */
-import {
-    adminGetTestimonials, adminCreateTestimonial, adminUpdateTestimonial, adminDeleteTestimonial,
-    adminGetPartners, adminCreatePartner, adminUpdatePartner, adminDeletePartner,
-} from '../controllers/testimonialPartnerController';
 router.get('/testimonials', requirePermission('site_settings', 'view'), adminGetTestimonials);
 router.post('/testimonials', requirePermission('site_settings', 'create'), adminCreateTestimonial);
 router.put('/testimonials/:id', requirePermission('site_settings', 'edit'), adminUpdateTestimonial);

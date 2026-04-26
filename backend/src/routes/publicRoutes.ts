@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { globalSearch } from '../controllers/globalSearchController';
+import { getPublicTestimonials, getPublicPartners } from '../controllers/testimonialPartnerController';
 import {
     beginTotpSetup,
     confirmTotpSetup,
@@ -266,7 +267,6 @@ router.get('/service-categories', getServiceCategories);
 router.get('/services/:id', getServiceDetails);
 
 /* ── Public — Testimonials & Partners ── */
-import { getPublicTestimonials, getPublicPartners } from '../controllers/testimonialPartnerController';
 router.get('/testimonials', getPublicTestimonials);
 router.get('/partners', getPublicPartners);
 
