@@ -28,6 +28,8 @@ services:
         generateValue: true
       - key: ADMIN_ORIGIN
         value: https://campuswaybd.web.app
+      - key: CORS_ORIGIN
+        value: https://campuswaybd.web.app,https://campuswaybd.firebaseapp.com
       - key: BACKEND_URL
         value: https://campusway-backend.onrender.com
       - key: UPSTASH_REDIS_REST_URL

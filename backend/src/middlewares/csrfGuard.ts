@@ -63,7 +63,7 @@ export function csrfTokenEndpoint(_req: Request, res: Response): void {
     res.cookie('_csrf', token, {
         httpOnly: false,
         secure: IS_PRODUCTION,
-        sameSite: 'lax',
+        sameSite: IS_PRODUCTION ? 'none' : 'lax',
         path: '/',
     });
 

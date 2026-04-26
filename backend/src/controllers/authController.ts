@@ -202,20 +202,22 @@ const OTP_VERIFY_WINDOW_MS = 10 * 60 * 1000;
 const OTP_RESEND_WINDOW_MS = 10 * 60 * 1000;
 
 function setRefreshCookie(res: Response, refreshToken: string, ttlDays = 7): void {
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('refresh_token', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'strict',
         path: '/api/auth',
         maxAge: Math.max(1, ttlDays) * 24 * 60 * 60 * 1000,
     });
 }
 
 function setAccessCookie(res: Response, accessToken: string, ttlMinutes = 15): void {
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('access_token', accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'strict',
         maxAge: Math.max(1, ttlMinutes) * 60 * 1000,
     });
 }
