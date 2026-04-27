@@ -413,12 +413,21 @@ async function ensureCsrfCookie(): Promise<void> {
     csrfFetchInFlight = axios
         .get(resolveApiUrl('/auth/csrf-token'), { withCredentials: true, timeout: 5000 })
         .then((res) => {
-            const token = res.data?.csrfToken || res.data?.data?.csrfToken || '';
+            const d = res.data;
+            const token = d?.csrfToken || d?.data?.csrfToken || '';
             if (token) csrfTokenInMemory = token;
         })
         .catch(() => undefined)
         .finally(() => { csrfFetchInFlight = null; });
     return csrfFetchInFlight;
+}
+
+/** Called after login to store CSRF token from api instance response */
+export function updateCsrfTokenFromResponse(data: unknown): void {
+    const d = data as Record<string, unknown> | null;
+    if (!d) return;
+    const token = String(d.csrfToken || (d.data as Record<string, unknown>)?.csrfToken || '').trim();
+    if (token) csrfTokenInMemory = token;
 }
 
 // Attach JWT token and CSRF token to every request
