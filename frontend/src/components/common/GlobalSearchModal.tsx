@@ -25,6 +25,7 @@ import {
     type GlobalSearchUniversityResult,
     type GlobalSearchExamResult,
     type GlobalSearchNewsResult,
+    type GlobalSearchResourceResult,
 } from '../../services/api';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 import {
@@ -38,7 +39,7 @@ import FocusTrap from './FocusTrap';
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
-type AnyResult = GlobalSearchUniversityResult | GlobalSearchExamResult | GlobalSearchNewsResult;
+type AnyResult = GlobalSearchUniversityResult | GlobalSearchExamResult | GlobalSearchNewsResult | GlobalSearchResourceResult;
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -58,6 +59,7 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
     const [universities, setUniversities] = useState<GlobalSearchUniversityResult[]>([]);
     const [exams, setExams] = useState<GlobalSearchExamResult[]>([]);
     const [news, setNews] = useState<GlobalSearchNewsResult[]>([]);
+    const [resources, setResources] = useState<GlobalSearchResourceResult[]>([]);
     const [highlightIndex, setHighlightIndex] = useState(-1);
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState<FacetFilter>({});
@@ -76,6 +78,10 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
     const newsEngine = useMemo(
         () => new SearchEngine(news as unknown as Record<string, unknown>[], { keys: ['title', 'category', 'shortSummary'], categoryField: 'category', dateField: 'publishDate' }, 'news'),
         [news],
+    );
+    const resourceEngine = useMemo(
+        () => new SearchEngine(resources as unknown as Record<string, unknown>[], { keys: ['title', 'description', 'category'], categoryField: 'category', dateField: 'publishDate' }, 'resources'),
+        [resources],
     );
 
     /* ── Filtered results (apply facets client-side) ── */
@@ -100,7 +106,14 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
         return newsEngine.search('', filters).items as unknown as GlobalSearchNewsResult[];
     }, [news, filters, activeCollection, newsEngine]);
 
-    const flatResults: AnyResult[] = [...filteredUniversities, ...filteredExams, ...filteredNews];
+    const filteredResources = useMemo(() => {
+        if (!hasActiveFilters(filters) || (activeCollection !== 'all' && activeCollection !== 'resources')) {
+            return activeCollection === 'all' || activeCollection === 'resources' ? resources : [];
+        }
+        return resourceEngine.search('', filters).items as unknown as GlobalSearchResourceResult[];
+    }, [resources, filters, activeCollection, resourceEngine]);
+
+    const flatResults: AnyResult[] = [...filteredUniversities, ...filteredExams, ...filteredNews, ...filteredResources];
     const hasResults = flatResults.length > 0;
 
     /* ── Debounced API fetch ── */
@@ -109,6 +122,7 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
             setUniversities([]);
             setExams([]);
             setNews([]);
+            setResources([]);
             return;
         }
         setLoading(true);
@@ -117,11 +131,13 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
                 setUniversities(res.data.universities ?? []);
                 setExams(res.data.exams ?? []);
                 setNews(res.data.news ?? []);
+                setResources(res.data.resources ?? []);
             })
             .catch(() => {
                 setUniversities([]);
                 setExams([]);
                 setNews([]);
+                setResources([]);
             })
             .finally(() => setLoading(false));
     }, []);
@@ -140,6 +156,7 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
         setUniversities([]);
         setExams([]);
         setNews([]);
+        setResources([]);
         setFilters({});
         setActiveCollection('all');
         setShowFilters(false);
@@ -152,6 +169,7 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
         if (item.type === 'university') navigate(`/university/${item.slug}`);
         else if (item.type === 'exam') navigate(`/exams/${item.slug || item._id}`);
         else if (item.type === 'news') navigate(`/news/${item.slug}`);
+        else if (item.type === 'resource') navigate(`/resources/${item.slug || item._id}`);
     };
 
     /* ── Keyboard navigation ── */
@@ -182,6 +200,7 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
             setUniversities([]);
             setExams([]);
             setNews([]);
+            setResources([]);
             setHighlightIndex(-1);
             setFilters({});
             setShowFilters(false);
@@ -227,6 +246,7 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
         { key: 'universities', label: 'Universities' },
         { key: 'exams', label: 'Exams' },
         { key: 'news', label: 'News' },
+        { key: 'resources', label: 'Resources' },
     ];
 
     let flatIdx = 0;
@@ -494,6 +514,49 @@ export default function GlobalSearchModal({ open, onClose }: GlobalSearchModalPr
                                         </div>
                                     );
                                     flatIdx += filteredNews.length;
+                                    return section;
+                                })()}
+
+                                {/* Resources */}
+                                {filteredResources.length > 0 && (() => {
+                                    const startIdx = flatIdx;
+                                    const section = (
+                                        <div key="resources">
+                                            <div className="flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100/60 dark:border-gray-800/60 bg-gray-50/40 dark:bg-gray-800/30 sticky top-0">
+                                                {sectionIcon('resource')}
+                                                {sectionTitle('resource')}
+                                                <span className="ml-auto text-[10px] font-normal normal-case text-gray-400/70">{filteredResources.length}</span>
+                                            </div>
+                                            {filteredResources.map((r, i) => {
+                                                const idx = startIdx + i;
+                                                return (
+                                                    <button
+                                                        key={r._id}
+                                                        role="option"
+                                                        aria-selected={highlightIndex === idx}
+                                                        onClick={() => goToResult(r)}
+                                                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors border-b border-gray-100/40 dark:border-gray-800/30 last:border-b-0 ${highlightIndex === idx ? 'bg-[var(--primary)]/8 dark:bg-[var(--primary)]/12' : 'hover:bg-gray-50/60 dark:hover:bg-gray-800/40'}`}
+                                                    >
+                                                        {r.thumbnailUrl ? (
+                                                            <img src={buildMediaUrl(r.thumbnailUrl)} alt="" className="w-7 h-7 rounded-lg object-cover ring-1 ring-gray-200/60 dark:ring-gray-700/50 shrink-0" />
+                                                        ) : (
+                                                            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/5 flex items-center justify-center shrink-0">
+                                                                <BookOpen className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                                                            </div>
+                                                        )}
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{r.title}</p>
+                                                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                                                                {r.resourceType}{r.category ? ` · ${r.category}` : ''}
+                                                            </p>
+                                                        </div>
+                                                        <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 shrink-0" />
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                    flatIdx += filteredResources.length;
                                     return section;
                                 })()}
                             </>

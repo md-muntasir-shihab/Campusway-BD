@@ -2,11 +2,12 @@ import { Request, Response } from 'express';
 import University from '../models/University';
 import Exam from '../models/Exam';
 import News from '../models/News';
+import Resource from '../models/Resource';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 /**
  * GET /search?q=<query>
- * Global search across Universities, Exams, and News.
+ * Global search across Universities, Exams, News, and Resources.
  * Returns up to 5 results per category.
  */
 export async function globalSearch(req: Request, res: Response): Promise<void> {
@@ -19,6 +20,7 @@ export async function globalSearch(req: Request, res: Response): Promise<void> {
                 universities: [],
                 exams: [],
                 news: [],
+                resources: [],
             }));
             return;
         }
@@ -27,7 +29,7 @@ export async function globalSearch(req: Request, res: Response): Promise<void> {
         const escaped = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(escaped, 'i');
 
-        const [universities, exams, news] = await Promise.all([
+        const [universities, exams, news, resources] = await Promise.all([
             University.find(
                 {
                     isActive: true,
@@ -73,6 +75,22 @@ export async function globalSearch(req: Request, res: Response): Promise<void> {
                 .sort({ publishDate: -1 })
                 .limit(5)
                 .lean(),
+
+            Resource.find(
+                {
+                    isPublic: true,
+                    $or: [
+                        { title: regex },
+                        { description: regex },
+                        { category: regex },
+                        { tags: regex },
+                    ],
+                },
+                'title slug description type category thumbnailUrl publishDate',
+            )
+                .sort({ isFeatured: -1, publishDate: -1 })
+                .limit(5)
+                .lean(),
         ]);
 
         // Shape into slim result objects
@@ -109,11 +127,24 @@ export async function globalSearch(req: Request, res: Response): Promise<void> {
             type: 'news' as const,
         }));
 
+        const resourceResults = resources.map((r) => ({
+            _id: String(r._id),
+            title: r.title,
+            slug: r.slug || '',
+            description: r.description || '',
+            resourceType: r.type || 'link',
+            category: r.category || '',
+            thumbnailUrl: r.thumbnailUrl || null,
+            publishDate: r.publishDate ? new Date(r.publishDate).toISOString() : null,
+            type: 'resource' as const,
+        }));
+
         ResponseBuilder.send(res, 200, ResponseBuilder.success({
             ok: true,
             universities: universityResults,
             exams: examResults,
             news: newsResults,
+            resources: resourceResults,
         }));
     } catch (error) {
         console.error('[globalSearch] Error:', error);

@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Plus, Star, Trash2, Edit3, CheckCircle, XCircle, Award, Search, RefreshCw, Loader2, X, Handshake, ExternalLink, Globe } from 'lucide-react';
+import { Plus, Star, Trash2, Edit3, CheckCircle, XCircle, Award, Search, RefreshCw, Loader2, X, Handshake, ExternalLink, Globe, Quote } from 'lucide-react';
 import {
     adminGetTestimonials, adminCreateTestimonial, adminUpdateTestimonial,
     adminDeleteTestimonial, adminApproveTestimonial, adminRejectTestimonial,
     adminToggleFeatureTestimonial,
     adminGetPartners, adminCreatePartner, adminUpdatePartner, adminDeletePartner,
 } from '../../services/api';
+import AdminGuardShell from '../../components/admin/AdminGuardShell';
+import AdminImageUploadField from '../../components/admin/AdminImageUploadField';
 
 interface Testimonial {
     _id: string; name: string; role: string; university: string; department: string;
@@ -79,93 +81,121 @@ export default function TestimonialsManagementPage() {
     const inp = "w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 transition-all placeholder:text-slate-600";
 
     return (
-        <div className="space-y-6">
-            <header className="rounded-3xl border border-indigo-500/15 bg-gradient-to-br from-slate-950 via-indigo-950/30 to-slate-950 p-6 shadow-2xl shadow-indigo-900/10 ring-1 ring-indigo-500/5">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25"><Quote className="h-6 w-6 text-white" /></div>
-                        <div><h2 className="text-2xl font-black text-white tracking-tight">Testimonials</h2><p className="text-sm text-slate-400 mt-0.5">Manage reviews, approvals & featured content</p></div>
+        <AdminGuardShell title="Testimonials & Partners" description="Manage student reviews, approvals, featured content, and partner logos.">
+            <div className="space-y-6">
+                <header className="rounded-3xl border border-indigo-500/15 bg-gradient-to-br from-slate-950 via-indigo-950/30 to-slate-950 p-6 shadow-2xl shadow-indigo-900/10 ring-1 ring-indigo-500/5">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25"><Quote className="h-6 w-6 text-white" /></div>
+                            <div><h2 className="text-2xl font-black text-white tracking-tight">Testimonials</h2><p className="text-sm text-slate-400 mt-0.5">Manage reviews, approvals & featured content</p></div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={() => void refetch()} className="inline-flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200"><RefreshCw className="w-4 h-4" />Refresh</button>
+                            <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-3 py-2 text-xs font-semibold text-white shadow-lg"><Plus className="w-4 h-4" />Add</button>
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={() => void refetch()} className="inline-flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200"><RefreshCw className="w-4 h-4" />Refresh</button>
-                        <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-3 py-2 text-xs font-semibold text-white shadow-lg"><Plus className="w-4 h-4" />Add</button>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                        {([['Total', counts.total, 'from-slate-500/20 to-slate-400/10 border-slate-500/20 text-slate-300'], ['Approved', counts.approved, 'from-emerald-500/20 to-emerald-400/10 border-emerald-500/20 text-emerald-300'], ['Pending', counts.pending, 'from-amber-500/20 to-amber-400/10 border-amber-500/20 text-amber-300'], ['Featured', counts.featured, 'from-indigo-500/20 to-indigo-400/10 border-indigo-500/20 text-indigo-300']] as [string, number, string][]).map(([l, v, c]) => (
+                            <div key={l} className={`rounded-2xl border bg-gradient-to-br ${c} px-4 py-3 text-center backdrop-blur-sm`}><p className="text-2xl font-black">{v || 0}</p><p className="text-[10px] uppercase tracking-[0.15em] opacity-70 font-semibold mt-0.5">{l}</p></div>
+                        ))}
                     </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-                    {([['Total', counts.total, 'from-slate-500/20 to-slate-400/10 border-slate-500/20 text-slate-300'], ['Approved', counts.approved, 'from-emerald-500/20 to-emerald-400/10 border-emerald-500/20 text-emerald-300'], ['Pending', counts.pending, 'from-amber-500/20 to-amber-400/10 border-amber-500/20 text-amber-300'], ['Featured', counts.featured, 'from-indigo-500/20 to-indigo-400/10 border-indigo-500/20 text-indigo-300']] as [string, number, string][]).map(([l, v, c]) => (
-                        <div key={l} className={`rounded-2xl border bg-gradient-to-br ${c} px-4 py-3 text-center backdrop-blur-sm`}><p className="text-2xl font-black">{v || 0}</p><p className="text-[10px] uppercase tracking-[0.15em] opacity-70 font-semibold mt-0.5">{l}</p></div>
-                    ))}
-                </div>
-            </header>
+                </header>
 
-            <div className="rounded-2xl border border-slate-700/30 bg-slate-900/50 p-4 flex flex-wrap gap-3 items-end">
-                <div className="flex-1 min-w-[200px] relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" /><input value={filter.q} onChange={e => setFilter(p => ({ ...p, q: e.target.value }))} placeholder="Search..." className={`${inp} pl-9`} /></div>
-                <select value={filter.status} onChange={e => setFilter(p => ({ ...p, status: e.target.value }))} className={inp + ' w-36'}><option value="all">All Status</option>{STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}</select>
-                <select value={filter.category} onChange={e => setFilter(p => ({ ...p, category: e.target.value }))} className={inp + ' w-36'}><option value="all">All Categories</option>{CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}</select>
-            </div>
+                <div className="rounded-2xl border border-slate-700/30 bg-slate-900/50 p-4 flex flex-wrap gap-3 items-end">
+                    <div className="flex-1 min-w-[200px] relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" /><input value={filter.q} onChange={e => setFilter(p => ({ ...p, q: e.target.value }))} placeholder="Search..." className={`${inp} pl-9`} /></div>
+                    <select value={filter.status} onChange={e => setFilter(p => ({ ...p, status: e.target.value }))} className={inp + ' w-36'}><option value="all">All Status</option>{STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}</select>
+                    <select value={filter.category} onChange={e => setFilter(p => ({ ...p, category: e.target.value }))} className={inp + ' w-36'}><option value="all">All Categories</option>{CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}</select>
+                </div>
 
-            <div className="rounded-2xl border border-slate-700/30 bg-slate-900/50 overflow-hidden">
-                {isLoading ? <div className="p-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-500" /></div>
-                    : items.length === 0 ? <div className="p-12 text-center text-slate-500">No testimonials found</div>
-                        : <div className="divide-y divide-slate-700/20">{items.map(t => (
-                            <div key={t._id} className="flex items-start gap-4 p-4 hover:bg-indigo-500/[0.03] transition-colors">
-                                <div className="flex-shrink-0">{t.avatarUrl ? <img src={t.avatarUrl} alt="" className="w-11 h-11 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">{t.name.charAt(0)}</div>}</div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-bold text-white">{t.name}</span>
-                                        <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${STATUS_COLORS[t.status] || STATUS_COLORS.draft}`}>{t.status}</span>
-                                        {t.featured && <span className="rounded-md bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-400 flex items-center gap-1"><Award className="w-3 h-3" />Featured</span>}
+                <div className="rounded-2xl border border-slate-700/30 bg-slate-900/50 overflow-hidden">
+                    {isLoading ? <div className="p-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-500" /></div>
+                        : items.length === 0 ? <div className="p-12 text-center text-slate-500">No testimonials found</div>
+                            : <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">{items.map(t => (
+                                <div key={t._id} className="group relative rounded-2xl border border-slate-700/30 bg-slate-950/60 p-5 hover:border-indigo-500/25 transition-all duration-300">
+                                    {/* Featured ribbon */}
+                                    {t.featured && <div className="absolute top-3 right-3"><span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 border border-amber-500/25 px-2 py-1 text-[10px] font-bold text-amber-400"><Award className="w-3 h-3" />Featured</span></div>}
+
+                                    {/* Header: avatar + name + meta */}
+                                    <div className="flex items-center gap-3 mb-4">
+                                        {t.avatarUrl
+                                            ? <img src={t.avatarUrl} alt="" className="w-11 h-11 rounded-xl object-cover ring-1 ring-white/10 flex-shrink-0" />
+                                            : <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{t.name.charAt(0)}</div>
+                                        }
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-sm font-bold text-white truncate">{t.name}</span>
+                                                <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${STATUS_COLORS[t.status] || STATUS_COLORS.draft}`}>{t.status}</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-400 mt-0.5 truncate">{t.role}{t.university ? ` • ${t.university}` : ''}{t.batch ? ` • ${t.batch}` : ''}</p>
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-0.5">{t.role}{t.university ? ` • ${t.university}` : ''}</p>
-                                    <p className="text-xs text-slate-300 mt-1 line-clamp-2">&ldquo;{t.shortQuote || t.fullQuote}&rdquo;</p>
-                                    <div className="flex gap-0.5 mt-1">{Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`w-3 h-3 ${i < t.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-700'}`} />)}</div>
-                                </div>
-                                <div className="flex flex-col gap-1 flex-shrink-0">
-                                    <button onClick={() => openEdit(t)} className="rounded-lg bg-indigo-500/15 px-2 py-1 text-[10px] font-bold text-indigo-300 flex items-center gap-1"><Edit3 className="w-3 h-3" />Edit</button>
-                                    {t.status !== 'approved' && <button onClick={() => void handleApprove(t._id)} className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-300 flex items-center gap-1"><CheckCircle className="w-3 h-3" />Approve</button>}
-                                    {t.status !== 'rejected' && <button onClick={() => void handleReject(t._id)} className="rounded-lg bg-rose-500/15 px-2 py-1 text-[10px] font-bold text-rose-300 flex items-center gap-1"><XCircle className="w-3 h-3" />Reject</button>}
-                                    <button onClick={() => void handleToggleFeatured(t._id)} className={`rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1 ${t.featured ? 'bg-amber-500/15 text-amber-300' : 'bg-slate-700/30 text-slate-400'}`}><Award className="w-3 h-3" />{t.featured ? 'Unfeature' : 'Feature'}</button>
-                                    <button onClick={() => void handleDelete(t._id)} className="rounded-lg bg-rose-500/10 px-2 py-1 text-[10px] font-bold text-rose-400 flex items-center gap-1"><Trash2 className="w-3 h-3" />Del</button>
-                                </div>
-                            </div>
-                        ))}</div>}
-            </div>
 
-            {/* Modal */}
-            {modal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setModal(null)}>
-                    <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/30 bg-slate-900 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="text-lg font-bold text-white">{modal === 'create' ? 'Add Testimonial' : 'Edit Testimonial'}</h3>
-                            <button onClick={() => setModal(null)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800"><X className="w-4 h-4" /></button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Name *</label><input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} className={inp} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Role</label><input value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className={inp} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">University</label><input value={form.university} onChange={e => setForm(p => ({ ...p, university: e.target.value }))} className={inp} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Department</label><input value={form.department} onChange={e => setForm(p => ({ ...p, department: e.target.value }))} className={inp} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Batch</label><input value={form.batch} onChange={e => setForm(p => ({ ...p, batch: e.target.value }))} className={inp} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Location</label><input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className={inp} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Avatar URL</label><input value={form.avatarUrl} onChange={e => setForm(p => ({ ...p, avatarUrl: e.target.value }))} className={inp} placeholder="https://..." /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rating</label><select value={form.rating} onChange={e => setForm(p => ({ ...p, rating: Number(e.target.value) }))} className={inp}>{[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{r} Star{r > 1 ? 's' : ''}</option>)}</select></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Category</label><select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className={inp}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Status</label><select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} className={inp}>{STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Social Proof Label</label><input value={form.socialProofLabel} onChange={e => setForm(p => ({ ...p, socialProofLabel: e.target.value }))} className={inp} placeholder="e.g. Verified Student" /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Order</label><input type="number" value={form.displayOrder} onChange={e => setForm(p => ({ ...p, displayOrder: Number(e.target.value) }))} className={inp} /></div>
-                            <div className="sm:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Short Quote (max 200)</label><input value={form.shortQuote} onChange={e => setForm(p => ({ ...p, shortQuote: e.target.value }))} className={inp} maxLength={200} /></div>
-                            <div className="sm:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Full Quote *</label><textarea value={form.fullQuote} onChange={e => setForm(p => ({ ...p, fullQuote: e.target.value }))} className={inp + ' min-h-[100px]'} maxLength={2000} /></div>
-                            <div className="flex items-center gap-3"><input type="checkbox" checked={form.featured} onChange={e => setForm(p => ({ ...p, featured: e.target.checked }))} className="rounded" /><span className="text-sm text-slate-300">Featured</span></div>
-                        </div>
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button onClick={() => setModal(null)} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Cancel</button>
-                            <button onClick={() => void handleSave()} disabled={saving} className="rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : modal === 'create' ? 'Create' : 'Save'}</button>
+                                    {/* Rating */}
+                                    <div className="flex gap-0.5 mb-3">{Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`w-3.5 h-3.5 ${i < t.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-700'}`} />)}</div>
+
+                                    {/* Quote */}
+                                    <div className="relative mb-4 min-h-[48px]">
+                                        <Quote className="absolute -top-1 -left-1 w-5 h-5 text-indigo-500/15" />
+                                        <p className="text-[13px] leading-relaxed text-slate-300 line-clamp-3 pl-4">{t.shortQuote || t.fullQuote || '—'}</p>
+                                    </div>
+
+                                    {/* Meta chips */}
+                                    <div className="flex flex-wrap gap-1.5 mb-4">
+                                        {t.category && <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">{t.category}</span>}
+                                        {t.department && <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">{t.department}</span>}
+                                        {t.location && <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-400">{t.location}</span>}
+                                        {t.socialProofLabel && <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">{t.socialProofLabel}</span>}
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-1.5 pt-3 border-t border-slate-700/20">
+                                        <button onClick={() => openEdit(t)} className="flex-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 py-1.5 text-[11px] font-semibold text-indigo-300 flex items-center justify-center gap-1 transition-colors"><Edit3 className="w-3 h-3" />Edit</button>
+                                        {t.status !== 'approved' && <button onClick={() => void handleApprove(t._id)} className="flex-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 py-1.5 text-[11px] font-semibold text-emerald-300 flex items-center justify-center gap-1 transition-colors"><CheckCircle className="w-3 h-3" />Approve</button>}
+                                        {t.status !== 'rejected' && <button onClick={() => void handleReject(t._id)} className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-1.5 text-[11px] font-semibold text-rose-300 flex items-center justify-center gap-1 transition-colors"><XCircle className="w-3 h-3" /></button>}
+                                        <button onClick={() => void handleToggleFeatured(t._id)} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors ${t.featured ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300' : 'bg-slate-700/30 hover:bg-slate-700/50 text-slate-400'}`}><Award className="w-3 h-3" /></button>
+                                        <button onClick={() => void handleDelete(t._id)} className="rounded-lg bg-rose-500/8 hover:bg-rose-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-rose-400/70 hover:text-rose-400 flex items-center justify-center gap-1 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                    </div>
+                                </div>
+                            ))}</div>}
+                </div>
+
+                {/* Modal */}
+                {modal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setModal(null)}>
+                        <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/30 bg-slate-900 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-5">
+                                <h3 className="text-lg font-bold text-white">{modal === 'create' ? 'Add Testimonial' : 'Edit Testimonial'}</h3>
+                                <button onClick={() => setModal(null)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800"><X className="w-4 h-4" /></button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Name *</label><input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} className={inp} /></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Role</label><input value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className={inp} /></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">University</label><input value={form.university} onChange={e => setForm(p => ({ ...p, university: e.target.value }))} className={inp} /></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Department</label><input value={form.department} onChange={e => setForm(p => ({ ...p, department: e.target.value }))} className={inp} /></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Batch</label><input value={form.batch} onChange={e => setForm(p => ({ ...p, batch: e.target.value }))} className={inp} /></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Location</label><input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className={inp} /></div>
+                                <div className="sm:col-span-2"><AdminImageUploadField label="Avatar Photo" value={form.avatarUrl} onChange={url => setForm(p => ({ ...p, avatarUrl: url }))} fit="cover" emptyTitle="No avatar" emptyDescription="Upload a photo or paste a URL below." /></div>
+                                <div className="sm:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Or paste Avatar URL</label><input value={form.avatarUrl} onChange={e => setForm(p => ({ ...p, avatarUrl: e.target.value }))} className={inp} placeholder="https://..." /></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rating</label><select value={form.rating} onChange={e => setForm(p => ({ ...p, rating: Number(e.target.value) }))} className={inp}>{[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{r} Star{r > 1 ? 's' : ''}</option>)}</select></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Category</label><select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className={inp}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Status</label><select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} className={inp}>{STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Social Proof Label</label><input value={form.socialProofLabel} onChange={e => setForm(p => ({ ...p, socialProofLabel: e.target.value }))} className={inp} placeholder="e.g. Verified Student" /></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Order</label><input type="number" value={form.displayOrder} onChange={e => setForm(p => ({ ...p, displayOrder: Number(e.target.value) }))} className={inp} /></div>
+                                <div className="sm:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Short Quote (max 200)</label><input value={form.shortQuote} onChange={e => setForm(p => ({ ...p, shortQuote: e.target.value }))} className={inp} maxLength={200} /></div>
+                                <div className="sm:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Full Quote * <span className="normal-case tracking-normal text-slate-600">({form.fullQuote.length}/500)</span></label><textarea value={form.fullQuote} onChange={e => { if (e.target.value.length <= 500) setForm(p => ({ ...p, fullQuote: e.target.value })); }} className={inp + ' min-h-[100px]'} maxLength={500} /></div>
+                                <div className="flex items-center gap-3"><input type="checkbox" checked={form.featured} onChange={e => setForm(p => ({ ...p, featured: e.target.checked }))} className="rounded" /><span className="text-sm text-slate-300">Featured</span></div>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button onClick={() => setModal(null)} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Cancel</button>
+                                <button onClick={() => void handleSave()} disabled={saving} className="rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : modal === 'create' ? 'Create' : 'Save'}</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            <PartnersAdmin />
-        </div>
+                <PartnersAdmin />
+            </div>
+        </AdminGuardShell>
     );
 }
 
@@ -204,7 +234,7 @@ export function PartnersAdmin() {
                 : partners.length === 0 ? <div className="p-12 text-center text-slate-500">No partners yet</div>
                     : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">{partners.map(p => (
                         <div key={p._id} className="rounded-2xl border border-slate-700/30 bg-slate-950/50 p-4 flex flex-col items-center gap-3 hover:border-cyan-500/30 transition-colors">
-                            <img src={p.logoUrl.startsWith('http') ? p.logoUrl : '/logo.svg'} alt={p.name} className="h-12 w-12 rounded-xl object-contain bg-white/10 p-1" onError={e => { (e.target as HTMLImageElement).src = '/logo.svg'; }} />
+                            <img src={p.logoUrl.startsWith('http') ? p.logoUrl : '/logo.png'} alt={p.name} className="h-12 w-12 rounded-xl object-contain bg-white/10 p-1" onError={e => { (e.target as HTMLImageElement).src = '/logo.png'; }} />
                             <span className="text-sm font-bold text-white text-center">{p.name}</span>
                             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${TIER_COLORS2[p.tier] || TIER_COLORS2.partner}`}>{p.tier}</span>
                             {p.websiteUrl && <a href={p.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-400 flex items-center gap-1"><Globe className="w-3 h-3" />{p.websiteUrl.replace(/^https?:\/\//, '').substring(0, 30)}</a>}
@@ -221,7 +251,8 @@ export function PartnersAdmin() {
                     <div className="flex items-center justify-between mb-5"><h3 className="text-lg font-bold text-white">{pModal === 'create' ? 'Add Partner' : 'Edit Partner'}</h3><button onClick={() => setPModal(null)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800"><X className="w-4 h-4" /></button></div>
                     <div className="space-y-3">
                         <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Name *</label><input value={pForm.name} onChange={e => setPForm(p => ({ ...p, name: e.target.value }))} className={inp} /></div>
-                        <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Logo URL</label><input value={pForm.logoUrl} onChange={e => setPForm(p => ({ ...p, logoUrl: e.target.value }))} className={inp} placeholder="https://..." /></div>
+                        <AdminImageUploadField label="Partner Logo" value={pForm.logoUrl} onChange={url => setPForm(p => ({ ...p, logoUrl: url }))} fit="contain" emptyTitle="No logo yet" emptyDescription="Upload a logo or paste a URL below." />
+                        <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Or paste Logo URL</label><input value={pForm.logoUrl} onChange={e => setPForm(p => ({ ...p, logoUrl: e.target.value }))} className={inp} placeholder="https://..." /></div>
                         <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Website</label><input value={pForm.websiteUrl} onChange={e => setPForm(p => ({ ...p, websiteUrl: e.target.value }))} className={inp} placeholder="https://..." /></div>
                         <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Tier</label><select value={pForm.tier} onChange={e => setPForm(p => ({ ...p, tier: e.target.value }))} className={inp}>{TIERS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></div>
                         <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Order</label><input type="number" value={pForm.order} onChange={e => setPForm(p => ({ ...p, order: Number(e.target.value) }))} className={inp} /></div>

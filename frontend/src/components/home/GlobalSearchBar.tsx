@@ -1,18 +1,19 @@
 import { useState, useRef, useEffect, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, GraduationCap, ClipboardCheck, Newspaper, Loader2, ArrowRight } from 'lucide-react';
+import { Search, X, GraduationCap, ClipboardCheck, Newspaper, BookOpen, Loader2, ArrowRight } from 'lucide-react';
 import {
     getGlobalSearch,
     type GlobalSearchUniversityResult,
     type GlobalSearchExamResult,
     type GlobalSearchNewsResult,
+    type GlobalSearchResourceResult,
 } from '../../services/api';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
-type AnyResult = GlobalSearchUniversityResult | GlobalSearchExamResult | GlobalSearchNewsResult;
+type AnyResult = GlobalSearchUniversityResult | GlobalSearchExamResult | GlobalSearchNewsResult | GlobalSearchResourceResult;
 
 interface Props {
     /** Mirrors into the parent's local `search` state for on-page filtering */
@@ -37,11 +38,12 @@ export default function GlobalSearchBar({ value, onChange, placeholder, hidden }
     const [universities, setUniversities] = useState<GlobalSearchUniversityResult[]>([]);
     const [exams, setExams] = useState<GlobalSearchExamResult[]>([]);
     const [news, setNews] = useState<GlobalSearchNewsResult[]>([]);
+    const [resources, setResources] = useState<GlobalSearchResourceResult[]>([]);
     const [highlightIndex, setHighlightIndex] = useState(-1);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     /* Flat list for keyboard navigation */
-    const flatResults: AnyResult[] = [...universities, ...exams, ...news];
+    const flatResults: AnyResult[] = [...universities, ...exams, ...news, ...resources];
     const hasResults = flatResults.length > 0;
 
     /* ── Debounced fetch ── */
@@ -50,6 +52,7 @@ export default function GlobalSearchBar({ value, onChange, placeholder, hidden }
             setUniversities([]);
             setExams([]);
             setNews([]);
+            setResources([]);
             setOpen(false);
             return;
         }
@@ -59,12 +62,14 @@ export default function GlobalSearchBar({ value, onChange, placeholder, hidden }
                 setUniversities(res.data.universities ?? []);
                 setExams(res.data.exams ?? []);
                 setNews(res.data.news ?? []);
+                setResources(res.data.resources ?? []);
                 setOpen(true);
             })
             .catch(() => {
                 setUniversities([]);
                 setExams([]);
                 setNews([]);
+                setResources([]);
             })
             .finally(() => setLoading(false));
     }, []);
@@ -84,6 +89,7 @@ export default function GlobalSearchBar({ value, onChange, placeholder, hidden }
         setUniversities([]);
         setExams([]);
         setNews([]);
+        setResources([]);
         inputRef.current?.focus();
     };
 
@@ -93,6 +99,7 @@ export default function GlobalSearchBar({ value, onChange, placeholder, hidden }
         if (item.type === 'university') navigate(`/university/${item.slug}`);
         else if (item.type === 'exam') navigate(`/exams/${item.slug || item._id}`);
         else if (item.type === 'news') navigate(`/news/${item.slug}`);
+        else if (item.type === 'resource') navigate(`/resources/${item.slug || item._id}`);
     };
 
     /* ── Keyboard navigation ── */
@@ -134,12 +141,14 @@ export default function GlobalSearchBar({ value, onChange, placeholder, hidden }
     const sectionIcon = (type: string) => {
         if (type === 'university') return <GraduationCap className="w-4 h-4" />;
         if (type === 'exam') return <ClipboardCheck className="w-4 h-4" />;
+        if (type === 'resource') return <BookOpen className="w-4 h-4" />;
         return <Newspaper className="w-4 h-4" />;
     };
 
     const sectionTitle = (type: string) => {
         if (type === 'university') return 'Universities';
         if (type === 'exam') return 'Exams';
+        if (type === 'resource') return 'Resources';
         return 'News';
     };
 
@@ -319,6 +328,49 @@ export default function GlobalSearchBar({ value, onChange, placeholder, hidden }
                                             </div>
                                         );
                                         flatIdx += news.length;
+                                        return section;
+                                    })()}
+
+                                    {/* Resources */}
+                                    {resources.length > 0 && (() => {
+                                        const startIdx = flatIdx;
+                                        const section = (
+                                            <div key="resources">
+                                                <div className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100/60 dark:border-gray-800/60 bg-gray-50/40 dark:bg-gray-800/30 sticky top-0 backdrop-blur-sm">
+                                                    {sectionIcon('resource')}
+                                                    {sectionTitle('resource')}
+                                                    <span className="ml-auto text-[10px] font-normal normal-case text-gray-400/70">{resources.length}</span>
+                                                </div>
+                                                {resources.map((r, i) => {
+                                                    const idx = startIdx + i;
+                                                    return (
+                                                        <button
+                                                            key={r._id}
+                                                            role="option"
+                                                            aria-selected={highlightIndex === idx}
+                                                            onClick={() => goToResult(r)}
+                                                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-150 border-b border-gray-100/40 dark:border-gray-800/30 last:border-b-0 ${highlightIndex === idx ? 'bg-[var(--primary)]/8 dark:bg-[var(--primary)]/12' : 'hover:bg-gray-50/60 dark:hover:bg-gray-800/40'}`}
+                                                        >
+                                                            {r.thumbnailUrl ? (
+                                                                <img src={buildMediaUrl(r.thumbnailUrl)} alt="" className="w-8 h-8 rounded-lg object-cover ring-1 ring-gray-200/60 dark:ring-gray-700/50 flex-shrink-0" />
+                                                            ) : (
+                                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/5 flex items-center justify-center flex-shrink-0">
+                                                                    <BookOpen className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                                                                </div>
+                                                            )}
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{r.title}</p>
+                                                                <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                                                                    {r.resourceType}{r.category ? ` · ${r.category}` : ''}
+                                                                </p>
+                                                            </div>
+                                                            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                        flatIdx += resources.length;
                                         return section;
                                     })()}
                                 </>

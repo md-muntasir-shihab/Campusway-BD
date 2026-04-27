@@ -3378,11 +3378,23 @@ export interface GlobalSearchNewsResult {
     publishDate: string | null;
     type: 'news';
 }
+export interface GlobalSearchResourceResult {
+    _id: string;
+    title: string;
+    slug: string;
+    description: string;
+    resourceType: string;
+    category: string;
+    thumbnailUrl: string | null;
+    publishDate: string | null;
+    type: 'resource';
+}
 export interface GlobalSearchResponse {
     ok: boolean;
     universities: GlobalSearchUniversityResult[];
     exams: GlobalSearchExamResult[];
     news: GlobalSearchNewsResult[];
+    resources: GlobalSearchResourceResult[];
 }
 export const getGlobalSearch = (q: string) =>
     api.get<GlobalSearchResponse>('/search', { params: { q } });

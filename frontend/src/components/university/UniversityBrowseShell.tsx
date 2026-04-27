@@ -319,8 +319,8 @@ export default function UniversityBrowseShell({
         || categoriesQuery.isLoading
         || homeSettingsQuery.isLoading
         || browseSettingsQuery.isLoading
-        || universitiesQuery.isLoading
-        || (universitiesQuery.isFetching && universitiesQuery.isPlaceholderData);
+        || universitiesQuery.isLoading;
+    const isRefreshing = universitiesQuery.isFetching && universitiesQuery.isPlaceholderData;
 
     return (
         <div className="section-container py-6 sm:py-8 lg:py-10 overflow-x-hidden">
@@ -358,7 +358,7 @@ export default function UniversityBrowseShell({
                 hideCategoryTabs={hideCategoryTabs}
             />
 
-            <div className="mt-5 sm:mt-6">
+            <div className={`mt-5 sm:mt-6 transition-opacity duration-200 ${isRefreshing ? 'opacity-60 pointer-events-none' : ''}`}>
                 {universitiesQuery.isError ? (
                     <div className="mb-4 card-flat p-4 text-sm">
                         <p className="inline-flex items-center gap-2 font-semibold text-danger">

@@ -38,7 +38,7 @@ const TestimonialSchema = new Schema<ITestimonial>(
         location: { type: String, trim: true, default: '', maxlength: 100 },
         avatarUrl: { type: String, trim: true, default: '' },
         shortQuote: { type: String, trim: true, default: '', maxlength: 200 },
-        fullQuote: { type: String, required: true, trim: true, maxlength: 2000 },
+        fullQuote: { type: String, required: true, trim: true, maxlength: 500 },
         rating: { type: Number, min: 1, max: 5, default: 5 },
         category: {
             type: String,
