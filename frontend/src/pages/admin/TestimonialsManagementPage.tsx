@@ -76,21 +76,24 @@ export default function TestimonialsManagementPage() {
     const handleReject = async (id: string) => { const r = prompt('Reason:') || ''; try { await adminRejectTestimonial(id, r); toast.success('Rejected'); invalidate(); } catch { toast.error('Failed'); } };
     const handleToggleFeatured = async (id: string) => { try { await adminToggleFeatureTestimonial(id); toast.success('Updated'); invalidate(); } catch { toast.error('Failed'); } };
 
-    const inp = "w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 transition-all";
+    const inp = "w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 transition-all placeholder:text-slate-600";
 
     return (
-        <div className="space-y-5">
-            <header className="rounded-2xl border border-indigo-500/15 bg-gradient-to-r from-slate-950 via-indigo-950/40 to-slate-950 p-5 shadow-xl">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><h2 className="text-xl font-black text-white">Testimonials Management</h2><p className="text-sm text-slate-400 mt-1">Manage student testimonials</p></div>
+        <div className="space-y-6">
+            <header className="rounded-3xl border border-indigo-500/15 bg-gradient-to-br from-slate-950 via-indigo-950/30 to-slate-950 p-6 shadow-2xl shadow-indigo-900/10 ring-1 ring-indigo-500/5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25"><Quote className="h-6 w-6 text-white" /></div>
+                        <div><h2 className="text-2xl font-black text-white tracking-tight">Testimonials</h2><p className="text-sm text-slate-400 mt-0.5">Manage reviews, approvals & featured content</p></div>
+                    </div>
                     <div className="flex gap-2">
                         <button onClick={() => void refetch()} className="inline-flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200"><RefreshCw className="w-4 h-4" />Refresh</button>
                         <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-3 py-2 text-xs font-semibold text-white shadow-lg"><Plus className="w-4 h-4" />Add</button>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-3 mt-4">
-                    {([['Total', counts.total], ['Approved', counts.approved], ['Pending', counts.pending], ['Featured', counts.featured]] as [string, number][]).map(([l, v]) => (
-                        <div key={l} className="rounded-xl border border-slate-700/30 bg-slate-900/50 px-4 py-2 text-center min-w-[80px]"><p className="text-lg font-black text-white">{v || 0}</p><p className="text-[10px] text-slate-500 uppercase">{l}</p></div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                    {([['Total', counts.total, 'from-slate-500/20 to-slate-400/10 border-slate-500/20 text-slate-300'], ['Approved', counts.approved, 'from-emerald-500/20 to-emerald-400/10 border-emerald-500/20 text-emerald-300'], ['Pending', counts.pending, 'from-amber-500/20 to-amber-400/10 border-amber-500/20 text-amber-300'], ['Featured', counts.featured, 'from-indigo-500/20 to-indigo-400/10 border-indigo-500/20 text-indigo-300']] as [string, number, string][]).map(([l, v, c]) => (
+                        <div key={l} className={`rounded-2xl border bg-gradient-to-br ${c} px-4 py-3 text-center backdrop-blur-sm`}><p className="text-2xl font-black">{v || 0}</p><p className="text-[10px] uppercase tracking-[0.15em] opacity-70 font-semibold mt-0.5">{l}</p></div>
                     ))}
                 </div>
             </header>
