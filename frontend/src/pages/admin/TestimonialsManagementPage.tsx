@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Plus, Star, Trash2, Edit3, CheckCircle, XCircle, Award, Search, RefreshCw, Loader2, X } from 'lucide-react';
+import { Plus, Star, Trash2, Edit3, CheckCircle, XCircle, Award, Search, RefreshCw, Loader2, X, Handshake, ExternalLink, Globe } from 'lucide-react';
 import {
     adminGetTestimonials, adminCreateTestimonial, adminUpdateTestimonial,
     adminDeleteTestimonial, adminApproveTestimonial, adminRejectTestimonial,
     adminToggleFeatureTestimonial,
+    adminGetPartners, adminCreatePartner, adminUpdatePartner, adminDeletePartner,
 } from '../../services/api';
 
 interface Testimonial {
@@ -159,6 +160,76 @@ export default function TestimonialsManagementPage() {
                     </div>
                 </div>
             )}
+
+            <PartnersAdmin />
         </div>
     );
+}
+
+/* ═══ PARTNERS ADMIN ═══ */
+interface Partner { _id: string; name: string; logoUrl: string; websiteUrl: string; tier: string; isActive: boolean; order: number; }
+const TIERS = ['platinum', 'gold', 'silver', 'bronze', 'partner'];
+const TIER_COLORS2: Record<string, string> = { platinum: 'bg-slate-300/20 text-slate-300 border-slate-300/30', gold: 'bg-amber-400/20 text-amber-400 border-amber-400/30', silver: 'bg-slate-400/20 text-slate-400 border-slate-400/30', bronze: 'bg-orange-400/20 text-orange-400 border-orange-400/30', partner: 'bg-indigo-400/20 text-indigo-400 border-indigo-400/30' };
+const EMPTY_PARTNER = { name: '', logoUrl: '', websiteUrl: '', tier: 'partner', isActive: true, order: 0 };
+
+export function PartnersAdmin() {
+    const qc = useQueryClient();
+    const [pModal, setPModal] = useState<null | 'create' | Partner>(null);
+    const [pForm, setPForm] = useState(EMPTY_PARTNER);
+    const [pSaving, setPSaving] = useState(false);
+    const { data: pData, isLoading: pLoading, refetch: pRefetch } = useQuery({ queryKey: ['admin-partners'], queryFn: async () => { const r = await adminGetPartners(); const p = r.data as any; return (p.items || (Array.isArray(p) ? p : [])) as Partner[]; } });
+    const partners = pData || [];
+    const inv = () => { qc.invalidateQueries({ queryKey: ['admin-partners'] }); qc.invalidateQueries({ queryKey: ['public-partners'] }); };
+    const openPCreate = () => { setPForm({ ...EMPTY_PARTNER }); setPModal('create'); };
+    const openPEdit = (p: Partner) => { setPForm({ name: p.name, logoUrl: p.logoUrl, websiteUrl: p.websiteUrl, tier: p.tier, isActive: p.isActive, order: p.order }); setPModal(p); };
+    const handlePSave = async () => { if (!pForm.name.trim()) { toast.error('Name required'); return; } setPSaving(true); try { if (pModal === 'create') await adminCreatePartner(pForm); else if (pModal && typeof pModal === 'object') await adminUpdatePartner(pModal._id, pForm); toast.success(pModal === 'create' ? 'Created' : 'Updated'); setPModal(null); inv(); } catch { toast.error('Failed'); } finally { setPSaving(false); } };
+    const handlePDelete = async (id: string) => { if (!confirm('Delete?')) return; try { await adminDeletePartner(id); toast.success('Deleted'); inv(); } catch { toast.error('Failed'); } };
+    const inp = "w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 transition-all";
+
+    return (<div className="space-y-5 mt-10">
+        <header className="rounded-2xl border border-cyan-500/15 bg-gradient-to-r from-slate-950 via-cyan-950/40 to-slate-950 p-5 shadow-xl">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-center gap-3"><Handshake className="w-6 h-6 text-cyan-400" /><div><h2 className="text-xl font-black text-white">Partners Management</h2><p className="text-sm text-slate-400 mt-1">Manage partner logos and links</p></div></div>
+                <div className="flex gap-2">
+                    <button onClick={() => void pRefetch()} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200"><RefreshCw className="w-4 h-4" />Refresh</button>
+                    <button onClick={openPCreate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-lg"><Plus className="w-4 h-4" />Add Partner</button>
+                </div>
+            </div>
+        </header>
+        <div className="rounded-2xl border border-slate-700/30 bg-slate-900/50 overflow-hidden">
+            {pLoading ? <div className="p-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-500" /></div>
+                : partners.length === 0 ? <div className="p-12 text-center text-slate-500">No partners yet</div>
+                    : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">{partners.map(p => (
+                        <div key={p._id} className="rounded-2xl border border-slate-700/30 bg-slate-950/50 p-4 flex flex-col items-center gap-3 hover:border-cyan-500/30 transition-colors">
+                            <img src={p.logoUrl.startsWith('http') ? p.logoUrl : '/logo.svg'} alt={p.name} className="h-12 w-12 rounded-xl object-contain bg-white/10 p-1" onError={e => { (e.target as HTMLImageElement).src = '/logo.svg'; }} />
+                            <span className="text-sm font-bold text-white text-center">{p.name}</span>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${TIER_COLORS2[p.tier] || TIER_COLORS2.partner}`}>{p.tier}</span>
+                            {p.websiteUrl && <a href={p.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-400 flex items-center gap-1"><Globe className="w-3 h-3" />{p.websiteUrl.replace(/^https?:\/\//, '').substring(0, 30)}</a>}
+                            <div className="flex gap-1 mt-1">
+                                <button onClick={() => openPEdit(p)} className="rounded-lg bg-indigo-500/15 px-2 py-1 text-[10px] font-bold text-indigo-300"><Edit3 className="w-3 h-3 inline" /> Edit</button>
+                                <button onClick={() => void handlePDelete(p._id)} className="rounded-lg bg-rose-500/10 px-2 py-1 text-[10px] font-bold text-rose-400"><Trash2 className="w-3 h-3 inline" /> Del</button>
+                            </div>
+                        </div>
+                    ))}</div>}
+        </div>
+        {pModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setPModal(null)}>
+                <div className="w-full max-w-md rounded-2xl border border-slate-700/30 bg-slate-900 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-5"><h3 className="text-lg font-bold text-white">{pModal === 'create' ? 'Add Partner' : 'Edit Partner'}</h3><button onClick={() => setPModal(null)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800"><X className="w-4 h-4" /></button></div>
+                    <div className="space-y-3">
+                        <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Name *</label><input value={pForm.name} onChange={e => setPForm(p => ({ ...p, name: e.target.value }))} className={inp} /></div>
+                        <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Logo URL</label><input value={pForm.logoUrl} onChange={e => setPForm(p => ({ ...p, logoUrl: e.target.value }))} className={inp} placeholder="https://..." /></div>
+                        <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Website</label><input value={pForm.websiteUrl} onChange={e => setPForm(p => ({ ...p, websiteUrl: e.target.value }))} className={inp} placeholder="https://..." /></div>
+                        <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Tier</label><select value={pForm.tier} onChange={e => setPForm(p => ({ ...p, tier: e.target.value }))} className={inp}>{TIERS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></div>
+                        <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Order</label><input type="number" value={pForm.order} onChange={e => setPForm(p => ({ ...p, order: Number(e.target.value) }))} className={inp} /></div>
+                        <div className="flex items-center gap-3"><input type="checkbox" checked={pForm.isActive} onChange={e => setPForm(p => ({ ...p, isActive: e.target.checked }))} className="rounded" /><span className="text-sm text-slate-300">Active</span></div>
+                    </div>
+                    <div className="flex justify-end gap-3 mt-5">
+                        <button onClick={() => setPModal(null)} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Cancel</button>
+                        <button onClick={() => void handlePSave()} disabled={pSaving} className="rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{pSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : pModal === 'create' ? 'Create' : 'Save'}</button>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>);
 }
