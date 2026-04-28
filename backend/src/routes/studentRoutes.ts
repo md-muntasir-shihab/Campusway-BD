@@ -51,6 +51,12 @@ import {
 } from '../controllers/studentWatchlistController';
 import { getStudentWeakTopics } from '../controllers/weakTopicController';
 import {
+    getPracticeTaxonomy,
+    getPracticeQuestions,
+    submitPracticeAnswer,
+    getPracticeStats,
+} from '../controllers/practiceController';
+import {
     requestOtpHandler,
     verifyOtpHandler,
     resendOtpHandler,
@@ -110,6 +116,12 @@ router.get('/notifications/feed', getStudentMeNotifications);
 router.post('/notifications/mark-read', markStudentNotificationsRead);
 router.get('/resources', getStudentMeResources);
 router.get('/leaderboard', getLeaderboard);
+
+// Practice Mode Routes
+router.get('/practice/taxonomy', getPracticeTaxonomy);
+router.get('/practice/stats', getPracticeStats);
+router.get('/practice/questions', getPracticeQuestions);
+router.post('/practice/submit', submitPracticeAnswer);
 
 // Application Routes
 router.get('/applications', getStudentApplications);

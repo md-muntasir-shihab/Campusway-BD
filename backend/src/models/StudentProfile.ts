@@ -35,6 +35,15 @@ export interface IStudentProfile extends Document {
     profile_completion_percentage: number;
     points: number;
     rank?: number;
+
+    // Engagement & streak tracking
+    streak_current?: number;
+    streak_longest?: number;
+    streak_last_activity_date?: Date | null;
+    streak_freeze_count?: number;
+    daily_practice_goal?: number;
+    daily_practice_count_today?: number;
+    last_practice_at?: Date | null;
     examIdentity?: Record<string, unknown>;
     examHistory?: Array<Record<string, unknown>>;
     latestExamResultSummary?: string;
@@ -83,6 +92,15 @@ const StudentProfileSchema = new Schema<IStudentProfile>({
     profile_completion_percentage: { type: Number, default: 0, min: 0, max: 100 },
     points: { type: Number, default: 0, index: true },
     rank: { type: Number },
+
+    // Engagement & streak tracking
+    streak_current: { type: Number, default: 0, min: 0 },
+    streak_longest: { type: Number, default: 0, min: 0 },
+    streak_last_activity_date: { type: Date, default: null },
+    streak_freeze_count: { type: Number, default: 0, min: 0 },
+    daily_practice_goal: { type: Number, default: 10, min: 0 },
+    daily_practice_count_today: { type: Number, default: 0, min: 0 },
+    last_practice_at: { type: Date, default: null },
     examIdentity: { type: Schema.Types.Mixed, default: {} },
     examHistory: { type: [Schema.Types.Mixed], default: [] } as any,
     latestExamResultSummary: { type: String, default: '' },
@@ -94,5 +112,7 @@ StudentProfileSchema.index({ full_name: 1 });
 StudentProfileSchema.index({ institution_name: 1, roll_number: 1 });
 StudentProfileSchema.index({ hsc_batch: 1, admittedAt: -1 });
 StudentProfileSchema.index({ groupIds: 1 });
+StudentProfileSchema.index({ streak_current: -1 });
+StudentProfileSchema.index({ streak_last_activity_date: -1 });
 
 export default mongoose.model<IStudentProfile>('StudentProfile', StudentProfileSchema);

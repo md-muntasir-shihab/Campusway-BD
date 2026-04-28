@@ -5,6 +5,7 @@ import {
     BookOpenCheck,
     ChevronRight,
     CreditCard,
+    Dumbbell,
     Home,
     LifeBuoy,
     Menu,
@@ -27,6 +28,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
     { label: 'Overview', path: '/dashboard', icon: <Home className="w-4 h-4" /> },
     { label: 'Exams', path: '/student/exams-hub', icon: <BookOpenCheck className="w-4 h-4" /> },
+    { label: 'Practice', path: '/student/practice', icon: <Dumbbell className="w-4 h-4" /> },
     { label: 'Results', path: '/results', icon: <NotebookText className="w-4 h-4" /> },
     { label: 'Payments', path: '/payments', icon: <CreditCard className="w-4 h-4" /> },
     { label: 'Notifications', path: '/notifications', icon: <Bell className="w-4 h-4" /> },

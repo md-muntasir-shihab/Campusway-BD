@@ -3484,6 +3484,86 @@ export const createStudentSupportTicket = (data: { subject: string; message: str
 export const replyStudentSupportTicket = (id: string, message: string) =>
     api.post<{ item: StudentSupportTicketItem; message: string }>(`/student/support-tickets/${id}/reply`, { message });
 
+/* ── Practice Mode ── */
+export interface PracticeLocalizedText {
+    en: string;
+    bn: string;
+}
+export interface PracticeTopicNode {
+    _id: string;
+    code: string;
+    title: PracticeLocalizedText;
+    questionCount: number;
+    children?: PracticeTopicNode[];
+}
+export interface PracticeCategoryNode {
+    _id: string;
+    code: string;
+    title: PracticeLocalizedText;
+    description?: PracticeLocalizedText;
+    topics: PracticeTopicNode[];
+}
+export interface PracticeGroupNode {
+    _id: string;
+    code: string;
+    title: PracticeLocalizedText;
+    description?: PracticeLocalizedText;
+    color?: string;
+    iconUrl?: string;
+    categories: PracticeCategoryNode[];
+}
+export interface PracticeQuestion {
+    _id: string;
+    question?: string;
+    questionText?: PracticeLocalizedText;
+    questionType?: 'mcq' | 'written';
+    question_type?: 'MCQ' | 'TF' | 'MULTI' | 'WRITTEN';
+    options?: { key: string; text: string }[];
+    optionsLocalized?: { key: string; text: PracticeLocalizedText }[];
+    optionA?: string;
+    optionB?: string;
+    optionC?: string;
+    optionD?: string;
+    languageMode?: 'EN' | 'BN' | 'BOTH';
+    marks?: number;
+    negativeMarks?: number;
+    negative_marks?: number;
+    difficulty?: 'easy' | 'medium' | 'hard';
+    estimated_time?: number;
+}
+export interface PracticeStats {
+    streak: {
+        current: number;
+        longest: number;
+        lastActivityDate: string | null;
+        freezeCount: number;
+    };
+    dailyGoal: number;
+    dailyCompleted: number;
+    lifetimePoints: number;
+}
+export interface PracticeSubmitResult {
+    isCorrect: boolean;
+    correctAnswer: string[];
+    explanation: PracticeLocalizedText;
+    streak: { current: number; longest: number; incrementedToday: boolean } | null;
+}
+
+export const getPracticeTaxonomy = () =>
+    api.get<{ groups: PracticeGroupNode[] }>('/student/practice/taxonomy');
+export const getPracticeStats = () =>
+    api.get<PracticeStats>('/student/practice/stats');
+export const getPracticeQuestions = (params: {
+    groupId?: string;
+    categoryId?: string;
+    topicId?: string;
+    difficulty?: 'easy' | 'medium' | 'hard';
+    count?: number;
+}) =>
+    api.get<{ items: PracticeQuestion[]; count: number }>('/student/practice/questions', { params });
+export const submitPracticeAnswer = (questionId: string, selectedKeys: string[]) =>
+    api.post<PracticeSubmitResult>('/student/practice/submit', { questionId, selectedKeys });
+
 /* ── Student Dashboard Full (Premium) ── */
 export const getStudentDashboardFull = () => api.get<StudentDashboardFullResponse>('/student/dashboard-full');
 export const getStudentWatchlist = (type?: string) =>

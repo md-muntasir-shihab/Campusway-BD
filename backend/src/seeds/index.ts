@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { connectDB } from '../config/db';
 import { seedLegalPages } from './seedLegalPages';
 import { seedFounderProfile } from './seedFounderProfile';
+import { seedQuestionTaxonomy } from './seedQuestionTaxonomy';
 
 dotenv.config();
 
@@ -12,6 +13,7 @@ async function runAllSeeds(): Promise<void> {
 
     await seedLegalPages();
     await seedFounderProfile();
+    await seedQuestionTaxonomy();
 
     console.log('[seed] All seeds completed successfully.');
 }
