@@ -729,10 +729,10 @@ const UniversityCard = memo(function UniversityCard({
                             </span>
                         )}
                         {contactNumber && (
-                            <span className="inline-flex min-w-0 items-center gap-1">
+                            <a href={phoneLink} className="inline-flex min-w-0 items-center gap-1 transition hover:text-primary dark:hover:text-cyan-300">
                                 <Phone className="h-3.5 w-3.5 shrink-0" />
                                 <span className="truncate">{contactNumber}</span>
-                            </span>
+                            </a>
                         )}
                     </div>
                 </div>
