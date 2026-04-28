@@ -330,8 +330,23 @@ jobs:
           name: backend-coverage
           path: backend/coverage
 
-      - name: Deploy production
+      - name: Trigger Render deployment
+        # Requires RENDER_DEPLOY_HOOK_URL to be added as a GitHub Actions secret
+        # in the repository settings (Settings → Secrets and variables → Actions).
+        # Get the deploy hook URL from Render Dashboard → Service → Settings → Deploy Hook.
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          echo "🚀 Deploying to production environment..."
-          echo "Replace this step with your actual deployment commands"
-          echo "e.g., firebase deploy --only hosting:production, render deploy, etc."
+          echo "🚀 Triggering Render production deployment..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_URL")
+          if [[ "$HTTP_STATUS" =~ ^2 ]]; then
+            echo "✅ Render deploy hook triggered successfully (HTTP $HTTP_STATUS)"
+            echo "## ✅ Production Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+            echo "Render deploy hook returned HTTP $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Render deploy hook failed with HTTP $HTTP_STATUS"
+            echo "## ❌ Production Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Render deploy hook returned HTTP $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+            echo "Check that RENDER_DEPLOY_HOOK_URL secret is correctly configured." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

@@ -491,6 +491,32 @@ async function start() {
             process.exit(1);
         }
     });
+
+    // Graceful shutdown handler
+    function gracefulShutdown(signal: string) {
+        console.log(`[server] ${signal} received — starting graceful shutdown`);
+
+        const forceTimeout = setTimeout(() => {
+            console.error('[server] Graceful shutdown timed out after 30s — forcing exit');
+            process.exit(1);
+        }, 30_000);
+        forceTimeout.unref();
+
+        server.close(async () => {
+            console.log('[server] HTTP server closed — no longer accepting connections');
+            try {
+                await mongoose.connection.close();
+                console.log('[server] MongoDB connection closed');
+            } catch (err) {
+                console.error('[server] Error closing MongoDB connection:', err);
+            }
+            clearTimeout(forceTimeout);
+            process.exit(0);
+        });
+    }
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 start();

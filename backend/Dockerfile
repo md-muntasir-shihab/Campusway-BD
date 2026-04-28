@@ -37,11 +37,11 @@ RUN mkdir -p /app/public/uploads && chown -R appuser:appgroup /app/public
 # Switch to non-root user
 USER appuser
 
-# Default port (matches .env.example)
-EXPOSE 5003
+# Default port (Render's default)
+EXPOSE 8080
 
 # Health check against the existing /health endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-5003}/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 CMD ["node", "dist/server.js"]

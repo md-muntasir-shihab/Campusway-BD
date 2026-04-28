@@ -1,14 +1,16 @@
 /**
- * Redis-backed cache service using Upstash REST client.
+ * In-memory Map-based cache service.
  *
- * Connects via REDIS_URL + REDIS_TOKEN env vars.
+ * Replaces the previous Upstash Redis implementation with a simple
+ * Map<string, CacheEntry> store. TTL-based expiration with lazy eviction
+ * on read and periodic cleanup every 60 seconds.
+ *
  * All keys prefixed with CACHE_PREFIX (default: "cw:").
- * Gracefully degrades when CACHE_ENABLED=false or Redis is unreachable.
+ * Gracefully degrades when CACHE_ENABLED=false.
+ * All operations wrapped in try/catch — never throws.
  *
- * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 22.3
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.9, 2.10, 6.5
  */
-
-import { Redis } from '@upstash/redis';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -20,26 +22,29 @@ function isCacheEnabled(): boolean {
     return process.env.CACHE_ENABLED?.toLowerCase() !== 'false';
 }
 
-let redis: Redis | null = null;
+// ---------------------------------------------------------------------------
+// Internal store
+// ---------------------------------------------------------------------------
 
-function getRedis(): Redis | null {
-    if (redis) return redis;
-    // Support both naming conventions: UPSTASH_REDIS_REST_URL or REDIS_URL
-    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.REDIS_TOKEN;
-    if (!url || !token) {
-        console.warn('[CacheService] Redis credentials not set — cache disabled');
-        return null;
-    }
-    try {
-        redis = new Redis({ url, token });
-        console.log('[CacheService] Connected to Upstash Redis');
-        return redis;
-    } catch (err) {
-        console.error('[CacheService] Failed to create Redis client:', err);
-        return null;
-    }
+interface CacheEntry {
+    value: string;
+    expiresAt: number;
 }
+
+const store = new Map<string, CacheEntry>();
+
+// Periodic cleanup: evict expired entries every 60 seconds
+const cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+        if (now >= entry.expiresAt) {
+            store.delete(key);
+        }
+    }
+}, 60_000);
+
+// Allow the process to exit cleanly without waiting for this timer
+cleanupTimer.unref();
 
 // ---------------------------------------------------------------------------
 // Key helpers
@@ -102,25 +107,22 @@ export function parseKey(key: string): {
 // ---------------------------------------------------------------------------
 
 /**
- * Retrieve a cached value. Returns null on miss or error.
+ * Retrieve a cached value. Returns null on miss, expiration, or error.
+ * Performs lazy eviction: deletes the entry if expired.
  */
 export async function get<T>(key: string): Promise<T | null> {
     if (!isCacheEnabled()) return null;
     try {
-        const client = getRedis();
-        if (!client) return null;
-        const raw = await client.get<string>(key);
-        if (raw === null || raw === undefined) return null;
-        // Upstash auto-deserialises JSON, but we stored via JSON.stringify
-        // so the value may already be parsed or still be a string.
-        if (typeof raw === 'string') {
-            try {
-                return JSON.parse(raw) as T;
-            } catch {
-                return raw as unknown as T;
-            }
+        const entry = store.get(key);
+        if (!entry) return null;
+
+        // Lazy eviction: check if expired
+        if (Date.now() >= entry.expiresAt) {
+            store.delete(key);
+            return null;
         }
-        return raw as unknown as T;
+
+        return JSON.parse(entry.value) as T;
     } catch (err) {
         console.error('[CacheService] get failed:', err);
         return null;
@@ -133,10 +135,10 @@ export async function get<T>(key: string): Promise<T | null> {
 export async function set(key: string, value: unknown, ttlSeconds: number): Promise<void> {
     if (!isCacheEnabled()) return;
     try {
-        const client = getRedis();
-        if (!client) return;
-        const serialised = JSON.stringify(value);
-        await client.set(key, serialised, { ex: ttlSeconds });
+        store.set(key, {
+            value: JSON.stringify(value),
+            expiresAt: Date.now() + ttlSeconds * 1000,
+        });
     } catch (err) {
         console.error('[CacheService] set failed:', err);
     }
@@ -148,9 +150,7 @@ export async function set(key: string, value: unknown, ttlSeconds: number): Prom
 export async function del(key: string): Promise<void> {
     if (!isCacheEnabled()) return;
     try {
-        const client = getRedis();
-        if (!client) return;
-        await client.del(key);
+        store.delete(key);
     } catch (err) {
         console.error('[CacheService] del failed:', err);
     }
@@ -158,26 +158,25 @@ export async function del(key: string): Promise<void> {
 
 /**
  * Delete all keys matching a glob pattern (e.g. "cw:GET::/api/news*").
- * Uses SCAN to avoid blocking Redis. Returns the number of keys deleted.
+ * Converts glob to RegExp and iterates all keys. Returns the number of keys deleted.
  */
 export async function delByPattern(pattern: string): Promise<number> {
     if (!isCacheEnabled()) return 0;
     try {
-        const client = getRedis();
-        if (!client) return 0;
+        // Convert glob pattern to RegExp:
+        // 1. Escape regex special characters (except * and ?)
+        // 2. Replace * with .* and ? with .
+        const escaped = pattern.replace(/([.+^${}()|[\]\\])/g, '\\$1');
+        const regexStr = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+        const regex = new RegExp(`^${regexStr}$`);
 
         let deleted = 0;
-        let cursor = 0;
-
-        do {
-            const [nextCursor, keys] = await client.scan(cursor, { match: pattern, count: 100 });
-            cursor = Number(nextCursor);
-            if (keys.length > 0) {
-                await client.del(...(keys as [string, ...string[]]));
-                deleted += keys.length;
+        for (const key of store.keys()) {
+            if (regex.test(key)) {
+                store.delete(key);
+                deleted++;
             }
-        } while (cursor !== 0);
-
+        }
         return deleted;
     } catch (err) {
         console.error('[CacheService] delByPattern failed:', err);

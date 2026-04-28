@@ -117,7 +117,14 @@ async function ensureCriticalIndexes(): Promise<void> {
 
 export async function connectDB(): Promise<void> {
     try {
-        await mongoose.connect(MONGODB_URI);
+        await mongoose.connect(MONGODB_URI, {
+            minPoolSize: 5,
+            maxPoolSize: 50,
+            serverSelectionTimeoutMS: 5000,
+            heartbeatFrequencyMS: 10000,
+            retryWrites: true,
+            retryReads: true,
+        });
         console.log('[db] MongoDB connected successfully');
         await ensureCriticalIndexes();
     } catch (error) {
@@ -128,6 +135,10 @@ export async function connectDB(): Promise<void> {
 
 mongoose.connection.on('disconnected', () => {
     console.warn('[db] MongoDB disconnected');
+});
+
+mongoose.connection.on('reconnected', () => {
+    console.log('[db] MongoDB reconnected');
 });
 
 mongoose.connection.on('error', (err) => {
