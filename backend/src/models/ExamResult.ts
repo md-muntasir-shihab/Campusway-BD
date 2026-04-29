@@ -67,7 +67,16 @@ export interface IExamResult extends Document {
     cheat_flags?: { reason: string; timestamp: Date }[];
     createdAt: Date;
 
-    status: 'submitted' | 'evaluated';
+    status: 'submitted' | 'evaluated' | 'pending_evaluation';
+    writtenGrades?: {
+        questionId: mongoose.Types.ObjectId;
+        marks: number;
+        maxMarks: number;
+        feedback: string;
+        gradedBy: mongoose.Types.ObjectId;
+        aiSuggestedMarks?: number;
+        gradedAt: Date;
+    }[];
 }
 
 const ExamResultSchema = new Schema<IExamResult>({
@@ -142,7 +151,16 @@ const ExamResultSchema = new Schema<IExamResult>({
         timestamp: { type: Date, default: Date.now }
     }],
 
-    status: { type: String, enum: ['submitted', 'evaluated'], default: 'evaluated' },
+    status: { type: String, enum: ['submitted', 'evaluated', 'pending_evaluation'], default: 'submitted' },
+    writtenGrades: [{
+        questionId: { type: Schema.Types.ObjectId, ref: 'Question', required: true },
+        marks: { type: Number, required: true },
+        maxMarks: { type: Number, required: true },
+        feedback: { type: String, default: '' },
+        gradedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        aiSuggestedMarks: { type: Number },
+        gradedAt: { type: Date, default: Date.now },
+    }],
 }, { timestamps: true, collection: 'student_results' });
 
 ExamResultSchema.index({ exam: 1, student: 1, attemptNo: 1 }, { unique: true });

@@ -42,6 +42,11 @@ export interface IQuestion extends Document {
     skill_tags?: string[];
     estimated_time?: number;
 
+    // Hierarchical taxonomy refs (QuestionGroup → QuestionCategory → QuestionTopic)
+    group_id?: mongoose.Types.ObjectId | null;
+    category_id?: mongoose.Types.ObjectId | null;
+    topic_id?: mongoose.Types.ObjectId | null;
+
     // Core question content (legacy + normalized)
     question: string;
     question_text?: string;
@@ -177,6 +182,11 @@ const QuestionSchema = new Schema<IQuestion>(
         skill_tags: { type: [String], default: [] },
         estimated_time: { type: Number, default: 60 },
 
+        // Hierarchical taxonomy refs
+        group_id: { type: Schema.Types.ObjectId, ref: 'QuestionGroup', default: null, index: true },
+        category_id: { type: Schema.Types.ObjectId, ref: 'QuestionCategory', default: null, index: true },
+        topic_id: { type: Schema.Types.ObjectId, ref: 'QuestionTopic', default: null, index: true },
+
         question: { type: String, required: true, trim: true },
         question_text: { type: String, default: '' },
         questionText: { type: LocalizedTextSchema, default: () => ({ en: '', bn: '' }) },
@@ -263,5 +273,7 @@ QuestionSchema.index({ class_level: 1, department: 1, subject: 1, chapter: 1, di
 QuestionSchema.index({ status: 1, updatedAt: -1 });
 QuestionSchema.index({ quality_score: -1, usage_count: -1 });
 QuestionSchema.index({ tags: 1 });
+QuestionSchema.index({ group_id: 1, category_id: 1, topic_id: 1, difficulty: 1, status: 1 });
+QuestionSchema.index({ topic_id: 1, status: 1, active: 1 });
 
 export default mongoose.model<IQuestion>('Question', QuestionSchema);

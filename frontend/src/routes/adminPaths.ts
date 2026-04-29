@@ -145,6 +145,15 @@ export const ADMIN_PATHS = {
     legalPages: adminUi('legal-pages'),
     founderDetails: adminUi('founder-details'),
     testimonials: adminUi('testimonials'),
+    // Exam System routes
+    examCenterHierarchy: adminUi('exam-center/hierarchy'),
+    examCenterQuestionBank: adminUi('exam-center/question-bank'),
+    examCenterBuilder: adminUi('exam-center/exam-builder'),
+    examCenterBuilderNew: adminUi('exam-center/exam-builder/new'),
+    examCenterGrading: adminUi('exam-center/grading'),
+    examCenterAntiCheat: adminUi('exam-center/anti-cheat'),
+    examCenterNotifications: adminUi('exam-center/notifications'),
+    examCenterAnalytics: adminUi('exam-center/analytics'),
 } as const;
 
 export type AdminMenuItem = {

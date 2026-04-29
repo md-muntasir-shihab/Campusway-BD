@@ -52,5 +52,6 @@ export const StudentResultDetail = lazy(() => import('./pages/student/StudentRes
 export const StudentPayments = lazy(() => import('./pages/student/StudentPayments'));
 export const StudentNotifications = lazy(() => import('./pages/student/StudentNotifications'));
 export const StudentResources = lazy(() => import('./pages/student/StudentResources'));
+export const StudentPractice = lazy(() => import('./pages/student/StudentPractice'));
 export const StudentSupport = lazy(() => import('./pages/student/StudentSupport'));
 export const StudentSupportThread = lazy(() => import('./pages/student/StudentSupportThread'));

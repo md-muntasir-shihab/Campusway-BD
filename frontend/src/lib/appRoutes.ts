@@ -6,6 +6,34 @@ export const ADMIN_LOGIN = `${ADMIN_UI_BASE}/login`;
 export const ADMIN_DASHBOARD = `${ADMIN_UI_BASE}/dashboard`;
 export const ADMIN_ACCESS_DENIED = `${ADMIN_UI_BASE}/access-denied`;
 
+/* ─── Exam System Route Constants ─────────────────────────────────────────── */
+
+// Admin exam system routes (under /__cw_admin__/)
+export const ADMIN_HIERARCHY_MANAGER = `${ADMIN_UI_BASE}/exam-center/hierarchy`;
+export const ADMIN_QUESTION_BANK_MANAGER = `${ADMIN_UI_BASE}/exam-center/question-bank`;
+export const ADMIN_EXAM_BUILDER = `${ADMIN_UI_BASE}/exam-center/exam-builder`;
+export const ADMIN_EXAM_BUILDER_NEW = `${ADMIN_UI_BASE}/exam-center/exam-builder/new`;
+export const ADMIN_EXAM_BUILDER_EDIT = `${ADMIN_UI_BASE}/exam-center/exam-builder/:examId/edit`;
+export const ADMIN_WRITTEN_GRADING = `${ADMIN_UI_BASE}/exam-center/grading`;
+export const ADMIN_WRITTEN_GRADING_EXAM = `${ADMIN_UI_BASE}/exam-center/grading/:examId`;
+export const ADMIN_ANTI_CHEAT_REPORT = `${ADMIN_UI_BASE}/exam-center/anti-cheat`;
+export const ADMIN_NOTIFICATION_MGMT = `${ADMIN_UI_BASE}/exam-center/notifications`;
+export const ADMIN_EXAM_ANALYTICS = `${ADMIN_UI_BASE}/exam-center/analytics`;
+
+// Student exam system routes
+export const STUDENT_EXAM_RUNNER = '/student/exam/:examId';
+export const STUDENT_EXAM_RESULT = '/student/exam/:examId/result';
+export const STUDENT_LEADERBOARD = '/student/exam/:examId/leaderboard';
+export const STUDENT_ANALYTICS = '/student/analytics';
+export const STUDENT_PRACTICE = '/student/practice';
+export const STUDENT_PRACTICE_SESSION = '/student/practice/:topicId';
+export const STUDENT_MISTAKE_VAULT = '/student/mistake-vault';
+export const STUDENT_BATTLE_ARENA = '/student/battle';
+export const STUDENT_STUDY_ROUTINE = '/student/routine';
+export const STUDENT_GAMIFICATION = '/student/gamification';
+export const STUDENT_EXAM_PACKAGES = '/student/packages';
+export const STUDENT_EXAMINER_DASHBOARD = '/student/examiner';
+
 export function adminUi(path: string): string {
     const normalized = String(path || '').trim().replace(/^\/+/, '');
     if (!normalized) return ADMIN_UI_BASE;

@@ -2,6 +2,8 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export type GroupType = 'manual' | 'dynamic';
 export type CardStyleVariant = 'solid' | 'gradient' | 'outline' | 'minimal';
+export type JoinMethod = 'open' | 'approval_required' | 'invite_only' | 'code_based';
+export type GroupVisibility = 'public' | 'private' | 'invite_only';
 
 export interface IStudentGroup extends Document {
     name: string;
@@ -52,6 +54,13 @@ export interface IStudentGroup extends Document {
     meta?: Record<string, unknown>;
     createdAt: Date;
     updatedAt: Date;
+
+    // Exam system extensions (Requirement 13.6)
+    parent_group_id?: mongoose.Types.ObjectId;
+    join_method?: JoinMethod;
+    join_code?: string;
+    max_members?: number;
+    visibility?: GroupVisibility;
 }
 
 const StudentGroupSchema = new Schema<IStudentGroup>(
@@ -105,6 +114,21 @@ const StudentGroupSchema = new Schema<IStudentGroup>(
             },
         },
         meta: { type: Schema.Types.Mixed, default: {} },
+
+        // Exam system extensions (Requirement 13.6)
+        parent_group_id: { type: Schema.Types.ObjectId, ref: 'StudentGroup', default: undefined },
+        join_method: {
+            type: String,
+            enum: ['open', 'approval_required', 'invite_only', 'code_based'],
+            default: 'open',
+        },
+        join_code: { type: String, trim: true, sparse: true },
+        max_members: { type: Number, default: undefined },
+        visibility: {
+            type: String,
+            enum: ['public', 'private', 'invite_only'],
+            default: 'public',
+        },
     },
     { timestamps: true }
 );
@@ -113,5 +137,8 @@ StudentGroupSchema.index({ isActive: 1, batchTag: 1, name: 1 });
 StudentGroupSchema.index({ type: 1 });
 StudentGroupSchema.index({ sortOrder: 1, name: 1 });
 StudentGroupSchema.index({ isFeatured: 1, isActive: 1 });
+StudentGroupSchema.index({ join_code: 1 }, { unique: true, sparse: true });
+StudentGroupSchema.index({ parent_group_id: 1 });
+StudentGroupSchema.index({ visibility: 1, isActive: 1 });
 
 export default mongoose.model<IStudentGroup>('StudentGroup', StudentGroupSchema);

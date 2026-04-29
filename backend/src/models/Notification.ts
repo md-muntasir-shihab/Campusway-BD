@@ -15,6 +15,15 @@ export type NotificationType =
     | 'provider_failure'
     | 'trigger_failure'
     | 'system_alert'
+    | 'exam_published'
+    | 'exam_starting_soon'
+    | 'result_published'
+    | 'streak_warning'
+    | 'group_membership'
+    | 'battle_challenge'
+    | 'payment_confirmation'
+    | 'routine_reminder'
+    | 'doubt_reply'
     | '';
 export type NotificationPriority = 'normal' | 'high' | 'urgent';
 
@@ -64,6 +73,15 @@ const NotificationSchema = new Schema<INotification>({
             'provider_failure',
             'trigger_failure',
             'system_alert',
+            'exam_published',
+            'exam_starting_soon',
+            'result_published',
+            'streak_warning',
+            'group_membership',
+            'battle_challenge',
+            'payment_confirmation',
+            'routine_reminder',
+            'doubt_reply',
             '',
         ],
         default: '',

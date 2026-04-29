@@ -136,21 +136,6 @@ type HomeCategoryCardItem = {
     homeOrder: number;
 };
 
-export type DeadlineLeanPreview = {
-    id: string;
-    name: string;
-    shortForm: string;
-    slug: string;
-    category: string;
-    applicationStartDate: string;
-    applicationEndDate: string;
-    admissionWebsite: string;
-    logoUrl: string;
-    isHistorical?: boolean;
-    endedAt?: string;
-    timelineStatus?: 'upcoming' | 'ended';
-};
-
 function parseSeatValue(value: unknown): number {
     if (value === null || value === undefined) return 0;
     const text = String(value).replace(/[^\d]/g, '');
@@ -493,63 +478,6 @@ function mapUniversityPreviewItem(item: Record<string, unknown>): UniversityCard
             pickString((item as { shortDescription?: unknown }).shortDescription, pickString((item as { description?: unknown }).description, ''))
         ),
         logoUrl: pickString((item as { logoUrl?: unknown }).logoUrl, ''),
-    };
-}
-
-export type ExamLeanPreview = {
-    id: string;
-    name: string;
-    shortForm: string;
-    slug: string;
-    category: string;
-    scienceExamDate: string;
-    artsExamDate: string;
-    businessExamDate: string;
-    applicationEndDate: string;
-    admissionWebsite: string;
-    logoUrl: string;
-    isHistorical?: boolean;
-    endedAt?: string;
-    timelineStatus?: 'upcoming' | 'ended';
-};
-
-export function mapLeanExamPreview(item: Record<string, unknown>): ExamLeanPreview {
-    return {
-        id: String(item.id || item._id || ''),
-        name: pickString((item as { name?: unknown }).name, 'University'),
-        shortForm: pickString((item as { shortForm?: unknown }).shortForm, 'N/A'),
-        slug: pickString((item as { slug?: unknown }).slug, ''),
-        category: normalizeUniversityCategory(pickString((item as { category?: unknown }).category, 'Uncategorized')),
-        scienceExamDate: toIsoDateString((item as { scienceExamDate?: unknown }).scienceExamDate),
-        artsExamDate: toIsoDateString((item as { artsExamDate?: unknown }).artsExamDate),
-        businessExamDate: toIsoDateString((item as { businessExamDate?: unknown }).businessExamDate),
-        applicationEndDate: toIsoDateString((item as { applicationEndDate?: unknown }).applicationEndDate),
-        admissionWebsite: pickString((item as { admissionWebsite?: unknown }).admissionWebsite, ''),
-        logoUrl: pickString((item as { logoUrl?: unknown }).logoUrl, ''),
-        isHistorical: (item as { isHistorical?: boolean }).isHistorical,
-        endedAt: pickString((item as { endedAt?: unknown }).endedAt) || undefined,
-        timelineStatus: (['upcoming', 'ended'].includes(String((item as { timelineStatus?: unknown }).timelineStatus || ''))
-            ? String((item as { timelineStatus?: unknown }).timelineStatus) as 'upcoming' | 'ended'
-            : undefined),
-    };
-}
-
-export function mapLeanDeadlinePreview(item: Record<string, unknown>): DeadlineLeanPreview {
-    return {
-        id: String(item.id || item._id || ''),
-        name: pickString((item as { name?: unknown }).name, 'University'),
-        shortForm: pickString((item as { shortForm?: unknown }).shortForm, 'N/A'),
-        slug: pickString((item as { slug?: unknown }).slug, ''),
-        category: normalizeUniversityCategory(pickString((item as { category?: unknown }).category, 'Uncategorized')),
-        applicationStartDate: toIsoDateString((item as { applicationStartDate?: unknown }).applicationStartDate),
-        applicationEndDate: toIsoDateString((item as { applicationEndDate?: unknown }).applicationEndDate),
-        admissionWebsite: pickString((item as { admissionWebsite?: unknown }).admissionWebsite, ''),
-        logoUrl: pickString((item as { logoUrl?: unknown }).logoUrl, ''),
-        isHistorical: (item as { isHistorical?: boolean }).isHistorical,
-        endedAt: pickString((item as { endedAt?: unknown }).endedAt) || undefined,
-        timelineStatus: (['upcoming', 'ended'].includes(String((item as { timelineStatus?: unknown }).timelineStatus || ''))
-            ? String((item as { timelineStatus?: unknown }).timelineStatus) as 'upcoming' | 'ended'
-            : undefined),
     };
 }
 
@@ -1741,10 +1669,10 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
             featuredUniversities,
             featuredCategories: featuredCategoryItems,
             featuredClusters: featuredClusterItems,
-            deadlineUniversities: deadlineItems.map((item) => mapLeanDeadlinePreview(item as unknown as Record<string, unknown>)),
+            deadlineUniversities: deadlineItems,
             deadlineCategories: deadlineCategoryItems,
             deadlineClusters: deadlineClusterItems,
-            upcomingExamUniversities: upcomingExamItems.map((item) => mapLeanExamPreview(item as unknown as Record<string, unknown>)),
+            upcomingExamUniversities: upcomingExamItems,
             upcomingExamCategories: upcomingExamCategoryItems,
             upcomingExamClusters: upcomingExamClusterItems,
             uniSettings: {
@@ -1779,3 +1707,49 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
+
+// ─── Lean Projection Mappers ────────────────────────────────
+
+/**
+ * Project a university document to exactly the 12 deadline-preview fields.
+ * Used for lean API responses in the deadline card section.
+ */
+export function mapLeanDeadlinePreview(item: Record<string, unknown>): Record<string, unknown> {
+    return {
+        id: String(item._id || item.id || ''),
+        name: pickString(item.name, ''),
+        shortForm: pickString(item.shortForm, ''),
+        slug: pickString(item.slug, ''),
+        category: pickString(item.category, ''),
+        applicationStartDate: toIsoDateString(item.applicationStartDate),
+        applicationEndDate: toIsoDateString(item.applicationEndDate),
+        admissionWebsite: pickString(item.admissionWebsite, ''),
+        logoUrl: pickString(item.logoUrl, ''),
+        isHistorical: Boolean(item.isHistorical),
+        endedAt: toIsoDateString(item.endedAt),
+        timelineStatus: pickString(item.timelineStatus, ''),
+    };
+}
+
+/**
+ * Project a university document to exactly the 14 exam-preview fields.
+ * Used for lean API responses in the exam card section.
+ */
+export function mapLeanExamPreview(item: Record<string, unknown>): Record<string, unknown> {
+    return {
+        id: String(item._id || item.id || ''),
+        name: pickString(item.name, ''),
+        shortForm: pickString(item.shortForm, ''),
+        slug: pickString(item.slug, ''),
+        category: pickString(item.category, ''),
+        scienceExamDate: toIsoDateString(item.scienceExamDate),
+        artsExamDate: toIsoDateString(item.artsExamDate),
+        businessExamDate: toIsoDateString(item.businessExamDate),
+        applicationEndDate: toIsoDateString(item.applicationEndDate),
+        admissionWebsite: pickString(item.admissionWebsite, ''),
+        logoUrl: pickString(item.logoUrl, ''),
+        isHistorical: Boolean(item.isHistorical),
+        endedAt: toIsoDateString(item.endedAt),
+        timelineStatus: pickString(item.timelineStatus, ''),
+    };
+}

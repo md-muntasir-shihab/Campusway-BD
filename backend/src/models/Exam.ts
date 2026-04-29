@@ -174,6 +174,30 @@ export interface IExam extends Document {
     createdAt: Date;
     updatedAt: Date;
 
+    /* ── Hierarchy references (exam management system) ── */
+    group_id?: mongoose.Types.ObjectId;       // ref: QuestionGroup
+    sub_group_id?: mongoose.Types.ObjectId;   // ref: QuestionSubGroup
+    subject_id?: mongoose.Types.ObjectId;     // ref: QuestionCategory
+
+    /* ── Schedule type for exam builder wizard ── */
+    exam_schedule_type?: 'live' | 'practice' | 'scheduled' | 'upcoming';
+
+    /* ── Pricing configuration ── */
+    pricing?: {
+        isFree: boolean;
+        amountBDT?: number;
+        couponCodes?: string[];
+    };
+
+    /* ── Package reference ── */
+    packageId?: mongoose.Types.ObjectId;      // ref: ExamPackage
+
+    /* ── Ordered question IDs for drag-and-drop reorder ── */
+    questionOrder?: mongoose.Types.ObjectId[];
+
+    /* ── Per-question marks assignment ── */
+    perQuestionMarks?: { questionId: mongoose.Types.ObjectId; marks: number }[];
+
     /* ── Analytics cached ── */
     totalParticipants: number;
     avgScore: number;
@@ -316,6 +340,37 @@ const ExamSchema = new Schema<IExam>({
 
     instructions: { type: String, default: '' },
     require_instructions_agreement: { type: Boolean, default: true },
+
+    /* ── Hierarchy references (exam management system) ── */
+    group_id: { type: Schema.Types.ObjectId, ref: 'QuestionGroup', default: null },
+    sub_group_id: { type: Schema.Types.ObjectId, ref: 'QuestionSubGroup', default: null },
+    subject_id: { type: Schema.Types.ObjectId, ref: 'QuestionCategory', default: null },
+
+    /* ── Schedule type for exam builder wizard ── */
+    exam_schedule_type: {
+        type: String,
+        enum: ['live', 'practice', 'scheduled', 'upcoming'],
+        default: undefined,
+    },
+
+    /* ── Pricing configuration ── */
+    pricing: {
+        isFree: { type: Boolean, default: true },
+        amountBDT: { type: Number, default: 0 },
+        couponCodes: { type: [String], default: [] },
+    },
+
+    /* ── Package reference ── */
+    packageId: { type: Schema.Types.ObjectId, ref: 'ExamPackage', default: null },
+
+    /* ── Ordered question IDs for drag-and-drop reorder ── */
+    questionOrder: [{ type: Schema.Types.ObjectId, ref: 'QuestionBankQuestion' }],
+
+    /* ── Per-question marks assignment ── */
+    perQuestionMarks: [{
+        questionId: { type: Schema.Types.ObjectId, ref: 'QuestionBankQuestion', required: true },
+        marks: { type: Number, required: true },
+    }],
 
     status: { type: String, enum: ['draft', 'scheduled', 'live', 'closed'], default: 'draft' },
 

@@ -53,6 +53,10 @@ export interface IExamSession extends Document {
     forcedSubmittedBy?: mongoose.Types.ObjectId;
     currentQuestionId?: string;
 
+    /* ── Exam Management System Extensions ── */
+    markedForReview: string[];       // question IDs marked for review by student (Req 5.8)
+    localStorageBackup: boolean;     // whether localStorage backup was used for recovery (Req 18.5)
+
     /* ── Phase 8: Advanced Security & Written Uploads ── */
     cheat_flags: { reason: string; timestamp: Date }[];
     auto_submitted: boolean;
@@ -102,6 +106,10 @@ const ExamSessionSchema = new Schema<IExamSession>({
     forcedSubmittedAt: { type: Date, default: null },
     forcedSubmittedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     currentQuestionId: { type: String, default: '' },
+
+    /* ── Exam Management System Extensions ── */
+    markedForReview: { type: [String], default: [] },
+    localStorageBackup: { type: Boolean, default: false },
 
     cheat_flags: [{
         reason: { type: String, required: true },

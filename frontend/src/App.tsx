@@ -126,6 +126,7 @@ import {
     StudentRegister,
     StudentResetPassword,
     StudentResources,
+    StudentPractice,
     StudentResultDetail,
     StudentResults,
     StudentSecurity,
@@ -569,6 +570,7 @@ export default function App() {
                                             <Route path="/payments" element={<StudentPayments />} />
                                             <Route path="/notifications" element={<StudentNotifications />} />
                                             <Route path="/student/resources" element={<StudentResources />} />
+                                            <Route path="/student/practice" element={<StudentPractice />} />
                                             <Route path="/support" element={<StudentSupport />} />
                                             <Route path="/support/:ticketId" element={<StudentSupportThread />} />
                                             <Route path="/student/dashboard" element={<StudentDashboard />} />

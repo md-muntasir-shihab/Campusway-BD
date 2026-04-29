@@ -29,10 +29,24 @@ import { startNotificationJobCron } from './cron/notificationJobs';
 import { startRetentionCronJobs } from './cron/retentionJobs';
 import { startSubscriptionExpiryCron } from './cron/subscriptionExpiryCron';
 import { startBackupCronJobs } from './cron/backupJobs';
+import { startExamSystemCronJobs } from './cron/examSystemCron';
 import adminStudentMgmtRoutes from './routes/adminStudentMgmtRoutes';
 import adminProviderRoutes from './routes/adminProviderRoutes';
 import adminNotificationRoutes from './routes/adminNotificationRoutes';
 import adminStudentSecurityRoutes from './routes/adminStudentSecurityRoutes';
+
+// Exam Management System v1 routes
+import questionHierarchyRoutes from './routes/questionHierarchy.routes';
+import questionBankRoutes from './routes/questionBank.routes';
+import examManagementRoutes from './routes/examManagement.routes';
+import gamificationRoutes from './routes/gamification.routes';
+import battleRoutes from './routes/battle.routes';
+import mistakeVaultRoutes from './routes/mistakeVault.routes';
+import practiceRoutes from './routes/practice.routes';
+import studyRoutineRoutes from './routes/studyRoutine.routes';
+import doubtRoutes from './routes/doubt.routes';
+import examinerRoutes from './routes/examiner.routes';
+import examPackageRoutes from './routes/examPackage.routes';
 import { serveSecureUpload } from './controllers/secureUploadController';
 import {
     enforceAdminPanelPolicy,
@@ -344,6 +358,20 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/login', authLimiter);
 
+// Exam system rate limiter — 100 requests per minute per authenticated user (Requirement 17.5)
+const examSystemLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100,
+    message: { message: 'Too many requests to exam system, please try again later.' },
+    keyGenerator: (req: express.Request) => {
+        // Use authenticated user ID when available, fall back to IP
+        const userId = (req as any).user?.id || (req as any).user?._id;
+        return userId ? String(userId) : String(req.ip || req.socket?.remoteAddress || 'unknown');
+    },
+    skip: shouldSkipExpressRateLimit,
+});
+app.use('/api/v1/', examSystemLimiter);
+
 // =============
 // Routes
 // =============
@@ -369,6 +397,19 @@ app.use('/api/student', studentRoutes);
 
 // Modern exam routes (session-based)
 app.use('/api', studentExamRoutes);
+
+// Exam Management System v1 routes (Requirement 17.1–17.6)
+app.use('/api/v1/question-hierarchy', questionHierarchyRoutes);
+app.use('/api/v1/questions', questionBankRoutes);
+app.use('/api/v1/exams', examManagementRoutes);
+app.use('/api/v1/gamification', gamificationRoutes);
+app.use('/api/v1/battles', battleRoutes);
+app.use('/api/v1/mistake-vault', mistakeVaultRoutes);
+app.use('/api/v1/practice', practiceRoutes);
+app.use('/api/v1/study-routine', studyRoutineRoutes);
+app.use('/api/v1/doubts', doubtRoutes);
+app.use('/api/v1/examiner', examinerRoutes);
+app.use('/api/v1/exam-packages', examPackageRoutes);
 
 // Webhooks
 app.use('/api/webhooks', webhookRoutes);
@@ -469,6 +510,7 @@ async function start() {
         startSubscriptionExpiryCron();
         startFinanceRecurringCronJobs();
         startBackupCronJobs();
+        startExamSystemCronJobs();
 
         // Seed default Chart-of-Account entries (idempotent)
         await seedDefaultChartOfAccounts();

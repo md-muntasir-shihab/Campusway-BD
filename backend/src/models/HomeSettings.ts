@@ -52,10 +52,6 @@ export interface UniversityCardConfig {
     showExamCenters: boolean;
     cardDensity: UniversityCardDensity;
     defaultSort: UniversityCardSort;
-    showProgressBar: boolean;
-    showCategoryBadge: boolean;
-    showClusterBadge: boolean;
-    showExamCentersOnHomeCards: boolean;
 }
 
 export interface HomeSettingsShape {
@@ -388,10 +384,6 @@ export function createHomeSettingsDefaults(): HomeSettingsShape {
             showExamCenters: true,
             cardDensity: 'comfortable',
             defaultSort: 'alphabetical',
-            showProgressBar: true,
-            showCategoryBadge: true,
-            showClusterBadge: false,
-            showExamCentersOnHomeCards: false,
         },
         highlightedCategories: [],
         featuredUniversities: [],
@@ -592,10 +584,6 @@ const homeSettingsSchema = new Schema<IHomeSettings>(
                 enum: ['nearest_deadline', 'alphabetical'],
                 default: 'alphabetical',
             },
-            showProgressBar: { type: Boolean, default: true },
-            showCategoryBadge: { type: Boolean, default: true },
-            showClusterBadge: { type: Boolean, default: false },
-            showExamCentersOnHomeCards: { type: Boolean, default: false },
         },
         highlightedCategories: {
             type: [highlightedCategorySchema],

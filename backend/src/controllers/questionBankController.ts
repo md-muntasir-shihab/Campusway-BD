@@ -1352,3 +1352,279 @@ export async function incrementQbankUsage(req: AuthRequest, res: Response): Prom
     }
 }
 
+
+// ── New Service-Based Handlers (Exam Management System) ─────
+// These handlers delegate to QuestionBankService, ImportPipelineService,
+// and ExportPipelineService for the new /api/v1/questions routes.
+// Requirements: 2.1, 2.6, 2.11, 2.13, 10.1, 11.1, 17.2, 17.4, 17.5, 17.6
+
+import * as QuestionBankService from '../services/QuestionBankService';
+import * as ImportPipelineService from '../services/ImportPipelineService';
+import * as ExportPipelineService from '../services/ExportPipelineService';
+import QuestionBankQuestion from '../models/QuestionBankQuestion';
+
+/**
+ * GET / — List/search questions with filters and pagination.
+ * Query params are validated by questionFiltersSchema via validateQuery middleware.
+ */
+export async function listQuestions(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const { page, limit, ...filters } = req.query as Record<string, unknown>;
+        const pagination = {
+            page: Number(page) || 1,
+            limit: Number(limit) || 20,
+        };
+        const result = await QuestionBankService.listQuestions(
+            filters as QuestionBankService.QuestionFilters,
+            pagination,
+        );
+        ResponseBuilder.send(
+            res,
+            200,
+            ResponseBuilder.paginated(result.data, result.page, result.limit, result.total),
+        );
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
+/**
+ * POST / — Create a new question via QuestionBankService.
+ */
+export async function createQuestionV2(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const data = { ...req.body };
+        if (req.user?.id) {
+            data.created_by = req.user.id;
+        }
+        const question = await QuestionBankService.createQuestion(data);
+        ResponseBuilder.send(res, 201, ResponseBuilder.created(question, 'Question created successfully'));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        const status = message.includes('not found') ? 404
+            : message.includes('must have at least one option') ? 400
+                : message.includes('required when') ? 400
+                    : 500;
+        const code = status === 404 ? 'NOT_FOUND' : status === 400 ? 'VALIDATION_ERROR' : 'SERVER_ERROR';
+        ResponseBuilder.send(res, status, ResponseBuilder.error(code, message));
+    }
+}
+
+/**
+ * GET /:id — Get a single question by ID via QuestionBankQuestion model.
+ */
+export async function getQuestionV2(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const question = await QuestionBankQuestion.findById(req.params.id);
+        if (!question) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Question not found'));
+            return;
+        }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(question));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
+/**
+ * PUT /:id — Update an existing question via QuestionBankService.
+ */
+export async function updateQuestionV2(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const changedBy = req.user?.id;
+        const question = await QuestionBankService.updateQuestion(
+            String(req.params.id),
+            req.body,
+            changedBy,
+        );
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(question, 'Question updated successfully'));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        const status = message.includes('not found') ? 404 : 500;
+        const code = status === 404 ? 'NOT_FOUND' : 'SERVER_ERROR';
+        ResponseBuilder.send(res, status, ResponseBuilder.error(code, message));
+    }
+}
+
+/**
+ * DELETE /:id — Archive (soft-delete) a question via QuestionBankService.
+ */
+export async function archiveQuestion(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        await QuestionBankService.archiveQuestion(String(req.params.id));
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Question archived successfully'));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        const status = message.includes('not found') ? 404 : 500;
+        const code = status === 404 ? 'NOT_FOUND' : 'SERVER_ERROR';
+        ResponseBuilder.send(res, status, ResponseBuilder.error(code, message));
+    }
+}
+
+/**
+ * POST /bulk-action — Perform bulk operations on questions.
+ * Body: { action: 'archive' | 'status_change', ids: string[], newStatus?: string }
+ */
+export async function bulkAction(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const { action, ids, newStatus } = req.body;
+        let result: QuestionBankService.BulkResult;
+
+        switch (action) {
+            case 'archive':
+                result = await QuestionBankService.bulkArchive(ids);
+                break;
+            case 'status_change':
+                if (!newStatus) {
+                    ResponseBuilder.send(
+                        res,
+                        400,
+                        ResponseBuilder.error('VALIDATION_ERROR', 'newStatus is required for status_change action'),
+                    );
+                    return;
+                }
+                result = await QuestionBankService.bulkStatusChange(ids, newStatus);
+                break;
+            default:
+                ResponseBuilder.send(
+                    res,
+                    400,
+                    ResponseBuilder.error('VALIDATION_ERROR', `Unknown bulk action: ${String(action)}`),
+                );
+                return;
+        }
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(result, 'Bulk action completed'));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        const status = message.includes('Invalid status') ? 400 : 500;
+        const code = status === 400 ? 'VALIDATION_ERROR' : 'SERVER_ERROR';
+        ResponseBuilder.send(res, status, ResponseBuilder.error(code, message));
+    }
+}
+
+/**
+ * POST /:id/review — Approve or reject a question via QuestionBankService.
+ * Body: { action: 'approve' | 'reject', reason?: string }
+ */
+export async function reviewQuestion(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const questionId = String(req.params.id);
+        const reviewerId = req.user?.id || '';
+        const { action, reason } = req.body;
+
+        if (action === 'approve') {
+            await QuestionBankService.approveQuestion(questionId, reviewerId);
+            ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Question approved successfully'));
+        } else if (action === 'reject') {
+            await QuestionBankService.rejectQuestion(questionId, reviewerId, reason || '');
+            ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Question rejected successfully'));
+        } else {
+            ResponseBuilder.send(
+                res,
+                400,
+                ResponseBuilder.error('VALIDATION_ERROR', `Unknown review action: ${String(action)}`),
+            );
+        }
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        const status = message.includes('not found') ? 404
+            : message.includes('already') ? 409
+                : message.includes('Rejection reason') ? 400
+                    : 500;
+        const code = status === 404 ? 'NOT_FOUND'
+            : status === 409 ? 'CONFLICT'
+                : status === 400 ? 'VALIDATION_ERROR'
+                    : 'SERVER_ERROR';
+        ResponseBuilder.send(res, status, ResponseBuilder.error(code, message));
+    }
+}
+
+/**
+ * POST /import — Import questions from an uploaded file (Excel, CSV, or JSON)
+ * via ImportPipelineService.
+ * Expects a single file upload via multer (field name: 'file').
+ */
+export async function importQuestions(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const file = req.file;
+        if (!file) {
+            ResponseBuilder.send(
+                res,
+                400,
+                ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded. Use field name "file".'),
+            );
+            return;
+        }
+
+        const adminId = req.user?.id || '';
+        const originalName = file.originalname.toLowerCase();
+        let result: ImportPipelineService.ImportResult;
+
+        if (originalName.endsWith('.xlsx') || originalName.endsWith('.xls')) {
+            result = await ImportPipelineService.importExcel(file.buffer, adminId);
+        } else if (originalName.endsWith('.csv')) {
+            result = await ImportPipelineService.importCSV(file.buffer, adminId);
+        } else if (originalName.endsWith('.json')) {
+            result = await ImportPipelineService.importJSON(file.buffer, adminId);
+        } else {
+            ResponseBuilder.send(
+                res,
+                400,
+                ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported file format. Use .xlsx, .csv, or .json'),
+            );
+            return;
+        }
+
+        const statusCode = result.failed > 0 && result.success === 0 ? 422 : 200;
+        ResponseBuilder.send(res, statusCode, ResponseBuilder.success(result, 'Import completed'));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
+/**
+ * GET /export — Export questions to Excel or CSV via ExportPipelineService.
+ * Query params: format ('excel' | 'csv'), plus any QuestionFilters.
+ */
+export async function exportQuestionsV2(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const { format, page: _page, limit: _limit, ...filters } = req.query as Record<string, string>;
+        const exportFormat = format || 'excel';
+
+        let result: Buffer | ExportPipelineService.ExportJobResult;
+
+        if (exportFormat === 'csv') {
+            result = await ExportPipelineService.exportQuestionsCSV(
+                filters as unknown as ExportPipelineService.QuestionFilters,
+            );
+        } else {
+            result = await ExportPipelineService.exportQuestionsExcel(
+                filters as unknown as ExportPipelineService.QuestionFilters,
+            );
+        }
+
+        // If async job was created (large dataset), return the job info
+        if (!(result instanceof Buffer)) {
+            const jobResult = result as ExportPipelineService.ExportJobResult;
+            ResponseBuilder.send(res, 202, ResponseBuilder.success(jobResult, jobResult.message));
+            return;
+        }
+
+        // Send the file as a download
+        const contentType = exportFormat === 'csv'
+            ? 'text/csv; charset=utf-8'
+            : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const extension = exportFormat === 'csv' ? 'csv' : 'xlsx';
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="questions-export.${extension}"`);
+        res.send(result);
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
