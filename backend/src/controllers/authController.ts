@@ -14,6 +14,8 @@ import { addAuthSessionStreamClient } from '../realtime/authSessionStream';
 import { AuthRequest } from '../middlewares/auth';
 import { getClientIp, getDeviceInfo } from '../utils/requestMeta';
 import { sendCampusMail } from '../utils/mailer';
+import { trackContact as trackMarketingContact } from '../services/integrations/marketingHelper';
+import { subscribeToList as subscribeListmonkContact } from '../services/integrations/emailHelper';
 import { resolvePermissions, resolvePermissionsV2 } from '../utils/permissions';
 import { SecurityConfig, getSecurityConfig, TwoFactorMethod } from '../services/securityConfigService';
 import { getBrowserFingerprint, terminateSessions, terminateSessionsForUser } from '../services/sessionSecurityService';
@@ -1521,6 +1523,21 @@ export async function register(req: Request, res: Response): Promise<void> {
             text: `Verify your email: ${verifyUrl}`,
             html: `<p>Hello ${fullName},</p><p>Please verify your email by clicking the link below:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>This link expires in ${security.verificationRecovery.emailVerificationExpiryHours} hours.</p>`,
         });
+
+        // Best-effort marketing fan-out (no-op when integrations disabled).
+        // We split full_name into first/last on the first space, default to
+        // empty strings when not present.
+        const [firstName, ...rest] = (fullName || '').trim().split(/\s+/);
+        const lastName = rest.join(' ');
+        void Promise.allSettled([
+            trackMarketingContact({
+                email,
+                firstname: firstName || undefined,
+                lastname: lastName || undefined,
+                tags: ['campusway', 'student', 'registered'],
+            }),
+            subscribeListmonkContact(email, fullName || undefined),
+        ]).catch(() => { /* swallow — marketing is optional */ });
 
         ResponseBuilder.send(res, 201, ResponseBuilder.created(null, 'Registration successful. Please verify your email from the inbox.'));
     } catch (error) {

@@ -8,6 +8,7 @@ import { I18nProvider } from './i18n';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import ForceLogoutModal from './components/auth/ForceLogoutModal';
+import AnalyticsTracker from './components/AnalyticsTracker';
 
 // Route-based code splitting — page-level components loaded on demand
 const HomePage = lazy(() => import('./pages/HomeModern'));
@@ -42,6 +43,7 @@ import {
     AdminReportsPage,
     AdminResourcesPage,
     AdminSettingsAnalyticsPage,
+    AdminSettingsIntegrationsPage,
     AdminSettingsBannersPage,
     AdminSettingsCenterPage,
     AdminSettingsLogsPage,
@@ -371,6 +373,7 @@ export default function App() {
                 <AuthProvider>
                     <I18nProvider>
                         <BrowserRouter>
+                            <AnalyticsTracker />
                             <AppLayout>
                                 <Suspense fallback={<RouteLoadingFallback />}>
                                     <Routes>
@@ -477,6 +480,7 @@ export default function App() {
                                         <Route path={adminUi('settings/reports')} element={<AdminSettingsReportsPage />} />
                                         <Route path={adminUi('settings/notifications')} element={<AdminSettingsNotificationsPage />} />
                                         <Route path={adminUi('settings/analytics')} element={<AdminSettingsAnalyticsPage />} />
+                                        <Route path={adminUi('settings/integrations')} element={<AdminSettingsIntegrationsPage />} />
                                         <Route path={adminUi('settings/news')} element={<AdminSettingsNewsPage />} />
                                         <Route path={adminUi('settings/resource-settings')} element={<AdminSettingsResourcesPage />} />
                                         <Route path={adminUi('settings/admin-profile')} element={<AdminSettingsProfilePage />} />

@@ -21,13 +21,14 @@ export interface BackupConfig {
 }
 
 export interface BackupResult {
-    type: 'full' | 'incremental';
-    collections: number;
-    documents: number;
-    sizeBytes: number;
-    checksum: string;
-    verified: boolean;
-}
+  type: 'full' | 'incremental';
+  collections: number;
+  documents: number;
+  sizeBytes: number;
+  checksum: string;
+  verified: boolean;
+  localPath?: string;
+  }
 
 export interface BackupRecord {
     id: string;
@@ -232,6 +233,7 @@ export async function runBackup(type: BackupType = 'full'): Promise<BackupResult
         sizeBytes: integrity.sizeBytes,
         checksum: digest,
         verified: integrity.verified,
+        localPath: filePath,
     };
 }
 

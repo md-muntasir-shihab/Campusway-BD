@@ -8,6 +8,20 @@ import sharp from 'sharp';
 import { getFirebaseStorageBucket } from '../config/firebaseAdmin';
 import { buildSecureUploadUrl, registerSecureUpload } from '../services/secureUploadService';
 import { ResponseBuilder } from '../utils/responseBuilder';
+import { transformUrl as imgproxyTransformUrl } from '../services/integrations/imageHelper';
+
+/** Wraps a public absolute URL through imgproxy when the integration is
+ *  configured AND the resource is an image. Falls back to the original URL
+ *  in every other case. Never throws. */
+async function maybeTransformPublicImageUrl(absoluteUrl: string, mimetype: string): Promise<string> {
+    if (!mimetype || !mimetype.startsWith('image/')) return absoluteUrl;
+    if (mimetype === 'image/svg+xml') return absoluteUrl;
+    try {
+        return await imgproxyTransformUrl(absoluteUrl, {});
+    } catch {
+        return absoluteUrl;
+    }
+}
 
 // Ensure the upload directory exists (graceful in read-only / containerised envs)
 const uploadDir = path.join(__dirname, '../../public/uploads');
@@ -217,10 +231,12 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
                 });
 
                 const publicUrl = `https://storage.googleapis.com/${firebaseBucket.name}/${objectKey}`;
+                const deliveryUrl = await maybeTransformPublicImageUrl(publicUrl, req.file.mimetype);
                 fs.unlink(req.file.path, () => { /* ignore */ });
                 ResponseBuilder.send(res, 201, ResponseBuilder.created({
-                    url: publicUrl,
-                    absoluteUrl: publicUrl,
+                    url: deliveryUrl,
+                    absoluteUrl: deliveryUrl,
+                    originalUrl: publicUrl,
                     filename: objectKey,
                     mimetype: req.file.mimetype,
                     size: req.file.size,
@@ -274,10 +290,12 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
         // Bug 1.7 fix: Use absolute URL for the primary url field
         const fileUrl = `/uploads/${req.file.filename}`;
         const absoluteUrl = buildAbsoluteUploadUrl(fileUrl, origin);
+        const deliveryUrl = await maybeTransformPublicImageUrl(absoluteUrl, req.file.mimetype);
 
         ResponseBuilder.send(res, 201, ResponseBuilder.created({
-            url: absoluteUrl,
-            absoluteUrl,
+            url: deliveryUrl,
+            absoluteUrl: deliveryUrl,
+            originalUrl: absoluteUrl,
             filename: req.file.filename,
             mimetype: req.file.mimetype,
             size: req.file.size,

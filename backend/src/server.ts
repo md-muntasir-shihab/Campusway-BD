@@ -24,6 +24,7 @@ import { startModernExamCronJobs } from './cron/modernExamJobs';
 import { startStudentDashboardCronJobs } from './cron/dashboardJobs';
 import { startFinanceRecurringCronJobs } from './cron/financeRecurringJobs';
 import { seedDefaultChartOfAccounts } from './services/financeCenterService';
+import { seedIntegrationConfigs } from './services/integrations/integrationsService';
 import { startNewsV2CronJobs } from './cron/newsJobs';
 import { startNotificationJobCron } from './cron/notificationJobs';
 import { startRetentionCronJobs } from './cron/retentionJobs';
@@ -34,6 +35,8 @@ import adminStudentMgmtRoutes from './routes/adminStudentMgmtRoutes';
 import adminProviderRoutes from './routes/adminProviderRoutes';
 import adminNotificationRoutes from './routes/adminNotificationRoutes';
 import adminStudentSecurityRoutes from './routes/adminStudentSecurityRoutes';
+import adminIntegrationsRoutes from './routes/adminIntegrationsRoutes';
+import publicIntegrationsRoutes from './routes/publicIntegrationsRoutes';
 
 // Exam Management System v1 routes
 import questionHierarchyRoutes from './routes/questionHierarchy.routes';
@@ -381,6 +384,7 @@ app.get('/api/auth/csrf-token', csrfTokenEndpoint);
 
 // Public API
 app.use('/api', publicRoutes);
+app.use('/api/integrations', publicIntegrationsRoutes);
 
 // Admin API (behind secret path)
 app.use(`/api/${ADMIN_SECRET_PATH}`, adminRateLimiter);
@@ -388,7 +392,8 @@ app.use(`/api/${ADMIN_SECRET_PATH}`, adminRoutes);
 app.use('/api/admin', adminRateLimiter);
 app.use('/api/admin', standaloneAdminApiHardening, adminStudentMgmtRoutes);
 app.use('/api/admin', standaloneAdminApiHardening, adminNotificationRoutes);
-app.use('/api/admin', standaloneAdminApiHardening, adminProviderRoutes);
+    app.use('/api/admin', standaloneAdminApiHardening, adminProviderRoutes);
+    app.use('/api/admin', standaloneAdminApiHardening, adminIntegrationsRoutes);
 app.use('/api/admin', standaloneAdminApiHardening, adminStudentSecurityRoutes);
 app.use('/api/admin', adminRoutes);
 
@@ -514,6 +519,9 @@ async function start() {
 
         // Seed default Chart-of-Account entries (idempotent)
         await seedDefaultChartOfAccounts();
+
+        // Seed integration registry rows (idempotent, all disabled by default)
+        await seedIntegrationConfigs();
     } catch (err) { console.error('[startup] Core data/cron sync failed. MongoDB might be down. Keeping container ALIVE:', err); }
 
     const server = app.listen(Number(PORT), '0.0.0.0', () => {
