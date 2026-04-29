@@ -105,6 +105,7 @@ export const ADMIN_PATHS = {
     helpCenterAdmin: adminUi('help-center'),
     contact: adminUi('contact'),
     notifications: adminUi('settings/notifications'),
+    integrations: adminUi('settings/integrations'),
     reports: adminUi('reports'),
     securityCenter: adminUi('settings/security-center'),
     systemLogs: adminUi('settings/system-logs'),
