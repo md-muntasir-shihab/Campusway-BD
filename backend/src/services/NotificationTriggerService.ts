@@ -27,6 +27,7 @@ import GroupMembership from '../models/GroupMembership';
 import Exam from '../models/Exam';
 import DoubtThread from '../models/DoubtThread';
 import StreakRecord from '../models/StreakRecord';
+import { triggerWorkflow as triggerNovuWorkflow } from './integrations/notificationHelper';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -165,6 +166,31 @@ async function createNotification(params: CreateNotificationParams): Promise<voi
         actorUserId: params.actorUserId ?? null,
         dedupeKey: params.dedupeKey ?? undefined,
     });
+
+    // Best-effort Novu fan-out (no-op when integration disabled). Each
+    // recipient is triggered as an individual subscriber; failures are
+    // swallowed so the in-app Notification document remains the source of
+    // truth.
+    void Promise.all(
+        params.targetUserIds.map((uid) =>
+            triggerNovuWorkflow(
+                params.type,
+                { subscriberId: uid.toString() },
+                {
+                    title: params.title,
+                    message: params.message,
+                    category: params.category,
+                    priority: params.priority,
+                    targetRoute: params.targetRoute ?? '',
+                    targetEntityId: params.targetEntityId ?? '',
+                    sourceType: params.sourceType ?? '',
+                    sourceId: params.sourceId ?? '',
+                },
+            ),
+        ),
+    ).catch(() => {
+        /* swallow — Novu is optional */
+    });
 }
 
 // ─── Trigger Functions ──────────────────────────────────────
@@ -212,7 +238,7 @@ export async function triggerExamStartingSoon(examId: string): Promise<void> {
     const filteredIds = await filterByChannelPreference(memberIds, 'exam_starting_soon');
 
     await createNotification({
-        title: 'পরীক্ষা শীঘ্রই শুরু হচ্ছে',
+        title: 'পরীক্ষা শীঘ্রই শুরু হচ্��ে',
         message: `"${exam.title}" পরীক্ষা ৩০ মিনিটের মধ্যে শুরু হবে। প্রস্তুত হোন!`,
         type: 'exam_starting_soon',
         category: 'exam',
