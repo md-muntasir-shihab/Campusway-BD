@@ -477,6 +477,200 @@ function ClusterPreviewCard({ cluster }: { cluster: ApiClusterCardPreview }) {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/*  DaysLeftBar – visual progress bar for days remaining               */
+/* ------------------------------------------------------------------ */
+function DaysLeftBar({ targetDate }: { targetDate: string }) {
+    const days = daysUntilUniversityDate(parseUniversityDate(targetDate));
+    if (days === null) return null;
+
+    const MAX_DAYS = 120;
+    const ended = days < 0;
+    const widthPct = ended ? 100 : Math.min(100, Math.max(4, (days / MAX_DAYS) * 100));
+
+    let barColor: string;
+    let textColor: string;
+    let label: string;
+    if (ended) {
+        barColor = 'bg-slate-300 dark:bg-slate-600';
+        textColor = 'text-slate-400 dark:text-slate-500';
+        label = 'Ended';
+    } else if (days < 7) {
+        barColor = 'bg-red-500 dark:bg-red-400';
+        textColor = 'text-red-600 dark:text-red-400';
+        label = `${days}d left`;
+    } else if (days <= 30) {
+        barColor = 'bg-amber-500 dark:bg-amber-400';
+        textColor = 'text-amber-600 dark:text-amber-400';
+        label = `${days}d left`;
+    } else {
+        barColor = 'bg-emerald-500 dark:bg-emerald-400';
+        textColor = 'text-emerald-600 dark:text-emerald-400';
+        label = `${days}d left`;
+    }
+
+    return (
+        <div className="flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${widthPct}%` }} />
+            </div>
+            <span className={`shrink-0 text-[10px] font-bold ${textColor}`}>{label}</span>
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  DeadlineClusterCard – for Application Deadlines section            */
+/* ------------------------------------------------------------------ */
+function DeadlineClusterCard({ cluster }: { cluster: ApiClusterCardPreview }) {
+    const fallbackText = buildCategoryFallbackText(cluster.name);
+    const appMeta = buildApplicationUrgency(cluster.applicationStartDate, cluster.applicationEndDate);
+    const isHistorical = Boolean(cluster.isHistorical);
+    const historicalDate = cluster.endedAt || cluster.nearestDeadline || cluster.applicationEndDate;
+
+    return (
+        <article className={`group flex h-full flex-col overflow-hidden rounded-[1.5rem] border shadow-[0_8px_30px_rgba(15,23,42,0.08)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_30px_rgba(4,12,24,0.2)] dark:hover:shadow-[0_20px_50px_rgba(4,12,24,0.3)] ${isHistorical ? 'border-slate-300/50 bg-white/80 opacity-85 dark:border-slate-700/40 dark:bg-slate-900/80' : 'border-slate-200/70 bg-white/95 dark:border-slate-700/60 dark:bg-slate-900/95 dark:hover:border-indigo-500/15'}`}>
+            {/* Accent line */}
+            <div className={`h-[2px] w-full bg-gradient-to-r ${isHistorical ? 'from-slate-400 to-slate-500 opacity-40' : 'from-cyan-500 via-indigo-500 to-cyan-500 opacity-50 group-hover:opacity-100'} transition-opacity duration-500`} />
+
+            <div className="flex items-start gap-3 p-4 pb-2.5">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform duration-300 group-hover:scale-105 ${isHistorical ? 'border-slate-200/50 bg-slate-50 text-xs font-black uppercase tracking-[0.18em] text-slate-400 dark:border-slate-700/40 dark:bg-slate-900 dark:text-slate-500' : 'border-slate-200/60 bg-white text-xs font-black uppercase tracking-[0.18em] text-cyan-600 dark:border-slate-700/60 dark:bg-slate-950 dark:text-cyan-300'}`}>
+                    {fallbackText}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Cluster</p>
+                            <Link to={`/universities/cluster/${cluster.slug}`} className={`mt-1 block truncate text-sm font-bold leading-snug transition-colors ${isHistorical ? 'text-slate-600 group-hover:text-slate-800 dark:text-slate-400 dark:group-hover:text-slate-200' : 'text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-cyan-300'}`} title={cluster.name}>
+                                {cluster.name}
+                            </Link>
+                        </div>
+                        <span className={`shrink-0 rounded-lg border px-2 py-0.5 text-[10px] font-bold ${isHistorical ? 'border-slate-200/50 bg-slate-100/60 text-slate-400 dark:border-slate-700/40 dark:bg-slate-800/60 dark:text-slate-500' : 'border-cyan-200/60 bg-cyan-50/80 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200'}`}>
+                            {cluster.memberCount} members
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-2.5 px-4 pb-3">
+                {isHistorical ? (
+                    <div className="space-y-1.5">
+                        <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Ended on {formatMetaDate(historicalDate)}</p>
+                        <DaysLeftBar targetDate={historicalDate} />
+                    </div>
+                ) : (
+                    <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Deadline {formatMetaDate(cluster.applicationEndDate)}</span>
+                            <DaysLeftChip daysLeft={appMeta.daysLeft} urgencyState={appMeta.urgencyState} />
+                        </div>
+                        <DaysLeftBar targetDate={cluster.applicationEndDate} />
+                    </div>
+                )}
+            </div>
+
+            <div className={`mt-auto border-t px-4 py-3 ${isHistorical ? 'border-slate-100/50 dark:border-slate-800/40' : 'border-slate-100/80 dark:border-slate-800/60'}`}>
+                <div className="grid grid-cols-2 gap-2">
+                    {cluster.admissionWebsite ? (
+                        <a href={cluster.admissionWebsite} target="_blank" rel="noopener noreferrer"
+                            className={`inline-flex min-h-[44px] items-center justify-center rounded-xl px-3 py-2 text-xs font-bold text-white shadow-md transition-all hover:shadow-lg ${isHistorical ? 'bg-gradient-to-r from-slate-400 to-slate-500 shadow-slate-400/10 hover:shadow-slate-400/20' : 'bg-gradient-to-r from-cyan-500 to-indigo-500 shadow-cyan-500/15 hover:shadow-cyan-500/25'}`}>
+                            Apply Now
+                        </a>
+                    ) : (
+                        <Link to={`/universities/cluster/${cluster.slug}`}
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700/60 dark:text-slate-200 dark:hover:bg-slate-800">
+                            View Cluster
+                        </Link>
+                    )}
+                    <Link to={`/universities/cluster/${cluster.slug}`}
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700/60 dark:text-slate-200 dark:hover:bg-slate-800">
+                        Details
+                    </Link>
+                </div>
+            </div>
+        </article>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  ExamClusterCard – for Upcoming Exams section                       */
+/* ------------------------------------------------------------------ */
+function ExamClusterCard({ cluster }: { cluster: ApiClusterCardPreview }) {
+    const fallbackText = buildCategoryFallbackText(cluster.name);
+    const isHistorical = Boolean(cluster.isHistorical);
+
+    const examDates: { label: string; value: string }[] = [
+        { label: 'Science', value: cluster.scienceExamDate },
+        { label: 'Humanities', value: cluster.artsExamDate },
+        { label: 'Business', value: cluster.businessExamDate },
+    ];
+
+    return (
+        <article className={`group flex h-full flex-col overflow-hidden rounded-[1.5rem] border shadow-[0_8px_30px_rgba(15,23,42,0.08)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_30px_rgba(4,12,24,0.2)] dark:hover:shadow-[0_20px_50px_rgba(4,12,24,0.3)] ${isHistorical ? 'border-slate-300/50 bg-white/80 opacity-85 dark:border-slate-700/40 dark:bg-slate-900/80' : 'border-slate-200/70 bg-white/95 dark:border-slate-700/60 dark:bg-slate-900/95 dark:hover:border-indigo-500/15'}`}>
+            {/* Accent line */}
+            <div className={`h-[2px] w-full bg-gradient-to-r ${isHistorical ? 'from-slate-400 to-slate-500 opacity-40' : 'from-cyan-500 via-indigo-500 to-cyan-500 opacity-50 group-hover:opacity-100'} transition-opacity duration-500`} />
+
+            <div className="flex items-start gap-3 p-4 pb-2.5">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform duration-300 group-hover:scale-105 ${isHistorical ? 'border-slate-200/50 bg-slate-50 text-xs font-black uppercase tracking-[0.18em] text-slate-400 dark:border-slate-700/40 dark:bg-slate-900 dark:text-slate-500' : 'border-slate-200/60 bg-white text-xs font-black uppercase tracking-[0.18em] text-cyan-600 dark:border-slate-700/60 dark:bg-slate-950 dark:text-cyan-300'}`}>
+                    {fallbackText}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Cluster</p>
+                            <Link to={`/universities/cluster/${cluster.slug}`} className={`mt-1 block truncate text-sm font-bold leading-snug transition-colors ${isHistorical ? 'text-slate-600 group-hover:text-slate-800 dark:text-slate-400 dark:group-hover:text-slate-200' : 'text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-cyan-300'}`} title={cluster.name}>
+                                {cluster.name}
+                            </Link>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                            <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${isHistorical ? 'border-slate-200/50 bg-slate-100/60 text-slate-400 dark:border-slate-700/40 dark:bg-slate-800/60 dark:text-slate-500' : 'border-cyan-200/60 bg-cyan-50/80 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200'}`}>
+                                {cluster.memberCount} members
+                            </span>
+                            {isHistorical && (
+                                <span className="rounded-lg border border-slate-300/60 bg-slate-100/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-600/40 dark:bg-slate-800/60 dark:text-slate-400">
+                                    Ended
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-2 px-4 pb-3">
+                {examDates.map(({ label, value }) => (
+                    <div key={label} className={`rounded-xl border p-2.5 ${isHistorical ? 'border-slate-200/40 bg-slate-50/50 dark:border-slate-700/40 dark:bg-slate-950/30' : 'border-slate-200/60 bg-slate-50/80 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{label}</span>
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{formatMetaDate(value)}</span>
+                        </div>
+                        <DaysLeftBar targetDate={value} />
+                    </div>
+                ))}
+            </div>
+
+            <div className={`mt-auto border-t px-4 py-3 ${isHistorical ? 'border-slate-100/50 dark:border-slate-800/40' : 'border-slate-100/80 dark:border-slate-800/60'}`}>
+                <div className="grid grid-cols-2 gap-2">
+                    {cluster.admissionWebsite ? (
+                        <a href={cluster.admissionWebsite} target="_blank" rel="noopener noreferrer"
+                            className={`inline-flex min-h-[44px] items-center justify-center rounded-xl px-3 py-2 text-xs font-bold text-white shadow-md transition-all hover:shadow-lg ${isHistorical ? 'bg-gradient-to-r from-slate-400 to-slate-500 shadow-slate-400/10 hover:shadow-slate-400/20' : 'bg-gradient-to-r from-cyan-500 to-indigo-500 shadow-cyan-500/15 hover:shadow-cyan-500/25'}`}>
+                            Apply Now
+                        </a>
+                    ) : (
+                        <Link to={`/universities/cluster/${cluster.slug}`}
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700/60 dark:text-slate-200 dark:hover:bg-slate-800">
+                            View Cluster
+                        </Link>
+                    )}
+                    <Link to={`/universities/cluster/${cluster.slug}`}
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700/60 dark:text-slate-200 dark:hover:bg-slate-800">
+                        Details
+                    </Link>
+                </div>
+            </div>
+        </article>
+    );
+}
+
 function CategoryPreviewCard({ category }: { category: ApiCategoryCardPreview }) {
     const fallbackText = buildCategoryFallbackText(category.name);
     const categoryUrgency = buildCategoryUrgency(category.nearestDeadline);
@@ -1075,7 +1269,7 @@ export default function HomeModern() {
                         <PremiumCarousel>
                             {filteredDeadlineClusters.map(cluster => (
                                 <div key={cluster.id} className={compactCarouselCardClass}>
-                                    <ClusterPreviewCard cluster={cluster} />
+                                    <DeadlineClusterCard cluster={cluster} />
                                 </div>
                             ))}
                             {filteredDeadline.map(uni => (
@@ -1109,7 +1303,7 @@ export default function HomeModern() {
                         <PremiumCarousel>
                             {filteredUpcomingClusters.map(cluster => (
                                 <div key={cluster.id} className={compactCarouselCardClass}>
-                                    <ClusterPreviewCard cluster={cluster} />
+                                    <ExamClusterCard cluster={cluster} />
                                 </div>
                             ))}
                             {filteredUpcoming.map(uni => (
