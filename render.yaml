@@ -18,6 +18,8 @@ services:
         value: https://campuswaybd.web.app
       - key: MONGO_URI
         sync: false # Set this in the Render dashboard manually for security!
+      - key: MONGODB_URI
+        sync: false # Set this in the Render dashboard manually for security!
       - key: FIREBASE_PROJECT_ID
         value: campuswaybd
       - key: FIREBASE_CLIENT_EMAIL
@@ -38,6 +40,10 @@ services:
         value: "true"
       - key: CACHE_PREFIX
         value: "cw:"
+      - key: UPSTASH_REDIS_REST_URL
+        value: https://equipped-badger-94770.upstash.io
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false # Set this in the Render dashboard manually for security!
       - key: ALLOW_DEFAULT_SETUP
         value: "true"
       - key: ADMIN_SECRET_PATH

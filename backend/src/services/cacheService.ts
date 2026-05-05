@@ -1,16 +1,14 @@
 /**
- * In-memory Map-based cache service.
+ * Cache service — Upstash Redis (primary) with in-memory Map fallback.
  *
- * Replaces the previous Upstash Redis implementation with a simple
- * Map<string, CacheEntry> store. TTL-based expiration with lazy eviction
- * on read and periodic cleanup every 60 seconds.
- *
- * All keys prefixed with CACHE_PREFIX (default: "cw:").
- * Gracefully degrades when CACHE_ENABLED=false.
- * All operations wrapped in try/catch — never throws.
+ * Uses @upstash/redis when UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+ * are set; otherwise falls back to a TTL-based in-memory Map.
+ * All operations are wrapped in try/catch — never throws.
  *
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.9, 2.10, 6.5
  */
+
+import { Redis } from '@upstash/redis';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -23,7 +21,29 @@ function isCacheEnabled(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Internal store
+// Upstash Redis client (lazy init)
+// ---------------------------------------------------------------------------
+
+let redisClient: Redis | null = null;
+
+function getRedisClient(): Redis | null {
+    if (redisClient) return redisClient;
+
+    const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+
+    if (!url || !token) return null;
+
+    try {
+        redisClient = new Redis({ url, token });
+        return redisClient;
+    } catch {
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// In-memory fallback store
 // ---------------------------------------------------------------------------
 
 interface CacheEntry {
@@ -42,8 +62,6 @@ const cleanupTimer = setInterval(() => {
         }
     }
 }, 60_000);
-
-// Allow the process to exit cleanly without waiting for this timer
 cleanupTimer.unref();
 
 // ---------------------------------------------------------------------------
@@ -52,11 +70,6 @@ cleanupTimer.unref();
 
 const KEY_SEP = '::';
 
-/**
- * Build a deterministic cache key from HTTP method, path, and query params.
- * Query params are sorted alphabetically for determinism.
- * Format: `{prefix}{method}::{path}[::k=v&k2=v2]`
- */
 export function buildKey(
     method: string,
     path: string,
@@ -71,23 +84,16 @@ export function buildKey(
     return `${CACHE_PREFIX}${method.toUpperCase()}${KEY_SEP}${path}${queryPart}`;
 }
 
-/**
- * Parse a cache key back into its constituent parts.
- * Inverse of buildKey — supports the round-trip property.
- */
 export function parseKey(key: string): {
     method: string;
     path: string;
     query: Record<string, string>;
 } {
-    // Strip prefix
     const body = key.startsWith(CACHE_PREFIX) ? key.slice(CACHE_PREFIX.length) : key;
-
-    // Split on KEY_SEP — at most 3 segments: method, path, queryString
     const parts = body.split(KEY_SEP);
     const method = parts[0] ?? '';
     const path = parts[1] ?? '';
-    const queryStr = parts.slice(2).join(KEY_SEP); // rejoin in case path contained separator (shouldn't, but safe)
+    const queryStr = parts.slice(2).join(KEY_SEP);
 
     const query: Record<string, string> = {};
     if (queryStr) {
@@ -106,34 +112,45 @@ export function parseKey(key: string): {
 // CRUD operations
 // ---------------------------------------------------------------------------
 
-/**
- * Retrieve a cached value. Returns null on miss, expiration, or error.
- * Performs lazy eviction: deletes the entry if expired.
- */
 export async function get<T>(key: string): Promise<T | null> {
     if (!isCacheEnabled()) return null;
+
+    const redis = getRedisClient();
+    if (redis) {
+        try {
+            const val = await redis.get<T>(key);
+            return val ?? null;
+        } catch {
+            // fall through to in-memory
+        }
+    }
+
     try {
         const entry = store.get(key);
         if (!entry) return null;
-
-        // Lazy eviction: check if expired
         if (Date.now() >= entry.expiresAt) {
             store.delete(key);
             return null;
         }
-
         return JSON.parse(entry.value) as T;
-    } catch (err) {
-        console.error('[CacheService] get failed:', err);
+    } catch {
         return null;
     }
 }
 
-/**
- * Store a value with a TTL (seconds). Silently fails on error.
- */
 export async function set(key: string, value: unknown, ttlSeconds: number): Promise<void> {
     if (!isCacheEnabled()) return;
+
+    const redis = getRedisClient();
+    if (redis) {
+        try {
+            await redis.set(key, value, { ex: ttlSeconds });
+            return;
+        } catch {
+            // fall through to in-memory
+        }
+    }
+
     try {
         store.set(key, {
             value: JSON.stringify(value),
@@ -144,11 +161,19 @@ export async function set(key: string, value: unknown, ttlSeconds: number): Prom
     }
 }
 
-/**
- * Delete a single key. Silently fails on error.
- */
 export async function del(key: string): Promise<void> {
     if (!isCacheEnabled()) return;
+
+    const redis = getRedisClient();
+    if (redis) {
+        try {
+            await redis.del(key);
+            return;
+        } catch {
+            // fall through to in-memory
+        }
+    }
+
     try {
         store.delete(key);
     } catch (err) {
@@ -156,16 +181,33 @@ export async function del(key: string): Promise<void> {
     }
 }
 
-/**
- * Delete all keys matching a glob pattern (e.g. "cw:GET::/api/news*").
- * Converts glob to RegExp and iterates all keys. Returns the number of keys deleted.
- */
 export async function delByPattern(pattern: string): Promise<number> {
     if (!isCacheEnabled()) return 0;
+
+    const redis = getRedisClient();
+    if (redis) {
+        try {
+            // Upstash supports SCAN-based pattern delete
+            let cursor = 0;
+            let deleted = 0;
+            do {
+                const [nextCursor, keys] = await redis.scan(cursor, {
+                    match: pattern,
+                    count: 100,
+                });
+                cursor = Number(nextCursor);
+                if (keys.length > 0) {
+                    await redis.del(...keys);
+                    deleted += keys.length;
+                }
+            } while (cursor !== 0);
+            return deleted;
+        } catch {
+            // fall through to in-memory
+        }
+    }
+
     try {
-        // Convert glob pattern to RegExp:
-        // 1. Escape regex special characters (except * and ?)
-        // 2. Replace * with .* and ? with .
         const escaped = pattern.replace(/([.+^${}()|[\]\\])/g, '\\$1');
         const regexStr = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
         const regex = new RegExp(`^${regexStr}$`);
@@ -185,7 +227,7 @@ export async function delByPattern(pattern: string): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
-// Public API (named exports + default object for convenience)
+// Public API
 // ---------------------------------------------------------------------------
 
 export const cacheService = {
