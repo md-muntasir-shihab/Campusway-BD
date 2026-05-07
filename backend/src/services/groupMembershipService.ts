@@ -271,15 +271,43 @@ export async function syncGroupCount(groupId: mongoose.Types.ObjectId): Promise<
 
 export async function syncAllGroupCounts(): Promise<number> {
     const groups = await StudentGroup.find({ isActive: true }).select('_id').lean();
-    let fixed = 0;
-    for (const g of groups) {
-        const count = await GroupMembership.countDocuments({ groupId: g._id, membershipStatus: 'active' });
-        const result = await StudentGroup.updateOne(
-            { _id: g._id, memberCountCached: { $ne: count } },
-            { $set: { memberCountCached: count, studentCount: count } }
-        );
-        if (result.modifiedCount > 0) fixed++;
+    const activeGroupIds = groups.map(g => g._id);
+
+    const counts = await GroupMembership.aggregate([
+        { $match: { membershipStatus: 'active', groupId: { $in: activeGroupIds } } },
+        { $group: { _id: '$groupId', count: { $sum: 1 } } }
+    ]);
+
+    const countMap = new Map<string, number>();
+    for (const c of counts) {
+        countMap.set(c._id.toString(), c.count);
     }
+
+    let fixed = 0;
+    const bulkOps = [];
+
+    for (const g of groups) {
+        const count = countMap.get(g._id.toString()) || 0;
+        bulkOps.push({
+            updateOne: {
+                filter: { _id: g._id, memberCountCached: { $ne: count } },
+                update: { $set: { memberCountCached: count, studentCount: count } }
+            }
+        });
+
+        // Execute bulkWrite in chunks of 1000 to prevent BSON/memory limits
+        if (bulkOps.length === 1000) {
+            const result = await StudentGroup.bulkWrite(bulkOps);
+            fixed += result.modifiedCount || 0;
+            bulkOps.length = 0;
+        }
+    }
+
+    if (bulkOps.length > 0) {
+        const result = await StudentGroup.bulkWrite(bulkOps);
+        fixed += result.modifiedCount || 0;
+    }
+
     return fixed;
 }
 
