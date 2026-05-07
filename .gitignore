@@ -140,3 +140,5 @@ snapshot-*.md
 
 # Kiro IDE
 .kiro/
+
+graphify-out/
