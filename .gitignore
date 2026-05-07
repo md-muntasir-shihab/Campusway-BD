@@ -137,3 +137,6 @@ server/
 
 # ─── Misc binary artifacts ───────────────────────────────────
 snapshot-*.md
+
+# Kiro IDE
+.kiro/
