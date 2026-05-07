@@ -3763,7 +3763,13 @@ export async function adminNewsV2ReorderSources(req: AuthRequest, res: Response)
             ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'ids is required'));
             return;
         }
-        await Promise.all(ids.map((id: string, index: number) => NewsSource.updateOne({ _id: id }, { $set: { order: index + 1 } })));
+        const bulkOps = ids.map((id: string, index: number) => ({
+            updateOne: {
+                filter: { _id: id },
+                update: { $set: { order: index + 1 } }
+            }
+        }));
+        await NewsSource.bulkWrite(bulkOps);
         await writeNewsAuditEvent(req, { action: 'source.reorder', entityType: 'source', meta: { ids } });
         ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Reordered'));
     } catch (error) {
