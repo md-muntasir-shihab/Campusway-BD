@@ -13,10 +13,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const {
     mockAxiosPost,
+    mockAxiosGet,
     mockApiInstance,
     getResponseInterceptorRejected,
 } = vi.hoisted(() => {
     const mockAxiosPost = vi.fn();
+    const mockAxiosGet = vi.fn();
     let _responseRejected: ((error: any) => any) | null = null;
 
     const mockApiInstance: any = vi.fn();
@@ -32,6 +34,7 @@ const {
 
     return {
         mockAxiosPost,
+        mockAxiosGet,
         mockApiInstance,
         getResponseInterceptorRejected: () => _responseRejected,
     };
@@ -40,6 +43,7 @@ const {
 vi.mock('axios', () => ({
     default: {
         create: () => mockApiInstance,
+        get: (...args: any[]) => mockAxiosGet(...args),
         post: (...args: any[]) => mockAxiosPost(...args),
     },
     __esModule: true,
@@ -83,8 +87,10 @@ async function drainPendingRefresh() {
 describe('Token Refresh Flow', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mockAxiosGet.mockResolvedValue({ data: { csrfToken: 'csrf-token-from-test' } });
         clearAccessToken();
         window.localStorage.clear();
+        document.cookie = '_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
         Object.defineProperty(window, 'location', {
             value: { pathname: '/dashboard', href: '' },
             writable: true,
@@ -100,15 +106,34 @@ describe('Token Refresh Flow', () => {
             const result = await refreshAccessToken();
 
             expect(result).toBe(newToken);
+            expect(mockAxiosGet).toHaveBeenCalledWith(
+                expect.stringContaining('/auth/csrf-token'),
+                expect.objectContaining({
+                    withCredentials: true,
+                    timeout: 5000,
+                }),
+            );
             expect(mockAxiosPost).toHaveBeenCalledTimes(1);
             expect(mockAxiosPost).toHaveBeenCalledWith(
                 expect.stringContaining('/auth/refresh'),
                 {},
                 expect.objectContaining({
+                    headers: expect.objectContaining({
+                        'X-CSRF-Token': 'csrf-token-from-test',
+                    }),
                     timeout: 10000,
                     withCredentials: true,
                 }),
             );
+        });
+
+        it('should read token from ResponseBuilder envelope responses', async () => {
+            mockAxiosPost.mockResolvedValueOnce({ data: { success: true, data: { token: 'wrapped-token' } } });
+
+            const result = await refreshAccessToken();
+
+            expect(result).toBe('wrapped-token');
+            expect(readAccessToken()).toBe('wrapped-token');
         });
 
         it('should update the in-memory access token on success', async () => {
@@ -160,6 +185,7 @@ describe('Token Refresh Flow', () => {
             const p2 = refreshAccessToken();
             const p3 = refreshAccessToken();
 
+            await Promise.resolve();
             // Resolve the single POST
             resolvePost({ data: { token: 'shared-token' } });
 
@@ -328,7 +354,8 @@ describe('Token Refresh Flow', () => {
             const interceptorRejected = getResponseInterceptorRejected()!;
 
             setAccessToken('my-token');
-            mockAxiosPost.mockRejectedValueOnce(new Error('Refresh failed'));
+            window.location.pathname = '/login';
+            mockAxiosPost.mockRejectedValue(new Error('Refresh failed'));
 
             const error = {
                 response: { status: 401, data: {} },
@@ -344,10 +371,11 @@ describe('Token Refresh Flow', () => {
     describe('401 Interceptor - concurrent requests wait for same refresh', () => {
         it('should deduplicate refresh for concurrent 401 errors', async () => {
             const interceptorRejected = getResponseInterceptorRejected()!;
+            window.location.pathname = '/login';
 
             // Use a delayed resolution to simulate concurrent behavior
             mockAxiosPost.mockImplementation(
-                () => Promise.resolve({ data: { token: 'concurrent-token' } }),
+                () => Promise.resolve({ data: { success: true, data: { token: 'concurrent-token' } } }),
             );
 
             const retryResponse = { data: { ok: true }, status: 200 };

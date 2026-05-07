@@ -418,54 +418,196 @@ export default function QuestionBankManager() {
     const handleDownloadTemplate = useCallback(async () => {
         try {
             const TEMPLATE_HEADERS = [
-                'questionType', 'questionText', 'questionTextBn',
-                'option1', 'option1Bn', 'option2', 'option2Bn',
-                'option3', 'option3Bn', 'option4', 'option4Bn',
-                'correctOption', 'difficulty', 'marks', 'negativeMarks',
-                'group', 'subGroup', 'subject', 'chapter', 'topic',
-                'tags', 'explanation', 'explanationBn', 'imageUrl', 'year', 'source'
+                { header: 'Question Type*', key: 'questionType', width: 15 },
+                { header: 'Question (EN)*', key: 'questionText', width: 35 },
+                { header: 'Question (BN)', key: 'questionTextBn', width: 35 },
+                { header: 'Option 1 (EN)*', key: 'option1', width: 20 },
+                { header: 'Option 1 (BN)', key: 'option1Bn', width: 20 },
+                { header: 'Option 2 (EN)*', key: 'option2', width: 20 },
+                { header: 'Option 2 (BN)', key: 'option2Bn', width: 20 },
+                { header: 'Option 3 (EN)', key: 'option3', width: 20 },
+                { header: 'Option 3 (BN)', key: 'option3Bn', width: 20 },
+                { header: 'Option 4 (EN)', key: 'option4', width: 20 },
+                { header: 'Option 4 (BN)', key: 'option4Bn', width: 20 },
+                { header: 'Correct Option*', key: 'correctOption', width: 15 },
+                { header: 'Difficulty*', key: 'difficulty', width: 15 },
+                { header: 'Marks*', key: 'marks', width: 10 },
+                { header: 'Negative Marks', key: 'negativeMarks', width: 15 },
+                { header: 'Group*', key: 'group', width: 20 },
+                { header: 'Sub Group', key: 'subGroup', width: 20 },
+                { header: 'Subject', key: 'subject', width: 20 },
+                { header: 'Chapter', key: 'chapter', width: 20 },
+                { header: 'Topic', key: 'topic', width: 20 },
+                { header: 'Tags', key: 'tags', width: 20 },
+                { header: 'Explanation (EN)', key: 'explanation', width: 30 },
+                { header: 'Explanation (BN)', key: 'explanationBn', width: 30 },
+                { header: 'Image URL', key: 'imageUrl', width: 25 },
+                { header: 'Year', key: 'year', width: 15 },
+                { header: 'Source', key: 'source', width: 20 }
             ];
 
             const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet('Questions');
-            
-            // Row 1: headers
-            ws.addRow(TEMPLATE_HEADERS);
-            ws.getRow(1).font = { bold: true };
-            ws.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }];
+            wb.creator = 'CampusWay Admin';
+            wb.created = new Date();
+
+            const ws = wb.addWorksheet('Questions', {
+                views: [{ state: 'frozen', xSplit: 3, ySplit: 1, activeCell: 'A2' }]
+            });
+
+            // Set columns
+            ws.columns = TEMPLATE_HEADERS;
+
+            // Style Header Row
+            const headerRow = ws.getRow(1);
+            headerRow.height = 30;
+            headerRow.eachCell((cell) => {
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF4F46E5' } // Indigo 600
+                };
+                cell.font = {
+                    color: { argb: 'FFFFFFFF' },
+                    bold: true,
+                    size: 12
+                };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF312E81' } },
+                    left: { style: 'thin', color: { argb: 'FF312E81' } },
+                    bottom: { style: 'thin', color: { argb: 'FF312E81' } },
+                    right: { style: 'thin', color: { argb: 'FF312E81' } }
+                };
+            });
 
             // Sample MCQ
-            ws.addRow([
-                'mcq', 'What is the capital of France?', 'ফ্রান্সের রাজধানী কি?',
-                'Berlin', 'বার্লিন', 'Madrid', 'মাদ্রিদ',
-                'Paris', 'প্যারিস', 'Rome', 'রোম',
-                '3', 'easy', '1', '0.25',
-                'Admission', 'Engineering', 'Physics 1st Paper', 'Vector', 'Dot Product',
-                'gk, geography', 'Paris is the capital.', 'প্যারিস হল রাজধানী।', '', '2023', 'Wikipedia'
-            ]);
+            const row1 = ws.addRow({
+                questionType: 'mcq',
+                questionText: 'What is the capital of France?',
+                questionTextBn: 'ফ্রান্সের রাজধানী কি?',
+                option1: 'Berlin', option1Bn: 'বার্লিন',
+                option2: 'Madrid', option2Bn: 'মাদ্রিদ',
+                option3: 'Paris', option3Bn: 'প্যারিস',
+                option4: 'Rome', option4Bn: 'রোম',
+                correctOption: '3',
+                difficulty: 'easy',
+                marks: '1',
+                negativeMarks: '0.25',
+                group: 'Admission',
+                subGroup: 'Engineering',
+                subject: 'Physics 1st Paper',
+                chapter: 'Vector',
+                topic: 'Dot Product',
+                tags: 'gk, geography',
+                explanation: 'Paris is the capital of France.',
+                explanationBn: 'প্যারিস হল ফ্রান্সের রাজধানী।',
+                imageUrl: '',
+                year: '2023',
+                source: 'Wikipedia'
+            });
 
             // Sample Written
-            ws.addRow([
-                'written', 'Write a short essay on global warming.', 'গ্লোবাল ওয়ার্মিং নিয়ে একটি ছোট প্রবন্ধ লিখুন।',
-                '', '', '', '',
-                '', '', '', '',
-                '', 'medium', '10', '0',
-                'Admission', 'Engineering', 'Science', 'Environment', 'Climate',
-                'essay, science', 'Global warming is...', 'গ্লোবাল ওয়ার্মিং হল...', '', '2023', 'Textbook'
-            ]);
+            const row2 = ws.addRow({
+                questionType: 'written',
+                questionText: 'Write a short essay on global warming.',
+                questionTextBn: 'গ্লোবাল ওয়ার্মিং নিয়ে একটি ছোট প্রবন্ধ লিখুন।',
+                option1: '', option1Bn: '',
+                option2: '', option2Bn: '',
+                option3: '', option3Bn: '',
+                option4: '', option4Bn: '',
+                correctOption: '',
+                difficulty: 'medium',
+                marks: '10',
+                negativeMarks: '0',
+                group: 'Admission',
+                subGroup: 'Engineering',
+                subject: 'Science',
+                chapter: 'Environment',
+                topic: 'Climate',
+                tags: 'essay, science',
+                explanation: 'Global warming is the long-term heating of Earth.',
+                explanationBn: 'গ্লোবাল ওয়ার্মিং হল পৃথিবীর দীর্ঘমেয়াদী উত্তাপ।',
+                imageUrl: '',
+                year: '2023',
+                source: 'Textbook'
+            });
 
+            // Style data rows
+            [row1, row2].forEach(row => {
+                row.eachCell({ includeEmpty: true }, cell => {
+                    cell.alignment = { vertical: 'middle', wrapText: true };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                        left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                        right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+                    };
+                });
+            });
+
+            // Add Data Validation (Dropdowns) for 1000 rows
+            for (let i = 2; i <= 1000; i++) {
+                ws.getCell(`A${i}`).dataValidation = {
+                    type: 'list',
+                    allowBlank: false,
+                    formulae: ['"mcq,written,true_false,image_mcq"']
+                };
+                ws.getCell(`L${i}`).dataValidation = {
+                    type: 'list',
+                    allowBlank: true,
+                    formulae: ['"1,2,3,4,A,B,C,D"']
+                };
+                ws.getCell(`M${i}`).dataValidation = {
+                    type: 'list',
+                    allowBlank: true,
+                    formulae: ['"easy,medium,hard"']
+                };
+            }
+
+            // Instructions Sheet
             const instructions = wb.addWorksheet('Instructions');
-            instructions.addRow(['Column', 'Description (EN)', 'Description (BN)']);
-            instructions.getRow(1).font = { bold: true };
-            instructions.addRow(['questionText', 'Question text in English', 'ইংরেজিতে প্রশ্ন']);
-            // etc., just keeping it minimal for instructions as requested.
+            instructions.columns = [
+                { header: 'Column Name', key: 'col', width: 25 },
+                { header: 'Required?', key: 'req', width: 15 },
+                { header: 'Description (EN)', key: 'desc', width: 50 },
+                { header: 'Description (BN)', key: 'descBn', width: 50 }
+            ];
+
+            const instHeader = instructions.getRow(1);
+            instHeader.height = 25;
+            instHeader.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
+                cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            });
+
+            const instructionsData = [
+                ['Question Type', 'Yes', 'Type of question. Use "mcq", "written", "true_false", "image_mcq"', 'প্রশ্নের ধরন। "mcq", "written", "true_false", "image_mcq" ব্যবহার করুন'],
+                ['Question (EN)', 'Yes', 'Main question text in English', 'ইংরেজিতে মূল প্রশ্ন'],
+                ['Question (BN)', 'No', 'Main question text in Bengali', 'বাংলায় মূল প্রশ্ন'],
+                ['Option 1-4', 'Yes (MCQ)', 'Option texts. At least 2 options are required for MCQ', 'অপশন টেক্সট। MCQ এর জন্য অন্তত ২টি অপশন প্রয়োজন'],
+                ['Correct Option', 'Yes (MCQ)', 'Which option is correct? Use 1, 2, 3, 4 (or A, B, C, D)', 'কোন অপশনটি সঠিক? 1, 2, 3, 4 (বা A, B, C, D) ব্যবহার করুন'],
+                ['Difficulty', 'Yes', 'Difficulty level: "easy", "medium", or "hard"', 'কঠিনতার স্তর: "easy", "medium", বা "hard"'],
+                ['Marks', 'Yes', 'Marks awarded for correct answer (e.g. 1)', 'সঠিক উত্তরের জন্য প্রাপ্ত নম্বর (যেমন 1)'],
+                ['Negative Marks', 'No', 'Marks deducted for wrong answer (e.g. 0.25)', 'ভুল উত্তরের জন্য কাটা নম্বর (যেমন 0.25)'],
+                ['Group', 'Yes', 'Main category (e.g. Admission, Academic)', 'মূল ক্যাটাগরি (যেমন Admission, Academic)'],
+                ['Subject', 'No', 'Subject name (e.g. Physics, Math)', 'বিষয়ের নাম (যেমন Physics, Math)'],
+                ['Explanation', 'No', 'Solution or explanation text', 'সমাধান বা ব্যাখ্যা']
+            ];
+
+            instructionsData.forEach(data => {
+                const row = instructions.addRow(data);
+                row.eachCell(cell => {
+                    cell.alignment = { vertical: 'middle', wrapText: true };
+                });
+            });
 
             const buffer = await wb.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'question-import-template.xlsx';
+            a.download = 'CampusWay_Question_Import_Template.xlsx';
             document.body.appendChild(a); // Required for Firefox
             a.click();
             document.body.removeChild(a);

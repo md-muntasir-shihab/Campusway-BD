@@ -472,7 +472,7 @@ export default function ExamRunner() {
     const [markedForReview, setMarkedForReview] = useState<Set<string>>(new Set());
 
     // ── UI state ─────────────────────────────────────────────────────────
-    const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+    const [remainingSeconds, setRemainingSeconds] = useState<number>(-1);
     const [showSubmitDialog, setShowSubmitDialog] = useState(false);
     const [showNavSheet, setShowNavSheet] = useState(false);
     const [showSavedIndicator, setShowSavedIndicator] = useState(false);
@@ -593,7 +593,7 @@ export default function ExamRunner() {
 
     // ── Auto-submit on timer expiry ──────────────────────────────────────
     useEffect(() => {
-        if (remainingSeconds > 0 || !session || autoSubmitTriggeredRef.current) return;
+        if (remainingSeconds < 0 || remainingSeconds > 0 || !session || autoSubmitTriggeredRef.current) return;
         autoSubmitTriggeredRef.current = true;
         void handleSubmit();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -611,6 +611,7 @@ export default function ExamRunner() {
             clearLocalStorage(examId);
             return;
         }
+        setRemainingSeconds(Math.max(0, Math.floor((expiresMs - Date.now()) / 1000)));
 
         // Restore session from localStorage
         setSession({
@@ -642,16 +643,27 @@ export default function ExamRunner() {
         try {
             const deviceInfo = getDeviceInfo();
             const result = await startExamMutation.mutateAsync({ examId, deviceInfo });
-            const data = result.data;
-
-            // Mock questions for now — in production these come from the session response
-            const sessionData: SessionData = {
-                sessionId: data.sessionId,
-                startedAt: data.startedAt,
-                expiresAt: data.expiresAt,
-                questions: [],
-                examTitle: '',
+            const data = result as unknown as {
+                session?: { _id?: string; sessionId?: string; startedAt?: string; expiresAt?: string };
+                questions?: ExamQuestion[];
+                timer?: { durationMinutes?: number; startedAt?: string; expiresAt?: string; remainingSeconds?: number };
             };
+            const sessionId = String(data.session?.sessionId || data.session?._id || '');
+            const startedAt = String(data.timer?.startedAt || data.session?.startedAt || new Date().toISOString());
+            const expiresAt = String(data.timer?.expiresAt || data.session?.expiresAt || new Date(Date.now() + 60 * 60 * 1000).toISOString());
+            const initialRemainingSeconds = Number.isFinite(Number(data.timer?.remainingSeconds))
+                ? Number(data.timer?.remainingSeconds)
+                : Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+
+            const sessionData: SessionData = {
+                sessionId,
+                startedAt,
+                expiresAt,
+                questions: data.questions ?? [],
+                examTitle: '',
+                durationMinutes: data.timer?.durationMinutes,
+            };
+            setRemainingSeconds(Math.max(0, initialRemainingSeconds));
             setSession(sessionData);
             autoSubmitTriggeredRef.current = false;
         } catch (err: unknown) {

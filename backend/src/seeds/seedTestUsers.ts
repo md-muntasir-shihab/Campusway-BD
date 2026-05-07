@@ -69,13 +69,23 @@ export async function seedTestUsers(): Promise<void> {
 
     for (const userData of TEST_USERS) {
         const existing = await User.findOne({ email: userData.email });
-        if (existing) {
-            console.log(`  ℹ️  ${userData.role} (${userData.email}) already exists — skipping.`);
-            continue;
-        }
-
         const { password: plainPassword, ...rest } = userData;
         const hashedPassword = await bcrypt.hash(plainPassword, 12);
+
+        if (existing) {
+            existing.set({
+                ...rest,
+                password: hashedPassword,
+                loginAttempts: 0,
+                lockUntil: undefined,
+                lockReason: null,
+                status: 'active',
+                mustChangePassword: false,
+            });
+            await existing.save();
+            console.log(`  🔄 Synced ${userData.role}: ${userData.email}`);
+            continue;
+        }
 
         await User.create({
             ...rest,

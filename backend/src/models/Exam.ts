@@ -265,7 +265,7 @@ const ExamSchema = new Schema<IExam>({
     templateId: { type: Schema.Types.ObjectId, ref: 'ExamImportTemplate', default: null },
     importProfileId: { type: Schema.Types.ObjectId, ref: 'ExamMappingProfile', default: null },
     logoUrl: { type: String, default: '' },
-    share_link: { type: String, default: '', trim: true },
+    share_link: { type: String, default: undefined, trim: true },
     short_link: { type: String, default: '', trim: true },
     share_link_expires_at: { type: Date, default: null },
     bannerSource: { type: String, enum: ['upload', 'url', 'default'], default: 'default' },

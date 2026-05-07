@@ -78,6 +78,38 @@ function getScoreBgColor(percentage: number): string {
     return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
 }
 
+function normalizeScoreBreakdown(raw: unknown): ScoreBreakdown | null {
+    const source = (raw && typeof raw === 'object' && 'data' in raw)
+        ? (raw as { data?: unknown }).data
+        : raw;
+
+    if (!source || typeof source !== 'object') return null;
+
+    const record = source as Record<string, unknown>;
+    const totalMarks = Number(record.totalMarks ?? 0);
+    if (!Number.isFinite(totalMarks) || totalMarks <= 0) return null;
+
+    const obtainedMarks = Number(record.obtainedMarks ?? 0);
+    const percentage = Number(record.percentage ?? (totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0));
+    const passFail = String(record.passFail ?? '').toLowerCase();
+    const passed = typeof record.passed === 'boolean'
+        ? record.passed
+        : passFail
+            ? passFail.includes('pass')
+            : percentage >= 40;
+
+    return {
+        obtainedMarks,
+        totalMarks,
+        correctCount: Number(record.correctCount ?? 0),
+        incorrectCount: Number(record.incorrectCount ?? record.wrongCount ?? 0),
+        unansweredCount: Number(record.unansweredCount ?? 0),
+        percentage,
+        passed,
+        timeTakenSeconds: Number(record.timeTakenSeconds ?? record.timeTaken ?? 0),
+    };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Sub-Components
 // ═══════════════════════════════════════════════════════════════════════════
@@ -296,6 +328,8 @@ export default function ExamResultView() {
                             questions: [],
                             resultPublished: false,
                         });
+                    } else if (axErr?.response?.status === 404) {
+                        setDetailedResult(null);
                     } else {
                         setDetailedError(
                             axErr?.response?.data?.message ?? 'Failed to load detailed results.',
@@ -319,10 +353,8 @@ export default function ExamResultView() {
     // is a ScoreBreakdown, but the generic type still shows ApiResponse.
     const scoreBreakdown: ScoreBreakdown | null =
         detailedResult?.scoreBreakdown?.totalMarks != null
-            ? detailedResult.scoreBreakdown
-            : basicResult != null
-                ? (basicResult as unknown as ScoreBreakdown)
-                : null;
+            ? normalizeScoreBreakdown(detailedResult.scoreBreakdown)
+            : normalizeScoreBreakdown(basicResult);
 
     const isLoading = isBasicLoading || isDetailedLoading;
 
@@ -369,7 +401,7 @@ export default function ExamResultView() {
     }
 
     // ── Error state ──────────────────────────────────────────────────────
-    if (basicError || detailedError) {
+    if (basicError || (detailedError && !scoreBreakdown)) {
         const errorMessage =
             detailedError ??
             (basicError instanceof Error ? basicError.message : 'Failed to load results.');

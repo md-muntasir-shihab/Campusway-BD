@@ -230,10 +230,14 @@ function StepQuestions({
     selectedQuestions,
     onSelectedChange,
     hierarchy,
+    onAutoPick,
+    isAutoPicking,
 }: {
     selectedQuestions: SelectedQuestion[];
     onSelectedChange: (q: SelectedQuestion[]) => void;
     hierarchy: CascadingDropdownsValue;
+    onAutoPick: (config: { count: number; difficultyDistribution: DifficultyDistribution }) => Promise<void>;
+    isAutoPicking: boolean;
 }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [showAutoPick, setShowAutoPick] = useState(false);
@@ -352,6 +356,15 @@ function StepQuestions({
                         Total: {distribution.easy + distribution.medium + distribution.hard}%
                         {distribution.easy + distribution.medium + distribution.hard !== 100 && <span className="ml-1 text-red-500">(must equal 100%)</span>}
                     </p>
+                    <button
+                        type="button"
+                        onClick={() => onAutoPick({ count: autoPickCount, difficultyDistribution: distribution })}
+                        disabled={isAutoPicking || distribution.easy + distribution.medium + distribution.hard !== 100}
+                        className={`${btnPrimary} mt-4`}
+                    >
+                        {isAutoPicking ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                        Apply Auto-Pick
+                    </button>
                 </div>
             )}
 
@@ -799,6 +812,33 @@ export default function ExamBuilderWizard() {
         }
     }, [examId, cloneExamMut]);
 
+    const handleAutoPick = useCallback(async (config: { count: number; difficultyDistribution: DifficultyDistribution }) => {
+        if (!examId) {
+            toast.error('Create the exam draft before auto-picking questions.');
+            return;
+        }
+        const result = await autoPickMut.mutateAsync({ examId, payload: config });
+        const resultRecord = result as unknown as { questionIds?: unknown; data?: { questionIds?: unknown } };
+        const pickedIds = Array.isArray(resultRecord.questionIds)
+            ? resultRecord.questionIds.map(String)
+            : Array.isArray(resultRecord.data?.questionIds)
+                ? resultRecord.data.questionIds.map(String)
+                : [];
+
+        if (pickedIds.length === 0) {
+            toast.error('No questions matched the auto-pick criteria.');
+            return;
+        }
+
+        setSelectedQuestions(pickedIds.map((id, idx) => ({
+            id,
+            text: `Auto-picked question ${idx + 1}`,
+            difficulty: 'mixed',
+            marks: settings.marksPerQuestion ?? 1,
+        })));
+        toast.success(`Auto-picked ${pickedIds.length} questions.`);
+    }, [examId, autoPickMut, settings.marksPerQuestion]);
+
     // ── Render ───────────────────────────────────────────────────────────
 
     return (
@@ -832,7 +872,13 @@ export default function ExamBuilderWizard() {
                     <StepInfo data={info} hierarchy={hierarchy} onChange={setInfo} onHierarchyChange={setHierarchy} />
                 )}
                 {currentStep === 1 && (
-                    <StepQuestions selectedQuestions={selectedQuestions} onSelectedChange={setSelectedQuestions} hierarchy={hierarchy} />
+                    <StepQuestions
+                        selectedQuestions={selectedQuestions}
+                        onSelectedChange={setSelectedQuestions}
+                        hierarchy={hierarchy}
+                        onAutoPick={handleAutoPick}
+                        isAutoPicking={autoPickMut.isPending}
+                    />
                 )}
                 {currentStep === 2 && (
                     <StepSettings data={settings} onChange={setSettings} />

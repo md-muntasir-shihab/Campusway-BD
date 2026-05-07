@@ -68,11 +68,17 @@ export interface CreateQuestionDto {
 export type UpdateQuestionDto = Partial<CreateQuestionDto>;
 
 export interface QuestionFilters {
+    q?: string;
     group?: string;
+    group_id?: string;
     subGroup?: string;
+    sub_group_id?: string;
     subject?: string;
+    subject_id?: string;
     chapter?: string;
+    chapter_id?: string;
     topic?: string;
+    topic_id?: string;
     difficulty?: string;
     tags?: string | string[];
     year?: string;
@@ -420,11 +426,20 @@ export async function listQuestions(
         : { isArchived: { $ne: true } };
 
     // Apply filters
-    if (filters.group) query.group_id = toObjectId(filters.group);
-    if (filters.subGroup) query.sub_group_id = toObjectId(filters.subGroup);
-    if (filters.subject) query.subject = filters.subject;
-    if (filters.chapter) query.chapter = filters.chapter;
-    if (filters.topic) query.topic = filters.topic;
+    const groupId = filters.group_id || filters.group;
+    const subGroupId = filters.sub_group_id || filters.subGroup;
+    const subjectId = filters.subject_id;
+    const chapterId = filters.chapter_id;
+    const topicId = filters.topic_id;
+
+    if (groupId) query.group_id = toObjectId(groupId);
+    if (subGroupId) query.sub_group_id = toObjectId(subGroupId);
+    if (subjectId) query.subject_id = toObjectId(subjectId);
+    else if (filters.subject) query.subject = filters.subject;
+    if (chapterId) query.chapter_id = toObjectId(chapterId);
+    else if (filters.chapter) query.chapter = filters.chapter;
+    if (topicId) query.topic_id = toObjectId(topicId);
+    else if (filters.topic) query.topic = filters.topic;
     if (filters.difficulty) query.difficulty = filters.difficulty;
     if (filters.question_type) query.question_type = filters.question_type;
     if (filters.status) query.status = filters.status;
@@ -439,10 +454,11 @@ export async function listQuestions(
         }
     }
 
-    if (filters.search) {
+    const searchTerm = filters.search || filters.q;
+    if (searchTerm) {
         query.$or = [
-            { question_en: { $regex: filters.search, $options: 'i' } },
-            { question_bn: { $regex: filters.search, $options: 'i' } },
+            { question_en: { $regex: searchTerm, $options: 'i' } },
+            { question_bn: { $regex: searchTerm, $options: 'i' } },
         ];
     }
 

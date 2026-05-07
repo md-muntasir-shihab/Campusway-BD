@@ -10,6 +10,40 @@ import type {
 
 const BASE = '/v1/exams';
 
+function toSettingsPayload(payload: ExamSettingsDto) {
+    const antiCheat = payload.antiCheatSettings ?? {};
+    return {
+        marksPerQuestion: payload.marksPerQuestion ?? 1,
+        negativeMarking: payload.negativeMarks ?? 0,
+        passPercentage: payload.passPercentage ?? 40,
+        shuffleQuestions: payload.shuffleQuestions ?? false,
+        shuffleOptions: payload.shuffleOptions ?? false,
+        showResultMode: payload.showResultMode ?? 'immediately',
+        maxAttempts: payload.maxAttempts ?? 1,
+        assignedGroups: payload.assignedGroups ?? [],
+        visibility: payload.visibility ?? 'public',
+        antiCheat: {
+            tab_switch_detect: antiCheat.tabSwitchDetect ?? true,
+            fullscreen_mode: antiCheat.fullscreenMode ?? false,
+            copy_paste_disabled: antiCheat.copyPasteDisabled ?? true,
+        },
+    };
+}
+
+function toSchedulingPayload(payload: ExamSchedulingDto) {
+    return {
+        exam_schedule_type: payload.examScheduleType,
+        startTime: payload.examWindowStartUTC || undefined,
+        endTime: payload.examWindowEndUTC || undefined,
+        resultPublishTime: payload.resultPublishAtUTC || undefined,
+        pricing: {
+            isFree: payload.pricing?.isFree ?? true,
+            amountBDT: payload.pricing?.amountBDT ?? 0,
+            couponCodes: payload.pricing?.couponCodes ?? [],
+        },
+    };
+}
+
 /** POST / — Create a new exam draft (Step 1). */
 export const createDraft = (payload: ExamInfoDto) =>
     api.post<ApiResponse<Record<string, unknown>>>(`${BASE}`, payload).then((r) => r.data);
@@ -24,11 +58,11 @@ export const autoPick = (examId: string, payload: AutoPickConfig) =>
 
 /** PUT /:id/settings — Update exam settings (Step 3). */
 export const updateSettings = (examId: string, payload: ExamSettingsDto) =>
-    api.put<ApiResponse<Record<string, unknown>>>(`${BASE}/${examId}/settings`, payload).then((r) => r.data);
+    api.put<ApiResponse<Record<string, unknown>>>(`${BASE}/${examId}/settings`, toSettingsPayload(payload)).then((r) => r.data);
 
 /** PUT /:id/scheduling — Update scheduling and pricing (Step 4). */
 export const updateScheduling = (examId: string, payload: ExamSchedulingDto) =>
-    api.put<ApiResponse<Record<string, unknown>>>(`${BASE}/${examId}/scheduling`, payload).then((r) => r.data);
+    api.put<ApiResponse<Record<string, unknown>>>(`${BASE}/${examId}/scheduling`, toSchedulingPayload(payload)).then((r) => r.data);
 
 /** GET /:id/preview — Preview exam with questions. */
 export const previewExam = (examId: string) =>

@@ -185,10 +185,15 @@ export const updateQuestionSchema = z
 export const questionFiltersSchema = z.object({
     // Hierarchy filters
     group: objectId.optional(),
+    group_id: objectId.optional(),
     subGroup: objectId.optional(),
+    sub_group_id: objectId.optional(),
     subject: objectId.optional(),
+    subject_id: objectId.optional(),
     chapter: objectId.optional(),
+    chapter_id: objectId.optional(),
     topic: objectId.optional(),
+    topic_id: objectId.optional(),
 
     // Classification filters
     difficulty: difficultyEnum.optional(),
@@ -200,6 +205,7 @@ export const questionFiltersSchema = z.object({
     review_status: reviewStatusEnum.optional(),
 
     // Full-text search
+    q: z.string().trim().optional(),
     search: z.string().trim().optional(),
 
     // Recycle Bin flag

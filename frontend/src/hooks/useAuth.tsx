@@ -115,9 +115,9 @@ function broadcastAuthSyncEvent(type: AuthSyncEventType, reason?: string): void 
     }
 }
 
-// Module-level guard to prevent multiple simultaneous bootstrap attempts
-// during navigation/remount (e.g., React strict mode or route changes).
-let bootstrapInFlight = false;
+function unwrapAuthBody(data: any): any {
+    return data?.data ?? data;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
@@ -164,7 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshUser = useCallback(async () => {
         try {
             const res = await api.get('/auth/me');
-            setUser(res.data.user);
+            const body = unwrapAuthBody(res.data);
+            setUser(body.user);
         } catch {
             clearAuthState();
         }
@@ -192,53 +193,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // Guard: skip if another bootstrap is already in flight
-            // BUT keep the deadline timer running so isLoading eventually resolves
-            if (bootstrapInFlight) {
-                // Don't clear deadline — let it fire to prevent stuck loading
+            const nextToken = await refreshAccessToken();
+            if (cancelled) return;
+            if (!nextToken) {
+                clearAuthState();
+                setIsLoading(false);
+                if (deadlineTimer) clearTimeout(deadlineTimer);
                 return;
             }
-            bootstrapInFlight = true;
 
+            setToken(nextToken);
             try {
-                const nextToken = await refreshAccessToken();
-                if (cancelled) return;
-                if (!nextToken) {
-                    clearAuthState();
-                    setIsLoading(false);
-                    if (deadlineTimer) clearTimeout(deadlineTimer);
-                    return;
-                }
+                const res = await api.get('/auth/me', { timeout: 10000 });
+                if (!cancelled) {
+                    const body = unwrapAuthBody(res.data);
+                    const fetchedUser = body.user;
+                    setUser(fetchedUser);
 
-                setToken(nextToken);
-                try {
-                    const res = await api.get('/auth/me', { timeout: 10000 });
-                    if (!cancelled) {
-                        const fetchedUser = res.data.user;
-                        setUser(fetchedUser);
-
-                        // Persist session hint so subsequent reloads detect the active session
-                        const portal = fetchedUser.role === 'chairman'
-                            ? 'chairman'
-                            : ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'].includes(fetchedUser.role)
-                                ? 'admin'
-                                : 'student';
-                        markAuthSessionHint(portal);
-                        // Ensure CSRF cookie is set for state-changing requests
-                        api.get('/auth/csrf-token').then((r) => {
-                            const d = r.data as Record<string, unknown>;
-                            const t = String(d?.csrfToken || '').trim();
-                            if (t) { import('../services/api').then(m => m.updateCsrfTokenFromResponse?.(d)); }
-                        }).catch(() => undefined);
-                    }
-                } catch {
-                    if (!cancelled) clearAuthState();
-                } finally {
-                    if (!cancelled) setIsLoading(false);
-                    if (deadlineTimer) clearTimeout(deadlineTimer);
+                    // Persist session hint so subsequent reloads detect the active session
+                    const portal = fetchedUser.role === 'chairman'
+                        ? 'chairman'
+                        : ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'].includes(fetchedUser.role)
+                            ? 'admin'
+                            : 'student';
+                    markAuthSessionHint(portal);
+                    // Ensure CSRF cookie is set for state-changing requests
+                    api.get('/auth/csrf-token').then((r) => {
+                        const d = r.data as Record<string, unknown>;
+                        const t = String(d?.csrfToken || '').trim();
+                        if (t) { import('../services/api').then(m => m.updateCsrfTokenFromResponse?.(d)); }
+                    }).catch(() => undefined);
                 }
+            } catch {
+                if (!cancelled) clearAuthState();
             } finally {
-                bootstrapInFlight = false;
+                if (!cancelled) setIsLoading(false);
+                if (deadlineTimer) clearTimeout(deadlineTimer);
             }
         })();
 
@@ -427,6 +417,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const completeLogin = useCallback((newToken: string, newUser: User) => {
         setToken(newToken);
         setUser(newUser);
+        setIsLoading(false);
         setPending2FA(null);
         setAccessToken(newToken);
         markAuthSessionHint(newUser.role === 'chairman'

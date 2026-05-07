@@ -41,6 +41,12 @@
 ## ৪. অ্যাডমিন লগইন (Default Admin)
 আপনার সুবিধার জন্য একটি ডিফল্ট অ্যাডমিন অ্যাকাউন্ট তৈরি করা আছে:
 - **Email:** admin@campusway.com
-- **Password:** admin123
+- **Password:** Admin@123456
+
+## ৫. লোকাল টেস্ট স্টুডেন্ট লগইন
+- **Email:** student@campusway.com
+- **Password:** Student@123456
+
+> যদি লোকাল ডাটাবেসে ইউজারগুলো লক হয়ে যায় বা পাসওয়ার্ড বদলে যায়, `backend` ফোল্ডারে `npm run seed:test-users` চালিয়ে আবার known credentials sync করুন।
 
 ধন্যবাদ!

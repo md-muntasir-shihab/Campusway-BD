@@ -372,17 +372,17 @@ let refreshInFlight: Promise<string | null> | null = null;
 export async function refreshAccessToken(): Promise<string | null> {
     if (refreshInFlight) return refreshInFlight;
 
-    refreshInFlight = axios
-        .post<{ token?: string }>(resolveApiUrl('/auth/refresh'), {}, {
+    refreshInFlight = ensureCsrfCookie()
+        .then(() => axios.post<{ token?: string; data?: { token?: string } }>(resolveApiUrl('/auth/refresh'), {}, {
             timeout: 10000,
             withCredentials: true,
             headers: {
                 'X-Browser-Fingerprint': ensureBrowserFingerprint(),
                 ...(readCsrfCookie() ? { 'X-CSRF-Token': readCsrfCookie() } : {}),
             },
-        })
+        }))
         .then((res) => {
-            const nextToken = String(res.data?.token || '').trim();
+            const nextToken = String(res.data?.token || res.data?.data?.token || '').trim();
             if (!nextToken) return null;
             setAccessToken(nextToken);
             // Only refresh the hint timestamp; preserve existing portal value

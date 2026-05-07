@@ -15,7 +15,10 @@ Date: March 2, 2026
 
 2) Login
 --------
-- Use current credentials from: `backend/INITIAL_ACCESS_INFO.txt`
+- Local dev/test credentials:
+  - Admin: admin@campusway.com / Admin@123456
+  - Student: student@campusway.com / Student@123456
+- If the account is locked or passwords drift, run `cd backend && npm run seed:test-users`
 - Change default password after first login.
 
 3) What Admin Can Control

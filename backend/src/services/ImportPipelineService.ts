@@ -10,6 +10,7 @@
  */
 
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 import ExcelJS from 'exceljs';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
@@ -409,15 +410,18 @@ export async function resolveOrCreateHierarchy(row: ExtendedRawImportRow): Promi
                         sub_group_id: refs.sub_group_id,
                         'title.en': { $regex: new RegExp(`^${escapeRegex(subjectName)}$`, 'i') } 
                     },
-                    {
-                        $setOnInsert: {
-                            group_id: refs.group_id,
-                            sub_group_id: refs.sub_group_id,
-                            'title.en': subjectName,
-                            code: subjectSlug,
-                            isActive: true,
-                        }
+                {
+                    $set: {
+                        group_id: refs.group_id,
+                        sub_group_id: refs.sub_group_id,
+                        parent_id: refs.sub_group_id,
+                        isActive: true,
                     },
+                    $setOnInsert: {
+                        'title.en': subjectName,
+                        code: subjectSlug,
+                    }
+                },
                     { upsert: true, new: true, includeResultMetadata: true }
                 ) as any;
 
@@ -493,13 +497,16 @@ export async function resolveOrCreateHierarchy(row: ExtendedRawImportRow): Promi
                                 'title.en': { $regex: new RegExp(`^${escapeRegex(topicName)}$`, 'i') } 
                             },
                             {
-                                $setOnInsert: {
+                                $set: {
                                     category_id: refs.subject_id,
                                     group_id: refs.group_id,
                                     chapter_id: refs.chapter_id,
+                                    parent_id: refs.chapter_id,
+                                    isActive: true,
+                                },
+                                $setOnInsert: {
                                     'title.en': topicName,
                                     code: topicSlug,
-                                    isActive: true,
                                 }
                             },
                             { upsert: true, new: true, includeResultMetadata: true }
@@ -537,6 +544,23 @@ export async function resolveOrCreateHierarchy(row: ExtendedRawImportRow): Promi
 /** Escape special regex characters to prevent regex injection. */
 function escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function computeImportContentHash(q: {
+    question_en?: string;
+    question_bn?: string;
+    options?: { key: string; text_en?: string; text_bn?: string }[];
+    correctKey?: string;
+}): string {
+    const parts = [
+        (q.question_en || '').trim().toLowerCase(),
+        (q.question_bn || '').trim().toLowerCase(),
+        ...(q.options || [])
+            .sort((a, b) => a.key.localeCompare(b.key))
+            .map((o) => `${o.key}|${(o.text_en || '').trim().toLowerCase()}|${(o.text_bn || '').trim().toLowerCase()}`),
+        (q.correctKey || '').toUpperCase(),
+    ];
+    return crypto.createHash('sha256').update(parts.join('|||')).digest('hex');
 }
 /**
  * Validate that referenced topic, category, and group values exist in the database.
@@ -669,7 +693,7 @@ function buildQuestionDoc(
             ? String(row.category).trim()
             : 'Imported';
 
-    return {
+    const doc = {
         question_en: String(row.questionText || '').trim(),
         question_bn: row.questionTextBn ? String(row.questionTextBn).trim() : undefined,
         question_type: questionType,
@@ -699,6 +723,11 @@ function buildQuestionDoc(
         isArchived: false,
         status: 'draft',
         review_status: 'pending',
+    };
+
+    return {
+        ...doc,
+        contentHash: computeImportContentHash(doc),
     };
 }
 
