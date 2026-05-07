@@ -222,12 +222,19 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
                 const safeExt = ext && ext.length <= 10 ? ext : '';
                 const objectKey = `media/${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExt}`;
                 const fileRef = firebaseBucket.file(objectKey);
-                await fileRef.save(fs.readFileSync(req.file.path), {
-                    metadata: {
-                        contentType: req.file.mimetype,
-                    },
-                    resumable: false,
-                    public: true,
+                await new Promise((resolve, reject) => {
+                    // Type assertion because we've already checked that req.file exists at the start of the function
+                    const file = req.file as Express.Multer.File;
+                    fs.createReadStream(file.path)
+                        .pipe(fileRef.createWriteStream({
+                            metadata: {
+                                contentType: file.mimetype,
+                            },
+                            resumable: false,
+                            public: true,
+                        }))
+                        .on('finish', resolve)
+                        .on('error', reject);
                 });
 
                 const publicUrl = `https://storage.googleapis.com/${firebaseBucket.name}/${objectKey}`;
