@@ -1,0 +1,10 @@
+🎯 **What:** The testing gap addressed
+The `resolvePermissions` function in `backend/src/utils/permissions.ts` lacked test coverage. This function handles merging base role permissions with explicitly requested overrides and ensures missing or invalid roles fall back appropriately. These logic paths have now been fully tested.
+
+📊 **Coverage:** What scenarios are now tested
+1. **Default/Base Behavior**: Verified that passing a role with no overrides perfectly returns the base defaults outlined in `ROLE_PERMISSION_PRESETS` for both low-level (`student`) and high-level (`superadmin`) roles.
+2. **Override Behavior**: Verified that providing `requested` boolean overrides successfully modifies specific permission keys while untouched keys retain their base `ROLE_PERMISSION_PRESETS` values.
+3. **Fallback Behavior**: Verified that when passing an unknown or arbitrary role, the function falls back to using the `student` preset, both with and without overrides.
+
+✨ **Result:** The improvement in test coverage
+We've achieved 100% test coverage for `resolvePermissions`, effectively preventing future regressions in this core logic.
