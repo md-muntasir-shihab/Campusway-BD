@@ -285,7 +285,7 @@ export async function adminIssueGuardianOtp(req: Request, res: Response): Promis
             return;
         }
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp = crypto.randomInt(100000, 1000000).toString();
         profile.guardianOtpHash = hashOtp(otp);
         profile.guardianOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
         profile.guardianPhoneVerificationStatus = 'pending';
