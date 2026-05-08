@@ -2157,7 +2157,7 @@ export async function adminImportExamResults(req: AuthRequest, res: Response): P
                             tabSwitchCount: 0,
                             submittedAt,
                             isAutoSubmitted: false,
-                            status: 'evaluated',
+                            status: 'evaluated' as 'evaluated',
                         },
                     },
                     upsert: true,
@@ -2397,6 +2397,8 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
         let updated = 0;
         let profileUpdates = 0;
 
+        const validRows: Array<any> = [];
+
         for (const row of normalizedRows) {
             const attemptRef = normalizeLookupValue(row.data.attempt_ref);
             const registrationId = normalizeExternalImportRegistrationId(row.data.registration_id);
@@ -2495,106 +2497,162 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
             const wrongCount = Math.max(0, Number(parseNumeric(row.data.wrong_count) || 0));
             const unansweredCount = Math.max(0, Number(parseNumeric(row.data.unanswered_count) || 0));
 
-            const filter = {
-                exam: new mongoose.Types.ObjectId(examId),
-                student: new mongoose.Types.ObjectId(studentId),
-                attemptNo,
-            };
-            const existing = await ExamResult.findOne(filter).select('_id').lean();
-            const resultDoc = await ExamResult.findOneAndUpdate(
-                filter,
-                {
-                    $set: {
-                        exam: new mongoose.Types.ObjectId(examId),
-                        student: new mongoose.Types.ObjectId(studentId),
-                        attemptNo,
-                        sourceType: 'external_import',
-                        syncStatus: syncProfileMode === 'none' ? 'pending' : 'synced',
-                        answers: [],
-                        totalMarks,
-                        obtainedMarks,
-                        correctCount,
-                        wrongCount,
-                        unansweredCount,
-                        percentage,
-                        pointsEarned: Math.round(percentage),
-                        serialId: String(row.data.serial_id || ''),
-                        rollNumber: String(row.data.roll_number || ''),
-                        registrationNumber: String(row.data.registration_id || ''),
-                        admitCardNumber: String(row.data.admit_card_number || ''),
-                        attendanceStatus: String(row.data.attendance_status || ''),
-                        passFail: String(row.data.pass_fail || ''),
-                        resultNote: String(row.data.exam_result_note || ''),
-                        profileUpdateNote: String(row.data.profile_update_note || ''),
-                        examCenterName: String(row.data.exam_center || ''),
-                        examCenterCode: String(row.data.exam_center_code || ''),
-                        subjectMarks: Array.isArray(row.data.subject_marks) ? row.data.subject_marks : [],
-                        timeTaken: timeTakenSec,
-                        deviceInfo: 'external_import',
-                        browserInfo: 'external_import',
-                        ipAddress: '',
-                        tabSwitchCount: 0,
-                        submittedAt,
-                        isAutoSubmitted: false,
-                        status: 'evaluated',
-                    },
-                },
-                {
-                    upsert: true,
-                    new: true,
-                    setDefaultsOnInsert: true,
-                },
-            ).lean();
-
-            if (!resultDoc?._id) {
-                errors.push({ rowNo: row.rowNo, identifier, reason: 'Failed to save imported result.' });
-                continue;
-            }
-
-            if (existing?._id) updated++;
-            else inserted++;
-            impactedStudentIds.add(studentId);
-
-            if (matchedLog?._id || attemptRef) {
-                await markExternalExamAttemptImported({
-                    attemptId: String(matchedLog?._id || ''),
-                    attemptRef: attemptRef || String(matchedLog?.attemptRef || ''),
-                    resultId: String(resultDoc._id),
-                    matchedBy: matchedBy || 'attempt_ref',
-                });
-            }
-
-            const syncResult = await syncExamResultToStudentProfile({
-                exam: exam as Record<string, unknown>,
-                result: resultDoc,
+                        validRows.push({
+                row,
+                identifier,
+                matchedBy,
+                matchedLog,
                 studentId,
-                source: 'external_import',
-                syncMode: syncProfileMode,
-                createdBy: String(req.user?._id || ''),
-                candidates: {
-                    serialId: row.data.serial_id,
-                    rollNumber: row.data.roll_number,
-                    registrationNumber: row.data.registration_id,
-                    admitCardNumber: row.data.admit_card_number,
-                    fullName: row.data.full_name,
-                    email: row.data.email,
-                    phoneNumber: row.data.phone_number,
-                    institutionName: row.data.institution_name,
-                    department: row.data.department,
-                    sscBatch: row.data.ssc_batch,
-                    hscBatch: row.data.hsc_batch,
-                    guardianName: row.data.guardian_name,
-                    guardianPhone: row.data.guardian_phone,
-                    examCenter: row.data.exam_center,
-                    examResultNote: row.data.exam_result_note,
-                    profileUpdateNote: row.data.profile_update_note,
-                    userUniqueId: row.data.user_unique_id,
-                    attendanceStatus: row.data.attendance_status,
-                    passFail: row.data.pass_fail,
-                },
-                notifyStudent: true,
+                attemptNo,
+                attemptRef,
+                totalMarks,
+                obtainedMarks,
+                percentage,
+                correctCount,
+                wrongCount,
+                unansweredCount,
+                timeTakenSec,
+                submittedAt
             });
-            if (syncResult.changed) profileUpdates++;
+        }
+
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+            const batch = validRows.slice(i, i + BATCH_SIZE);
+            const ops = batch.map((item) => {
+                const {
+                    row,
+                    studentId,
+                    attemptNo,
+                    totalMarks,
+                    obtainedMarks,
+                    percentage,
+                    correctCount,
+                    wrongCount,
+                    unansweredCount,
+                    timeTakenSec,
+                    submittedAt
+                } = item;
+
+                const filter = {
+                    exam: new mongoose.Types.ObjectId(examId),
+                    student: new mongoose.Types.ObjectId(studentId),
+                    attemptNo,
+                };
+
+                return {
+                    updateOne: {
+                        filter,
+                        update: {
+                            $set: {
+                                exam: new mongoose.Types.ObjectId(examId),
+                                student: new mongoose.Types.ObjectId(studentId),
+                                attemptNo,
+                                sourceType: 'external_import' as const,
+                                syncStatus: (syncProfileMode === 'none' ? 'pending' : 'synced') as 'pending' | 'synced',
+                                answers: [],
+                                totalMarks,
+                                obtainedMarks,
+                                correctCount,
+                                wrongCount,
+                                unansweredCount,
+                                percentage,
+                                pointsEarned: Math.round(percentage),
+                                serialId: String(row.data.serial_id || ''),
+                                rollNumber: String(row.data.roll_number || ''),
+                                registrationNumber: String(row.data.registration_id || ''),
+                                admitCardNumber: String(row.data.admit_card_number || ''),
+                                attendanceStatus: String(row.data.attendance_status || ''),
+                                passFail: String(row.data.pass_fail || ''),
+                                resultNote: String(row.data.exam_result_note || ''),
+                                profileUpdateNote: String(row.data.profile_update_note || ''),
+                                examCenterName: String(row.data.exam_center || ''),
+                                examCenterCode: String(row.data.exam_center_code || ''),
+                                subjectMarks: Array.isArray(row.data.subject_marks) ? row.data.subject_marks : [],
+                                timeTaken: timeTakenSec,
+                                deviceInfo: 'external_import' as const,
+                                browserInfo: 'external_import' as const,
+                                ipAddress: '',
+                                tabSwitchCount: 0,
+                                submittedAt,
+                                isAutoSubmitted: false,
+                                status: 'evaluated' as 'evaluated',
+                            }
+                        },
+                        upsert: true
+                    }
+                };
+            });
+
+            if (ops.length > 0) {
+                const bulkWriteResult = await ExamResult.bulkWrite(ops);
+                // bulkWriteResult.upsertedCount gives the number of inserts. modifiedCount gives the number of updates.
+                inserted += bulkWriteResult.upsertedCount || 0;
+                updated += bulkWriteResult.modifiedCount || 0;
+
+                const filterClauses = batch.map(item => ({
+                    exam: new mongoose.Types.ObjectId(examId),
+                    student: new mongoose.Types.ObjectId(item.studentId),
+                    attemptNo: item.attemptNo,
+                }));
+
+                const resultDocs = await ExamResult.find({ $or: filterClauses }).lean();
+
+                for (const item of batch) {
+                    const { row, studentId, attemptNo, attemptRef, matchedBy, matchedLog } = item;
+                    impactedStudentIds.add(studentId);
+
+                    const resultDoc = resultDocs.find(
+                        d => String(d.student) === String(studentId) && d.attemptNo === attemptNo
+                    );
+
+                    if (!resultDoc) {
+                        errors.push({ rowNo: row.rowNo, identifier: item.identifier, reason: 'Failed to find saved result.' });
+                        continue;
+                    }
+
+                    if (matchedLog?._id || attemptRef) {
+                        await markExternalExamAttemptImported({
+                            attemptId: String(matchedLog?._id || ''),
+                            attemptRef: attemptRef || String(matchedLog?.attemptRef || ''),
+                            resultId: String(resultDoc._id),
+                            matchedBy: matchedBy || 'attempt_ref',
+                        });
+                    }
+
+                    const syncResult = await syncExamResultToStudentProfile({
+                        exam: exam as Record<string, unknown>,
+                        result: resultDoc,
+                        studentId,
+                        source: 'external_import',
+                        syncMode: syncProfileMode,
+                        createdBy: String(req.user?._id || ''),
+                        candidates: {
+                            serialId: row.data.serial_id,
+                            rollNumber: row.data.roll_number,
+                            registrationNumber: row.data.registration_id,
+                            admitCardNumber: row.data.admit_card_number,
+                            fullName: row.data.full_name,
+                            email: row.data.email,
+                            phoneNumber: row.data.phone_number,
+                            institutionName: row.data.institution_name,
+                            department: row.data.department,
+                            sscBatch: row.data.ssc_batch,
+                            hscBatch: row.data.hsc_batch,
+                            guardianName: row.data.guardian_name,
+                            guardianPhone: row.data.guardian_phone,
+                            examCenter: row.data.exam_center,
+                            examResultNote: row.data.exam_result_note,
+                            profileUpdateNote: row.data.profile_update_note,
+                            userUniqueId: row.data.user_unique_id,
+                            attendanceStatus: row.data.attendance_status,
+                            passFail: row.data.pass_fail,
+                        },
+                        notifyStudent: true,
+                    });
+                    if (syncResult.changed) profileUpdates++;
+                }
+            }
         }
 
         if (inserted === 0 && updated === 0) {
