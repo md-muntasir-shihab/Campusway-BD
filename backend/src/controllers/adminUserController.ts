@@ -1386,6 +1386,114 @@ export async function adminBulkStudentAction(req: AuthRequest, res: Response): P
     }
 }
 
+
+async function processImportRow(
+    row: Record<string, string>,
+    index: number,
+    targetPlan: any,
+    targetGroupId: string | undefined,
+    reqUser: any
+): Promise<{ success: boolean; skipped: boolean; error?: string; inviteSentCount: number }> {
+    const fullName = row.full_name || row.fullname || row.name || '';
+    const email = (row.email || '').toLowerCase();
+    let username = (row.username || '').toLowerCase();
+    const providedPassword = row.password || '';
+
+    if (!fullName || !email) {
+        return { success: false, skipped: true, error: `Row ${index + 1}: missing full_name or email`, inviteSentCount: 0 };
+    }
+
+    if (!username) {
+        const prefix = email.split('@')[0].replace(/[^a-z0-9]/gi, '').slice(0, 16) || 'student';
+        username = `${prefix}${Math.floor(100 + Math.random() * 899)}`;
+    }
+
+    const existing = await User.findOne({
+        $or: [{ email }, { username }],
+    }).select('_id');
+
+    if (existing) {
+        return { success: false, skipped: true, error: `Row ${index + 1}: duplicate email/username (${email})`, inviteSentCount: 0 };
+    }
+
+    const plainPassword = providedPassword || newRandomPassword(24);
+    const hashedPassword = await bcrypt.hash(plainPassword, 12);
+
+    try {
+        // Determine subscription
+        const subscription = targetPlan ? {
+            plan: targetPlan.planCode,
+            planCode: targetPlan.planCode,
+            planName: targetPlan.name,
+            isActive: true,
+            startDate: new Date(),
+            expiryDate: new Date(Date.now() + (targetPlan.durationDays || 365) * 24 * 60 * 60 * 1000),
+            assignedBy: reqUser?._id,
+            assignedAt: new Date(),
+        } : {
+            plan: 'legacy_free',
+            planCode: 'legacy_free',
+            planName: 'Legacy Free Access',
+            isActive: true,
+            startDate: new Date(),
+            expiryDate: new Date(Date.now() + (3650 * 24 * 60 * 60 * 1000)),
+            assignedBy: reqUser?._id,
+            assignedAt: new Date(),
+        };
+
+        const user = await User.create({
+            full_name: fullName,
+            username,
+            email,
+            password: hashedPassword,
+            role: 'student',
+            status: normalizeStatus(row.status, 'active'),
+            permissions: buildPermissions('student'),
+            phone_number: row.phone_number || row.phone || undefined,
+            mustChangePassword: true,
+            forcePasswordResetRequired: true,
+            subscription,
+        });
+
+        let inviteSentCount = 0;
+        if (!providedPassword && await issueSetPasswordInvite(user)) {
+            inviteSentCount += 1;
+        }
+
+        const profile = await StudentProfile.create({
+            user_id: user._id,
+            user_unique_id: row.user_unique_id || `CW-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 9999)}`,
+            full_name: fullName,
+            username,
+            email,
+            phone: row.phone || row.phone_number || undefined,
+            phone_number: row.phone_number || row.phone || undefined,
+            guardian_phone: row.guardian_phone || undefined,
+            ssc_batch: row.ssc_batch || '',
+            hsc_batch: row.hsc_batch || '',
+            department: ['science', 'arts', 'commerce'].includes((row.department || '').toLowerCase())
+                ? row.department.toLowerCase()
+                : undefined,
+            college_name: row.college_name || '',
+            college_address: row.college_address || '',
+            roll_number: row.roll_number || row.roll || '',
+            registration_id: row.registration_id || row.registration || '',
+            institution_name: row.institution_name || row.institution || '',
+            profile_photo_url: row.profile_photo_url || row.profile_photo || '',
+            admittedAt: row.admitted_at ? new Date(row.admitted_at) : user.createdAt,
+            groupIds: targetGroupId ? [new mongoose.Types.ObjectId(targetGroupId)] : [],
+            profile_completion_percentage: 20,
+        });
+
+        profile.profile_completion_percentage = computeProfileCompletion(profile.toObject() as unknown as Record<string, unknown>);
+        await profile.save();
+
+        return { success: true, skipped: false, inviteSentCount };
+    } catch (error) {
+        return { success: false, skipped: true, error: `Row ${index + 1}: ${(error as Error).message}`, inviteSentCount: 0 };
+    }
+}
+
 export async function adminBulkImportStudents(req: AuthRequest, res: Response): Promise<void> {
     try {
         const body = req.body as Record<string, unknown>;
@@ -1437,106 +1545,18 @@ export async function adminBulkImportStudents(req: AuthRequest, res: Response): 
 
         for (let index = 0; index < rows.length; index += 1) {
             const row = rows[index];
-            const fullName = row.full_name || row.fullname || row.name || '';
-            const email = (row.email || '').toLowerCase();
-            let username = (row.username || '').toLowerCase();
-            const providedPassword = row.password || '';
+            const result = await processImportRow(row, index, targetPlan, targetGroupId, req.user);
 
-            if (!fullName || !email) {
-                skipped += 1;
-                errors.push(`Row ${index + 1}: missing full_name or email`);
-                continue;
-            }
-
-            if (!username) {
-                const prefix = email.split('@')[0].replace(/[^a-z0-9]/gi, '').slice(0, 16) || 'student';
-                username = `${prefix}${Math.floor(100 + Math.random() * 899)}`;
-            }
-
-            const existing = await User.findOne({
-                $or: [{ email }, { username }],
-            }).select('_id');
-            if (existing) {
-                skipped += 1;
-                errors.push(`Row ${index + 1}: duplicate email/username (${email})`);
-                continue;
-            }
-
-            const plainPassword = providedPassword || newRandomPassword(24);
-            const hashedPassword = await bcrypt.hash(plainPassword, 12);
-
-            try {
-                // Determine subscription
-                const subscription = targetPlan ? {
-                    plan: targetPlan.planCode,
-                    planCode: targetPlan.planCode,
-                    planName: targetPlan.name,
-                    isActive: true,
-                    startDate: new Date(),
-                    expiryDate: new Date(Date.now() + (targetPlan.durationDays || 365) * 24 * 60 * 60 * 1000),
-                    assignedBy: req.user?._id,
-                    assignedAt: new Date(),
-                } : {
-                    plan: 'legacy_free',
-                    planCode: 'legacy_free',
-                    planName: 'Legacy Free Access',
-                    isActive: true,
-                    startDate: new Date(),
-                    expiryDate: new Date(Date.now() + (3650 * 24 * 60 * 60 * 1000)),
-                    assignedBy: req.user?._id,
-                    assignedAt: new Date(),
-                };
-
-                const user = await User.create({
-                    full_name: fullName,
-                    username,
-                    email,
-                    password: hashedPassword,
-                    role: 'student',
-                    status: normalizeStatus(row.status, 'active'),
-                    permissions: buildPermissions('student'),
-                    phone_number: row.phone_number || row.phone || undefined,
-                    mustChangePassword: true,
-                    forcePasswordResetRequired: true,
-                    subscription,
-                });
-                if (!providedPassword && await issueSetPasswordInvite(user)) {
-                    inviteSentCount += 1;
-                }
-
-                const profile = await StudentProfile.create({
-                    user_id: user._id,
-                    user_unique_id: row.user_unique_id || `CW-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 9999)}`,
-                    full_name: fullName,
-                    username,
-                    email,
-                    phone: row.phone || row.phone_number || undefined,
-                    phone_number: row.phone_number || row.phone || undefined,
-                    guardian_phone: row.guardian_phone || undefined,
-                    ssc_batch: row.ssc_batch || '',
-                    hsc_batch: row.hsc_batch || '',
-                    department: ['science', 'arts', 'commerce'].includes((row.department || '').toLowerCase())
-                        ? row.department.toLowerCase()
-                        : undefined,
-                    college_name: row.college_name || '',
-                    college_address: row.college_address || '',
-                    roll_number: row.roll_number || row.roll || '',
-                    registration_id: row.registration_id || row.registration || '',
-                    institution_name: row.institution_name || row.institution || '',
-                    profile_photo_url: row.profile_photo_url || row.profile_photo || '',
-                    admittedAt: row.admitted_at ? new Date(row.admitted_at) : user.createdAt,
-                    groupIds: targetGroupId ? [new mongoose.Types.ObjectId(targetGroupId)] : [],
-                    profile_completion_percentage: 20,
-                });
-
-                profile.profile_completion_percentage = computeProfileCompletion(profile.toObject() as unknown as Record<string, unknown>);
-                await profile.save();
-
+            if (result.success) {
                 imported += 1;
-            } catch (error) {
-                skipped += 1;
-                errors.push(`Row ${index + 1}: ${(error as Error).message}`);
             }
+            if (result.skipped) {
+                skipped += 1;
+            }
+            if (result.error) {
+                errors.push(result.error);
+            }
+            inviteSentCount += result.inviteSentCount;
         }
 
         await createAuditLog(req, 'students_bulk_imported', undefined, 'student', {

@@ -105,12 +105,12 @@ const arbIsActive = fc.option(fc.boolean(), { nil: undefined });
 
 /** Full CreateGroupDto arbitrary */
 const arbCreateGroupDto = fc.record({
-    name: arbBilingualName,
-    slug: arbSlug,
+    title: arbBilingualName,
+    code: arbSlug,
     description: arbDescription,
     icon: arbIcon,
     color: arbColor,
-    sortOrder: arbSortOrder,
+    order: arbSortOrder,
     isActive: arbIsActive,
 });
 
@@ -232,28 +232,28 @@ describe('Property 2: Parent Chain Validity', () => {
 
                     // Level 1: Create Group
                     const group = await createGroup({
-                        name: groupTitle,
-                        slug: groupSlug,
+                        title: groupTitle,
+                        code: groupSlug,
                     });
 
                     // Level 2: Create SubGroup under Group
                     const subGroup = await createSubGroup({
-                        group_id: group._id.toString(),
+                        groupId: group._id.toString(),
                         code: subGroupCode,
                         title: subGroupTitle,
                     });
 
                     // Level 3: Create Subject under SubGroup
                     const subject = await createSubject({
-                        sub_group_id: subGroup._id.toString(),
+                        sub_groupId: subGroup._id.toString(),
                         code: subjectCode,
                         title: subjectTitle,
                     });
 
                     // Level 4: Create Chapter under Subject
                     const chapter = await createChapter({
-                        subject_id: subject._id.toString(),
-                        group_id: group._id.toString(),
+                        subjectId: subject._id.toString(),
+                        groupId: group._id.toString(),
                         code: chapterCode,
                         title: chapterTitle,
                     });
@@ -334,9 +334,9 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
                         QuestionSubGroup.deleteMany({}),
                     ]);
 
-                    const group = await createGroup({ name: groupTitle, slug: groupSlug });
+                    const group = await createGroup({ title: groupTitle, code: groupSlug });
                     await createSubGroup({
-                        group_id: group._id.toString(),
+                        groupId: group._id.toString(),
                         code: subGroupCode,
                         title: subGroupTitle,
                     });
@@ -367,14 +367,14 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
                         QuestionCategory.deleteMany({}),
                     ]);
 
-                    const group = await createGroup({ name: groupTitle, slug: groupSlug });
+                    const group = await createGroup({ title: groupTitle, code: groupSlug });
                     const subGroup = await createSubGroup({
-                        group_id: group._id.toString(),
+                        groupId: group._id.toString(),
                         code: sgCode,
                         title: sgTitle,
                     });
                     await createSubject({
-                        sub_group_id: subGroup._id.toString(),
+                        sub_groupId: subGroup._id.toString(),
                         code: subjCode,
                         title: subjTitle,
                     });
@@ -413,20 +413,20 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
                         QuestionChapter.deleteMany({}),
                     ]);
 
-                    const group = await createGroup({ name: groupTitle, slug: groupSlug });
+                    const group = await createGroup({ title: groupTitle, code: groupSlug });
                     const subGroup = await createSubGroup({
-                        group_id: group._id.toString(),
+                        groupId: group._id.toString(),
                         code: sgCode,
                         title: sgTitle,
                     });
                     const subject = await createSubject({
-                        sub_group_id: subGroup._id.toString(),
+                        sub_groupId: subGroup._id.toString(),
                         code: subjCode,
                         title: subjTitle,
                     });
                     await createChapter({
-                        subject_id: subject._id.toString(),
-                        group_id: group._id.toString(),
+                        subjectId: subject._id.toString(),
+                        groupId: group._id.toString(),
                         code: chapCode,
                         title: chapTitle,
                     });
@@ -469,20 +469,20 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
                         QuestionTopic.deleteMany({}),
                     ]);
 
-                    const group = await createGroup({ name: groupTitle, slug: groupSlug });
+                    const group = await createGroup({ title: groupTitle, code: groupSlug });
                     const subGroup = await createSubGroup({
-                        group_id: group._id.toString(),
+                        groupId: group._id.toString(),
                         code: sgCode,
                         title: sgTitle,
                     });
                     const subject = await createSubject({
-                        sub_group_id: subGroup._id.toString(),
+                        sub_groupId: subGroup._id.toString(),
                         code: subjCode,
                         title: subjTitle,
                     });
                     const chapter = await createChapter({
-                        subject_id: subject._id.toString(),
-                        group_id: group._id.toString(),
+                        subjectId: subject._id.toString(),
+                        groupId: group._id.toString(),
                         code: chapCode,
                         title: chapTitle,
                     });
@@ -551,20 +551,20 @@ describe('Property 4: Tree Completeness and Sort Order', () => {
                     ]);
 
                     // Create 2 groups with random sort orders
-                    const group1 = await createGroup({ name: { en: 'Group A', bn: 'গ্রুপ ক' }, slug: 'group-a', sortOrder: g1Order });
-                    const group2 = await createGroup({ name: { en: 'Group B', bn: 'গ্রুপ খ' }, slug: 'group-b', sortOrder: g2Order });
+                    const group1 = await createGroup({ title: { en: 'Group A', bn: 'গ্রুপ ক' }, code: 'group-a', order: g1Order });
+                    const group2 = await createGroup({ title: { en: 'Group B', bn: 'গ্রুপ খ' }, code: 'group-b', order: g2Order });
 
                     // Create 2 sub-groups under group1
-                    const sg1 = await createSubGroup({ group_id: group1._id.toString(), code: 'sg-a', title: { en: 'SG A', bn: 'এসজি ক' }, order: sg1Order });
-                    const sg2 = await createSubGroup({ group_id: group1._id.toString(), code: 'sg-b', title: { en: 'SG B', bn: 'এসজি খ' }, order: sg2Order });
+                    const sg1 = await createSubGroup({ groupId: group1._id.toString(), code: 'sg-a', title: { en: 'SG A', bn: 'এসজি ক' }, order: sg1Order });
+                    const sg2 = await createSubGroup({ groupId: group1._id.toString(), code: 'sg-b', title: { en: 'SG B', bn: 'এসজি খ' }, order: sg2Order });
 
                     // Create 2 subjects under sg1
-                    const subj1 = await createSubject({ sub_group_id: sg1._id.toString(), code: 'subj-a', title: { en: 'Subject A', bn: 'বিষয় ক' }, order: subj1Order });
-                    const subj2 = await createSubject({ sub_group_id: sg1._id.toString(), code: 'subj-b', title: { en: 'Subject B', bn: 'বিষয় খ' }, order: subj2Order });
+                    const subj1 = await createSubject({ sub_groupId: sg1._id.toString(), code: 'subj-a', title: { en: 'Subject A', bn: 'বিষয় ক' }, order: subj1Order });
+                    const subj2 = await createSubject({ sub_groupId: sg1._id.toString(), code: 'subj-b', title: { en: 'Subject B', bn: 'বিষয় খ' }, order: subj2Order });
 
                     // Create 2 chapters under subj1
-                    const ch1 = await createChapter({ subject_id: subj1._id.toString(), group_id: group1._id.toString(), code: 'ch-a', title: { en: 'Chapter A', bn: 'অধ্যায় ক' }, order: ch1Order });
-                    const ch2 = await createChapter({ subject_id: subj1._id.toString(), group_id: group1._id.toString(), code: 'ch-b', title: { en: 'Chapter B', bn: 'অধ্যায় খ' }, order: ch2Order });
+                    const ch1 = await createChapter({ subjectId: subj1._id.toString(), groupId: group1._id.toString(), code: 'ch-a', title: { en: 'Chapter A', bn: 'অধ্যায় ক' }, order: ch1Order });
+                    const ch2 = await createChapter({ subjectId: subj1._id.toString(), groupId: group1._id.toString(), code: 'ch-b', title: { en: 'Chapter B', bn: 'অধ্যায় খ' }, order: ch2Order });
 
                     // Create 2 topics under ch1
                     const topic1 = await createTopic({ chapter_id: ch1._id.toString(), code: 'topic-a', title: { en: 'Topic A', bn: 'টপিক ক' }, order: t1Order });
@@ -683,11 +683,11 @@ describe('Property 5: Duplicate Name Rejection', () => {
                     await QuestionGroup.deleteMany({});
 
                     // First creation succeeds
-                    await createGroup({ name: sharedTitle, slug: slug1 });
+                    await createGroup({ title: sharedTitle, code: slug1 });
 
                     // Second creation with same title is rejected
                     await expect(
-                        createGroup({ name: sharedTitle, slug: slug2 }),
+                        createGroup({ title: sharedTitle, code: slug2 }),
                     ).rejects.toThrow(/already exists/i);
                 },
             ),
@@ -709,11 +709,11 @@ describe('Property 5: Duplicate Name Rejection', () => {
                         QuestionSubGroup.deleteMany({}),
                     ]);
 
-                    const group = await createGroup({ name: groupTitle, slug: groupSlug });
+                    const group = await createGroup({ title: groupTitle, code: groupSlug });
 
                     // First sub-group creation succeeds
                     await createSubGroup({
-                        group_id: group._id.toString(),
+                        groupId: group._id.toString(),
                         code: sgCode1,
                         title: sharedSgTitle,
                     });
@@ -721,7 +721,7 @@ describe('Property 5: Duplicate Name Rejection', () => {
                     // Second sub-group with same title under same parent is rejected
                     await expect(
                         createSubGroup({
-                            group_id: group._id.toString(),
+                            groupId: group._id.toString(),
                             code: sgCode2,
                             title: sharedSgTitle,
                         }),
@@ -767,14 +767,14 @@ describe('Property 6: Merge Reassigns All Children and Questions', () => {
                     ]);
 
                     // Create source and target groups
-                    const sourceGroup = await createGroup({ name: sourceTitle, slug: sourceSlug });
-                    const targetGroup = await createGroup({ name: targetTitle, slug: targetSlug });
+                    const sourceGroup = await createGroup({ title: sourceTitle, code: sourceSlug });
+                    const targetGroup = await createGroup({ title: targetTitle, code: targetSlug });
 
                     // Create SubGroup children under the source group
                     const childIds: string[] = [];
                     for (let i = 0; i < numChildren; i++) {
                         const child = await createSubGroup({
-                            group_id: sourceGroup._id.toString(),
+                            groupId: sourceGroup._id.toString(),
                             code: `child-${sourceSlug}-${i}`,
                             title: { en: `Child EN ${i} ${sourceSlug}`, bn: `Child BN ${i} ${sourceSlug}` },
                         });
@@ -782,7 +782,7 @@ describe('Property 6: Merge Reassigns All Children and Questions', () => {
                     }
 
                     // Verify children belong to source before merge
-                    const beforeMerge = await QuestionSubGroup.find({ group_id: sourceGroup._id }).lean();
+                    const beforeMerge = await QuestionSubGroup.find({ groupId: sourceGroup._id }).lean();
                     expect(beforeMerge).toHaveLength(numChildren);
 
                     // Perform merge: source → target
@@ -804,7 +804,7 @@ describe('Property 6: Merge Reassigns All Children and Questions', () => {
                     }
 
                     // Assert: no SubGroups reference the source anymore
-                    const orphaned = await QuestionSubGroup.find({ group_id: sourceGroup._id }).lean();
+                    const orphaned = await QuestionSubGroup.find({ groupId: sourceGroup._id }).lean();
                     expect(orphaned).toHaveLength(0);
                 },
             ),
