@@ -1,3 +1,5 @@
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -340,16 +342,15 @@ function WrittenAnswerArea({
 }) {
     return (
         <div className="space-y-3">
-            {/* TODO: Replace textarea with React Quill rich text editor when installed */}
-            {/* import ReactQuill from 'react-quill'; */}
-            <textarea
-                id={`written-answer-${questionId}`}
-                value={currentAnswer ?? ''}
-                onChange={(e) => onTextChange(e.target.value)}
-                placeholder="Type your answer here..."
-                rows={8}
-                className="w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y"
-            />
+            <div className="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 text-slate-700 dark:text-slate-200 [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b-2 [&_.ql-toolbar]:border-slate-200 dark:[&_.ql-toolbar]:border-slate-700 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[200px] [&_.ql-editor]:text-sm">
+                <ReactQuill
+                    theme="snow"
+                    id={`written-answer-${questionId}`}
+                    value={currentAnswer ?? ''}
+                    onChange={onTextChange}
+                    placeholder="Type your answer here..."
+                />
+            </div>
             <button
                 type="button"
                 onClick={onFileUpload}
