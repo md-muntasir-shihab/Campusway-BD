@@ -6,7 +6,7 @@ import SecureUpload from '../models/SecureUpload';
 import User from '../models/User';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_SECRET || 'refresh_secret';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_SECRET || (() => { throw new Error('FATAL: JWT_REFRESH_SECRET environment variable is required'); })();
 const ADMIN_ROLES = new Set(['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent', 'chairman']);
 
 type UploadRefreshTokenPayload = {

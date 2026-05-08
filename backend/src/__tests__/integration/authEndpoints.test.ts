@@ -128,6 +128,7 @@ const testSessionId = 'test-session-id-001';
 beforeAll(async () => {
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.JWT_REFRESH_SECRET = REFRESH_SECRET;
+    process.env.REFRESH_SECRET = REFRESH_SECRET;
     process.env.NODE_ENV = 'test';
 
     mongoServer = await MongoMemoryServer.create();

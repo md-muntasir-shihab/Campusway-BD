@@ -116,8 +116,8 @@ function validateRequiredEnv(): void {
         // process.exit(1);
     }
     if (IS_PRODUCTION) {
-        if (!process.env.JWT_SECRET) console.warn('[startup] WARNING: JWT_SECRET is missing. Using insecure fallback.');
-        if (!process.env.JWT_REFRESH_SECRET && !process.env.REFRESH_SECRET) console.warn('[startup] WARNING: JWT_REFRESH_SECRET is missing. Using insecure fallback.');
+        if (!process.env.JWT_SECRET) console.error('[startup] FATAL: JWT_SECRET is missing. Server will not start correctly.');
+        if (!process.env.JWT_REFRESH_SECRET && !process.env.REFRESH_SECRET) console.error('[startup] FATAL: JWT_REFRESH_SECRET is missing. Server will not start correctly.');
         if (!process.env.FRONTEND_URL) console.warn('[startup] WARNING: FRONTEND_URL is missing. Using insecure fallback.');
         if (!process.env.ADMIN_ORIGIN) console.warn('[startup] WARNING: ADMIN_ORIGIN is missing. Using insecure fallback.');
     }

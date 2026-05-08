@@ -30,8 +30,8 @@ import { checkAuthFailureSpike } from '../services/securityAlertService';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 const IS_PROD_AUTH = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-jwt-secret-for-production-please-change-immediately-cw';
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_SECRET || 'fallback-refresh-secret-for-production-please-change-immediately-cw';
+const JWT_SECRET = process.env.JWT_SECRET || (() => { throw new Error('FATAL: JWT_SECRET environment variable is required'); })();
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_SECRET || (() => { throw new Error('FATAL: JWT_REFRESH_SECRET environment variable is required'); })();
 const APP_DOMAIN = process.env.APP_DOMAIN || process.env.FRONTEND_URL || 'http://localhost:5175';
 const ADMIN_UI_PATH = process.env.ADMIN_UI_PATH || '__cw_admin__';
 
