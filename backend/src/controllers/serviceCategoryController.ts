@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import ServiceCategory from '../models/ServiceCategory';
+import Service from '../models/Service';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 export async function getCategories(req: Request, res: Response): Promise<void> {
@@ -55,10 +56,25 @@ export async function adminUpdateCategory(req: Request, res: Response): Promise<
 
 export async function adminDeleteCategory(req: Request, res: Response): Promise<void> {
     try {
-        const category = await ServiceCategory.findByIdAndDelete(req.params.id);
-        if (!category) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }
-        // TODO: We might want to remove this category from affected services, or prevent deletion if services exist.
-        // For now, simple delete:
+        const categoryId = req.params.id;
+
+        // Check if any services are still linked to this category
+        const linkedServicesCount = await Service.countDocuments({ category: categoryId });
+        if (linkedServicesCount > 0) {
+            ResponseBuilder.send(
+                res,
+                400,
+                ResponseBuilder.error('VALIDATION_ERROR', 'Cannot delete category as it is still linked to existing services')
+            );
+            return;
+        }
+
+        const category = await ServiceCategory.findByIdAndDelete(categoryId);
+        if (!category) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found'));
+            return;
+        }
+
         ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Category deleted successfully'));
     } catch (err) {
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
