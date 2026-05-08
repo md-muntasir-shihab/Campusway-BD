@@ -191,6 +191,7 @@ export {
 export { default as StudentGroup, type IStudentGroup } from './StudentGroup';
 export { default as StudentImportJob } from './StudentImportJob';
 export { default as StudentNotificationRead } from './StudentNotificationRead';
+export { default as NotificationPreference } from './NotificationPreference';
 export { default as StudentProfile, type IStudentProfile } from './StudentProfile';
 export { default as StudentSettings, StudentSettingsModel } from './StudentSettings';
 export { default as StudentWatchlist } from './StudentWatchlist';
