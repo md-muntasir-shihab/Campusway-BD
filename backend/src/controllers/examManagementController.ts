@@ -383,6 +383,81 @@ export async function getAntiCheatReport(req: AuthRequest, res: Response): Promi
     }
 }
 
+// ─── Analytics Overview Helpers ────────────────────────────────────
+
+/**
+ * Validates the analytics inputs. Returns an error message if invalid, otherwise null.
+ */
+function validateAnalyticsInputs(dateFrom?: any, dateTo?: any, examId?: any): string | null {
+    if (dateFrom) {
+        const d = new Date(dateFrom as string);
+        if (isNaN(d.getTime())) return 'Invalid date format for dateFrom';
+    }
+    if (dateTo) {
+        const d = new Date(dateTo as string);
+        if (isNaN(d.getTime())) return 'Invalid date format for dateTo';
+    }
+    if (examId && !/^[a-fA-F0-9]{24}$/.test(examId as string)) {
+        return 'Invalid exam ID format';
+    }
+    return null;
+}
+
+/**
+ * Builds the aggregation match filter for ExamResult.
+ */
+function buildExamResultFilter(dateFrom?: any, dateTo?: any, examId?: any): Record<string, any> {
+    const matchFilter: Record<string, any> = {};
+    if (examId) {
+        matchFilter.exam = new mongoose.Types.ObjectId(examId as string);
+    }
+    if (dateFrom || dateTo) {
+        matchFilter.submittedAt = {};
+        if (dateFrom) matchFilter.submittedAt.$gte = new Date(dateFrom as string);
+        if (dateTo) matchFilter.submittedAt.$lte = new Date(dateTo as string);
+    }
+    return matchFilter;
+}
+
+/**
+ * Builds the date filter for counting Exam documents.
+ */
+function buildExamDateFilter(dateFrom?: any, dateTo?: any): Record<string, any> {
+    if (dateFrom || dateTo) {
+        return {
+            createdAt: {
+                ...(dateFrom ? { $gte: new Date(dateFrom as string) } : {}),
+                ...(dateTo ? { $lte: new Date(dateTo as string) } : {}),
+            },
+        };
+    }
+    return {};
+}
+
+/**
+ * Formats the raw aggregation result into final metrics.
+ */
+function formatAnalyticsMetrics(aggregationResult: any[], totalExams: number) {
+    if (aggregationResult.length > 0) {
+        return {
+            totalExams,
+            totalAttempts: aggregationResult[0].totalAttempts,
+            averageScore: Math.round((aggregationResult[0].averageScore || 0) * 100) / 100,
+            passRate: aggregationResult[0].totalAttempts > 0
+                ? Math.round((aggregationResult[0].passCount / aggregationResult[0].totalAttempts) * 100 * 100) / 100
+                : 0,
+            activeStudents: aggregationResult[0].activeStudents,
+        };
+    }
+    return {
+        totalExams,
+        totalAttempts: 0,
+        averageScore: 0,
+        passRate: 0,
+        activeStudents: 0,
+    };
+}
+
 // ─── Admin: Analytics Overview ───────────────────────────────
 
 /**
@@ -393,43 +468,17 @@ export async function getAnalyticsOverview(req: AuthRequest, res: Response): Pro
     try {
         const { dateFrom, dateTo, examId } = req.query;
 
-        // Validate date formats if provided
-        if (dateFrom) {
-            const d = new Date(dateFrom as string);
-            if (isNaN(d.getTime())) {
-                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid date format for dateFrom'));
-                return;
-            }
-        }
-        if (dateTo) {
-            const d = new Date(dateTo as string);
-            if (isNaN(d.getTime())) {
-                ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid date format for dateTo'));
-                return;
-            }
-        }
-
-        // Validate examId format if provided
-        if (examId && !/^[a-fA-F0-9]{24}$/.test(examId as string)) {
-            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam ID format'));
+        // Validation
+        const validationError = validateAnalyticsInputs(dateFrom, dateTo, examId);
+        if (validationError) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', validationError));
             return;
-        }
-
-        // Build match filter for ExamResult
-        const matchFilter: Record<string, any> = {};
-        if (examId) {
-            matchFilter.exam = new mongoose.Types.ObjectId(examId as string);
-        }
-        if (dateFrom || dateTo) {
-            matchFilter.submittedAt = {};
-            if (dateFrom) matchFilter.submittedAt.$gte = new Date(dateFrom as string);
-            if (dateTo) matchFilter.submittedAt.$lte = new Date(dateTo as string);
         }
 
         // Run aggregation pipeline
         const [aggregationResult, totalExams] = await Promise.all([
             ExamResult.aggregate([
-                { $match: matchFilter },
+                { $match: buildExamResultFilter(dateFrom, dateTo, examId) },
                 {
                     $group: {
                         _id: null,
@@ -453,37 +502,11 @@ export async function getAnalyticsOverview(req: AuthRequest, res: Response): Pro
             ]),
 
             // Count total exams with optional date filter on createdAt
-            Exam.countDocuments(
-                dateFrom || dateTo
-                    ? {
-                        createdAt: {
-                            ...(dateFrom ? { $gte: new Date(dateFrom as string) } : {}),
-                            ...(dateTo ? { $lte: new Date(dateTo as string) } : {}),
-                        },
-                    }
-                    : {},
-            ),
+            Exam.countDocuments(buildExamDateFilter(dateFrom, dateTo)),
         ]);
 
-        // Return zeroed metrics when no data exists
-        const metrics = aggregationResult.length > 0
-            ? {
-                totalExams,
-                totalAttempts: aggregationResult[0].totalAttempts,
-                averageScore: Math.round((aggregationResult[0].averageScore || 0) * 100) / 100,
-                passRate: aggregationResult[0].totalAttempts > 0
-                    ? Math.round((aggregationResult[0].passCount / aggregationResult[0].totalAttempts) * 100 * 100) / 100
-                    : 0,
-                activeStudents: aggregationResult[0].activeStudents,
-            }
-            : {
-                totalExams,
-                totalAttempts: 0,
-                averageScore: 0,
-                passRate: 0,
-                activeStudents: 0,
-            };
-
+        // Return metrics
+        const metrics = formatAnalyticsMetrics(aggregationResult, totalExams);
         ResponseBuilder.send(res, 200, ResponseBuilder.success(metrics));
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Server error';
