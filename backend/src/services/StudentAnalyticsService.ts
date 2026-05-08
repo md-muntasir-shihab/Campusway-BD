@@ -17,7 +17,9 @@ import ExamResult, { IExamResult } from '../models/ExamResult';
 import StudentAnalyticsAggregate, {
     IStudentAnalyticsAggregate,
     IAccuracyEntry,
+    IRecentScore,
 } from '../models/StudentAnalyticsAggregate';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
 // ─── Exported Types ─────────────────────────────────────────
 
@@ -140,7 +142,10 @@ function buildAccuracyMap(
  *
  * Requirement 9.10
  */
-function computeWeakestTopics(
+/**
+ * Fallback logic for weakest topics if AI fails or is disabled.
+ */
+function computeWeakestTopicsFallback(
     topicAccuracy: Map<string, IAccuracyEntry>,
 ): string[] {
     const entries: { topic: string; percentage: number }[] = [];
@@ -155,6 +160,94 @@ function computeWeakestTopics(
 
     // Return top 5 weakest
     return entries.slice(0, 5).map((e) => e.topic);
+}
+
+/**
+ * Compute the 5 weakest topics using AI for smarter detection.
+ * Considers overall accuracy and recency context.
+ *
+ * Requirement 9.10
+ */
+async function computeWeakestTopics(
+    topicAccuracy: Map<string, IAccuracyEntry>,
+    recentScores: IRecentScore[] = [],
+): Promise<string[]> {
+    const fallback = computeWeakestTopicsFallback(topicAccuracy);
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        return fallback;
+    }
+
+    // Prepare data for AI
+    const topicStats = Array.from(topicAccuracy.entries())
+        .filter(([topic, acc]) => topic !== '(unknown)' && acc.total > 0)
+        .map(([topic, acc]) => ({
+            topic,
+            correct: acc.correct,
+            total: acc.total,
+            percentage: acc.percentage
+        }));
+
+    if (topicStats.length <= 5) {
+        return fallback;
+    }
+
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: SchemaType.ARRAY,
+                    items: { type: SchemaType.STRING },
+                    description: "Array of exactly 5 topic names representing the weakest topics"
+                }
+            }
+        });
+
+        const prompt = `
+You are an expert educational data analyst.
+Analyze the following student performance data by topic and determine the top 5 weakest topics that the student needs to focus on.
+
+Topic Performance Data (Aggregate):
+${JSON.stringify(topicStats, null, 2)}
+
+Recent Exam Scores (to understand current trend, higher score = better):
+${JSON.stringify(recentScores.slice(0, 5), null, 2)}
+
+Consider the following factors when selecting the 5 weakest topics:
+1. Low overall percentage accuracy.
+2. Topics with a decent amount of total attempts (total > 1) should be weighted heavier than topics with only 1 attempt.
+3. If recent exam scores are low, the student might be struggling across the board, but focus on the absolute lowest percentages.
+
+Return exactly 5 topic names as a JSON array of strings. Do not include any other text.
+Make sure the topics match the exact names provided in the input data.
+        `.trim();
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        const parsed = JSON.parse(text);
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            // Ensure they are strings and match existing topics
+            const validTopics = parsed
+                .filter(t => typeof t === 'string' && topicAccuracy.has(t))
+                .slice(0, 5);
+
+            if (validTopics.length > 0) {
+                // Pad with fallback if AI didn't return enough valid topics
+                const combined = Array.from(new Set([...validTopics, ...fallback])).slice(0, 5);
+                return combined;
+            }
+        }
+
+        return fallback;
+    } catch (error) {
+        console.error("AI Weakest Topics Analysis failed:", error);
+        return fallback;
+    }
 }
 
 // ─── updateStudentAnalytics ─────────────────────────────────
@@ -260,7 +353,7 @@ export async function updateStudentAnalytics(
             : 0;
 
     // 6. Compute weakestTopics
-    const weakestTopics = computeWeakestTopics(topicAccuracy);
+    const weakestTopics = await computeWeakestTopics(topicAccuracy, recentScores);
 
     // 7. Upsert the StudentAnalyticsAggregate document
     const updateData = {
