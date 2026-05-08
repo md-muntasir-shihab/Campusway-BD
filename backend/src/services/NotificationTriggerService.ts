@@ -27,6 +27,7 @@ import GroupMembership from '../models/GroupMembership';
 import Exam from '../models/Exam';
 import DoubtThread from '../models/DoubtThread';
 import StreakRecord from '../models/StreakRecord';
+import NotificationPreference from '../models/NotificationPreference';
 import { triggerWorkflow as triggerNovuWorkflow } from './integrations/notificationHelper';
 
 // ─── Types ──────────────────────────────────────────────────
@@ -86,17 +87,30 @@ function toObjectId(id: string | mongoose.Types.ObjectId): mongoose.Types.Object
  * @requirement 24.6 — Respect per-student notification preferences
  */
 async function getStudentChannelPreferences(
-    _studentId: mongoose.Types.ObjectId,
-    _notificationType: NotificationType,
+    studentId: mongoose.Types.ObjectId,
+    notificationType: NotificationType,
 ): Promise<ChannelPreferences> {
-    // TODO: Query a NotificationPreference collection when available.
-    // For now, all channels are enabled by default.
-    return {
+    const defaultPrefs: ChannelPreferences = {
         in_app: true,
         push: true,
         email: true,
         sms: true,
     };
+
+    const prefs = await NotificationPreference.find({
+        studentId,
+        notificationType: { $in: [notificationType, 'global'] },
+    }).lean();
+
+    if (!prefs || prefs.length === 0) {
+        return defaultPrefs;
+    }
+
+    const globalPref = prefs.find((p) => p.notificationType === 'global');
+    const specificPref = prefs.find((p) => p.notificationType === notificationType);
+
+    // Specific preferences override global preferences
+    return specificPref?.channels ?? globalPref?.channels ?? defaultPrefs;
 }
 
 /**
@@ -109,10 +123,37 @@ async function filterByChannelPreference(
     userIds: mongoose.Types.ObjectId[],
     notificationType: NotificationType,
 ): Promise<mongoose.Types.ObjectId[]> {
+    if (!userIds.length) return [];
+
+    const prefs = await NotificationPreference.find({
+        studentId: { $in: userIds },
+        notificationType: { $in: [notificationType, 'global'] },
+    }).lean();
+
+    // Group preferences by studentId
+    const prefsByStudentId = prefs.reduce((acc, pref) => {
+        const sid = pref.studentId.toString();
+        if (!acc[sid]) {
+            acc[sid] = { global: null, specific: null };
+        }
+        if (pref.notificationType === 'global') {
+            acc[sid].global = pref;
+        } else if (pref.notificationType === notificationType) {
+            acc[sid].specific = pref;
+        }
+        return acc;
+    }, {} as Record<string, { global: any, specific: any }>);
+
     const results = await Promise.all(
         userIds.map(async (uid) => {
-            const prefs = await getStudentChannelPreferences(uid, notificationType);
-            return prefs.in_app ? uid : null;
+            const sid = uid.toString();
+            const studentPrefs = prefsByStudentId[sid];
+
+            const specificPref = studentPrefs?.specific;
+            const globalPref = studentPrefs?.global;
+
+            const inAppEnabled = specificPref?.channels?.in_app ?? globalPref?.channels?.in_app ?? true;
+            return inAppEnabled ? uid : null;
         }),
     );
     return results.filter((uid): uid is mongoose.Types.ObjectId => uid !== null);
