@@ -17,6 +17,7 @@ import {
     MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import DOMPurify from 'dompurify';
 import api from '../../../services/api';
 import type { WrittenGrade, ApiResponse } from '../../../types/exam-system';
 
@@ -208,7 +209,7 @@ function StudentCard({
                                     {answer.selectedAnswer && (
                                         <div
                                             className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 prose prose-sm max-w-none dark:prose-invert"
-                                            dangerouslySetInnerHTML={{ __html: answer.selectedAnswer }}
+                                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(answer.selectedAnswer || '', { USE_PROFILES: { html: true } }) }}
                                         />
                                     )}
                                     {answer.writtenAnswerUrl && (
