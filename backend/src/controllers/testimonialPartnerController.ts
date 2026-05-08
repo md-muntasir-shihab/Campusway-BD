@@ -160,7 +160,13 @@ export async function adminReorderTestimonial(req: Request, res: Response): Prom
     try {
         const ids = req.body.ids;
         if (!Array.isArray(ids)) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'ids array required')); return; }
-        await Promise.all(ids.map((id: string, i: number) => Testimonial.findByIdAndUpdate(id, { $set: { displayOrder: i } })));
+        const bulkOps = ids.map((id: string, i: number) => ({
+            updateOne: {
+                filter: { _id: id },
+                update: { $set: { displayOrder: i } }
+            }
+        }));
+        if (bulkOps.length > 0) { await Testimonial.bulkWrite(bulkOps); }
         ResponseBuilder.send(res, 200, ResponseBuilder.success({ message: 'Reordered', count: ids.length }));
     } catch { ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed')); }
 }
