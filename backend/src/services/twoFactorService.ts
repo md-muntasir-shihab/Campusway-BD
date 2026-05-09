@@ -9,7 +9,7 @@ const TOTP_DIGITS = 6;
 const TOTP_ALLOWED_DRIFT_STEPS = 2;
 
 export function generateOtpCode(): string {
-    return String(Math.floor(100000 + Math.random() * 900000));
+    return String(crypto.randomInt(100000, 1000000));
 }
 
 export function hashOtpCode(code: string): string {

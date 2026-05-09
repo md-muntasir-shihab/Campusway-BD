@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import OtpVerification from '../models/OtpVerification';
@@ -52,8 +53,9 @@ const MAX_ATTEMPTS = 5;
 
 export function generateOtp(): string {
     const min = Math.pow(10, OTP_LENGTH - 1); // 100000
-    const max = Math.pow(10, OTP_LENGTH) - 1;  // 999999
-    const code = Math.floor(min + Math.random() * (max - min + 1));
+    const max = Math.pow(10, OTP_LENGTH);     // 1000000
+    // crypto.randomInt is exclusive of max, so it generates min <= x < max
+    const code = crypto.randomInt(min, max);
     return String(code).padStart(OTP_LENGTH, '0');
 }
 
