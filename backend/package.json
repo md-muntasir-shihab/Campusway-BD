@@ -89,7 +89,7 @@
         "@types/sharp": "^0.31.1",
         "@types/supertest": "^6.0.2",
         "@types/uuid": "^10.0.0",
-        "eslint": "^10.2.1",
+        "eslint": "^10.3.0",
         "eslint-plugin-security": "^4.0.0",
         "fast-check": "^4.7.0",
         "globals": "^17.5.0",
