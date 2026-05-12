@@ -139,6 +139,165 @@ export const uploadMiddleware = multer({
     },
 });
 
+
+/* ─────── HELPER FUNCTIONS ─────── */
+
+async function convertHeicToJpegIfNeeded(file: Express.Multer.File): Promise<void> {
+    const fileExt = path.extname(file.originalname || '').toLowerCase();
+    if (fileExt === '.heic' || fileExt === '.heif') {
+        try {
+            const jpegFilename = file.filename.replace(/\.(heic|heif)$/i, '.jpg');
+            const jpegPath = path.join(uploadDir, jpegFilename);
+            await sharp(file.path).jpeg({ quality: 85 }).toFile(jpegPath);
+            // Delete original HEIC file
+            fs.unlink(file.path, () => { /* ignore */ });
+            // Update file object to point to the converted JPEG
+            file.path = jpegPath;
+            file.filename = jpegFilename;
+            file.mimetype = 'image/jpeg';
+            file.size = (await fs.promises.stat(jpegPath)).size;
+        } catch (heicErr) {
+            console.warn('[uploadMedia] HEIC/HEIF conversion failed, using original file:', heicErr instanceof Error ? heicErr.message : heicErr);
+        }
+    }
+}
+
+async function compressLargeImageIfNeeded(file: Express.Multer.File): Promise<void> {
+    const FIVE_MB = 5 * 1024 * 1024;
+    if (file.mimetype.startsWith('image/') && file.size > FIVE_MB) {
+        try {
+            const originalFilename = file.filename.replace(/(\.[^.]+)$/, '-original$1');
+            const originalPath = path.join(uploadDir, originalFilename);
+            // Rename current file to -original
+            await fs.promises.rename(file.path, originalPath);
+            // Compress to the original filename
+            const compressedPath = path.join(uploadDir, file.filename);
+            await sharp(originalPath)
+                .resize({ width: 2048, withoutEnlargement: true })
+                .jpeg({ quality: 80 })
+                .toFile(compressedPath);
+            // Update file object to point to compressed version
+            file.path = compressedPath;
+            file.mimetype = 'image/jpeg';
+            file.size = (await fs.promises.stat(compressedPath)).size;
+        } catch (compressErr) {
+            console.warn('[uploadMedia] Image compression failed, using original file:', compressErr instanceof Error ? compressErr.message : compressErr);
+            // If compression failed and original was renamed, try to restore
+            const originalFilename = file.filename.replace(/(\.[^.]+)$/, '-original$1');
+            const originalPath = path.join(uploadDir, originalFilename);
+            if (fs.existsSync(originalPath) && !fs.existsSync(file.path)) {
+                await fs.promises.rename(originalPath, file.path);
+            }
+        }
+    }
+}
+
+async function attemptFirebaseUpload(
+    file: Express.Multer.File,
+    origin: string,
+    res: Response
+): Promise<boolean> {
+    const firebaseBucket = getFirebaseStorageBucket();
+    if (!firebaseBucket) return false;
+
+    try {
+        const ext = path.extname(file.originalname || '').toLowerCase() || path.extname(file.filename || '');
+        const safeExt = ext && ext.length <= 10 ? ext : '';
+        const objectKey = `media/${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExt}`;
+        const fileRef = firebaseBucket.file(objectKey);
+        await fileRef.save(fs.readFileSync(file.path), {
+            metadata: {
+                contentType: file.mimetype,
+            },
+            resumable: false,
+            public: true,
+        });
+
+        const publicUrl = `https://storage.googleapis.com/${firebaseBucket.name}/${objectKey}`;
+        const deliveryUrl = await maybeTransformPublicImageUrl(publicUrl, file.mimetype);
+        fs.unlink(file.path, () => { /* ignore */ });
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
+            url: deliveryUrl,
+            absoluteUrl: deliveryUrl,
+            originalUrl: publicUrl,
+            filename: objectKey,
+            mimetype: file.mimetype,
+            size: file.size,
+            provider: 'firebase'
+        }, 'File uploaded successfully.'));
+        return true;
+    } catch (firebaseErr) {
+        const fallbackUrl = `/uploads/${file.filename}`;
+        const absoluteFallbackUrl = buildAbsoluteUploadUrl(fallbackUrl, origin);
+        console.warn('[uploadMedia] Firebase upload failed, falling back to local storage.', {
+            error: firebaseErr instanceof Error ? firebaseErr.message : String(firebaseErr),
+            stack: firebaseErr instanceof Error ? firebaseErr.stack : undefined,
+            fallbackUrl: absoluteFallbackUrl,
+        });
+        return false;
+    }
+}
+
+async function performSecureUpload(
+    req: AuthRequest,
+    res: Response,
+    requestedCategory: string,
+    accessRoles: string[],
+    origin: string
+): Promise<void> {
+    if (!req.file) return;
+
+    const secureUpload = await registerSecureUpload({
+        file: req.file,
+        category: requestedCategory as Parameters<typeof registerSecureUpload>[0]['category'],
+        visibility: 'protected',
+        ownerUserId: req.user?._id || null,
+        ownerRole: req.user?.role || null,
+        uploadedBy: req.user?._id || null,
+        accessRoles,
+    });
+    const url = buildSecureUploadUrl(secureUpload.storedName);
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({
+        url,
+        absoluteUrl: `${origin}${url}`,
+        filename: secureUpload.storedName,
+        mimetype: secureUpload.mimeType,
+        size: secureUpload.sizeBytes,
+        visibility: secureUpload.visibility
+    }, 'File uploaded successfully.'));
+}
+
+async function performLocalUpload(
+    file: Express.Multer.File,
+    origin: string,
+    res: Response
+): Promise<void> {
+    // Runtime check: ensure upload directory exists before local storage write
+    try {
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+    } catch {
+        // Fallback: directory may not be writable in containerised envs
+    }
+
+    // Construct the public URL for the uploaded file
+    // Bug 1.7 fix: Use absolute URL for the primary url field
+    const fileUrl = `/uploads/${file.filename}`;
+    const absoluteUrl = buildAbsoluteUploadUrl(fileUrl, origin);
+    const deliveryUrl = await maybeTransformPublicImageUrl(absoluteUrl, file.mimetype);
+
+    ResponseBuilder.send(res, 201, ResponseBuilder.created({
+        url: deliveryUrl,
+        absoluteUrl: deliveryUrl,
+        originalUrl: absoluteUrl,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        size: file.size,
+        visibility: 'public'
+    }, 'File uploaded successfully.'));
+}
+
 /* ─────── UPLOAD MEDIA ─────── */
 /**
  * POST /api/admin/media/upload
@@ -152,7 +311,7 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
         }
 
         if (!isAllowedUpload(req.file)) {
-            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Unsupported file type: ${req.file.mimetype}'));
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Unsupported file type: ${req.file.mimetype}`));
             return;
         }
 
@@ -167,143 +326,23 @@ export async function uploadMedia(req: AuthRequest, res: Response): Promise<void
             .map((role) => role.trim().toLowerCase())
             .filter(Boolean);
 
-        // Bug 1.9 fix: Convert HEIC/HEIF to JPEG
-        const fileExt = path.extname(req.file.originalname || '').toLowerCase();
-        if (fileExt === '.heic' || fileExt === '.heif') {
-            try {
-                const jpegFilename = req.file.filename.replace(/\.(heic|heif)$/i, '.jpg');
-                const jpegPath = path.join(uploadDir, jpegFilename);
-                await sharp(req.file.path).jpeg({ quality: 85 }).toFile(jpegPath);
-                // Delete original HEIC file
-                fs.unlink(req.file.path, () => { /* ignore */ });
-                // Update req.file to point to the converted JPEG
-                req.file.path = jpegPath;
-                req.file.filename = jpegFilename;
-                req.file.mimetype = 'image/jpeg';
-                req.file.size = (await fs.promises.stat(jpegPath)).size;
-            } catch (heicErr) {
-                console.warn('[uploadMedia] HEIC/HEIF conversion failed, using original file:', heicErr instanceof Error ? heicErr.message : heicErr);
-            }
-        }
+        await convertHeicToJpegIfNeeded(req.file);
+        await compressLargeImageIfNeeded(req.file);
 
-        // Bug 1.8 fix: Compress images exceeding 5MB
-        const FIVE_MB = 5 * 1024 * 1024;
-        if (req.file.mimetype.startsWith('image/') && req.file.size > FIVE_MB) {
-            try {
-                const originalFilename = req.file.filename.replace(/(\.[^.]+)$/, '-original$1');
-                const originalPath = path.join(uploadDir, originalFilename);
-                // Rename current file to -original
-                await fs.promises.rename(req.file.path, originalPath);
-                // Compress to the original filename
-                const compressedPath = path.join(uploadDir, req.file.filename);
-                await sharp(originalPath)
-                    .resize({ width: 2048, withoutEnlargement: true })
-                    .jpeg({ quality: 80 })
-                    .toFile(compressedPath);
-                // Update req.file to point to compressed version
-                req.file.path = compressedPath;
-                req.file.mimetype = 'image/jpeg';
-                req.file.size = (await fs.promises.stat(compressedPath)).size;
-            } catch (compressErr) {
-                console.warn('[uploadMedia] Image compression failed, using original file:', compressErr instanceof Error ? compressErr.message : compressErr);
-                // If compression failed and original was renamed, try to restore
-                const originalFilename = req.file.filename.replace(/(\.[^.]+)$/, '-original$1');
-                const originalPath = path.join(uploadDir, originalFilename);
-                if (fs.existsSync(originalPath) && !fs.existsSync(req.file.path)) {
-                    await fs.promises.rename(originalPath, req.file.path);
-                }
-            }
-        }
-
-        const firebaseBucket = getFirebaseStorageBucket();
-        if (firebaseBucket && requestedVisibility !== 'protected') {
-            try {
-                const ext = path.extname(req.file.originalname || '').toLowerCase() || path.extname(req.file.filename || '');
-                const safeExt = ext && ext.length <= 10 ? ext : '';
-                const objectKey = `media/${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExt}`;
-                const fileRef = firebaseBucket.file(objectKey);
-                await fileRef.save(fs.readFileSync(req.file.path), {
-                    metadata: {
-                        contentType: req.file.mimetype,
-                    },
-                    resumable: false,
-                    public: true,
-                });
-
-                const publicUrl = `https://storage.googleapis.com/${firebaseBucket.name}/${objectKey}`;
-                const deliveryUrl = await maybeTransformPublicImageUrl(publicUrl, req.file.mimetype);
-                fs.unlink(req.file.path, () => { /* ignore */ });
-                ResponseBuilder.send(res, 201, ResponseBuilder.created({
-                    url: deliveryUrl,
-                    absoluteUrl: deliveryUrl,
-                    originalUrl: publicUrl,
-                    filename: objectKey,
-                    mimetype: req.file.mimetype,
-                    size: req.file.size,
-                    provider: 'firebase'
-                }, 'File uploaded successfully.'));
-                return;
-            } catch (firebaseErr) {
-                const fallbackUrl = `/uploads/${req.file.filename}`;
-                const absoluteFallbackUrl = buildAbsoluteUploadUrl(fallbackUrl, origin);
-                console.warn('[uploadMedia] Firebase upload failed, falling back to local storage.', {
-                    error: firebaseErr instanceof Error ? firebaseErr.message : String(firebaseErr),
-                    stack: firebaseErr instanceof Error ? firebaseErr.stack : undefined,
-                    fallbackUrl: absoluteFallbackUrl,
-                });
-                // Fall through to local storage
-            }
+        if (requestedVisibility !== 'protected') {
+            const firebaseSuccess = await attemptFirebaseUpload(req.file, origin, res);
+            if (firebaseSuccess) return;
         }
 
         if (requestedVisibility === 'protected') {
-            const secureUpload = await registerSecureUpload({
-                file: req.file,
-                category: requestedCategory as Parameters<typeof registerSecureUpload>[0]['category'],
-                visibility: 'protected',
-                ownerUserId: req.user?._id || null,
-                ownerRole: req.user?.role || null,
-                uploadedBy: req.user?._id || null,
-                accessRoles,
-            });
-            const url = buildSecureUploadUrl(secureUpload.storedName);
-            ResponseBuilder.send(res, 201, ResponseBuilder.created({
-                url,
-                absoluteUrl: `${origin}${url}`,
-                filename: secureUpload.storedName,
-                mimetype: secureUpload.mimeType,
-                size: secureUpload.sizeBytes,
-                visibility: secureUpload.visibility
-            }, 'File uploaded successfully.'));
+            await performSecureUpload(req, res, requestedCategory, accessRoles, origin);
             return;
         }
 
-        // Runtime check: ensure upload directory exists before local storage write
-        try {
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-        } catch {
-            // Fallback: directory may not be writable in containerised envs
-        }
-
-        // Construct the public URL for the uploaded file
-        // Bug 1.7 fix: Use absolute URL for the primary url field
-        const fileUrl = `/uploads/${req.file.filename}`;
-        const absoluteUrl = buildAbsoluteUploadUrl(fileUrl, origin);
-        const deliveryUrl = await maybeTransformPublicImageUrl(absoluteUrl, req.file.mimetype);
-
-        ResponseBuilder.send(res, 201, ResponseBuilder.created({
-            url: deliveryUrl,
-            absoluteUrl: deliveryUrl,
-            originalUrl: absoluteUrl,
-            filename: req.file.filename,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-            visibility: 'public'
-        }, 'File uploaded successfully.'));
+        await performLocalUpload(req.file, origin, res);
     } catch (err) {
         console.error('[uploadMedia]', err);
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during file upload: ${errorMessage}'));
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', `Server error during file upload: ${errorMessage}`));
     }
 }
