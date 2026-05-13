@@ -12,7 +12,7 @@ import TeamInvite from '../models/TeamInvite';
 import ActiveSession from '../models/ActiveSession';
 import AuditLog from '../models/AuditLog';
 import LoginActivity from '../models/LoginActivity';
-import type { AuthRequest } from '../middlewares/auth';
+import type { AuthRequest } from '../middleware/auth';
 import { DEFAULT_TEAM_ROLES, TEAM_ACTIONS, TEAM_MODULES } from '../teamAccess/defaults';
 import { issueSecurityToken } from '../services/securityTokenService';
 import { sendCampusMail } from '../utils/mailer';

@@ -4,8 +4,8 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import XLSX from 'xlsx';
 
-import { authenticate, requireRole, requirePermission } from '../middlewares/auth';
-import { requireSensitiveAction, trackSensitiveExport } from '../middlewares/sensitiveAction';
+import { authenticate, requireRole, requirePermission } from '../middleware/auth';
+import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
 import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
 import UserSubscription from '../models/UserSubscription';

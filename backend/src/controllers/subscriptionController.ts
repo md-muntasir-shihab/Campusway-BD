@@ -7,7 +7,7 @@ import UserSubscription from '../models/UserSubscription';
 import ManualPayment from '../models/ManualPayment';
 import WebsiteSettings from '../models/WebsiteSettings';
 import SubscriptionSettings from '../models/SubscriptionSettings';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ensureHomeSettings } from '../services/homeSettingsService';
 import {
     assignSubscriptionLifecycle,

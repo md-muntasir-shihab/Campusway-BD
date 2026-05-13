@@ -6,12 +6,12 @@ import NotificationSettings, {
     ADVANCED_SETTINGS_DEFAULTS,
 } from '../models/NotificationSettings';
 import SettingsAuditEntry from '../models/SettingsAuditEntry';
-import { validateSettingsBody } from '../middlewares/settingsValidator';
+import { validateSettingsBody } from '../middleware/settingsValidator';
 import {
     settingsRbac,
     detectModifiedSections,
     SETTINGS_PERMISSION_MATRIX,
-} from '../middlewares/settingsRbac';
+} from '../middleware/settingsRbac';
 import {
     log as auditLog,
     getHistory,

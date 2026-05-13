@@ -6,7 +6,7 @@ import NotificationJob from '../models/NotificationJob';
 import NotificationDeliveryLog from '../models/NotificationDeliveryLog';
 import Notification from '../models/Notification';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import { sendNotificationToStudent } from '../services/notificationProviderService';
 import { encrypt } from '../services/cryptoService';

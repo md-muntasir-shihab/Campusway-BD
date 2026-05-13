@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getJobHealthWindow, getRecentJobRuns } from '../services/jobRunLogService';
 import { ResponseBuilder } from '../utils/responseBuilder';
 

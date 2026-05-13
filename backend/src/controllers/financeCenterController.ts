@@ -11,7 +11,7 @@ import FinanceVendor from '../models/FinanceVendor';
 import ChartOfAccounts from '../models/ChartOfAccounts';
 import FinanceRefund from '../models/FinanceRefund';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import {
     nextTxnCode,

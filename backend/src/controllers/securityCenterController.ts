@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import type { AntiCheatPolicy } from '../types/antiCheat';
 import {
     SecuritySettingsUpdateInput,

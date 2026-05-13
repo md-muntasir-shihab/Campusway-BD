@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import AuditLog from '../models/AuditLog';
 import SiteSettings from '../models/Settings';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import {
     RuntimeFeatureFlags,
     getDefaultRuntimeFeatureFlags,

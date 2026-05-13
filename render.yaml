@@ -45,7 +45,7 @@ services:
       - key: UPSTASH_REDIS_REST_TOKEN
         sync: false # Set this in the Render dashboard manually for security!
       - key: ALLOW_DEFAULT_SETUP
-        value: "true"
+        value: "false"
       - key: ADMIN_SECRET_PATH
         value: campusway-secure-admin
 

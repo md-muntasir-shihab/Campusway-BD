@@ -35,6 +35,10 @@ export type ExamCenterLocation = {
     address: string;
     code?: string;
     note?: string;
+    capacity: number;
+    seatingLayout?: string;
+    supportedExams: string[];
+    universityRef?: string | null;
     isActive: boolean;
     createdAt?: string;
     updatedAt?: string;

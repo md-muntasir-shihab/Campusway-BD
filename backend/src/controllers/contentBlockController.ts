@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import ContentBlock from '../models/ContentBlock';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import { ResponseBuilder } from '../utils/responseBuilder';
 

@@ -72,9 +72,9 @@ import {
     verifyExamCertificate,
 } from '../controllers/examController';
 import { getQbankPicker, incrementQbankUsage } from '../controllers/questionBankController';
-import { authenticate, optionalAuthenticate, requireAuthStudent } from '../middlewares/auth';
-import { enforceRegistrationPolicy } from '../middlewares/securityGuards';
-import { adminLoginRateLimiter, examStartRateLimiter, examSubmitRateLimiter, loginRateLimiter, subscriptionActionRateLimiter, uploadRateLimiter } from '../middlewares/securityRateLimit';
+import { authenticate, optionalAuthenticate, requireAuthStudent } from '../middleware/auth';
+import { enforceRegistrationPolicy } from '../middleware/securityGuards';
+import { adminLoginRateLimiter, examStartRateLimiter, examSubmitRateLimiter, loginRateLimiter, subscriptionActionRateLimiter, uploadRateLimiter } from '../middleware/securityRateLimit';
 import { getProfile, getProfileDashboard, updateProfile } from '../controllers/profileController';
 import { getServices, getServiceDetails } from '../controllers/serviceController';
 import { getCategories as getServiceCategories } from '../controllers/serviceCategoryController';
@@ -120,7 +120,7 @@ import {
     getStudentMeResults,
     markStudentNotificationsRead,
 } from '../controllers/studentHubController';
-import { contactRateLimiter, otpVerificationLimit } from '../middlewares/securityRateLimit';
+import { contactRateLimiter, otpVerificationLimit } from '../middleware/securityRateLimit';
 import { uploadMedia, uploadMiddleware } from '../controllers/mediaController';
 import { validateBody } from '../validators/validateBody';
 import { loginSchema, registerSchema, passwordResetSchema } from '../validators/authSchemas';
@@ -147,8 +147,8 @@ import {
 import { getPublicSystemStatus } from '../controllers/securityAlertController';
 import { getPublicLegalPage } from '../controllers/legalPageController';
 import { getPublicFounder } from '../controllers/founderController';
-import { requireAppCheck } from '../middlewares/appCheck';
-import { csrfProtection } from '../middlewares/csrfGuard';
+import { requireAppCheck } from '../middleware/appCheck';
+import { csrfProtection } from '../middleware/csrfGuard';
 
 const router = Router();
 const examAccessMiddlewares = [authenticate, requireAuthStudent] as const;

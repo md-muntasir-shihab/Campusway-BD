@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import Banner from '../models/Banner';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getSignedUploadForBanner } from '../services/uploadProvider';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { ResponseBuilder } from '../utils/responseBuilder';

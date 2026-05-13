@@ -34,7 +34,7 @@ import {
     updateConfig,
     testIntegration,
 } from '../services/integrations/integrationsService';
-import { authenticate, authorize } from '../middlewares/auth';
+import { authenticate, authorize } from '../middleware/auth';
 import type { IntegrationKey } from '../models/IntegrationConfig';
 
 /**

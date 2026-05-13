@@ -57,6 +57,12 @@ const DEFAULT_FORM: ExamFormData = {
 
 const DEFAULT_MARKS_PER_QUESTION = 1;
 
+function getMutationErrorMessage(error: unknown, fallback: string): string {
+    const responseMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    const directMessage = (error as { message?: string })?.message;
+    return String(responseMessage || directMessage || fallback);
+}
+
 /**
  * Outer wrapper — provides the QuestionSelectorProvider so the inner form
  * component can read/write the selector state via useQuestionSelector().
@@ -243,7 +249,7 @@ function ExamFormInner() {
             qc.invalidateQueries({ queryKey: ['admin-exams'] });
             navigate(-1);
         },
-        onError: () => toast.error('Failed to create exam'),
+        onError: (error) => toast.error(getMutationErrorMessage(error, 'Failed to create exam')),
     });
 
     const updateMutation = useMutation({
@@ -267,7 +273,7 @@ function ExamFormInner() {
             qc.invalidateQueries({ queryKey: ['admin-exams'] });
             navigate(-1);
         },
-        onError: () => toast.error('Failed to update exam'),
+        onError: (error) => toast.error(getMutationErrorMessage(error, 'Failed to update exam')),
     });
 
     const saving = createMutation.isPending || updateMutation.isPending;

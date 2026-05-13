@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 import * as QuestionHierarchyService from '../services/QuestionHierarchyService';
 import type { HierarchyLevel } from '../services/QuestionHierarchyService';

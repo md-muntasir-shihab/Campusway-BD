@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import type { AuthRequest } from '../middlewares/auth';
+import type { AuthRequest } from '../middleware/auth';
 import SubscriptionPlan from '../models/SubscriptionPlan';
 import University from '../models/University';
 import UniversityCategory from '../models/UniversityCategory';
@@ -700,6 +700,11 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
         ]);
 
         const defaults = getHomeSettingsDefaults();
+        if (!homeSettingsDoc) {
+            console.error('homeSettingsDoc is null after ensureHomeSettings');
+            ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to load home settings'));
+            return;
+        }
         const homeSettings = mergeHomeSettings(
             defaults,
             homeSettingsDoc.toObject()
@@ -1057,7 +1062,12 @@ export const getAggregatedHomeData = async (req: AuthRequest, res: Response): Pr
                     .sort((a, b) => a.order - b.order)
                     .slice(0, maxFeatured);
                 manualFeaturedUniversityIds = new Set(manualEntries.map((item) => item.universityId));
-                featuredItems = manualEntries.map((item) => mapUniversityPreviewItem(universityById.get(item.universityId)!));
+                featuredItems = manualEntries
+                    .map((item) => {
+                        const uni = universityById.get(item.universityId);
+                        return uni ? mapUniversityPreviewItem(uni) : null;
+                    })
+                    .filter((item): item is NonNullable<typeof item> => item !== null);
             } else {
                 const featuredSlugs = uniSettingsDoc?.featuredUniversitySlugs as string[] | undefined;
                 featuredItems = Array.isArray(featuredSlugs)

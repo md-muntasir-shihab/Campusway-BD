@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import type { AuthRequest } from "../middlewares/auth";
+import type { AuthRequest } from "../middleware/auth";
 import PDFDocument from "pdfkit";
 import Exam from "../models/Exam";
 import Question from "../models/Question";

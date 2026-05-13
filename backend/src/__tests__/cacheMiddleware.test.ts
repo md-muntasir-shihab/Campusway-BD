@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
-import { cacheMiddleware, invalidateCache } from '../middlewares/cacheMiddleware';
+import { cacheMiddleware, invalidateCache } from '../middleware/cacheMiddleware';
 
 // ---------------------------------------------------------------------------
 // Mock cacheService

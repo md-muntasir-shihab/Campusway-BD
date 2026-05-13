@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest';
 import fc from 'fast-check';
-import { generateCspNonce } from '../middlewares/cspNonce';
-import { generateCsrfToken } from '../middlewares/csrfGuard';
+import { generateCspNonce } from '../middleware/cspNonce';
+import { generateCsrfToken } from '../middleware/csrfGuard';
 
 /**
  * Property 8: Cryptographic Token Generation Uniqueness

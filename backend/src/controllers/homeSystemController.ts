@@ -163,7 +163,16 @@ export const getHomeStream = async (_req: Request, res: Response): Promise<void>
 
 export const getSettings = async (req: Request, res: Response) => {
     try {
-        const { settings } = await ensureConfigs();
+        const configs = await ensureConfigs();
+        if (!configs.settings) {
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
+                siteName: '', logoUrl: '', staticPages: [],
+                socialLinks: { facebook: '', whatsapp: '', messenger: '', telegram: '', twitter: '', youtube: '', instagram: '' },
+                socialLinksList: [],
+            }));
+            return;
+        }
+        const { settings } = configs;
         const siteSettings = await SiteSettings.findOne().lean();
 
         const socialLinksList = Array.isArray(siteSettings?.socialLinks)

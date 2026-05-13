@@ -1,5 +1,5 @@
 import { Response as ExpressResponse } from 'express';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { requestOtp, verifyOtp, RequestOtpInput, VerifyOtpInput } from '../services/otpService';
 import OtpVerification from '../models/OtpVerification';
 import mongoose from 'mongoose';

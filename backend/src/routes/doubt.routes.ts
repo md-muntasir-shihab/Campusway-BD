@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth';
+import { authenticate } from '../middleware/auth';
 import { validateBody } from '../validators/validateBody';
 import {
     doubtCreateSchema,

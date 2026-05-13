@@ -2,7 +2,7 @@ import { Response } from 'express';
 import mongoose from 'mongoose';
 import { createStudentNotification } from '../services/adminAlertService';
 import { addSystemTimelineEvent } from '../services/studentTimelineService';
-import type { AuthRequest } from '../middlewares/auth';
+import type { AuthRequest } from '../middleware/auth';
 import { createCommunicationAuditEntry } from '../services/communicationCoreService';
 import { canUseSupport as getCanonicalSupportEligibility } from '../services/subscriptionAccessService';
 import {

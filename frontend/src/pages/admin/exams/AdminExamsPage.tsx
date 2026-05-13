@@ -75,6 +75,7 @@ import {
     type ExamCenterSettings,
     type ExamImportPreviewResponse,
     type ExamCenterSyncMode,
+    type ExamCenterLocation,
 } from '../../../api/adminExamCenterApi';
 import { getStudentGroups } from '../../../api/adminStudentApi';
 import {
@@ -121,6 +122,10 @@ type ExamCenterFormState = {
     address: string;
     code: string;
     note: string;
+    capacity: number;
+    seatingLayout: string;
+    supportedExams: string[];
+    universityRef: string;
     isActive: boolean;
 };
 
@@ -318,6 +323,10 @@ const createDefaultExamCenterForm = (): ExamCenterFormState => ({
     address: '',
     code: '',
     note: '',
+    capacity: 0,
+    seatingLayout: '',
+    supportedExams: [],
+    universityRef: '',
     isActive: true,
 });
 
@@ -383,6 +392,12 @@ function parseJsonRecord(value: string, label: string): Record<string, string> {
     }
 }
 
+function getMutationErrorMessage(error: unknown, fallback: string): string {
+    const responseMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    const directMessage = (error as { message?: string })?.message;
+    return String(responseMessage || directMessage || fallback);
+}
+
 function normalizeCenterViewParam(value: string | null): ExamCenterView {
     const matched = EXAM_CENTER_VIEW_OPTIONS.find((item) => item.key === value);
     return matched?.key || 'all';
@@ -396,7 +411,7 @@ function _getExamCenterLabel(exam: Record<string, unknown>): string {
     const snapshot = exam.examCenterSnapshot && typeof exam.examCenterSnapshot === 'object'
         ? exam.examCenterSnapshot as Record<string, unknown>
         : null;
-    return String(snapshot?.name || exam.examCenterName || '').trim();
+    return String(snapshot?.name || '').trim();
 }
 
 const autoDetectExamCenterMapping = _autoDetectExamCenterMapping;
@@ -438,7 +453,7 @@ export function AdminExamsPage() {
     const [_importWizardTemplateId, _setImportWizardTemplateId] = useState('');
     const [_importWizardMappingProfileId, _setImportWizardMappingProfileId] = useState('');
     const [_importWizardMatchPriority, _setImportWizardMatchPriority] = useState(DEFAULT_MATCH_PRIORITY.join(', '));
-    const [_importWizardSyncMode, _setImportWizardSyncMode] = useState<Exclude<ExamCenterSyncMode, 'none'>>('overwrite_mapped_fields');
+    const [_importWizardSyncMode, _setImportWizardSyncMode] = useState<ExamCenterSyncMode>('overwrite_mapped_fields');
     const [importWizardPreview, setImportWizardPreview] = useState<ExamImportPreviewResponse | null>(null);
 
     const [_editingTemplateId, _setEditingTemplateId] = useState<string | null>(null);
@@ -586,12 +601,12 @@ export function AdminExamsPage() {
     const createMutation = useMutation({
         mutationFn: (data: Record<string, unknown>) => createAdminExam(data),
         onSuccess: () => { toast.success('Exam created'); qc.invalidateQueries({ queryKey: ['admin-exams'] }); setTab('list'); },
-        onError: () => toast.error('Failed to create exam'),
+        onError: (error) => toast.error(getMutationErrorMessage(error, 'Failed to create exam')),
     });
     const updateMutation = useMutation({
         mutationFn: (data: Record<string, unknown>) => updateAdminExam(selectedExamId, data),
         onSuccess: () => { toast.success('Exam updated'); qc.invalidateQueries({ queryKey: ['admin-exams'] }); setTab('list'); },
-        onError: () => toast.error('Failed to update exam'),
+        onError: (error) => toast.error(getMutationErrorMessage(error, 'Failed to update exam')),
     });
     const deleteMutation = useMutation({
         mutationFn: (id: string) => deleteAdminExam(id),
@@ -736,7 +751,7 @@ export function AdminExamsPage() {
         onError: () => toast.error('Failed to save exam center.'),
     });
     const _updateExamCenterMutation = useMutation({
-        mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) => updateExamCenter(id, payload),
+        mutationFn: ({ id, payload }: { id: string; payload: Partial<ExamCenterLocation> }) => updateExamCenter(id, payload),
         onSuccess: () => {
             toast.success('Exam center updated.');
             _setEditingCenterId(null);
@@ -1015,11 +1030,15 @@ export function AdminExamsPage() {
     };
 
     const submitExamCenterForm = () => {
-        const payload = {
+        const payload: Record<string, unknown> = {
             name: examCenterForm.name.trim(),
             address: examCenterForm.address.trim(),
-            code: examCenterForm.code.trim() || undefined,
-            note: examCenterForm.note.trim() || undefined,
+            code: examCenterForm.code,
+            note: examCenterForm.note,
+            capacity: examCenterForm.capacity,
+            seatingLayout: examCenterForm.seatingLayout,
+            supportedExams: examCenterForm.supportedExams.length > 0 ? examCenterForm.supportedExams : undefined,
+            universityRef: examCenterForm.universityRef,
             isActive: examCenterForm.isActive,
         };
         if (!payload.name || !payload.address) {
@@ -1626,6 +1645,16 @@ export function AdminExamsPage() {
                                     <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">Center Code</span>
                                     <input value={examCenterForm.code} onChange={(e) => setExamCenterForm((prev) => ({ ...prev, code: e.target.value }))} className="admin-input mt-1" />
                                 </label>
+                                <label className="block">
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">Capacity</span>
+                                    <input type="number" min="0" value={examCenterForm.capacity} onChange={(e) => setExamCenterForm((prev) => ({ ...prev, capacity: Number(e.target.value) }))} className="admin-input mt-1" />
+                                </label>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <label className="block">
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">Seating Layout</span>
+                                    <input value={examCenterForm.seatingLayout} onChange={(e) => setExamCenterForm((prev) => ({ ...prev, seatingLayout: e.target.value }))} className="admin-input mt-1" placeholder="e.g. 20 rows x 15 cols" />
+                                </label>
                                 <div className="self-end pb-1">
                                     <ModernToggle
                                         label="Center active"
@@ -1659,7 +1688,7 @@ export function AdminExamsPage() {
                                                 </span>
                                             </div>
                                             <p className="mt-1 text-sm text-text-muted">{center.address}</p>
-                                            <p className="mt-1 text-xs text-text-muted">{center.code ? `Code: ${center.code}` : 'No code'}{center.note ? ` · ${center.note}` : ''}</p>
+                                            <p className="mt-1 text-xs text-text-muted">{center.code ? `Code: ${center.code}` : 'No code'}{center.capacity ? ` · Capacity: ${center.capacity}` : ''}{center.note ? ` · ${center.note}` : ''}</p>
                                         </div>
                                         <div className="flex gap-1.5">
                                             <button type="button" onClick={() => {
@@ -1669,6 +1698,10 @@ export function AdminExamsPage() {
                                                     address: center.address,
                                                     code: center.code || '',
                                                     note: center.note || '',
+                                                    capacity: center.capacity || 0,
+                                                    seatingLayout: center.seatingLayout || '',
+                                                    supportedExams: center.supportedExams || [],
+                                                    universityRef: center.universityRef || '',
                                                     isActive: center.isActive,
                                                 });
                                             }} className="btn-ghost" title="Edit exam center"><Edit3 className="h-4 w-4" /></button>

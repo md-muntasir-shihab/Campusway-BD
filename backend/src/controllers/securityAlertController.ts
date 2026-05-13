@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import SecurityAlertLog from '../models/SecurityAlertLog';
 import SecuritySettings from '../models/SecuritySettings';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import { ResponseBuilder } from '../utils/responseBuilder';
 

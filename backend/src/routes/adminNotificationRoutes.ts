@@ -11,9 +11,9 @@
 
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { authenticate, authorize } from '../middlewares/auth';
-import { settingsValidator } from '../middlewares/settingsValidator';
-import { settingsRbac } from '../middlewares/settingsRbac';
+import { authenticate, authorize } from '../middleware/auth';
+import { settingsValidator } from '../middleware/settingsValidator';
+import { settingsRbac } from '../middleware/settingsRbac';
 import { settingsCacheService } from '../services/settingsCacheService';
 import { log as auditLog, getHistory as getAuditHistory, getVersionSnapshot } from '../services/settingsAuditLoggerService';
 import { simulate } from '../services/campaignEngineService';

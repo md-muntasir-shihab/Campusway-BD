@@ -1,8 +1,8 @@
 import { Router } from "express";
-import type { AuthRequest } from "../../middlewares/auth";
-import { requireAuth, requireAuthStudent } from "../../middlewares/auth";
-import { examAutoSaveLimit, examSessionStartLimit, examSubmitLimit } from "../../middlewares/examRateLimit";
-import { antiCheatSignalLimit } from "../../middlewares/securityRateLimit";
+import type { AuthRequest } from "../../middleware/auth";
+import { requireAuth, requireAuthStudent } from "../../middleware/auth";
+import { examAutoSaveLimit, examSessionStartLimit, examSubmitLimit } from "../../middleware/examRateLimit";
+import { antiCheatSignalLimit } from "../../middleware/securityRateLimit";
 import {
   getExamAttemptResult,
   getExamAttemptSolutions,

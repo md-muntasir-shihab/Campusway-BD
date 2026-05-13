@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import type { Response } from 'express';
-import type { AuthRequest } from '../middlewares/auth';
+import type { AuthRequest } from '../middleware/auth';
 
 /**
  * Property 2: Invoice detail endpoint returns correct document for valid IDs

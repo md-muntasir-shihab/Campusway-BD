@@ -8,12 +8,12 @@ import {
     adminGetPartners, adminCreatePartner, adminUpdatePartner, adminDeletePartner,
 } from '../controllers/testimonialPartnerController';
 import ExcelJS from 'exceljs';
-import { authenticate, authorize, authorizePermission, forbidden, requirePermission, requireRole } from '../middlewares/auth';
-import { enforceAdminPanelPolicy, enforceAdminReadOnlyMode } from '../middlewares/securityGuards';
-import { subscriptionActionRateLimiter, financeExportRateLimiter, financeImportRateLimiter } from '../middlewares/securityRateLimit';
-import { requireSensitiveAction, trackSensitiveExport } from '../middlewares/sensitiveAction';
-import { requireTwoPersonApproval } from '../middlewares/twoPersonApproval';
-import { csrfProtection } from '../middlewares/csrfGuard';
+import { authenticate, authorize, authorizePermission, forbidden, requirePermission, requireRole } from '../middleware/auth';
+import { enforceAdminPanelPolicy, enforceAdminReadOnlyMode } from '../middleware/securityGuards';
+import { subscriptionActionRateLimiter, financeExportRateLimiter, financeImportRateLimiter } from '../middleware/securityRateLimit';
+import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
+import { requireTwoPersonApproval } from '../middleware/twoPersonApproval';
+import { csrfProtection } from '../middleware/csrfGuard';
 import {
     adminGetExams,
     adminGetExamById,
@@ -432,7 +432,7 @@ import {
     fcGeneratePLReport,
     fcRestoreTransaction,
 } from '../controllers/financeCenterController';
-import { validate } from '../middlewares/validate';
+import { validate } from '../middleware/validate';
 import { validateBody } from '../validators/validateBody';
 import { antiCheatPolicySchema } from '../validators/adminSchemas';
 import {
@@ -921,12 +921,12 @@ router.get('/exam-mapping-profiles', requirePermission('exams', 'view'), adminGe
 router.post('/exam-mapping-profiles', requirePermission('exams', 'create'), adminCreateExamMappingProfile);
 router.put('/exam-mapping-profiles/:id', requirePermission('exams', 'edit'), adminUpdateExamMappingProfile);
 router.delete('/exam-mapping-profiles/:id', requirePermission('exams', 'delete'), requireDestructiveStepUp('exams', 'exam_mapping_profile_delete'), adminDeleteExamMappingProfile);
-router.get('/exam-centers', requirePermission('exams', 'view'), adminGetExamCenters);
-router.post('/exam-centers', requirePermission('exams', 'create'), adminCreateExamCenter);
-router.put('/exam-centers/:id', requirePermission('exams', 'edit'), adminUpdateExamCenter);
-router.delete('/exam-centers/:id', requirePermission('exams', 'delete'), requireDestructiveStepUp('exams', 'exam_center_delete'), adminDeleteExamCenter);
-router.get('/exam-center-settings', requirePermission('exams', 'view'), adminGetExamCenterSettings);
-router.put('/exam-center-settings', requirePermission('exams', 'edit'), adminUpdateExamCenterSettings);
+router.get('/exam-centers', requirePermission('exam_center', 'view'), adminGetExamCenters);
+router.post('/exam-centers', requirePermission('exam_center', 'create'), adminCreateExamCenter);
+router.put('/exam-centers/:id', requirePermission('exam_center', 'edit'), adminUpdateExamCenter);
+router.delete('/exam-centers/:id', requirePermission('exam_center', 'delete'), requireDestructiveStepUp('exam_center', 'exam_center_delete'), adminDeleteExamCenter);
+router.get('/exam-center-settings', requirePermission('exam_center', 'view'), adminGetExamCenterSettings);
+router.put('/exam-center-settings', requirePermission('exam_center', 'edit'), adminUpdateExamCenterSettings);
 
 /* ── Questions (per-exam) ── */
 router.get('/exams/:examId/questions', requirePermission('question_bank', 'view'), adminGetQuestions);

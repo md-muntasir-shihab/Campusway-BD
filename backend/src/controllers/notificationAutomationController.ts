@@ -1,6 +1,6 @@
-﻿import { Response } from 'express';
+import { Response } from 'express';
 import SiteSettings from '../models/Settings';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 function defaultSettings() {

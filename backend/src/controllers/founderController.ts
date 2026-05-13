@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import FounderProfile from '../models/FounderProfile';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ═══════════════════════════════════════════════════════════

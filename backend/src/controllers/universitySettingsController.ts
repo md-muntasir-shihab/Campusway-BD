@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import type { AuthRequest } from '../middlewares/auth';
+import type { AuthRequest } from '../middleware/auth';
 import UniversitySettingsModel, { getUniversitySettingsDefaults } from '../models/UniversitySettings';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { ResponseBuilder } from '../utils/responseBuilder';

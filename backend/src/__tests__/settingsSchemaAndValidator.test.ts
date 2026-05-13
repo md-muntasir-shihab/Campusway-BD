@@ -6,7 +6,7 @@ import {
 import {
     validateSettingsBody,
     type ValidationError,
-} from '../middlewares/settingsValidator';
+} from '../middleware/settingsValidator';
 
 // ─── Unit Tests: applyMigrationDefaults (Req 1.1, 1.2) ─────────────────────
 

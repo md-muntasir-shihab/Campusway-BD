@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import HomeAlert from '../models/HomeAlert';
 import LiveAlertAck from '../models/LiveAlertAck';
 import StudentProfile from '../models/StudentProfile';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 type AlertTarget = {

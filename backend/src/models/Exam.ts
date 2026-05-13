@@ -79,6 +79,11 @@ export interface IExam extends Document {
         address?: string;
         code?: string;
         note?: string;
+        capacity?: number;
+        seatingLayout?: string;
+        supportedExams?: string[];
+        isActive?: boolean;
+        universityRef?: string | null;
     };
     templateId?: mongoose.Types.ObjectId | null;
     importProfileId?: mongoose.Types.ObjectId | null;
@@ -261,6 +266,11 @@ const ExamSchema = new Schema<IExam>({
         address: { type: String, default: '' },
         code: { type: String, default: '' },
         note: { type: String, default: '' },
+        capacity: { type: Number, default: 0 },
+        seatingLayout: { type: String, default: '' },
+        supportedExams: [{ type: String, default: '' }],
+        isActive: { type: Boolean, default: true },
+        universityRef: { type: String, default: null },
     },
     templateId: { type: Schema.Types.ObjectId, ref: 'ExamImportTemplate', default: null },
     importProfileId: { type: Schema.Types.ObjectId, ref: 'ExamMappingProfile', default: null },

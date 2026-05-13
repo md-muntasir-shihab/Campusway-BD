@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import {
     archiveContactMessage,
     createContactMessage,

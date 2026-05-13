@@ -4,7 +4,7 @@ import AnnouncementNotice from '../models/AnnouncementNotice';
 import AuditLog from '../models/AuditLog';
 import Notification from '../models/Notification';
 import StudentProfile from '../models/StudentProfile';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { getClientIp } from '../utils/requestMeta';
 import { ResponseBuilder } from '../utils/responseBuilder';

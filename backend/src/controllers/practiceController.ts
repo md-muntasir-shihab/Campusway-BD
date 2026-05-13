@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import Question from '../models/Question';
 import QuestionGroup from '../models/QuestionGroup';
 import QuestionCategory from '../models/QuestionCategory';

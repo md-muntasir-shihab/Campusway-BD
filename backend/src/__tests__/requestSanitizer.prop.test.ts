@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { sanitizeObject, sanitizeStringValue } from '../middlewares/requestSanitizer';
+import { sanitizeObject, sanitizeStringValue } from '../middleware/requestSanitizer';
 
 /**
  * Property 9: Request Sanitization Safety

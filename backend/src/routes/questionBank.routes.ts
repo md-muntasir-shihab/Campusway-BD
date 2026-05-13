@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { authenticate, requirePermission } from '../middlewares/auth';
+import { authenticate, requirePermission } from '../middleware/auth';
 import { validateBody } from '../validators/validateBody';
-import { validateQuery } from '../middlewares/validate';
+import { validateQuery } from '../middleware/validate';
 import {
     createQuestionSchema,
     updateQuestionSchema,

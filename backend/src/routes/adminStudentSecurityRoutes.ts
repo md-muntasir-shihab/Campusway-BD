@@ -11,7 +11,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticate, authorize } from '../middlewares/auth';
+import { authenticate, authorize } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import {
     adminSetPassword,

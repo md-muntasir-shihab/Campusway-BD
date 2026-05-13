@@ -2,7 +2,7 @@ import { Response } from 'express';
 import mongoose from 'mongoose';
 import StudentContactTimeline from '../models/StudentContactTimeline';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import { addSystemTimelineEvent } from '../services/studentTimelineService';
 import { ResponseBuilder } from '../utils/responseBuilder';

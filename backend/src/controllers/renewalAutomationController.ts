@@ -4,7 +4,7 @@ import SubscriptionPlan from '../models/SubscriptionPlan';
 import UserSubscription from '../models/UserSubscription';
 import SubscriptionAutomationLog from '../models/SubscriptionAutomationLog';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { syncUserSubscriptionCache } from '../services/subscriptionLifecycleService';
 import { getClientIp } from '../utils/requestMeta';
 import { ResponseBuilder } from '../utils/responseBuilder';

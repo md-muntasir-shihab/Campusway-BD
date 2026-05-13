@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { approveApproval, getPendingApprovals, rejectApproval } from '../services/actionApprovalService';
 import { ResponseBuilder } from '../utils/responseBuilder';
 

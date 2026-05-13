@@ -18,7 +18,7 @@ import ExamResult from '../models/ExamResult';
 import ProfileUpdateRequest from '../models/ProfileUpdateRequest';
 import ManualPayment from '../models/ManualPayment';
 import StudentDueLedger from '../models/StudentDueLedger';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import { sendCampusMail } from '../utils/mailer';
 import { resolvePermissions } from '../utils/permissions';

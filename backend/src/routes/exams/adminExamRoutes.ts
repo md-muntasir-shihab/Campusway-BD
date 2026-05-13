@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { Parser as CsvParser } from "json2csv";
 import ExcelJS from "exceljs";
-import { requireAuth, requireRole } from "../../middlewares/auth";
-import { requireSensitiveAction, trackSensitiveExport } from "../../middlewares/sensitiveAction";
+import { requireAuth, requireRole } from "../../middleware/auth";
+import { requireSensitiveAction, trackSensitiveExport } from "../../middleware/sensitiveAction";
 import Exam from "../../models/Exam";
 import { ExamQuestionModel } from "../../models/examQuestion.model";
 import ExamSession from "../../models/ExamSession";

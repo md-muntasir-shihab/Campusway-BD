@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { sanitizeObject } from '../middlewares/requestSanitizer';
+import { sanitizeObject } from '../middleware/requestSanitizer';
 
 /**
  * Feature: exam-question-bank, Property 21: NoSQL injection sanitization

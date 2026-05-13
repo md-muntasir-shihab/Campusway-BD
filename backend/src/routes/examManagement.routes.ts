@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, requirePermission } from '../middlewares/auth';
+import { authenticate, requirePermission } from '../middleware/auth';
 import { validateBody } from '../validators/validateBody';
 import {
     examInfoSchema,

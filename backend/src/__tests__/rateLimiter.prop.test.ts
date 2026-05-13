@@ -3,7 +3,7 @@ import fc from 'fast-check';
 import {
     _consumeForTesting as consume,
     _bucketsForTesting as buckets,
-} from '../middlewares/securityRateLimit';
+} from '../middleware/securityRateLimit';
 
 /**
  * Property 10: Rate Limiter Bucket Consistency

@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import mongoose from 'mongoose';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import Exam from '../models/Exam';
 import Question from '../models/Question';
 import { ExamQuestionModel } from '../models/examQuestion.model';
@@ -17,7 +17,7 @@ import ExternalExamJoinLog from '../models/ExternalExamJoinLog';
 import AnnouncementNotice from '../models/AnnouncementNotice';
 import Notification from '../models/Notification';
 import AuditLog from '../models/AuditLog';
-import { getSensitiveActionContext } from '../middlewares/sensitiveAction';
+import { getSensitiveActionContext } from '../middleware/sensitiveAction';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { submitExamAsSystem } from './examController';
 import { broadcastExamAttemptEventByMeta } from '../realtime/examAttemptStream';
@@ -207,6 +207,23 @@ function normalizeExamPayload(body: Record<string, unknown>): Record<string, unk
     return payload;
 }
 
+function applyDraftScheduleDefaults(payload: Record<string, unknown>): Record<string, unknown> {
+    const nextPayload: Record<string, unknown> = { ...payload };
+    const currentStart = parseLooseDate(nextPayload.startDate);
+    const currentEnd = parseLooseDate(nextPayload.endDate);
+    const currentResultPublish = parseLooseDate(nextPayload.resultPublishDate);
+
+    const startDate = currentStart || new Date();
+    const endDate = currentEnd || new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const resultPublishDate = currentResultPublish || endDate;
+
+    nextPayload.startDate = startDate.toISOString();
+    nextPayload.endDate = endDate.toISOString();
+    nextPayload.resultPublishDate = resultPublishDate.toISOString();
+
+    return nextPayload;
+}
+
 function asObjectId(value: unknown): mongoose.Types.ObjectId | null {
     const raw = String(value || '').trim();
     if (!raw || !mongoose.Types.ObjectId.isValid(raw)) return null;
@@ -238,6 +255,34 @@ function parseNumeric(value: unknown): number | null {
     if (value === null || value === undefined || value === '') return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveExamWriteError(error: unknown): {
+    status: number;
+    code: 'VALIDATION_ERROR' | 'SERVER_ERROR';
+    message: string;
+} {
+    const message = error instanceof Error ? error.message : 'Server error';
+    const normalized = message.toLowerCase();
+    const isValidationError = error instanceof mongoose.Error.ValidationError
+        || normalized.includes('validation')
+        || normalized.includes('externalexamurl')
+        || normalized.includes('must start with http:// or https://')
+        || normalized.includes('must be a valid url');
+
+    if (isValidationError) {
+        return {
+            status: 400,
+            code: 'VALIDATION_ERROR',
+            message,
+        };
+    }
+
+    return {
+        status: 500,
+        code: 'SERVER_ERROR',
+        message: 'Server error',
+    };
 }
 
 function normalizeImportKey(value: unknown): string {
@@ -790,7 +835,7 @@ export async function adminGetExamById(req: AuthRequest, res: Response): Promise
 
 export async function adminCreateExam(req: AuthRequest, res: Response): Promise<void> {
     try {
-        const payload = normalizeExamPayload(req.body as Record<string, unknown>);
+        const payload = applyDraftScheduleDefaults(normalizeExamPayload(req.body as Record<string, unknown>));
 
         const validation = validateExamPayload(payload);
         if (!validation.valid) {
@@ -807,7 +852,8 @@ export async function adminCreateExam(req: AuthRequest, res: Response): Promise<
         ResponseBuilder.send(res, 201, ResponseBuilder.created({ exam }, 'Exam created successfully.'));
     } catch (err) {
         console.error('[adminCreateExam]', err);
-        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
+        const resolved = resolveExamWriteError(err);
+        ResponseBuilder.send(res, resolved.status, ResponseBuilder.error(resolved.code, resolved.message));
     }
 }
 
@@ -859,7 +905,8 @@ export async function adminUpdateExam(req: AuthRequest, res: Response): Promise<
         ResponseBuilder.send(res, 200, ResponseBuilder.success({ exam }, 'Exam updated successfully.'));
     } catch (err) {
         console.error('[adminUpdateExam]', err);
-        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
+        const resolved = resolveExamWriteError(err);
+        ResponseBuilder.send(res, resolved.status, ResponseBuilder.error(resolved.code, resolved.message));
     }
 }
 

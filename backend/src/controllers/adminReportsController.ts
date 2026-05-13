@@ -1,4 +1,4 @@
-﻿import { Response } from 'express';
+import { Response } from 'express';
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
 import User from '../models/User';
@@ -10,7 +10,7 @@ import SupportTicket from '../models/SupportTicket';
 import Resource from '../models/Resource';
 import EventLog from '../models/EventLog';
 import Question from '../models/Question';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 function parseDateRange(query: Record<string, unknown>, defaultDays = 30): { from: Date; to: Date } {

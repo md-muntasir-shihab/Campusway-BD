@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import ActiveSession from '../models/ActiveSession';
 import LoginActivity from '../models/LoginActivity';
 import AuditLog from '../models/AuditLog';

@@ -21,7 +21,14 @@ export default defineConfig({
         {
             name: 'chromium-desktop',
             use: { ...devices['Desktop Chrome'] },
-            testMatch: /admin-all-modules\.spec\.ts/,
+        },
+        {
+            name: 'firefox-desktop',
+            use: { ...devices['Desktop Firefox'] },
+        },
+        {
+            name: 'webkit-desktop',
+            use: { ...devices['Desktop Safari'] },
         },
     ],
 });

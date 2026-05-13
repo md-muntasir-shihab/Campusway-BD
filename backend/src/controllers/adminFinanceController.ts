@@ -10,7 +10,7 @@ import StudentDueLedger from '../models/StudentDueLedger';
 import StudentProfile from '../models/StudentProfile';
 import User from '../models/User';
 import SubscriptionPlan from '../models/SubscriptionPlan';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { addFinanceStreamClient, broadcastFinanceEvent } from '../realtime/financeStream';
 import { getRuntimeSettingsSnapshot } from '../services/runtimeSettingsService';
 import { ensureSecureUploadUrl } from '../services/secureUploadService';

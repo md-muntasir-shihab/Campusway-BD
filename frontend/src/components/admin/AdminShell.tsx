@@ -40,6 +40,16 @@ export default function AdminShell({ title, description, children }: AdminShellP
     const { hasAnyAccess } = useModuleAccess();
     const location = useLocation();
     const navigate = useNavigate();
+    useEffect(() => {
+        if (!user) {
+            navigate('/__cw_admin__/login');
+            return;
+        }
+        if (user.role && !['superadmin','admin','moderator','editor','viewer','support_agent','finance_agent'].includes(user.role)) {
+            navigate('/', { replace: true });
+        }
+    }, [user, navigate]);
+
     const canReadActionableAlerts = ACTIONABLE_ALERT_ROLES.has(String(user?.role || '').toLowerCase());
 
     const alertsQuery = useQuery({

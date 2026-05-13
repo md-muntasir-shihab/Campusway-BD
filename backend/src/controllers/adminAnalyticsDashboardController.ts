@@ -10,7 +10,7 @@
 
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 import QuestionBankQuestion from '../models/QuestionBankQuestion';
 import Exam from '../models/Exam';

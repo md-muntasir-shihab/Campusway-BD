@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import type { Response, NextFunction } from 'express';
-import type { AuthRequest } from '../middlewares/auth';
-import { requirePermission } from '../middlewares/auth';
+import type { AuthRequest } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth';
 import { ROLE_PERMISSION_MATRIX, hasRolePermission } from '../security/permissionsMatrix';
 import type { UserRole } from '../models/User';
 

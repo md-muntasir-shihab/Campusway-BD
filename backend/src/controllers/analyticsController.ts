@@ -1,9 +1,9 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
 import EventLog from '../models/EventLog';
 import SiteSettings from '../models/Settings';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 const EVENT_TO_TOGGLE: Record<string, keyof ReturnType<typeof defaultAnalyticsSettings>['eventToggles']> = {

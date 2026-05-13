@@ -31,7 +31,7 @@ vi.mock('../utils/requestMeta', () => ({
     getClientIp: vi.fn(() => '127.0.0.1'),
 }));
 
-import { requireAppCheck } from '../middlewares/appCheck';
+import { requireAppCheck } from '../middleware/appCheck';
 import { isFirebaseAdminEnabled, getFirebaseAppCheckService } from '../config/firebaseAdmin';
 
 function mockReq(overrides: Record<string, any> = {}): Request {

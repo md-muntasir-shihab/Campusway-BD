@@ -314,6 +314,16 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
         matchPrefixes: [adminUi('campaigns'), adminUi('notifications/test-send'), adminUi('notifications/triggers')],
     },
 
+    // 10c. Data Hub
+    {
+        key: 'dataHub',
+        label: 'Data Hub',
+        path: ADMIN_PATHS.dataHub,
+        icon: Database,
+        module: 'data_hub',
+        matchPrefixes: [adminUi('data-hub')],
+    },
+
     // 11. Finance Center
     {
         key: 'financeCenter',
@@ -401,6 +411,9 @@ export const LEGACY_ADMIN_PATH_REDIRECTS: Record<string, string> = {
     [adminUi('password')]: ADMIN_PATHS.adminProfile,
     [adminUi('security')]: ADMIN_PATHS.securityCenter,
     [adminUi('audit')]: ADMIN_PATHS.systemLogs,
+    [adminUi('pricing')]: ADMIN_PATHS.subscriptionPlans,
+    [adminUi('services')]: ADMIN_PATHS.subscriptionPlans,
+    [adminUi('subscriptions')]: ADMIN_PATHS.subscriptionPlans,
 };
 
 export function routeFromDashboardActionTab(tabId: string): string {

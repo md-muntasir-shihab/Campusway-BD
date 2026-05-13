@@ -5,7 +5,7 @@
       "args": [
         "mcp-server-git",
         "--repository",
-        "f:/CampusWay"
+        "${workspaceFolder}"
       ]
     },
     "filesystem": {
@@ -13,7 +13,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "f:/CampusWay"
+        "${workspaceFolder}"
       ]
     },
     "memory": {

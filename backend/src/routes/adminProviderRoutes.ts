@@ -18,8 +18,8 @@
  * configuration that Novu (or other systems) use to actually send notifications.
  */
 import { Request, Response, Router } from 'express';
-import { authenticate, authorize } from '../middlewares/auth';
-import { requireSensitiveAction } from '../middlewares/sensitiveAction';
+import { authenticate, authorize } from '../middleware/auth';
+import { requireSensitiveAction } from '../middleware/sensitiveAction';
 import NotificationProvider from '../models/NotificationProvider';
 import AuditLog from '../models/AuditLog';
 import { encrypt } from '../services/cryptoService';

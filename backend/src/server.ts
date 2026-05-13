@@ -13,7 +13,7 @@ import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import { connectDB } from './config/db';
 import { isFirebaseAdminEnabled } from './config/firebaseAdmin';
-import { authenticate, requirePermission } from './middlewares/auth';
+import { authenticate, requirePermission } from './middleware/auth';
 import publicRoutes from './routes/publicRoutes';
 import adminRoutes from './routes/adminRoutes';
 import studentRoutes from './routes/studentRoutes';
@@ -57,13 +57,13 @@ import {
     enforceAdminPanelPolicy,
     enforceAdminReadOnlyMode,
     enforceSiteAccess,
-} from './middlewares/securityGuards';
-import { sanitizeRequestPayload } from './middlewares/requestSanitizer';
-import { staticAssetCacheHeaders } from './middlewares/staticAssetCacheHeaders';
-import { adminRateLimiter } from './middlewares/securityRateLimit';
-import { requestIdMiddleware } from './middlewares/requestId';
-import { cspNonceMiddleware } from './middlewares/cspNonce';
-import { csrfTokenEndpoint } from './middlewares/csrfGuard';
+} from './middleware/securityGuards';
+import { sanitizeRequestPayload } from './middleware/requestSanitizer';
+import { staticAssetCacheHeaders } from './middleware/staticAssetCacheHeaders';
+import { adminRateLimiter } from './middleware/securityRateLimit';
+import { requestIdMiddleware } from './middleware/requestId';
+import { cspNonceMiddleware } from './middleware/cspNonce';
+import { csrfTokenEndpoint } from './middleware/csrfGuard';
 import { logger } from './utils/logger';
 import { checkRedisConnection, isRedisConfigured } from './services/cacheService';
 import { runCommunicationCenterMigration } from './scripts/migrate-communication-center-v1';

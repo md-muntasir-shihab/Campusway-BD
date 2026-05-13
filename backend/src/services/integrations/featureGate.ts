@@ -22,16 +22,17 @@ async function loadCached(key: IntegrationKey): Promise<CacheEntry['value']> {
     const now = Date.now();
     const existing = cache.get(key);
     if (existing && existing.expiresAt > now) return existing.value;
-    const state = await getOne(key);
-    const value: CacheEntry['value'] = state
-        ? {
-              enabled: state.enabled,
-              config: state.config,
-              configuredSecrets: state.configuredSecrets,
-          }
-        : { enabled: false, config: {}, configuredSecrets: [] };
-    cache.set(key, { value, expiresAt: now + CACHE_TTL_MS });
-    return value;
+    try {
+        const state = await getOne(key);
+        const value: CacheEntry['value'] = state
+            ? { enabled: state.enabled, config: state.config, configuredSecrets: state.configuredSecrets }
+            : { enabled: false, config: {}, configuredSecrets: [] };
+        cache.set(key, { value, expiresAt: now + CACHE_TTL_MS });
+        return value;
+    } catch (err) {
+        console.error(`featureGate.loadCached error for ${key}:`, err);
+        return { enabled: false, config: {}, configuredSecrets: [] };
+    }
 }
 
 /**

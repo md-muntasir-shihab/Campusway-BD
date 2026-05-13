@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
 import AdminProfile from '../models/AdminProfile';

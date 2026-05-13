@@ -6,7 +6,7 @@ import {
     containsSensitiveChanges,
     detectPrivilegeEscalation,
     SETTINGS_PERMISSION_MATRIX,
-} from '../middlewares/settingsRbac';
+} from '../middleware/settingsRbac';
 import type { UserRole } from '../models/User';
 
 /**

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import Exam from '../models/Exam';
 import Question from '../models/Question';
 import { ExamQuestionModel } from '../models/examQuestion.model';

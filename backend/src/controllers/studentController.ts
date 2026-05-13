@@ -2,7 +2,7 @@ import { Request as ExpressRequest, Response as ExpressResponse } from 'express'
 import StudentProfile from '../models/StudentProfile';
 import StudentApplication from '../models/StudentApplication';
 import ProfileUpdateRequest from '../models/ProfileUpdateRequest';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import mongoose from 'mongoose';
 import { getStudentDashboardHeader } from '../services/studentDashboardService';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';

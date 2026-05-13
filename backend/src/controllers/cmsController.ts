@@ -8,7 +8,7 @@ import ResourceSettings, { RESOURCE_ALLOWED_TYPES, RESOURCE_SETTINGS_DEFAULTS } 
 import ContactMessage from '../models/ContactMessage';
 import SiteSettings from '../models/Settings';
 import slugify from 'slugify';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 
 import NewsCategory from '../models/NewsCategory';

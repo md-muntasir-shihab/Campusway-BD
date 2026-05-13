@@ -11,7 +11,7 @@ import ActiveSession from '../models/ActiveSession';
 import AuditLog from '../models/AuditLog';
 import RolePermissionSet from '../models/RolePermissionSet';
 import { addAuthSessionStreamClient } from '../realtime/authSessionStream';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp, getDeviceInfo } from '../utils/requestMeta';
 import { sendCampusMail } from '../utils/mailer';
 import { trackContact as trackMarketingContact } from '../services/integrations/marketingHelper';

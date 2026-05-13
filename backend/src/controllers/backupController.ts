@@ -14,7 +14,7 @@ import SubscriptionPlan from '../models/SubscriptionPlan';
 import SupportTicket from '../models/SupportTicket';
 import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { getClientIp } from '../utils/requestMeta';
 import { ResponseBuilder } from '../utils/responseBuilder';
 

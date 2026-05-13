@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import ExamResult from '../models/ExamResult';
 import QuestionBankQuestion from '../models/QuestionBankQuestion';
 import QuestionBankAnalytics from '../models/QuestionBankAnalytics';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 /* ── helpers ── */

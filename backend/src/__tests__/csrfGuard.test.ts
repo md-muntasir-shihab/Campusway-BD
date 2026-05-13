@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
-import { generateCsrfToken, csrfProtection, csrfTokenEndpoint } from '../middlewares/csrfGuard';
+import { generateCsrfToken, csrfProtection, csrfTokenEndpoint } from '../middleware/csrfGuard';
 
 /**
  * Unit tests for CSRF Guard middleware.

@@ -39,7 +39,7 @@ vi.mock('../services/notificationProviderService', () => ({
 }));
 
 import User from '../models/User';
-import { restrictPendingStudent } from '../middlewares/restrictPendingStudent';
+import { restrictPendingStudent } from '../middleware/restrictPendingStudent';
 import type { Request, Response, NextFunction } from 'express';
 
 let mongoServer: MongoMemoryServer;

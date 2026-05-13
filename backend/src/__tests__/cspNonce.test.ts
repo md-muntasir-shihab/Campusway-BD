@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
-import { generateCspNonce, cspNonceMiddleware } from '../middlewares/cspNonce';
+import { generateCspNonce, cspNonceMiddleware } from '../middleware/cspNonce';
 
 /**
  * Unit tests for CSP Nonce middleware.

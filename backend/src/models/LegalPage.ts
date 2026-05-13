@@ -30,6 +30,4 @@ const LegalPageSchema = new Schema<ILegalPage>(
     { timestamps: true, collection: 'legal_pages' },
 );
 
-LegalPageSchema.index({ slug: 1 });
-
 export default mongoose.model<ILegalPage>('LegalPage', LegalPageSchema);

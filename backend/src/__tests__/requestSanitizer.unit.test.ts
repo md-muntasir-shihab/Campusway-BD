@@ -6,7 +6,7 @@ import {
     sanitizeObject,
     sanitizeRequestPayload,
     validateRequest,
-} from '../middlewares/requestSanitizer';
+} from '../middleware/requestSanitizer';
 import { AppError, ErrorCode } from '../utils/appError';
 import { z } from 'zod';
 

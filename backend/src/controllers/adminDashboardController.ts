@@ -8,7 +8,7 @@ import Badge from '../models/Badge';
 import StudentBadge from '../models/StudentBadge';
 import StudentProfile from '../models/StudentProfile';
 import ExamResult from '../models/ExamResult';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { ensureSecureUploadUrl } from '../services/secureUploadService';
 import { ResponseBuilder } from '../utils/responseBuilder';
@@ -98,6 +98,10 @@ export async function adminCreateNotification(req: AuthRequest, res: Response): 
 
 export async function adminUpdateNotification(req: AuthRequest, res: Response): Promise<void> {
     try {
+        if (!mongoose.Types.ObjectId.isValid(String(req.params.id))) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid notification ID'));
+            return;
+        }
         const nextBody = { ...req.body } as Record<string, unknown>;
         if (nextBody.attachmentUrl !== undefined) {
             nextBody.attachmentUrl = await ensureSecureUploadUrl({

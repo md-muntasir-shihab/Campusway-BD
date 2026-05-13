@@ -3,7 +3,7 @@
 // Requirements: 7.1, 7.2, 7.6, 7.8
 
 import type { Response } from 'express';
-import type { AuthRequest } from '../middlewares/auth';
+import type { AuthRequest } from '../middleware/auth';
 import { processAntiCheatSignal, AntiCheatSignalError } from '../services/antiCheatEngine';
 import { ResponseBuilder } from '../utils/responseBuilder';
 

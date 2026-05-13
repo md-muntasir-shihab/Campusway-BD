@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import StudentWatchlist from '../models/StudentWatchlist';
 import University from '../models/University';
 import Resource from '../models/Resource';

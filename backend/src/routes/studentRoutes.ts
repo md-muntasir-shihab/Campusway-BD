@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth';
+import { authenticate } from '../middleware/auth';
 import {
     getStudentProfile,
     getStudentProfileUpdateRequestStatus,
@@ -68,11 +68,11 @@ const router = Router();
 router.use(authenticate);
 
 // Restrict pending students to read-only access (Requirements: 5.2)
-import { restrictPendingStudent } from '../middlewares/restrictPendingStudent';
+import { restrictPendingStudent } from '../middleware/restrictPendingStudent';
 router.use(restrictPendingStudent);
 
 // Bug 1.16 fix: apply CSRF protection at router level for all state-changing methods
-import { csrfProtection } from '../middlewares/csrfGuard';
+import { csrfProtection } from '../middleware/csrfGuard';
 router.use((req, res, next) => {
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
         return csrfProtection(req, res, next);

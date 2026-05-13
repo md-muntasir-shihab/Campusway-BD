@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import * as XLSX from 'xlsx';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import Exam from '../models/Exam';
 import ExamCenter from '../models/ExamCenter';
 import ExamImportJob, { ExamImportSyncMode } from '../models/ExamImportJob';
@@ -953,7 +953,6 @@ export async function adminCommitExamImport(req: AuthRequest, res: Response): Pr
                             name: centerName,
                             code: centerCode,
                             address: centerAddress,
-                            note: asString(mappedData.exam_result_note),
                             updatedBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
                         },
                         $setOnInsert: {
@@ -1204,9 +1203,12 @@ export async function adminDeleteExamMappingProfile(req: AuthRequest, res: Respo
     }
 }
 
-export async function adminGetExamCenters(_req: AuthRequest, res: Response): Promise<void> {
+export async function adminGetExamCenters(req: AuthRequest, res: Response): Promise<void> {
     try {
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ centers: await ExamCenter.find({}).sort({ updatedAt: -1 }).lean() }));
+        const filter: Record<string, unknown> = {};
+        if (req.query.active === 'true') filter.isActive = true;
+        else if (req.query.active === 'false') filter.isActive = false;
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ centers: await ExamCenter.find(filter).sort({ updatedAt: -1 }).lean() }));
     } catch (error) {
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load exam centers.'));
     }
@@ -1214,11 +1216,21 @@ export async function adminGetExamCenters(_req: AuthRequest, res: Response): Pro
 
 export async function adminCreateExamCenter(req: AuthRequest, res: Response): Promise<void> {
     try {
+        const rawSupported = req.body.supportedExams;
+        const supportedExams = Array.isArray(rawSupported)
+            ? rawSupported.filter((id: unknown) => mongoose.Types.ObjectId.isValid(String(id))).map((id: unknown) => new mongoose.Types.ObjectId(String(id)))
+            : [];
+        const rawUniRef = req.body.universityRef;
+        const universityRef = rawUniRef && mongoose.Types.ObjectId.isValid(String(rawUniRef)) ? new mongoose.Types.ObjectId(String(rawUniRef)) : null;
         const center = await ExamCenter.create({
             name: asString(req.body.name),
             address: asString(req.body.address),
             code: asString(req.body.code),
             note: asString(req.body.note),
+            capacity: req.body.capacity !== undefined ? Math.max(0, Number(req.body.capacity)) : 0,
+            seatingLayout: asString(req.body.seatingLayout),
+            supportedExams,
+            universityRef,
             isActive: req.body.isActive !== false,
             createdBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
             updatedBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
@@ -1231,18 +1243,30 @@ export async function adminCreateExamCenter(req: AuthRequest, res: Response): Pr
 
 export async function adminUpdateExamCenter(req: AuthRequest, res: Response): Promise<void> {
     try {
+        const $set: Record<string, unknown> = {
+            updatedBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
+        };
+        if (req.body.name !== undefined) $set.name = asString(req.body.name);
+        if (req.body.address !== undefined) $set.address = asString(req.body.address);
+        if (req.body.code !== undefined) $set.code = asString(req.body.code);
+        if (req.body.note !== undefined) $set.note = asString(req.body.note);
+        if (req.body.capacity !== undefined) $set.capacity = Math.max(0, Number(req.body.capacity));
+        if (req.body.seatingLayout !== undefined) $set.seatingLayout = asString(req.body.seatingLayout);
+        if (req.body.supportedExams !== undefined) {
+            const raw = req.body.supportedExams;
+            $set.supportedExams = Array.isArray(raw)
+                ? raw.filter((id: unknown) => mongoose.Types.ObjectId.isValid(String(id))).map((id: unknown) => new mongoose.Types.ObjectId(String(id)))
+                : [];
+        }
+        if (req.body.universityRef !== undefined) {
+            $set.universityRef = req.body.universityRef && mongoose.Types.ObjectId.isValid(String(req.body.universityRef))
+                ? new mongoose.Types.ObjectId(String(req.body.universityRef))
+                : null;
+        }
+        if (req.body.isActive !== undefined) $set.isActive = Boolean(req.body.isActive);
         const center = await ExamCenter.findByIdAndUpdate(
             req.params.id,
-            {
-                $set: {
-                    name: req.body.name !== undefined ? asString(req.body.name) : undefined,
-                    address: req.body.address !== undefined ? asString(req.body.address) : undefined,
-                    code: req.body.code !== undefined ? asString(req.body.code) : undefined,
-                    note: req.body.note !== undefined ? asString(req.body.note) : undefined,
-                    isActive: req.body.isActive !== undefined ? Boolean(req.body.isActive) : undefined,
-                    updatedBy: mongoose.Types.ObjectId.isValid(String(req.user?._id || '')) ? new mongoose.Types.ObjectId(String(req.user?._id)) : null,
-                },
-            },
+            { $set },
             { new: true },
         );
         if (!center) {
@@ -1257,6 +1281,11 @@ export async function adminUpdateExamCenter(req: AuthRequest, res: Response): Pr
 
 export async function adminDeleteExamCenter(req: AuthRequest, res: Response): Promise<void> {
     try {
+        const referencingExam = await Exam.findOne({ examCenterId: req.params.id }).select('_id').lean();
+        if (referencingExam) {
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('CONFLICT', 'Cannot delete: exam center is referenced by one or more exams. Remove the association first.'));
+            return;
+        }
         const deleted = await ExamCenter.findByIdAndDelete(req.params.id);
         if (!deleted) {
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam center not found.'));
@@ -1334,7 +1363,16 @@ export async function adminGetExamProfileSyncLogs(req: AuthRequest, res: Respons
 export async function adminGetExamCenterSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
         const settings = await getSettingsDoc(String(req.user?._id || ''));
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings: asRecord(settings.examCenterSettings) }));
+        const raw = asRecord(settings.examCenterSettings);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            settings: {
+                defaultSyncMode: String(raw.defaultSyncMode || 'overwrite_mapped_fields') as 'fill_missing_only' | 'overwrite_mapped_fields',
+                autoCreateExamCenters: raw.autoCreateExamCenters !== false,
+                notifyStudentsOnSync: raw.notifyStudentsOnSync !== false,
+                notifyGuardiansOnResult: raw.notifyGuardiansOnResult === true,
+                allowExternalImports: raw.allowExternalImports !== false,
+            },
+        }));
     } catch (error) {
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', error instanceof Error ? error.message : 'Failed to load exam settings.'));
     }

@@ -15,7 +15,7 @@ import NewsFetchJob from '../models/NewsFetchJob';
 import NewsAuditEvent from '../models/NewsAuditEvent';
 import Notification from '../models/Notification';
 import StudentProfile from '../models/StudentProfile';
-import { AuthRequest } from '../middlewares/auth';
+import { AuthRequest } from '../middleware/auth';
 import { sanitizeRichHtml } from '../utils/questionBank';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
