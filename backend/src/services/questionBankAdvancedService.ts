@@ -485,13 +485,16 @@ export async function importCommit(
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
+    const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
+    const resolvedMapping = mapping || autoMapColumns(headers);
+
     let imported = 0;
     let skipped = 0;
     let failed = 0;
     const errorRows: { row: number; reason: string; data: Record<string, unknown> }[] = [];
 
     for (let i = 0; i < rawRows.length; i++) {
-        const mapped = applyColumnMapping(rawRows[i], mapping);
+        const mapped = applyColumnMapping(rawRows[i], resolvedMapping);
         const question = rowToQuestion(mapped);
         const errors = validateRow(question, i + 1);
 
