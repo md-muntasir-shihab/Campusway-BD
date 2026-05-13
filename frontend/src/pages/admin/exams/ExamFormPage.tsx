@@ -413,6 +413,7 @@ function ExamFormInner() {
                                                 {grp && <span className="text-slate-400">({memberCount})</span>}
                                                 <button
                                                     type="button"
+                                                    aria-label={`Remove ${grpName}`}
                                                     onClick={() => setTargetGroupIds((prev) => prev.filter((id) => id !== gid))}
                                                     className="ml-0.5 text-slate-400 hover:text-red-500"
                                                 >
@@ -426,6 +427,7 @@ function ExamFormInner() {
                             {/* Group dropdown */}
                             <select
                                 className="admin-input mt-1"
+                                aria-label="Add student group"
                                 value=""
                                 onChange={(e) => {
                                     const val = e.target.value;
