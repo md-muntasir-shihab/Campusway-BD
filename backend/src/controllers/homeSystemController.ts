@@ -17,6 +17,7 @@ import { addHomeStreamClient, broadcastHomeStreamEvent } from '../realtime/homeS
 import { getAggregatedHomeData as getStrictAggregatedHomeData } from './homeAggregateController';
 import { PUBLIC_BRAND_ASSETS, resolveStoredBrandAsset } from '../utils/brandAssets';
 import { ResponseBuilder } from '../utils/responseBuilder';
+import { logger } from '../utils/logger';
 
 const DEFAULT_SOCIAL_LINKS = {
     facebook: '',
@@ -224,8 +225,6 @@ export const updateSettings = async (req: Request, res: Response) => {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
         const uploadedBrandAssets: string[] = [];
 
-        console.log('Update Settings Body:', req.body);
-        console.log('Update Settings Files:', files);
 
         if (files?.logo?.[0]) {
             payload.logo = `/uploads/${files.logo[0].filename}`;
@@ -339,12 +338,11 @@ export const updateSettings = async (req: Request, res: Response) => {
             await cleanupBrandLikeUploads([settings.logo, settings.favicon, ...uploadedBrandAssets]);
         }
 
-        console.log('Settings updated in DB:', settings);
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { section: 'website-settings' } });
 
         ResponseBuilder.send(res, 200, ResponseBuilder.success({ settings }, 'Settings updated successfully'));
     } catch (error) {
-        console.error('Settings save error:', error);
+        logger.error('Settings save error:', req, { error });
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Internal Server Error'));
     }
 };
