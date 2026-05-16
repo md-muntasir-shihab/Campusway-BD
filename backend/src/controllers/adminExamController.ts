@@ -2636,69 +2636,73 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
                 // bulkWriteResult.upsertedCount gives the number of inserts. modifiedCount gives the number of updates.
                 inserted += bulkWriteResult.upsertedCount || 0;
                 updated += bulkWriteResult.modifiedCount || 0;
+            }
+        }
 
-                const filterClauses = batch.map(item => ({
-                    exam: new mongoose.Types.ObjectId(examId),
-                    student: new mongoose.Types.ObjectId(item.studentId),
-                    attemptNo: item.attemptNo,
-                }));
+        // --- Fetch and Process all records efficiently ---
+        if (inserted > 0 || updated > 0) {
+            const allStudentIds = Array.from(new Set(validRows.map(r => r.studentId)));
+            const resultDocsOptimized = await ExamResult.find({
+                exam: new mongoose.Types.ObjectId(examId),
+                student: { $in: allStudentIds.map(id => new mongoose.Types.ObjectId(id)) }
+            }).lean();
 
-                const resultDocs = await ExamResult.find({ $or: filterClauses }).lean();
+            const resultDocMap = new Map();
+            for (const d of resultDocsOptimized) {
+                resultDocMap.set(`${String(d.student)}:${d.attemptNo}`, d);
+            }
 
-                for (const item of batch) {
-                    const { row, studentId, attemptNo, attemptRef, matchedBy, matchedLog } = item;
-                    impactedStudentIds.add(studentId);
+            for (const item of validRows) {
+                const { row, studentId, attemptNo, attemptRef, matchedBy, matchedLog } = item;
+                impactedStudentIds.add(studentId);
 
-                    const resultDoc = resultDocs.find(
-                        d => String(d.student) === String(studentId) && d.attemptNo === attemptNo
-                    );
+                const resultDoc = resultDocMap.get(`${studentId}:${attemptNo}`);
 
-                    if (!resultDoc) {
-                        errors.push({ rowNo: row.rowNo, identifier: item.identifier, reason: 'Failed to find saved result.' });
-                        continue;
-                    }
-
-                    if (matchedLog?._id || attemptRef) {
-                        await markExternalExamAttemptImported({
-                            attemptId: String(matchedLog?._id || ''),
-                            attemptRef: attemptRef || String(matchedLog?.attemptRef || ''),
-                            resultId: String(resultDoc._id),
-                            matchedBy: matchedBy || 'attempt_ref',
-                        });
-                    }
-
-                    const syncResult = await syncExamResultToStudentProfile({
-                        exam: exam as Record<string, unknown>,
-                        result: resultDoc,
-                        studentId,
-                        source: 'external_import',
-                        syncMode: syncProfileMode,
-                        createdBy: String(req.user?._id || ''),
-                        candidates: {
-                            serialId: row.data.serial_id,
-                            rollNumber: row.data.roll_number,
-                            registrationNumber: row.data.registration_id,
-                            admitCardNumber: row.data.admit_card_number,
-                            fullName: row.data.full_name,
-                            email: row.data.email,
-                            phoneNumber: row.data.phone_number,
-                            institutionName: row.data.institution_name,
-                            department: row.data.department,
-                            sscBatch: row.data.ssc_batch,
-                            hscBatch: row.data.hsc_batch,
-                            guardianName: row.data.guardian_name,
-                            guardianPhone: row.data.guardian_phone,
-                            examCenter: row.data.exam_center,
-                            examResultNote: row.data.exam_result_note,
-                            profileUpdateNote: row.data.profile_update_note,
-                            userUniqueId: row.data.user_unique_id,
-                            attendanceStatus: row.data.attendance_status,
-                            passFail: row.data.pass_fail,
-                        },
-                        notifyStudent: true,
-                    });
-                    if (syncResult.changed) profileUpdates++;
+                if (!resultDoc) {
+                    errors.push({ rowNo: row.rowNo, identifier: item.identifier, reason: 'Failed to find saved result.' });
+                    continue;
                 }
+
+                if (matchedLog?._id || attemptRef) {
+                    await markExternalExamAttemptImported({
+                        attemptId: String(matchedLog?._id || ''),
+                        attemptRef: attemptRef || String(matchedLog?.attemptRef || ''),
+                        resultId: String(resultDoc._id),
+                        matchedBy: matchedBy || 'attempt_ref',
+                    });
+                }
+
+                const syncResult = await syncExamResultToStudentProfile({
+                    exam: exam as Record<string, unknown>,
+                    result: resultDoc,
+                    studentId,
+                    source: 'external_import',
+                    syncMode: syncProfileMode,
+                    createdBy: String(req.user?._id || ''),
+                    candidates: {
+                        serialId: row.data.serial_id,
+                        rollNumber: row.data.roll_number,
+                        registrationNumber: row.data.registration_id,
+                        admitCardNumber: row.data.admit_card_number,
+                        fullName: row.data.full_name,
+                        email: row.data.email,
+                        phoneNumber: row.data.phone_number,
+                        institutionName: row.data.institution_name,
+                        department: row.data.department,
+                        sscBatch: row.data.ssc_batch,
+                        hscBatch: row.data.hsc_batch,
+                        guardianName: row.data.guardian_name,
+                        guardianPhone: row.data.guardian_phone,
+                        examCenter: row.data.exam_center,
+                        examResultNote: row.data.exam_result_note,
+                        profileUpdateNote: row.data.profile_update_note,
+                        userUniqueId: row.data.user_unique_id,
+                        attendanceStatus: row.data.attendance_status,
+                        passFail: row.data.pass_fail,
+                    },
+                    notifyStudent: true,
+                });
+                if (syncResult.changed) profileUpdates++;
             }
         }
 
