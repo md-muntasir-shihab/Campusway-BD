@@ -298,7 +298,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download backend coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: backend/coverage
@@ -328,7 +328,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download backend coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: backend/coverage
