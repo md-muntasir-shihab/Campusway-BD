@@ -160,7 +160,7 @@ export async function importPreview(req: AuthRequest, res: Response) {
 export async function importCommit(req: AuthRequest, res: Response) {
     try {
         if (!req.file) return bad(res, 'File required');
-        let mapping: Record<string, string> | undefined;
+        let mapping: Record<string, string> = {};
         if (req.body.mapping) {
             try {
                 mapping = JSON.parse(req.body.mapping);
