@@ -169,7 +169,7 @@ export async function importCommit(req: AuthRequest, res: Response) {
             }
         }
         const mode = req.body.mode === 'upsert' ? 'upsert' : 'create';
-        const data = await svc.importCommit(req.file.buffer, req.file.originalname, mapping, mode, adminId(req));
+        const data = await svc.importCommit(req.file.buffer, req.file.originalname, mapping || {}, mode, adminId(req));
         return ok(res, data);
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Import commit failed';
