@@ -11,6 +11,7 @@ import ExcelJS from 'exceljs';
 import { authenticate, authorize, authorizePermission, forbidden, requirePermission, requireRole } from '../middleware/auth';
 import { enforceAdminPanelPolicy, enforceAdminReadOnlyMode } from '../middleware/securityGuards';
 import { subscriptionActionRateLimiter, financeExportRateLimiter, financeImportRateLimiter } from '../middleware/securityRateLimit';
+import { examImportCommitLimit, examImportPreviewLimit } from '../middleware/examRateLimit';
 import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
 import { requireTwoPersonApproval } from '../middleware/twoPersonApproval';
 import { csrfProtection } from '../middleware/csrfGuard';
@@ -903,8 +904,8 @@ router.get('/exams/:examId/export', requirePermission('exams', 'export'), requir
 router.get('/exams/:id/results/import-template', requirePermission('exams', 'view'), adminDownloadExamResultsImportTemplate);
 router.post('/exams/:id/results/import', requirePermission('exams', 'create'), upload.single('file'), adminImportExamResults);
 router.post('/exams/:id/results/import-external', requirePermission('exams', 'create'), upload.single('file'), adminImportExternalExamResults);
-router.post('/exams/:id/import/preview', requirePermission('exams', 'create'), upload.single('file'), adminPreviewExamImport);
-router.post('/exams/:id/import/commit', requirePermission('exams', 'create'), adminCommitExamImport);
+router.post('/exams/:id/import/preview', requirePermission('exams', 'create'), examImportPreviewLimit, upload.single('file'), adminPreviewExamImport);
+router.post('/exams/:id/import/commit', requirePermission('exams', 'create'), examImportCommitLimit, adminCommitExamImport);
 router.get('/exams/:id/import/logs', requirePermission('exams', 'view'), adminGetExamImportLogs);
 router.post('/exams/:id/profile-sync/run', requirePermission('exams', 'edit'), adminRunExamProfileSync);
 router.get('/exams/:id/profile-sync/logs', requirePermission('exams', 'view'), adminGetExamProfileSyncLogs);

@@ -19,11 +19,25 @@ import { markExternalExamAttemptImported } from '../services/externalExamAttempt
 import { syncExamResultToStudentProfile } from '../services/examProfileSyncEngine';
 import { getCanonicalSubscriptionSnapshot } from '../services/subscriptionAccessService';
 import { ResponseBuilder } from '../utils/responseBuilder';
+import { phoneLookupKeys } from '../utils/examCenterPhone';
 
 type CanonicalRow = Record<string, unknown>;
 type LookupUser = Record<string, unknown>;
 type LookupProfile = Record<string, unknown>;
 type LookupLog = Record<string, unknown>;
+
+class ExamImportError extends Error {
+    statusCode: number;
+
+    code: string;
+
+    constructor(statusCode: number, code: string, message: string) {
+        super(message);
+        this.name = 'ExamImportError';
+        this.statusCode = statusCode;
+        this.code = code;
+    }
+}
 
 const DEFAULT_MATCH_PRIORITY = ['user_id', 'student_phone', 'roll_number', 'student_email', 'username', 'registration_number'];
 const DEFAULT_PROFILE_UPDATE_FIELDS = ['serial_id', 'roll_number', 'registration_number', 'admit_card_number', 'exam_center', 'profile_update_note'];
@@ -147,6 +161,20 @@ function pushToMap<T>(map: Map<string, T[]>, key: string, value: T): void {
     const existing = map.get(key) || [];
     existing.push(value);
     map.set(key, existing);
+}
+
+function pushPhoneToMap<T>(map: Map<string, T[]>, value: unknown, item: T): void {
+    for (const key of phoneLookupKeys(value)) {
+        pushToMap(map, key, item);
+    }
+}
+
+function findPhoneCandidates<T>(map: Map<string, T[]>, value: unknown): T[] {
+    for (const key of phoneLookupKeys(value)) {
+        const candidates = map.get(key);
+        if (candidates && candidates.length > 0) return candidates;
+    }
+    return [];
 }
 
 function normalizeObjectIdArray(input: unknown): string[] {
@@ -300,22 +328,41 @@ async function getSettingsDoc(actorId?: string): Promise<Record<string, unknown>
     return settings.toObject() as unknown as Record<string, unknown>;
 }
 
+async function resolveExamCenterCapacityLimit(exam: Record<string, unknown>): Promise<number | null> {
+    const snapshot = asRecord(exam.examCenterSnapshot);
+    const snapshotCapacity = asNumber(snapshot.capacity);
+    if (snapshotCapacity !== null) {
+        return Math.max(0, snapshotCapacity);
+    }
+
+    const examCenterId = asString(exam.examCenterId);
+    if (mongoose.Types.ObjectId.isValid(examCenterId)) {
+        const center = await ExamCenter.findById(examCenterId).select('capacity').lean();
+        const centerCapacity = asNumber(center?.capacity);
+        if (centerCapacity !== null) {
+            return Math.max(0, centerCapacity);
+        }
+    }
+
+    return null;
+}
+
 async function buildLookupContext(examId: string, rows: CanonicalRow[]): Promise<LookupContext> {
     const attemptRefs = Array.from(new Set(rows.map((row) => normalizeIdentityValue(row.attempt_ref)).filter(Boolean)));
     const directUserIds = Array.from(new Set(rows.map((row) => asString(row.user_id)).filter((value) => mongoose.Types.ObjectId.isValid(value))));
     const userUniqueIds = Array.from(new Set(rows.map((row) => asString(row.user_id)).filter((value) => !mongoose.Types.ObjectId.isValid(value))));
     const rollNumbers = Array.from(new Set(rows.map((row) => normalizeIdentityValue(row.roll_number)).filter(Boolean)));
     const registrationNumbers = Array.from(new Set(rows.map((row) => normalizeIdentityValue(row.registration_number)).filter(Boolean)));
-    const phones = Array.from(new Set(rows.map((row) => asString(row.student_phone)).filter(Boolean)));
+    const phones = Array.from(new Set(rows.flatMap((row) => phoneLookupKeys(row.student_phone))));
     const emails = Array.from(new Set(rows.map((row) => asLowerString(row.student_email)).filter(Boolean)));
     const usernames = Array.from(new Set(rows.map((row) => asLowerString(row.username)).filter(Boolean)));
 
-    const logs = attemptRefs.length > 0
-        ? await ExternalExamJoinLog.find({
+    const logsQuery = attemptRefs.length > 0
+        ? ExternalExamJoinLog.find({
             examId: new mongoose.Types.ObjectId(examId),
             attemptRef: { $in: attemptRefs },
         }).lean()
-        : [];
+        : Promise.resolve([]);
 
     const profileClauses: Record<string, unknown>[] = [];
     if (userUniqueIds.length > 0) profileClauses.push({ user_unique_id: { $in: userUniqueIds } });
@@ -328,11 +375,13 @@ async function buildLookupContext(examId: string, rows: CanonicalRow[]): Promise
     if (emails.length > 0) profileClauses.push({ email: { $in: emails } });
     if (usernames.length > 0) profileClauses.push({ username: { $in: usernames } });
 
-    const profiles = profileClauses.length > 0
-        ? await StudentProfile.find({ $or: profileClauses })
+    const profilesQuery = profileClauses.length > 0
+        ? StudentProfile.find({ $or: profileClauses })
             .select('user_id user_unique_id registration_id roll_number phone phone_number email username full_name groupIds institution_name department ssc_batch hsc_batch guardian_name guardian_phone')
             .lean()
-        : [];
+        : Promise.resolve([]);
+
+    const [logs, profiles] = await Promise.all([logsQuery, profilesQuery]);
 
     const allUserIds = Array.from(new Set([
         ...directUserIds,
@@ -372,14 +421,14 @@ async function buildLookupContext(examId: string, rows: CanonicalRow[]): Promise
         pushToMap(usersById, asString(user._id), user);
         pushToMap(usersByUsername, asLowerString(user.username), user);
         pushToMap(usersByEmail, asLowerString(user.email), user);
-        pushToMap(usersByPhone, asString(user.phone_number), user);
+        pushPhoneToMap(usersByPhone, user.phone_number, user);
     }
     for (const profile of profiles as unknown as LookupProfile[]) {
         pushToMap(profilesByUserId, asString(profile.user_id), profile);
         pushToMap(profilesByUserUniqueId, asString(profile.user_unique_id), profile);
         pushToMap(profilesByRollNumber, normalizeIdentityValue(profile.roll_number), profile);
         pushToMap(profilesByRegistration, normalizeIdentityValue(profile.registration_id), profile);
-        pushToMap(profilesByPhone, asString(profile.phone_number || profile.phone), profile);
+        pushPhoneToMap(profilesByPhone, profile.phone_number || profile.phone, profile);
         pushToMap(profilesByEmail, asLowerString(profile.email), profile);
         pushToMap(profilesByUsername, asLowerString(profile.username), profile);
     }
@@ -473,15 +522,13 @@ async function matchPreviewRow(
         }
 
         if (priority === 'student_phone') {
-            const key = asString(row.student_phone);
-            if (!key) continue;
-            const profiles = context.profilesByPhone.get(key) || [];
+            const profiles = findPhoneCandidates(context.profilesByPhone, row.student_phone);
             const profilePick = pickSingleCandidate(profiles);
             if (profilePick.duplicate) return { issues: [{ issueType: 'duplicate_match', reason: `Multiple students matched by ${priority}.`, blocking: true }] };
             matchedProfile = profilePick.item;
             matchedUser = matchedProfile ? (context.usersById.get(asString(matchedProfile.user_id)) || [])[0] : undefined;
             if (!matchedUser) {
-                const users = context.usersByPhone.get(key) || [];
+                const users = findPhoneCandidates(context.usersByPhone, row.student_phone);
                 const userPick = pickSingleCandidate(users);
                 if (userPick.duplicate) return { issues: [{ issueType: 'duplicate_match', reason: `Multiple students matched by ${priority}.`, blocking: true }] };
                 matchedUser = userPick.item;
@@ -634,23 +681,29 @@ function selectProfileSyncCandidates(row: CanonicalRow, allowedFields: string[])
 
 async function previewImportInternal(req: AuthRequest): Promise<Record<string, unknown>> {
     const examId = String(req.params.id || req.params.examId || '').trim();
-    if (!mongoose.Types.ObjectId.isValid(examId)) throw new Error('Invalid exam id.');
-    if (!req.file?.buffer || !req.file?.originalname) throw new Error('No file uploaded.');
+    if (!mongoose.Types.ObjectId.isValid(examId)) {
+        throw new ExamImportError(400, 'VALIDATION_ERROR', 'Invalid exam id.');
+    }
+    if (!req.file?.buffer || !req.file?.originalname) {
+        throw new ExamImportError(400, 'VALIDATION_ERROR', 'No file uploaded.');
+    }
 
     const [exam, settings] = await Promise.all([
         Exam.findById(examId).lean(),
         getSettingsDoc(String(req.user?._id || '')),
     ]);
-    if (!exam) throw new Error('Exam not found.');
+    if (!exam) throw new ExamImportError(404, 'NOT_FOUND', 'Exam not found.');
     if (String((exam as Record<string, unknown>).deliveryMode || 'internal') !== 'external_link') {
-        throw new Error('This exam is not configured as an external-link exam.');
+        throw new ExamImportError(400, 'VALIDATION_ERROR', 'This exam is not configured as an external-link exam.');
     }
     if (asRecord(settings.examCenterSettings).allowExternalImports === false) {
-        throw new Error('External exam imports are disabled in settings.');
+        throw new ExamImportError(400, 'VALIDATION_ERROR', 'External exam imports are disabled in settings.');
     }
 
     const { headers, rows } = readImportRowsFromBuffer(req.file.buffer);
-    if (!rows.length) throw new Error('No data rows found in the uploaded file.');
+    if (!rows.length) {
+        throw new ExamImportError(400, 'VALIDATION_ERROR', 'No data rows found in the uploaded file.');
+    }
 
     const templateId = asString(req.body.templateId);
     const mappingProfileId = asString(req.body.mappingProfileId);
@@ -760,6 +813,15 @@ async function previewImportInternal(req: AuthRequest): Promise<Record<string, u
         failedRows: 0,
     });
 
+    const capacityLimit = await resolveExamCenterCapacityLimit(exam as Record<string, unknown>);
+    if (capacityLimit !== null && summary.matchedRows > capacityLimit) {
+        throw new ExamImportError(
+            409,
+            'CAPACITY_EXCEEDED',
+            `The assigned exam center can only accommodate ${capacityLimit} matched rows, but this import would commit ${summary.matchedRows}.`,
+        );
+    }
+
     const job = await ExamImportJob.create({
         examId: new mongoose.Types.ObjectId(examId),
         templateId: template?._id || null,
@@ -809,9 +871,13 @@ export async function adminPreviewExamImport(req: AuthRequest, res: Response): P
     try {
         ResponseBuilder.send(res, 200, ResponseBuilder.success(await previewImportInternal(req)));
     } catch (error) {
+        if (error instanceof ExamImportError) {
+            ResponseBuilder.send(res, error.statusCode, ResponseBuilder.error(error.code, error.message));
+            return;
+        }
         const message = error instanceof Error ? error.message : 'Failed to generate import preview.';
-        const statusCode = message.includes('not found') ? 404 : 400;
-        const code = message.includes('not found') ? 'NOT_FOUND' : 'VALIDATION_ERROR';
+        const statusCode = message.includes('not found') ? 404 : 500;
+        const code = message.includes('not found') ? 'NOT_FOUND' : 'SERVER_ERROR';
         ResponseBuilder.send(res, statusCode, ResponseBuilder.error(code, message));
     }
 }
@@ -841,6 +907,15 @@ export async function adminCommitExamImport(req: AuthRequest, res: Response): Pr
         }
         if (!job) {
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Preview job not found.'));
+            return;
+        }
+
+        const capacityLimit = await resolveExamCenterCapacityLimit(exam as Record<string, unknown>);
+        if (capacityLimit !== null && Number(job.summary?.matchedRows || 0) > capacityLimit) {
+            ResponseBuilder.send(res, 409, ResponseBuilder.error(
+                'CAPACITY_EXCEEDED',
+                `The assigned exam center can only accommodate ${capacityLimit} matched rows, but this import would commit ${Number(job.summary?.matchedRows || 0)}.`,
+            ));
             return;
         }
 
