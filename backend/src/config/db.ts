@@ -1,5 +1,12 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import dns from 'dns';
+
+try {
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+    console.warn('[db] Failed to set public DNS servers, connecting with default DNS order.');
+}
 
 dotenv.config();
 

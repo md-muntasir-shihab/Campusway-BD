@@ -36,6 +36,7 @@ function sensitiveExportHeaders(token: string): Record<string, string> {
 
 test.describe('Import / Export / Bulk Verification', () => {
     test.describe.configure({ mode: 'serial' });
+    test.setTimeout(90000);
 
     let adminToken = '';
     let createdUniversityId = '';

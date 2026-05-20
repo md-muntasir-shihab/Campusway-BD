@@ -762,12 +762,18 @@ export async function login(req: Request, res: Response): Promise<void> {
         setRefreshCookie(res, session.refreshToken, security.session.refreshTokenTTLDays);
         const userPayload = await buildUserPayload(user);
 
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+        const successData = {
             token: session.accessToken,
             refreshToken: session.refreshToken,
             user: userPayload,
             suspiciousLogin,
-        }));
+        };
+
+        ResponseBuilder.send(res, 200, {
+            success: true,
+            ...successData,
+            data: successData,
+        });
     } catch (error) {
         console.error('login error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
@@ -829,7 +835,12 @@ export async function refresh(req: Request, res: Response): Promise<void> {
         }
         setRefreshCookie(res, newRefreshToken, security.session.refreshTokenTTLDays);
         setAccessCookie(res, token, security.session.accessTokenTTLMinutes);
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ token, refreshToken: newRefreshToken }));
+        const refreshData = { token, refreshToken: newRefreshToken };
+        ResponseBuilder.send(res, 200, {
+            success: true,
+            ...refreshData,
+            data: refreshData,
+        });
     } catch {
         // Audit log expired token failure and check for auth_failure_spike (Req 12.3, 13.1)
         const refreshFailIp = getClientIp(req);
@@ -1016,7 +1027,12 @@ export async function verify2fa(req: Request, res: Response): Promise<void> {
         setAccessCookie(res, session.accessToken, security.session.accessTokenTTLMinutes);
         setRefreshCookie(res, session.refreshToken, security.session.refreshTokenTTLDays);
         const userPayload = await buildUserPayload(user);
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ token: session.accessToken, refreshToken: session.refreshToken, user: userPayload }));
+        const verifyData = { token: session.accessToken, refreshToken: session.refreshToken, user: userPayload };
+        ResponseBuilder.send(res, 200, {
+            success: true,
+            ...verifyData,
+            data: verifyData,
+        });
     } catch (error) {
         console.error('verify2fa error:', error);
         respondOtpError(res, 500, 'OTP_SERVER_ERROR', 'Server error');

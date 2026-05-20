@@ -13,6 +13,7 @@ import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { delByPattern } from '../services/cacheService';
 import {
     backfillUniversityTaxonomyIfNeeded,
+    ensureUniversityClusterByName,
     normalizeExamCenters,
     pruneOrphanedTaxonomy,
     reconcileUniversityClusterAssignments,
@@ -481,11 +482,11 @@ async function resolveClusterFields(source: Record<string, unknown>): Promise<{ 
 
     const clusterName = String(source.clusterGroup || source.clusterName || '').trim();
     if (!clusterName) return { clusterId: null, clusterName: '', clusterGroup: '' };
-    const cluster = await UniversityCluster.findOne({ name: clusterName }).select('_id name').lean();
+    const cluster = await ensureUniversityClusterByName(clusterName);
     return {
-        clusterId: cluster ? String(cluster._id) : null,
-        clusterName: cluster ? cluster.name : clusterName,
-        clusterGroup: cluster ? cluster.name : clusterName,
+        clusterId: String(cluster._id),
+        clusterName: cluster.name,
+        clusterGroup: cluster.name,
     };
 }
 
@@ -848,7 +849,11 @@ export async function adminGetUniversityById(req: Request, res: Response): Promi
         const row = await University.findById(req.params.id).lean();
         if (!row) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'University not found')); return; }
         const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(row as unknown as Record<string, unknown>)]);
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ university }));
+        ResponseBuilder.send(res, 200, {
+            success: true,
+            university,
+            data: { university },
+        } as any);
     } catch (err) {
         console.error('adminGetUniversityById error:', err);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
@@ -892,7 +897,12 @@ export async function adminCreateUniversity(req: Request, res: Response): Promis
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'create', universityId: String(created._id) } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'create', universityId: String(created._id) } });
         const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(created.toObject() as unknown as Record<string, unknown>)]);
-        ResponseBuilder.send(res, 201, ResponseBuilder.created({ university }, 'University created successfully'));
+        ResponseBuilder.send(res, 201, {
+            success: true,
+            message: 'University created successfully',
+            university,
+            data: { university },
+        } as any);
     } catch (err: unknown) {
         if ((err as { code?: number }).code === 11000) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'A university with this name or slug already exists')); return; }
         console.error('adminCreateUniversity error:', err);
@@ -940,7 +950,12 @@ export async function adminUpdateUniversity(req: Request, res: Response): Promis
         broadcastStudentDashboardEvent({ type: 'featured_university_updated', meta: { action: 'update', universityId: String(updated._id) } });
         broadcastHomeStreamEvent({ type: 'home-updated', meta: { source: 'university', action: 'update', universityId: String(updated._id) } });
         const [university] = await attachClusterSlugs([toCanonicalUniversityRecord(updated.toObject() as unknown as Record<string, unknown>)]);
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ university }, 'University updated successfully'));
+        ResponseBuilder.send(res, 200, {
+            success: true,
+            message: 'University updated successfully',
+            university,
+            data: { university },
+        } as any);
     } catch (err: unknown) {
         if ((err as { code?: number }).code === 11000) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Slug or name already taken by another university')); return; }
         console.error('adminUpdateUniversity error:', err);

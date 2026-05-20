@@ -68,7 +68,7 @@ export async function seedTestUsers(): Promise<void> {
     console.log('[seed:test-users] Seeding test users...');
 
     for (const userData of TEST_USERS) {
-        const existing = await User.findOne({ email: userData.email });
+        const existing = await User.findOne({ $or: [{ email: userData.email }, { username: userData.username }] });
         const { password: plainPassword, ...rest } = userData;
         const hashedPassword = await bcrypt.hash(plainPassword, 12);
 
