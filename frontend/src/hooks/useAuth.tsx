@@ -8,6 +8,7 @@ import api, {
     refreshAccessToken,
     setAccessToken,
     shouldAttemptAuthBootstrap,
+    setRefreshToken,
 } from '../services/api';
 import { preserveExamProgress } from '../utils/examProgressPreservation';
 
@@ -414,12 +415,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
     }, [token, user?._id, triggerForcedLogout]);
 
-    const completeLogin = useCallback((newToken: string, newUser: User) => {
+    const completeLogin = useCallback((newToken: string, newUser: User, newRefreshToken?: string) => {
         setToken(newToken);
         setUser(newUser);
         setIsLoading(false);
         setPending2FA(null);
         setAccessToken(newToken);
+        if (newRefreshToken) {
+            setRefreshToken(newRefreshToken);
+        }
         markAuthSessionHint(newUser.role === 'chairman'
             ? 'chairman'
             : ['superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'].includes(newUser.role)
@@ -463,7 +467,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return body;
         }
 
-        completeLogin(body.token, body.user);
+        completeLogin(body.token, body.user, body.refreshToken);
         return body;
     }, [completeLogin]);
 

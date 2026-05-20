@@ -16,6 +16,19 @@ export function generateCsrfToken(): string {
  * Returns 403 with `CSRF_TOKEN_INVALID` if they don't match or are missing.
  */
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
+    // Bypass CSRF check if using token-based authentication.
+    // Since browser doesn't automatically attach Bearer headers/body tokens,
+    // these requests are immune to CSRF.
+    const authHeader = req.headers.authorization;
+    const hasBearer = authHeader && authHeader.startsWith('Bearer ');
+    const hasXRefreshToken = Boolean(req.headers['x-refresh-token']);
+    const hasBodyRefreshToken = Boolean(req.body?.refreshToken);
+
+    if (hasBearer || hasXRefreshToken || hasBodyRefreshToken) {
+        next();
+        return;
+    }
+
     const cookieToken = req.cookies?._csrf;
     const headerToken = req.headers['x-csrf-token'] as string | undefined;
 

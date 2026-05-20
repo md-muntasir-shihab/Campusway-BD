@@ -107,24 +107,50 @@ function removeLocalStorageValue(key: string): void {
     }
 }
 
+const LOCAL_ACCESS_TOKEN_KEY = 'campusway-access-token';
+const LOCAL_REFRESH_TOKEN_KEY = 'campusway-refresh-token';
+
 let inMemoryAccessToken = '';
 
 export function setAccessToken(token: string): void {
     inMemoryAccessToken = String(token || '').trim();
     if (inMemoryAccessToken) {
         api.defaults.headers.common.Authorization = `Bearer ${inMemoryAccessToken}`;
+        writeLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY, inMemoryAccessToken);
         return;
     }
     delete api.defaults.headers.common.Authorization;
+    removeLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY);
 }
 
 export function clearAccessToken(): void {
     inMemoryAccessToken = '';
     delete api.defaults.headers.common.Authorization;
+    removeLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY);
+    removeLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY);
 }
 
 export function readAccessToken(): string {
+    if (!inMemoryAccessToken) {
+        inMemoryAccessToken = readLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY);
+        if (inMemoryAccessToken) {
+            api.defaults.headers.common.Authorization = `Bearer ${inMemoryAccessToken}`;
+        }
+    }
     return inMemoryAccessToken;
+}
+
+export function setRefreshToken(token: string): void {
+    const nextToken = String(token || '').trim();
+    if (nextToken) {
+        writeLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY, nextToken);
+    } else {
+        removeLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY);
+    }
+}
+
+export function readRefreshToken(): string {
+    return readLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY);
 }
 
 export function markAuthSessionHint(portal?: 'student' | 'admin' | 'chairman' | string): void {
@@ -372,19 +398,30 @@ let refreshInFlight: Promise<string | null> | null = null;
 export async function refreshAccessToken(): Promise<string | null> {
     if (refreshInFlight) return refreshInFlight;
 
+    const localRefreshToken = readRefreshToken();
+
     refreshInFlight = ensureCsrfCookie()
-        .then(() => axios.post<{ token?: string; data?: { token?: string } }>(resolveApiUrl('/auth/refresh'), {}, {
-            timeout: 10000,
-            withCredentials: true,
-            headers: {
-                'X-Browser-Fingerprint': ensureBrowserFingerprint(),
-                ...(readCsrfCookie() ? { 'X-CSRF-Token': readCsrfCookie() } : {}),
-            },
-        }))
+        .then(() => axios.post<{ token?: string; refreshToken?: string; data?: { token?: string; refreshToken?: string } }>(
+            resolveApiUrl('/auth/refresh'),
+            { refreshToken: localRefreshToken },
+            {
+                timeout: 10000,
+                withCredentials: true,
+                headers: {
+                    'X-Browser-Fingerprint': ensureBrowserFingerprint(),
+                    'X-Refresh-Token': localRefreshToken,
+                    ...(readCsrfCookie() ? { 'X-CSRF-Token': readCsrfCookie() } : {}),
+                },
+            }
+        ))
         .then((res) => {
             const nextToken = String(res.data?.token || res.data?.data?.token || '').trim();
+            const nextRefreshToken = String(res.data?.refreshToken || res.data?.data?.refreshToken || '').trim();
             if (!nextToken) return null;
             setAccessToken(nextToken);
+            if (nextRefreshToken) {
+                setRefreshToken(nextRefreshToken);
+            }
             // Only refresh the hint timestamp; preserve existing portal value
             if (hasAuthSessionHint()) {
                 const existing = readAuthSessionHint();
