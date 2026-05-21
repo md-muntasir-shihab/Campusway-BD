@@ -836,7 +836,7 @@ export async function adminCreateUser(req: AuthRequest, res: Response): Promise<
         if (role === 'student') {
             const profile = await StudentProfile.create({
                 user_id: user._id,
-                user_unique_id: body.user_unique_id || `CW-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 9999)}`,
+                user_unique_id: body.user_unique_id || `CW-${Date.now().toString().slice(-6)}-${crypto.randomInt(0, 10000)}`,
                 full_name: fullName,
                 username,
                 email,
@@ -1405,7 +1405,7 @@ async function processImportRow(
 
     if (!username) {
         const prefix = email.split('@')[0].replace(/[^a-z0-9]/gi, '').slice(0, 16) || 'student';
-        username = `${prefix}${Math.floor(100 + Math.random() * 899)}`;
+        username = `${prefix}${crypto.randomInt(100, 1000)}`;
     }
 
     const existing = await User.findOne({
@@ -1462,7 +1462,7 @@ async function processImportRow(
 
         const profile = await StudentProfile.create({
             user_id: user._id,
-            user_unique_id: row.user_unique_id || `CW-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 9999)}`,
+            user_unique_id: row.user_unique_id || `CW-${Date.now().toString().slice(-6)}-${crypto.randomInt(0, 10000)}`,
             full_name: fullName,
             username,
             email,
@@ -2181,7 +2181,7 @@ export async function adminCreateStudent(req: AuthRequest, res: Response): Promi
 
         const profile = await StudentProfile.create({
             user_id: user._id,
-            user_unique_id: userUniqueId || `CW-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 9999)}`,
+            user_unique_id: userUniqueId || `CW-${Date.now().toString().slice(-6)}-${crypto.randomInt(0, 10000)}`,
             full_name: fullName,
             username,
             email,
