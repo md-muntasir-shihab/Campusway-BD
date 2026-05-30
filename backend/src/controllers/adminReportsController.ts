@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
@@ -253,7 +254,7 @@ export async function adminGetExamInsights(req: AuthRequest, res: Response): Pro
 
         const suspiciousMap = new Map<string, { studentId: string; tabSwitchCount: number; cheatFlags: number }>();
         suspiciousRows.forEach((item) => {
-            const key = item.studentId || `unknown-${Math.random()}`;
+            const key = item.studentId || `unknown-${crypto.randomUUID()}`;
             const prev = suspiciousMap.get(key) || { studentId: item.studentId, tabSwitchCount: 0, cheatFlags: 0 };
             prev.tabSwitchCount += item.tabSwitchCount;
             prev.cheatFlags += item.cheatFlags;
