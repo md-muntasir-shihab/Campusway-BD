@@ -2,6 +2,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import {
     AlertTriangle,
     BookmarkCheck,
@@ -17,12 +18,14 @@ import {
     Send,
     Upload,
     X,
+    Trash2,
 } from 'lucide-react';
 import {
     useStartExam,
     useSaveAnswers,
     useSubmitExam,
 } from '../../../hooks/useExamSystemQueries';
+import { uploadWrittenAnswer } from '../../../services/api';
 import type {
     AnswerUpdate,
     DeviceInfo,
@@ -332,14 +335,36 @@ function MCQOptions({
 function WrittenAnswerArea({
     questionId,
     currentAnswer,
+    writtenAnswerUrl,
     onTextChange,
     onFileUpload,
+    onFileRemove,
 }: {
     questionId: string;
     currentAnswer: string | undefined;
+    writtenAnswerUrl: string | undefined;
     onTextChange: (text: string) => void;
-    onFileUpload: () => void;
+    onFileUpload: (file: File) => Promise<void>;
+    onFileRemove: () => void;
 }) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            await onFileUpload(file);
+        } catch (err) {
+            toast.error('Failed to upload file');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     return (
         <div className="space-y-3">
             <div className="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 text-slate-700 dark:text-slate-200 [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b-2 [&_.ql-toolbar]:border-slate-200 dark:[&_.ql-toolbar]:border-slate-700 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[200px] [&_.ql-editor]:text-sm">
@@ -351,17 +376,47 @@ function WrittenAnswerArea({
                     placeholder="Type your answer here..."
                 />
             </div>
-            <button
-                type="button"
-                onClick={onFileUpload}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px]"
-            >
-                <Upload className="h-4 w-4" />
-                Upload handwritten answer (photo)
-            </button>
-            <p className="text-xs text-slate-400 dark:text-slate-500">
-                Supported: JPG, PNG, PDF — Max 10MB
-            </p>
+
+            {writtenAnswerUrl ? (
+                <div className="flex items-center gap-4 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex-1 min-w-0">
+                        <a href={writtenAnswerUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            View Uploaded Answer
+                        </a>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onFileRemove}
+                        className="inline-flex items-center justify-center p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        title="Remove uploaded answer"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
+            ) : (
+                <>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/jpeg,image/png,application/pdf"
+                        className="hidden"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] disabled:opacity-50"
+                    >
+                        {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        {isUploading ? 'Uploading...' : 'Upload handwritten answer (photo)'}
+                    </button>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                        Supported: JPG, PNG, PDF — Max 10MB
+                    </p>
+                </>
+            )}
         </div>
     );
 }
@@ -697,9 +752,37 @@ export default function ExamRunner() {
         }));
     };
 
-    const handleFileUpload = () => {
-        // TODO: Implement camera/file upload for handwritten answers
-        // This would open a file picker, upload to server, and store the URL
+    const handleFileUpload = async (questionId: string, file: File) => {
+        const MAX_SIZE = 10 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            toast.error("File size must be less than 10MB");
+            return;
+        }
+
+        try {
+            const res = await uploadWrittenAnswer(file);
+            setAnswers((prev) => ({
+                ...prev,
+                [questionId]: {
+                    ...prev[questionId],
+                    questionId,
+                    writtenAnswerUrl: res.data.url,
+                },
+            }));
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const handleFileRemove = (questionId: string) => {
+        setAnswers((prev) => ({
+            ...prev,
+            [questionId]: {
+                ...prev[questionId],
+                questionId,
+                writtenAnswerUrl: undefined,
+            },
+        }));
     };
 
     const handleToggleReview = (questionId: string) => {
@@ -833,8 +916,10 @@ export default function ExamRunner() {
                                     <WrittenAnswerArea
                                         questionId={currentQuestion._id}
                                         currentAnswer={answers[currentQuestion._id]?.selectedAnswer}
+                                        writtenAnswerUrl={answers[currentQuestion._id]?.writtenAnswerUrl}
                                         onTextChange={(text) => handleWrittenAnswer(currentQuestion._id, text)}
-                                        onFileUpload={handleFileUpload}
+                                        onFileUpload={(file) => handleFileUpload(currentQuestion._id, file)}
+                                        onFileRemove={() => handleFileRemove(currentQuestion._id)}
                                     />
                                 ) : (
                                     <MCQOptions
