@@ -218,9 +218,12 @@ export default function CampaignSettingsPage() {
     );
 
     // ─── Detect sensitive changes ────────────────────────────────────────────
-    const hasSensitiveChanges = Array.from(dirtyKeysRef.current).some(key =>
-        SENSITIVE_KEYS.has(key)
-    );
+    const hasSensitiveChanges = (() => {
+        for (const key of dirtyKeysRef.current) {
+            if (SENSITIVE_KEYS.has(key)) return true;
+        }
+        return false;
+    })();
 
     // ─── Save handler ────────────────────────────────────────────────────────
     const handleSave = useCallback(async () => {
