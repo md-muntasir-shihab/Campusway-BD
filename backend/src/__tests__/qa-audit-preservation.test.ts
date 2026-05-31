@@ -266,7 +266,7 @@ describe('Security Preservation (Req 3.7–3.10)', () => {
 
         // The permission system should have a bypass for superadmin
         const authSource = fs.readFileSync(
-            path.join(__dirname, '../middlewares/auth.ts'),
+            path.join(__dirname, '../middleware/auth.ts'),
             'utf-8',
         );
         const hasSuperadminBypass = authSource.includes('superadmin');
@@ -288,7 +288,7 @@ describe('Security Preservation (Req 3.7–3.10)', () => {
         const possibleFiles = [
             '../controllers/authController.ts',
             '../services/accountLockoutService.ts',
-            '../middlewares/auth.ts',
+            '../middleware/auth.ts',
             '../security/accountLockout.ts',
         ];
 
@@ -311,7 +311,7 @@ describe('Security Preservation (Req 3.7–3.10)', () => {
      * Request sanitizer rejects MongoDB operator injection with 400 SECURITY_VIOLATION.
      */
     it('3.10: request sanitizer rejects MongoDB operator keys', async () => {
-        const { detectViolation } = await import('../middlewares/requestSanitizer');
+        const { detectViolation } = await import('../middleware/requestSanitizer');
 
         await fc.assert(
             fc.property(
@@ -335,7 +335,7 @@ describe('Security Preservation (Req 3.7–3.10)', () => {
      * Request sanitizer rejects prototype pollution keys.
      */
     it('3.10: request sanitizer rejects prototype pollution keys', async () => {
-        const { detectViolation } = await import('../middlewares/requestSanitizer');
+        const { detectViolation } = await import('../middleware/requestSanitizer');
 
         await fc.assert(
             fc.property(
@@ -358,7 +358,7 @@ describe('Security Preservation (Req 3.7–3.10)', () => {
      * Request sanitizer allows clean payloads through without violations.
      */
     it('3.10: request sanitizer allows clean payloads', async () => {
-        const { detectViolation } = await import('../middlewares/requestSanitizer');
+        const { detectViolation } = await import('../middleware/requestSanitizer');
 
         await fc.assert(
             fc.property(
@@ -572,7 +572,7 @@ describe('Platform Preservation (Req 3.15–3.18)', () => {
      * We verify the cache middleware correctly sets headers.
      */
     it('3.16: cache middleware sets x-cache headers correctly', async () => {
-        const { cacheMiddleware } = await import('../middlewares/cacheMiddleware');
+        const { cacheMiddleware } = await import('../middleware/cacheMiddleware');
 
         // Create a cache middleware instance
         const middleware = cacheMiddleware({
@@ -679,7 +679,7 @@ describe('Platform Preservation (Req 3.15–3.18)', () => {
      * CSRF protection middleware correctly validates tokens.
      */
     it('3.10/3.18: CSRF protection middleware validates double-submit cookie pattern', async () => {
-        const { csrfProtection } = await import('../middlewares/csrfGuard');
+        const { csrfProtection } = await import('../middleware/csrfGuard');
         const crypto = await import('crypto');
 
         const token = crypto.randomBytes(32).toString('hex');
