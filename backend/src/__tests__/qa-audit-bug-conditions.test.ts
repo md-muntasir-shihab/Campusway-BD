@@ -90,7 +90,7 @@ describe('Group C: P0 Security — Permission Enforcement', () => {
      * Bug: many POST endpoints don't have csrfProtection applied
      */
     it('Bug 1.16: POST to admin endpoint without CSRF token is rejected', async () => {
-        const { csrfProtection } = await import('../middlewares/csrfGuard');
+        const { csrfProtection } = await import('../middleware/csrfGuard');
         const express = (await import('express')).default;
         const cookieParser = (await import('cookie-parser')).default;
         const supertest = (await import('supertest')).default;
@@ -179,7 +179,7 @@ describe('Group C: P0 Security — Permission Enforcement', () => {
      * Bug: middleware may not cover all student route mounts
      */
     it('Bug 1.15: pending student accessing restricted endpoint is rejected', async () => {
-        const { restrictPendingStudent } = await import('../middlewares/restrictPendingStudent');
+        const { restrictPendingStudent } = await import('../middleware/restrictPendingStudent');
         const User = (await import('../models/User')).default;
 
         // Create a pending student with all required fields

@@ -6,7 +6,7 @@ import {
   getStudentById, updateStudent, suspendStudent, activateStudent, resetStudentPassword,
   assignSubscription, extendSubscription, expireSubscriptionNow, toggleAutoRenew,
   getNotificationLogs, sendNotification, getTemplates,
-  getContactTimeline, addTimelineEntry, deleteTimelineEntry,
+  getContactTimeline, addTimelineEntry, deleteTimelineEntry, getStudentExtendedProfile,
 } from '../../../api/adminStudentApi';
 import { useEscapeKey } from '../../../hooks/useEscapeKey';
 import {
@@ -18,7 +18,7 @@ import ModernToggle from '../../../components/ui/ModernToggle';
 import { showConfirmDialog } from '../../../lib/appDialog';
 
 type Toast = { show: boolean; message: string; type: 'success' | 'error' };
-type Tab = 'profile' | 'subscription' | 'notifications' | 'timeline' | 'security';
+type Tab = 'profile' | 'subscription' | 'notifications' | 'timeline' | 'security' | 'extended-profile';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'profile', label: 'Profile' },
@@ -26,6 +26,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'notifications', label: 'Notifications' },
   { key: 'timeline', label: 'Contact Timeline' },
   { key: 'security', label: 'Security' },
+  { key: 'extended-profile', label: 'Extended Data' },
 ];
 
 
@@ -446,6 +447,7 @@ export default function StudentDetailPage() {
 
         {/* SECURITY TAB */}
         {activeTab === 'security' && <SecurityTabContent studentId={id!} student={s} isSusp={isSusp} showToast={showToast} onResetPw={() => { setResetPwModal(true); setNewPw(''); }} onSuspendToggle={handleSuspendToggle} qc={qc} />}
+        {activeTab === 'extended-profile' && <ExtendedProfileTab studentId={id!} />}
       </div>
 
       {/* Assign Plan Modal */}
@@ -698,6 +700,80 @@ function SecurityTabContent({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ExtendedProfileTab({ studentId }: { studentId: string }) {
+  const extQuery = useQuery({
+    queryKey: ['student-extended-profile', studentId],
+    queryFn: () => getStudentExtendedProfile(studentId),
+    enabled: Boolean(studentId),
+  });
+
+  if (extQuery.isLoading) return <div className="p-4 text-sm text-slate-500">Loading extended profile...</div>;
+  if (extQuery.isError) return <div className="p-4 text-sm text-red-500">Failed to load extended profile.</div>;
+
+  const data = extQuery.data;
+  if (!data) return <div className="p-4 text-sm text-slate-500">No data available.</div>;
+
+  return (
+    <div className="space-y-4">
+      {/* Performance Analytics */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Performance Analytics</h3>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div><p className="text-xs text-slate-500">Total Exams</p><p className="text-lg font-bold">{data.performanceAnalytics?.totalExams ?? 0}</p></div>
+          <div><p className="text-xs text-slate-500">Average Score</p><p className="text-lg font-bold">{data.performanceAnalytics?.averageScore ?? 0}%</p></div>
+          <div><p className="text-xs text-slate-500">Trend</p><p className={`text-lg font-bold ${(data.performanceAnalytics?.trend ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{(data.performanceAnalytics?.trend ?? 0) >= 0 ? '+' : ''}{data.performanceAnalytics?.trend ?? 0}%</p></div>
+          <div><p className="text-xs text-slate-500">Weak Topics</p><p className="text-lg font-bold text-orange-600">{data.performanceAnalytics?.weakTopics?.length ?? 0}</p></div>
+        </div>
+      </div>
+
+      {/* Exam History */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Exam History</h3>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <table className="w-full text-sm">
+            <thead><tr className="text-xs text-slate-500 border-b"><th className="text-left p-2">Exam</th><th className="text-left p-2">Subject</th><th className="text-right p-2">Score</th><th className="text-right p-2">%</th><th className="text-right p-2">Date</th></tr></thead>
+            <tbody>
+              {(data.examHistory || []).slice(0, 20).map((e: any, i: number) => (
+                <tr key={i} className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="p-2">{e.examTitle}</td>
+                  <td className="p-2">{e.subject}</td>
+                  <td className="p-2 text-right">{e.obtainedMarks}/{e.totalMarks}</td>
+                  <td className="p-2 text-right">{e.percentage}%</td>
+                  <td className="p-2 text-right text-xs text-slate-400">{e.submittedAt ? new Date(e.submittedAt).toLocaleDateString() : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Device & IP Info */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Device & IP History</h3>
+        <div className="space-y-2">
+          {(data.ipHistory || []).map((ip: string, i: number) => (
+            <span key={i} className="inline-block mr-2 mb-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-mono dark:bg-slate-800">{ip}</span>
+          ))}
+        </div>
+        <div className="mt-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <table className="w-full text-sm">
+            <thead><tr className="text-xs text-slate-500 border-b"><th className="text-left p-2">IP</th><th className="text-left p-2">User Agent</th><th className="text-right p-2">Time</th></tr></thead>
+            <tbody>
+              {(data.deviceInfo || []).slice(0, 10).map((d: any, i: number) => (
+                <tr key={i} className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="p-2 font-mono text-xs">{d.ip}</td>
+                  <td className="p-2 text-xs truncate max-w-[200px]">{d.userAgent}</td>
+                  <td className="p-2 text-right text-xs text-slate-400">{d.timestamp ? new Date(d.timestamp).toLocaleString() : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

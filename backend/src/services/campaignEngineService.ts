@@ -431,6 +431,9 @@ export async function processSend(
     for (let i = 0; i < activeRecipients.length; i += BATCH_SIZE) {
         batches.push(activeRecipients.slice(i, i + BATCH_SIZE));
     }
+    // Bug 1.22 fix
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 
     let routeResult: SendResult | undefined;
     const failedBatches: number[] = [];
