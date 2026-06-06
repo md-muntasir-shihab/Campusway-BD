@@ -218,13 +218,9 @@ export default function CampaignSettingsPage() {
     );
 
     // ─── Detect sensitive changes ────────────────────────────────────────────
-    const hasSensitiveChanges = useMemo(() => {
-        for (const key of dirtyKeysRef.current) {
-            if (SENSITIVE_KEYS.has(key)) return true;
-        }
-        return false;
-    }, // eslint-disable-next-line react-hooks/exhaustive-deps
-        [settings]);
+    const hasSensitiveChanges = Array.from(dirtyKeysRef.current).some(key =>
+        SENSITIVE_KEYS.has(key)
+    );
 
     // ─── Save handler ────────────────────────────────────────────────────────
     const handleSave = useCallback(async () => {
