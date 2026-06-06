@@ -497,7 +497,7 @@ export default function AdminAnalyticsDashboard() {
                                     outerRadius={100}
                                     innerRadius={50}
                                     paddingAngle={2}
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
                                     label={(({ name, percent }: { name: string; percent: number }) =>
                                         `${name} ${(percent * 100).toFixed(0)}%`
                                     ) as any}

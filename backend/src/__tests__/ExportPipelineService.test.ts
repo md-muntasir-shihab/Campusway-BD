@@ -16,6 +16,11 @@ import Exam from '../models/Exam';
 import ExamResult from '../models/ExamResult';
 // Import User model so Mongoose can resolve populate('student') references
 import '../models/User';
+import '../models/QuestionGroup';
+import '../models/QuestionSubGroup';
+import '../models/QuestionCategory';
+import '../models/QuestionChapter';
+import '../models/QuestionTopic';
 import {
     exportQuestionsExcel,
     exportQuestionsCSV,
@@ -155,7 +160,7 @@ describe('exportQuestionsExcel', () => {
 
         // correctOption is the 6th column (1-based index)
         const dataRow = worksheet.getRow(2);
-        const correctOptionValue = dataRow.getCell(6).value;
+        const correctOptionValue = dataRow.getCell(12).value;
         expect(correctOptionValue).toBe('3'); // C maps to 3
     });
 

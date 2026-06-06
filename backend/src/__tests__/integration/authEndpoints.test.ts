@@ -136,7 +136,7 @@ beforeAll(async () => {
 
     // Build a minimal Express app with just the auth routes
     const { refresh, getMe } = await import('../../controllers/authController');
-    const { authenticate } = await import('../../middlewares/auth');
+    const { authenticate } = await import('../../middleware/auth');
 
     app = express();
     app.use(express.json());

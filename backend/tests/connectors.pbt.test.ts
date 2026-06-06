@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 /**
  * Property-based tests for integration connectors.
  *
@@ -16,7 +17,7 @@ import { INTEGRATION_KEYS } from '../src/services/integrations/integrationsRegis
 import type { IntegrationKey } from '../src/models/IntegrationConfig';
 
 // Mock globalThis.fetch to avoid real network calls during property tests
-const mockFetch = jest.fn();
+const mockFetch = vi.fn();
 (globalThis as unknown as { fetch: typeof fetch }).fetch = mockFetch;
 
 beforeEach(() => {

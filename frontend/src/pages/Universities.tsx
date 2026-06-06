@@ -14,7 +14,7 @@ export default function UniversitiesPage() {
     useEffect(() => {
         const urlQ = searchParams.get('q') || '';
         if (urlQ !== heroSearch) setHeroSearch(urlQ);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [searchParams]);
 
     // Sync hero search → URL with debounce

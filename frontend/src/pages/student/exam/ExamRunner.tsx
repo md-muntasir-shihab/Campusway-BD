@@ -652,7 +652,7 @@ export default function ExamRunner() {
         if (remainingSeconds < 0 || remainingSeconds > 0 || !session || autoSubmitTriggeredRef.current) return;
         autoSubmitTriggeredRef.current = true;
         void handleSubmit();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [remainingSeconds, session]);
 
     // ── Session restore on mount ─────────────────────────────────────────

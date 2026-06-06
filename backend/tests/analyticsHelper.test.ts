@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 /**
  * Unit tests for analytics helper — priority logic, null config, Cache-Control.
  *
@@ -9,19 +10,19 @@ import request from 'supertest';
 import { getPublicAnalyticsConfig } from '../src/services/integrations/analyticsHelper';
 
 // Mock the featureGate module
-jest.mock('../src/services/integrations/featureGate', () => ({
-    isIntegrationReady: jest.fn(),
-    getIntegrationConfig: jest.fn(),
+vi.mock('../src/services/integrations/featureGate', () => ({
+    isIntegrationReady: vi.fn(),
+    getIntegrationConfig: vi.fn(),
 }));
 
 import { isIntegrationReady, getIntegrationConfig } from '../src/services/integrations/featureGate';
 
-const mockIsReady = isIntegrationReady as jest.MockedFunction<typeof isIntegrationReady>;
-const mockGetConfig = getIntegrationConfig as jest.MockedFunction<typeof getIntegrationConfig>;
+const mockIsReady = isIntegrationReady as import("vitest").MockedFunction<typeof isIntegrationReady>;
+const mockGetConfig = getIntegrationConfig as import("vitest").MockedFunction<typeof getIntegrationConfig>;
 
 describe('Analytics Helper — getPublicAnalyticsConfig', () => {
     beforeEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     it('prefers Umami over Plausible when both are enabled', async () => {
@@ -95,13 +96,13 @@ describe('Analytics Helper — getPublicAnalyticsConfig', () => {
 describe('Public Analytics Config Endpoint — Cache-Control header', () => {
     it('sets Cache-Control: public, max-age=60', async () => {
         // Import the public routes and mount on a test app
-        jest.resetModules();
-        jest.mock('../src/services/integrations/featureGate', () => ({
-            isIntegrationReady: jest.fn().mockResolvedValue(false),
-            getIntegrationConfig: jest.fn().mockResolvedValue(null),
+        vi.resetModules();
+        vi.mock('../src/services/integrations/featureGate', () => ({
+            isIntegrationReady: vi.fn().mockResolvedValue(false),
+            getIntegrationConfig: vi.fn().mockResolvedValue(null),
         }));
 
-        const publicRouter = require('../src/routes/publicIntegrationsRoutes').default;
+        const publicRouter = (await import('../src/routes/publicIntegrationsRoutes')).default;
         const app = express();
         app.use('/api/integrations', publicRouter);
 
