@@ -169,7 +169,7 @@ function buildUnfixedMatrix(): Record<UserRole, Record<PermissionModule, Permiss
     // support_agent: limited to support_center and reports
     matrix['support_agent']['support_center'] = ['view', 'create', 'edit', 'approve', 'export'];
     matrix['support_agent']['reports_analytics'] = ['view'];
-    // BUG: support_agent has NO notifications access — should have 'view'
+    matrix['support_agent']['notifications'] = ['view'];
 
     // finance_agent: finance-related modules
     matrix['finance_agent']['payments'] = ['view', 'create', 'edit', 'approve', 'export', 'bulk'];
