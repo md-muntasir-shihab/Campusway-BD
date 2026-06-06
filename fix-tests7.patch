@@ -1,0 +1,15 @@
+--- frontend/src/lib/__tests__/universityPresentation.test.ts
++++ frontend/src/lib/__tests__/universityPresentation.test.ts
+@@ -204,6 +204,12 @@
+         });
+     });
+
++    describe('toUniversitySlug details', () => {
++        it('handles undefined value', () => {
++             expect(toUniversitySlug(undefined as any)).toBe('');
++        });
++    });
++
+     describe('getUniversityFallbackTextSizeClass', () => {
+         it('returns correct class based on length', () => {
+             expect(getUniversityFallbackTextSizeClass('123456789012')).toBe('text-[0.42rem] sm:text-[0.48rem]'); // 12

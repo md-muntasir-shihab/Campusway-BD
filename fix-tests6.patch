@@ -1,0 +1,17 @@
+--- frontend/src/lib/__tests__/universityPresentation.test.ts
++++ frontend/src/lib/__tests__/universityPresentation.test.ts
+@@ -140,6 +140,14 @@
+             expect(dates).toContain('2023-01-01T00:00:00.000Z');
+         });
+     });
++
++    describe('formatUniversityDate coverage details', () => {
++        it('uses default options when omitted', () => {
++             const dateStr = '2023-05-15T00:00:00Z';
++             const formatted = formatUniversityDate(dateStr);
++             expect(formatted).toBeTruthy(); // exact string varies by locale
++        });
++    });
+
+     describe('pickNearestUniversityExamDate', () => {
+         it('returns the earliest valid exam date', () => {
