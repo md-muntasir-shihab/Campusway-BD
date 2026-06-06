@@ -11,6 +11,7 @@ import SupportTicketMessage, {
     type SupportTicketMessageSenderType,
 } from '../models/SupportTicketMessage';
 import User from '../models/User';
+import { escapeRegex } from '../utils/escapeRegex';
 import { createAdminAlert, createStudentNotification } from './adminAlertService';
 import {
     buildMessagePreview,
@@ -625,7 +626,8 @@ export async function listAdminSupportTickets(input: {
 
     const search = String(input.search || '').trim();
     if (search) {
-        const regex = new RegExp(search, 'i');
+        // eslint-disable-next-line security/detect-non-literal-regexp
+        const regex = new RegExp(escapeRegex(search), 'i');
         filter.$or = [
             { ticketNo: regex },
             { subject: regex },
