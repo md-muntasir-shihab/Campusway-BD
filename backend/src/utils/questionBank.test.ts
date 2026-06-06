@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateQuestionPayload } from './questionBank';
+import { validateQuestionPayload, sanitizeRichHtml } from './questionBank';
 
 function makeValidPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -163,5 +163,51 @@ describe('validateQuestionPayload', () => {
             }),
         );
         expect(result.valid).toBe(true);
+    });
+});
+
+describe('sanitizeRichHtml', () => {
+    it('returns empty string for null, undefined, or empty input', () => {
+        expect(sanitizeRichHtml(null)).toBe('');
+        expect(sanitizeRichHtml(undefined)).toBe('');
+        expect(sanitizeRichHtml('')).toBe('');
+    });
+
+    it('handles non-string inputs gracefully', () => {
+        expect(sanitizeRichHtml(123)).toBe('123');
+        expect(sanitizeRichHtml(true)).toBe('true');
+        expect(sanitizeRichHtml({})).toBe('[object Object]');
+    });
+
+    it('returns clean HTML unchanged', () => {
+        const cleanHtml = '<p>This is <strong>safe</strong> text.</p>';
+        expect(sanitizeRichHtml(cleanHtml)).toBe(cleanHtml);
+    });
+
+    it('removes <script> tags and their contents', () => {
+        expect(sanitizeRichHtml('<p>Safe</p><script>alert(1);</script>')).toBe('<p>Safe</p>');
+        expect(sanitizeRichHtml('<ScRiPt src="evil.js">alert(1);</ScRiPt>')).toBe('');
+        expect(sanitizeRichHtml('Before <script>let a = 1;</script> After')).toBe('Before  After');
+    });
+
+    it('removes <style> tags and their contents', () => {
+        expect(sanitizeRichHtml('<p>Safe</p><style>body { color: red; }</style>')).toBe('<p>Safe</p>');
+        expect(sanitizeRichHtml('<StYlE> p { display: none; } </StYlE>')).toBe('');
+    });
+
+    it('removes inline event handlers', () => {
+        expect(sanitizeRichHtml('<a href="#" onclick="alert(1)">Click</a>')).toBe('<a href="#">Click</a>');
+        expect(sanitizeRichHtml('<img src="img.png" onerror=\'alert(1)\'>')).toBe('<img src="img.png">');
+        expect(sanitizeRichHtml('<div onMouseOver="doSomething()">Hover me</div>')).toBe('<div>Hover me</div>');
+    });
+
+    it('removes javascript: URIs from href and src attributes', () => {
+        expect(sanitizeRichHtml('<a href="javascript:alert(1)">Click</a>')).toBe('<a href="#">Click</a>');
+        expect(sanitizeRichHtml('<a href=\'javascript:alert(1)\'>Click</a>')).toBe('<a href="#">Click</a>');
+        expect(sanitizeRichHtml('<iframe src="javascript:alert(1)"></iframe>')).toBe('<iframe src="#"></iframe>');
+    });
+
+    it('trims whitespace from the resulting string', () => {
+         expect(sanitizeRichHtml('   <p>Whitespace</p>   ')).toBe('<p>Whitespace</p>');
     });
 });
