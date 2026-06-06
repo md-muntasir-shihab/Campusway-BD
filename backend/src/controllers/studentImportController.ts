@@ -274,7 +274,7 @@ export const adminCommitStudentImport = async (req: Request, res: Response) => {
                         email: row.email || `${username}@campusway.com`,
                         phone_number: row.phone_number,
                         password: hashedPassword,
-                        username: username + '_' + Math.floor(Math.random() * 1000),
+                        username: username + '_' + crypto.randomInt(0, 1000),
                         role: 'student',
                         status: 'active',
                     });
