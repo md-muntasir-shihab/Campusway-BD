@@ -582,30 +582,36 @@ export async function rejectQuestion(id: string, reviewerId: string, reason: str
  * Requirement 2.13
  */
 export async function bulkArchive(ids: string[]): Promise<BulkResult> {
-    let success = 0;
-    let failed = 0;
+    const validObjectIds: mongoose.Types.ObjectId[] = [];
+    let invalidCount = 0;
 
     for (const id of ids) {
-        try {
-            if (!mongoose.Types.ObjectId.isValid(id)) {
-                failed++;
-                continue;
-            }
-            const result = await QuestionBankQuestion.updateOne(
-                { _id: toObjectId(id), isArchived: { $ne: true } },
-                { $set: { isArchived: true, status: 'archived' } },
-            );
-            if (result.modifiedCount > 0) {
-                success++;
-            } else {
-                failed++;
-            }
-        } catch {
-            failed++;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            invalidCount++;
+        } else {
+            validObjectIds.push(toObjectId(id));
         }
     }
 
-    return { success, failed };
+    if (validObjectIds.length === 0) {
+        return { success: 0, failed: ids.length };
+    }
+
+    try {
+        const result = await QuestionBankQuestion.updateMany(
+            { _id: { $in: validObjectIds }, isArchived: { $ne: true } },
+            { $set: { isArchived: true, status: 'archived' } }
+        );
+
+        const success = result.modifiedCount;
+        const failed = ids.length - success;
+
+        return { success, failed };
+    } catch {
+        // If the entire updateMany fails for some reason (e.g., connection lost),
+        // we treat all items as failed.
+        return { success: 0, failed: ids.length };
+    }
 }
 
 
