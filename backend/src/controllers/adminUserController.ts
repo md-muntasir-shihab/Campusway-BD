@@ -1405,7 +1405,7 @@ async function processImportRow(
 
     if (!username) {
         const prefix = email.split('@')[0].replace(/[^a-z0-9]/gi, '').slice(0, 16) || 'student';
-        username = `${prefix}${Math.floor(100 + Math.random() * 899)}`;
+        username = `${prefix}${crypto.randomInt(100, 1000)}`;
     }
 
     const existing = await User.findOne({
