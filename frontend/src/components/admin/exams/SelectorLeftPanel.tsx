@@ -78,7 +78,7 @@ export default function SelectorLeftPanel() {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [search, subject, moduleCategory, difficulty]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [search, subject, moduleCategory, difficulty]);
 
     /* Fetch on page change (immediate, no debounce) */
     const handlePageChange = (newPage: number) => {
@@ -89,7 +89,7 @@ export default function SelectorLeftPanel() {
     /* Initial load */
     useEffect(() => {
         fetchQuestions(1);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
 
     /* Check if a question is already selected */
     const isSelected = (id: string) =>

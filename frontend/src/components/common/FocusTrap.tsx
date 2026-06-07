@@ -36,7 +36,7 @@ export default function FocusTrap({
     useEffect(() => {
         previousFocusRef.current =
             returnFocusTo ?? (document.activeElement as HTMLElement | null);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
 
     // Auto-focus the first focusable element inside the trap
     useEffect(() => {
@@ -56,7 +56,7 @@ export default function FocusTrap({
                 requestAnimationFrame(() => target.focus());
             }
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent) => {

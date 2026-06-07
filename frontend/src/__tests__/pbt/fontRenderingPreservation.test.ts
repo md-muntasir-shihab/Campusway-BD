@@ -157,6 +157,7 @@ describe('Preservation C3: Font/Typography — Existing Behavior Unchanged', () 
                     existingSystemFontArb,
                     (fontName) => {
                         // Each existing system font should be referenced in tailwind config
+                        // eslint-disable-next-line security/detect-non-literal-regexp
                         const fontNamePattern = new RegExp(fontName.replace(/\s+/g, '\\s+'), 'i');
                         const hasFontInConfig = fontNamePattern.test(tailwindConfigContent);
                         expect(hasFontInConfig).toBe(true);
@@ -232,6 +233,7 @@ describe('Preservation C3: Font/Typography — Existing Behavior Unchanged', () 
                     cssFontFamilyArb,
                     (fontFamily) => {
                         // Each font family should appear in the CSS
+                        // eslint-disable-next-line security/detect-non-literal-regexp
                         const fontPattern = new RegExp(fontFamily.replace(/'/g, "['\"]?").replace(/\s+/g, '\\s+'), 'i');
                         const hasFontInCss = fontPattern.test(indexCssContent);
                         expect(hasFontInCss).toBe(true);
@@ -262,6 +264,7 @@ describe('Preservation C3: Font/Typography — Existing Behavior Unchanged', () 
                     googleFontPreconnectArb,
                     (domain) => {
                         // Check that preconnect hint exists for the domain
+                        // eslint-disable-next-line security/detect-non-literal-regexp
                         const preconnectPattern = new RegExp(
                             `<link[^>]*rel=["']preconnect["'][^>]*href=["'][^"']*${domain}`,
                             'i',

@@ -55,7 +55,7 @@ export default function OtpVerificationModal({
                 },
             );
         }
-    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [open]);
 
     // Expiry countdown timer
     useEffect(() => {

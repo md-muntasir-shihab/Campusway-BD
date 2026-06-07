@@ -131,6 +131,7 @@ test.describe('University Card Parity Live', () => {
         const clusterCard = await pickCard(page);
         await expectClassicCardSignals(clusterCard);
         await expectDeadlineCopy(page);
+        // eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page.locator('[data-university-card-id]').filter({ hasText: new RegExp(escapeRegex(clusterName), 'i') }).first()).toBeVisible();
         await expect(clusterCard).toHaveAttribute('data-university-card-variant', mainVariant || '');
 

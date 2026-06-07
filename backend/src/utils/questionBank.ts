@@ -709,8 +709,8 @@ export function validateQuestionPayload(payload: Record<string, unknown>): Valid
     // 1. Question text validation
     const enLen = (payload.question_en as string || '').trim().length;
     const bnLen = (payload.question_bn as string || '').trim().length;
-    if (enLen < 1 && bnLen < 1) {
-        errors.push('At least one of question_en or question_bn must be provided');
+    if (enLen < 10 && bnLen < 10) {
+        errors.push('At least one of question_en or question_bn must be >= 10 characters long');
     }
 
     // 2. Options validation
@@ -718,13 +718,25 @@ export function validateQuestionPayload(payload: Record<string, unknown>): Valid
     const questionType = String(payload.question_type || payload.questionType || 'mcq');
     
     if (questionType !== 'written_cq' && questionType !== 'fill_blank') {
-        if (!options || options.length < 2) {
-            errors.push('At least 2 options are required for MCQ types');
+        if (!options || options.length < 4) {
+            errors.push('At least 4 options are required');
         } else {
             // Check each option has non-empty text
+            const seenEn = new Set<string>();
+            const seenBn = new Set<string>();
             options.forEach((opt, i) => {
-                if (!(opt.text_en?.trim()) && !(opt.text_bn?.trim()) && !(opt.imageUrl?.trim())) {
-                    errors.push(`Option ${i + 1}: text_en, text_bn, or imageUrl is required`);
+                const enStr = (opt.text_en || '').trim();
+                const bnStr = (opt.text_bn || '').trim();
+                if (!enStr && !bnStr) {
+                    errors.push(`Option ${i + 1}: text_en or text_bn is required`);
+                }
+                if (enStr) {
+                    if (seenEn.has(enStr)) errors.push('Duplicate option text detected');
+                    seenEn.add(enStr);
+                }
+                if (bnStr) {
+                    if (seenBn.has(bnStr)) errors.push('Duplicate option text detected');
+                    seenBn.add(bnStr);
                 }
             });
 
@@ -744,8 +756,13 @@ export function validateQuestionPayload(payload: Record<string, unknown>): Valid
     }
 
     // 4. difficulty validation
-    if (payload.difficulty && !['easy', 'medium', 'hard', 'expert'].includes(payload.difficulty as string)) {
-        errors.push('difficulty must be easy, medium, hard, or expert');
+    if (payload.difficulty && !['easy', 'medium', 'hard'].includes(payload.difficulty as string)) {
+        errors.push('difficulty must be easy, medium, or hard');
+    }
+
+    // subject validation
+    if (!(payload.subject as string || '').trim()) {
+        errors.push('subject is required');
     }
 
     return { valid: errors.length === 0, errors };

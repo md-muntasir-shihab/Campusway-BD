@@ -394,6 +394,7 @@ test.describe('Auth Session Persistence — Critical User Flows', () => {
         await page.getByRole('button', { name: /(Sign in|Access Dashboard)/i }).first().click();
 
         // Should redirect to the original exam URL after login
+        // eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page).toHaveURL(new RegExp(`/exam/${examId}`), { timeout: 15_000 });
     });
 });

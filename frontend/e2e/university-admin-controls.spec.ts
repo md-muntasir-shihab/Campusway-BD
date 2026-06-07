@@ -28,6 +28,7 @@ async function openUniversityTab(
     tabName: 'Categories' | 'Clusters',
     readyLocator: import('@playwright/test').Locator,
 ) {
+    // eslint-disable-next-line security/detect-non-literal-regexp
     const tabButton = page.getByRole('button', { name: new RegExp(`^${tabName}$`) }).first();
     await expect(tabButton).toBeVisible({ timeout: 15000 });
 

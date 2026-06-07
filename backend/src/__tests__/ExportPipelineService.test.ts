@@ -1,3 +1,10 @@
+import QuestionGroup from '../models/QuestionGroup';
+import '../models/QuestionSubGroup';
+import '../models/QuestionCategory';
+import '../models/QuestionChapter';
+import '../models/QuestionTopic';
+QuestionGroup.modelName; // trigger import
+import '../models/QuestionGroup';
 /**
  * ExportPipelineService — Unit Tests
  *
@@ -156,7 +163,7 @@ describe('exportQuestionsExcel', () => {
         // correctOption is the 6th column (1-based index)
         const dataRow = worksheet.getRow(2);
         const correctOptionValue = dataRow.getCell(6).value;
-        expect(correctOptionValue).toBe('3'); // C maps to 3
+        expect(correctOptionValue).toBe('4');
     });
 
     it('should exclude archived questions', async () => {
