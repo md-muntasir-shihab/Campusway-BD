@@ -33,10 +33,9 @@ export async function sendTransactionalEmail(msg: EmailMessage): Promise<boolean
     if (!host || !username || !password || !fromAddress) return false;
 
     try {
-        // Dynamic require so the project doesn't take a hard dep on nodemailer
+        // Dynamic import so the project doesn't take a hard dep on nodemailer
         // until an admin actually enables SMTP.
-        // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
-        const nodemailer = require('nodemailer') as any;
+        const nodemailer = await import('nodemailer');
         const transporter = nodemailer.createTransport({
             host,
             port,
