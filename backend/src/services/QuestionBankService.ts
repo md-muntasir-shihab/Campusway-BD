@@ -624,36 +624,34 @@ export async function bulkStatusChange(ids: string[], status: string): Promise<B
         throw new Error(`Invalid status "${status}". Allowed: ${allowedStatuses.join(', ')}`);
     }
 
-    let success = 0;
-    let failed = 0;
+    if (!ids || ids.length === 0) {
+        return { success: 0, failed: 0 };
+    }
 
+    const validIds = [];
     for (const id of ids) {
-        try {
-            if (!mongoose.Types.ObjectId.isValid(id)) {
-                failed++;
-                continue;
-            }
-            const updateFields: Record<string, unknown> = { status };
-            // If archiving via status change, also set isArchived flag
-            if (status === 'archived') {
-                updateFields.isArchived = true;
-            }
-
-            const result = await QuestionBankQuestion.updateOne(
-                { _id: toObjectId(id) },
-                { $set: updateFields },
-            );
-            if (result.modifiedCount > 0) {
-                success++;
-            } else {
-                failed++;
-            }
-        } catch {
-            failed++;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            validIds.push(toObjectId(id));
         }
     }
 
-    return { success, failed };
+    const updateFields: Record<string, unknown> = { status };
+    if (status === 'archived') {
+        updateFields.isArchived = true;
+    }
+
+    try {
+        const result = await QuestionBankQuestion.updateMany(
+            { _id: { $in: validIds } },
+            { $set: updateFields }
+        );
+
+        const success = result.modifiedCount;
+        const failed = ids.length - success;
+        return { success, failed };
+    } catch (error) {
+        return { success: 0, failed: ids.length };
+    }
 }
 
 
