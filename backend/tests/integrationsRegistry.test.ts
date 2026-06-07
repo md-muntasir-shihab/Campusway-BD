@@ -34,13 +34,12 @@ describe('Integrations Registry', () => {
         expect(INTEGRATION_KEYS.sort()).toEqual([...EXPECTED_KEYS].sort());
     });
 
-    it('model IntegrationKey enum matches registry keys', () => {
+    it('model IntegrationKey enum matches registry keys', async () => {
         // The IntegrationKey type is defined in the model file. We verify by
         // checking that every registry key is a valid IntegrationKey value.
         // Since TypeScript enforces this at compile time, we verify at runtime
         // by importing the schema enum values from the model.
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const IntegrationConfig = require('../src/models/IntegrationConfig').default;
+        const IntegrationConfig = (await import('../src/models/IntegrationConfig')).default;
         const schema = IntegrationConfig.schema;
         const keyPath = schema.path('key');
         const enumValues: string[] = keyPath.enumValues;
