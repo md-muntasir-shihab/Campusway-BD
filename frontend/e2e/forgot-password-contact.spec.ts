@@ -18,6 +18,7 @@ test.describe('Forgot Password Contact Handoff', () => {
         await expect(page.locator('#contact-email')).toHaveValue(email);
         await expect(page.locator('#contact-phone')).toHaveValue(phone);
         await expect(page.locator('#contact-subject')).toHaveValue(/Password reset help/i);
+// eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page.locator('#contact-message')).toHaveValue(new RegExp(email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     });
 });

@@ -63,6 +63,7 @@ test.describe('Open Universities Full Audit', () => {
         expect(featuredClusterHref).toBeTruthy();
 
         await highlightedCategoryCard.click();
+// eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page).toHaveURL(new RegExp(escapeRegex(String(highlightedCategoryHref))));
         await expect(page.getByRole('heading').first()).toBeVisible();
 
@@ -70,6 +71,7 @@ test.describe('Open Universities Full Audit', () => {
         await expect(page).toHaveURL(/\/$/);
         await expect(featuredClusterLink).toBeVisible();
         await featuredClusterLink.click();
+// eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page).toHaveURL(new RegExp(escapeRegex(String(featuredClusterHref))));
         await expect(page.getByRole('heading').first()).toBeVisible();
 
@@ -99,6 +101,7 @@ test.describe('Open Universities Full Audit', () => {
         const nextCategoryLabel = (await nextCategoryTab.textContent()) || '';
         await nextCategoryTab.click();
         await expect(nextCategoryTab).toHaveAttribute('aria-selected', 'true');
+// eslint-disable-next-line security/detect-non-literal-regexp
         await expect(nextCategoryTab).toContainText(new RegExp(escapeRegex(nextCategoryLabel.trim()), 'i'));
         await expect(page.locator('[data-university-card-id]').first()).toBeVisible();
 

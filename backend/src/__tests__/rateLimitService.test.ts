@@ -46,8 +46,8 @@ describe('RateLimitService (in-memory fallback)', () => {
     it('allows the first request and returns correct remaining count', async () => {
         const result = await svc.check('key-a', makeConfig());
         expect(result.allowed).toBe(true);
-        expect(result.limit).toBe(5);
-        expect(result.remaining).toBe(4);
+        expect(result.limit).toBe(3); // 50% fallback: Math.ceil(5 * 0.5) = 3
+        expect(result.remaining).toBe(2);
         expect(result.resetAt.getTime()).toBeGreaterThan(Date.now());
     });
 
@@ -57,10 +57,10 @@ describe('RateLimitService (in-memory fallback)', () => {
         const r2 = await svc.check('key-b', cfg);
         const r3 = await svc.check('key-b', cfg);
 
-        expect(r1.remaining).toBe(2);
-        expect(r2.remaining).toBe(1);
+        expect(r1.remaining).toBe(1); // 50% fallback of 3 is 2
+        expect(r2.remaining).toBe(0);
         expect(r3.remaining).toBe(0);
-        expect(r3.allowed).toBe(true);
+        expect(r3.allowed).toBe(false);
     });
 
     it('rejects requests beyond maxRequests', async () => {
@@ -81,7 +81,7 @@ describe('RateLimitService (in-memory fallback)', () => {
 
         const r = await svc.check('user-2', cfg);
         expect(r.allowed).toBe(true);
-        expect(r.remaining).toBe(1);
+        expect(r.remaining).toBe(0); // 50% fallback of 1 is 1
     });
 
     it('resetAt is a future timestamp', async () => {
@@ -144,8 +144,8 @@ describe('rateLimitMiddleware', () => {
 
         await mw(req, res, next);
 
-        expect(headers['X-RateLimit-Limit']).toBe(500);
-        expect(headers['X-RateLimit-Remaining']).toBe(499);
+        expect(headers['X-RateLimit-Limit']).toBe(250); // 50% fallback of 500
+        expect(headers['X-RateLimit-Remaining']).toBe(249);
         expect(headers['X-RateLimit-Reset']).toBeDefined();
         expect(next).toHaveBeenCalledWith(); // called with no args = success
     });

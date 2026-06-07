@@ -1115,6 +1115,7 @@ describe('Phase 12 — Security (Req 1.49)', () => {
             fc.property(
                 fc.constantFrom(...sensitiveFields),
                 (field) => {
+// eslint-disable-next-line security/detect-non-literal-regexp
                     const regex = new RegExp(`${field}\\s*:\\s*\\{[^}]*select\\s*:\\s*false`, 's');
                     expect(regex.test(source)).toBe(true);
                 },

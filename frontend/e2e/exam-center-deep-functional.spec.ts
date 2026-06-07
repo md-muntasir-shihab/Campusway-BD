@@ -178,6 +178,7 @@ test.describe.serial('Exam Center deep functional flow', () => {
         );
         const submitResponse = await submitResponsePromise;
         expect(submitResponse.status(), await submitResponse.text()).toBe(200);
+// eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page).toHaveURL(new RegExp(`/student/exam/${demoExamId}/result`));
         await expect(page.getByText(/Exam Results|Results Pending|Total Score/i).first()).toBeVisible({ timeout: 20_000 });
         await expect(page.getByText(/Error Loading Results/i)).toHaveCount(0);
