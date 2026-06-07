@@ -35,6 +35,7 @@ export default function StudentResetPassword() {
             return;
         }
 
+        // eslint-disable-next-line security/detect-possible-timing-attacks
         if (password !== confirmPassword) {
             toast.error('Passwords do not match');
             return;
