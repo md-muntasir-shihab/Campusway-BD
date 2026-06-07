@@ -23,7 +23,6 @@ async function testLogin() {
         } else {
             logger.warn('Login Failed!');
             logger.warn('Status:', undefined, { status: response.status });
-            logger.warn('Data:', undefined, data);
         }
     } catch (error: any) {
         logger.error('Error:', undefined, { message: error.message });
