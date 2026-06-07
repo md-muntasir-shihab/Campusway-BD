@@ -80,6 +80,7 @@ test.describe.serial('Notification centers', () => {
 
         const targetCard = page.locator('button').filter({ hasText: ticketMarker }).first();
         await targetCard.click();
+        // eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page).toHaveURL(new RegExp(`/support/${ticketId}$`));
 
         await expectPageHealthy(page, tracker);
@@ -99,6 +100,7 @@ test.describe.serial('Notification centers', () => {
         await expect(page.getByText(ticketMarker).first()).toBeVisible();
 
         await page.getByRole('button', { name: 'Filter Contact alerts' }).click();
+        // eslint-disable-next-line security/detect-non-literal-regexp
         await expect(page.getByText(new RegExp(`Contact ${ticketMarker}`)).first()).toBeVisible();
 
         await expectPageHealthy(page, tracker);
