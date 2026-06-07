@@ -57,7 +57,8 @@ test.describe('Home Step1', () => {
         });
         test.skip(!heroPrimaryCta, 'No configured primary hero CTA in current environment.');
 
-        const cta = page.getByRole('link', { name: new RegExp(escapeRegExp(heroPrimaryCta!.label), 'i') }).first();
+        // eslint-disable-next-line security/detect-non-literal-regexp
+        const cta = page.getByRole('link', { name: heroPrimaryCta!.label }).first();
         await expect(cta).toBeVisible();
         const href = (await cta.getAttribute('href')) || heroPrimaryCta!.url || '/';
         const isExternal = /^https?:\/\//i.test(href);
@@ -74,7 +75,7 @@ test.describe('Home Step1', () => {
         }
 
         await Promise.all([
-            page.waitForURL(new RegExp(escapeRegExp(href.split('?')[0]))),
+            page.waitForURL(href.split('?')[0] + '**'), // Using glob pattern instead of regex
             cta.click(),
         ]);
     });

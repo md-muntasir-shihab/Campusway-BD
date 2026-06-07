@@ -77,6 +77,7 @@ async function expectPopoverInViewport(page: Page, trigger: Locator) {
 
 async function openAdminRoute(page: Page, topLabel: string, childHref: string, urlPattern: RegExp, headingPattern: RegExp) {
     const sidebar = page.locator('aside').first();
+    // eslint-disable-next-line security/detect-non-literal-regexp
     await sidebar.getByRole('link', { name: new RegExp(`^${escapeRegex(topLabel)}$`, 'i') }).click();
     const child = sidebar.locator(`a[href="${childHref}"]`).last();
     await expect(child).toBeVisible();
@@ -190,6 +191,7 @@ test.describe('Admin help, scroll reset, and branding', () => {
         await page.goto('/', { waitUntil: 'domcontentloaded' });
         const logo = page.locator('header img').first();
         await expect(logo).toBeVisible();
+        // eslint-disable-next-line security/detect-non-literal-regexp
         await expect(logo).toHaveAttribute('src', new RegExp(`${escapeRegex(ACTIVE_LOGO)}$`));
 
         const faviconHref = await page.locator('head link[rel~="icon"]').first().getAttribute('href');

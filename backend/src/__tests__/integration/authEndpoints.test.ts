@@ -136,7 +136,7 @@ beforeAll(async () => {
 
     // Build a minimal Express app with just the auth routes
     const { refresh, getMe } = await import('../../controllers/authController');
-    const { authenticate } = await import('../../middlewares/auth');
+    const { authenticate } = await import('../../middleware/auth');
 
     app = express();
     app.use(express.json());
@@ -261,8 +261,8 @@ describe('Auth Endpoints Integration Tests', () => {
                 .set('Cookie', [`refresh_token=${refreshToken}`])
                 .expect(401);
 
-            expect(res.body.code).toBe('SESSION_INVALIDATED');
-            expect(res.body.message).toContain('Session invalidated');
+            expect(res.body.error?.code).toBe('SESSION_INVALIDATED');
+            expect(res.body.error?.message || res.body.message).toContain('Session invalidated');
         });
 
         it('returns 401 SESSION_INVALIDATED when session is deleted', async () => {
@@ -276,7 +276,7 @@ describe('Auth Endpoints Integration Tests', () => {
                 .set('Cookie', [`refresh_token=${refreshToken}`])
                 .expect(401);
 
-            expect(res.body.code).toBe('SESSION_INVALIDATED');
+            expect(res.body.error?.code).toBe('SESSION_INVALIDATED');
         });
     });
 
@@ -310,13 +310,13 @@ describe('Auth Endpoints Integration Tests', () => {
                 .set('Authorization', `Bearer ${accessToken}`)
                 .expect(200);
 
-            expect(res.body.user).toBeDefined();
-            expect(res.body.user._id).toBe(testUserId);
-            expect(res.body.user.username).toBe('teststudent');
-            expect(res.body.user.email).toBe('test@campusway.local');
-            expect(res.body.user.role).toBe('student');
-            expect(res.body.user.fullName).toBe('Test Student');
-            expect(res.body.user.status).toBe('active');
+            expect(res.body.data?.user).toBeDefined();
+            expect(res.body.data?.user._id).toBe(testUserId);
+            expect(res.body.data?.user.username).toBe('teststudent');
+            expect(res.body.data?.user.email).toBe('test@campusway.local');
+            expect(res.body.data?.user.role).toBe('student');
+            expect(res.body.data?.user.fullName).toBe('Test Student');
+            expect(res.body.data?.user.status).toBe('active');
         });
 
         it('returns subscription info in user payload', async () => {
@@ -327,8 +327,8 @@ describe('Auth Endpoints Integration Tests', () => {
                 .set('Authorization', `Bearer ${accessToken}`)
                 .expect(200);
 
-            expect(res.body.user.subscription).toBeDefined();
-            expect(typeof res.body.user.subscription.isActive).toBe('boolean');
+            expect(res.body.data?.user.subscription).toBeDefined();
+            expect(typeof res.body.data?.user.subscription.isActive).toBe('boolean');
         });
 
         it('returns student_meta for student users', async () => {
@@ -339,9 +339,9 @@ describe('Auth Endpoints Integration Tests', () => {
                 .set('Authorization', `Bearer ${accessToken}`)
                 .expect(200);
 
-            expect(res.body.user.student_meta).toBeDefined();
-            expect(res.body.user.student_meta).toHaveProperty('department');
-            expect(res.body.user.student_meta).toHaveProperty('groupIds');
+            expect(res.body.data?.user.student_meta).toBeDefined();
+            expect(res.body.data?.user.student_meta).toHaveProperty('department');
+            expect(res.body.data?.user.student_meta).toHaveProperty('groupIds');
         });
     });
 
