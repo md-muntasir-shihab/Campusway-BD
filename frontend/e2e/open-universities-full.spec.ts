@@ -63,14 +63,14 @@ test.describe('Open Universities Full Audit', () => {
         expect(featuredClusterHref).toBeTruthy();
 
         await highlightedCategoryCard.click();
-        await expect(page).toHaveURL(new RegExp(escapeRegex(String(highlightedCategoryHref))));
+        await expect(page).toHaveURL(String(highlightedCategoryHref));
         await expect(page.getByRole('heading').first()).toBeVisible();
 
         await page.goBack();
         await expect(page).toHaveURL(/\/$/);
         await expect(featuredClusterLink).toBeVisible();
         await featuredClusterLink.click();
-        await expect(page).toHaveURL(new RegExp(escapeRegex(String(featuredClusterHref))));
+        await expect(page).toHaveURL(String(featuredClusterHref));
         await expect(page.getByRole('heading').first()).toBeVisible();
 
         await page.goBack();
@@ -99,7 +99,7 @@ test.describe('Open Universities Full Audit', () => {
         const nextCategoryLabel = (await nextCategoryTab.textContent()) || '';
         await nextCategoryTab.click();
         await expect(nextCategoryTab).toHaveAttribute('aria-selected', 'true');
-        await expect(nextCategoryTab).toContainText(new RegExp(escapeRegex(nextCategoryLabel.trim()), 'i'));
+        await expect(nextCategoryTab).toContainText(nextCategoryLabel.trim());
         await expect(page.locator('[data-university-card-id]').first()).toBeVisible();
 
         await previousCategoryTab.click();
