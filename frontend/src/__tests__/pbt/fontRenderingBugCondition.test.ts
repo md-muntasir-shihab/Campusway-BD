@@ -110,6 +110,7 @@ describe('Bug Condition C3: Font/Typography — Exploration PBT', () => {
                     requiredBanglaFontArb,
                     (fontFamily) => {
                         // Check that the CSS contains a @font-face block for this font
+                        // eslint-disable-next-line security/detect-non-literal-regexp
                         const fontFamilyPattern = new RegExp(
                             `@font-face[^}]*font-family:\\s*['"]?${fontFamily.replace(/\s+/g, '\\s+')}['"]?`,
                             'is',
@@ -118,6 +119,7 @@ describe('Bug Condition C3: Font/Typography — Exploration PBT', () => {
                         expect(hasFontFaceForFamily).toBe(true);
 
                         // Check that font-display: swap is used
+                        // eslint-disable-next-line security/detect-non-literal-regexp
                         const fontDisplayPattern = new RegExp(
                             `@font-face[^}]*font-family:\\s*['"]?${fontFamily.replace(/\s+/g, '\\s+')}['"]?[^}]*font-display:\\s*swap`,
                             'is',
@@ -136,6 +138,7 @@ describe('Bug Condition C3: Font/Typography — Exploration PBT', () => {
                     requiredBanglaFontArb,
                     (fontFamily) => {
                         // Check that the @font-face block has a src with a file reference
+                        // eslint-disable-next-line security/detect-non-literal-regexp
                         const srcPattern = new RegExp(
                             `@font-face[^}]*font-family:\\s*['"]?${fontFamily.replace(/\s+/g, '\\s+')}['"]?[^}]*src:\\s*url\\(`,
                             'is',
@@ -234,6 +237,7 @@ describe('Bug Condition C3: Font/Typography — Exploration PBT', () => {
                     (fontFamily) => {
                         // The Tailwind config should reference the Bangla font name
                         const fontNameEscaped = fontFamily.replace(/\s+/g, '\\s+');
+                        // eslint-disable-next-line security/detect-non-literal-regexp
                         const hasFontReference = new RegExp(fontNameEscaped, 'i').test(tailwindConfigContent);
                         expect(hasFontReference).toBe(true);
                     },
