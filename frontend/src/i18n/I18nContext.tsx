@@ -74,6 +74,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
             let value = translations[language]?.[key] ?? translations.en?.[key] ?? key;
             if (params) {
                 for (const [paramKey, paramValue] of Object.entries(params)) {
+// eslint-disable-next-line security/detect-non-literal-regexp
                     value = value.replace(new RegExp(`\\{\\{${paramKey}\\}\\}`, 'g'), String(paramValue));
                 }
             }

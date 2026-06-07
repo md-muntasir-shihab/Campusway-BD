@@ -57,6 +57,7 @@ test.describe('Home Step1', () => {
         });
         test.skip(!heroPrimaryCta, 'No configured primary hero CTA in current environment.');
 
+// eslint-disable-next-line security/detect-non-literal-regexp
         const cta = page.getByRole('link', { name: new RegExp(escapeRegExp(heroPrimaryCta!.label), 'i') }).first();
         await expect(cta).toBeVisible();
         const href = (await cta.getAttribute('href')) || heroPrimaryCta!.url || '/';
@@ -74,6 +75,7 @@ test.describe('Home Step1', () => {
         }
 
         await Promise.all([
+// eslint-disable-next-line security/detect-non-literal-regexp
             page.waitForURL(new RegExp(escapeRegExp(href.split('?')[0]))),
             cta.click(),
         ]);

@@ -115,9 +115,7 @@ export default defineConfig(({ mode }) => {
         build: {
             rollupOptions: {
                 output: {
-                    manualChunks(id) {
-                        return getManualChunkName(id);
-                    },
+                    manualChunks: undefined,
                 },
             },
         },
