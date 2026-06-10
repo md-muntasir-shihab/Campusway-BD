@@ -25,11 +25,15 @@ import {
     getPendingEvaluationResults,
     gradeWrittenAnswer,
     getAntiCheatReport,
+    cancelExamSession,
+    warnExamSessionStudent,
+    listExams,
     getAnalyticsOverview,
     startExamSession,
     saveAnswers,
     submitExamSession,
     getResult,
+    getDetailedResult,
     getExamLeaderboardHandler,
 } from '../controllers/examManagementController';
 import { gradeWrittenAnswerSchema } from '../validators/examGrading.validator';
@@ -56,6 +60,14 @@ router.get(
     '/analytics/overview',
     requirePermission('exams', 'view'),
     getAnalyticsOverview,
+);
+
+// GET / — List exams for the admin selector panels (grading / anti-cheat).
+// Supports ?status=completed and ?hasPendingEvaluation=true.
+router.get(
+    '/',
+    requirePermission('exams', 'view'),
+    listExams,
 );
 
 // POST /results/:resultId/grade — Grade a written answer
@@ -149,6 +161,20 @@ router.get(
     getAntiCheatReport,
 );
 
+// PATCH /:examId/sessions/:sessionId/cancel — Void a flagged session (zero marks)
+router.patch(
+    '/:examId/sessions/:sessionId/cancel',
+    requirePermission('exams', 'edit'),
+    cancelExamSession,
+);
+
+// POST /:examId/sessions/:sessionId/warn — Warn a flagged session's student
+router.post(
+    '/:examId/sessions/:sessionId/warn',
+    requirePermission('exams', 'edit'),
+    warnExamSessionStudent,
+);
+
 // ═══════════════════════════════════════════════════════════
 // Student Routes — Exam Session Lifecycle
 // ═══════════════════════════════════════════════════════════
@@ -172,6 +198,12 @@ router.post(
     '/:id/submit',
     validateBody(submitExamSchema),
     submitExamSession,
+);
+
+// GET /:id/result/detailed — Per-question review for authenticated student
+router.get(
+    '/:id/result/detailed',
+    getDetailedResult,
 );
 
 // GET /:id/result — Get exam result for authenticated student

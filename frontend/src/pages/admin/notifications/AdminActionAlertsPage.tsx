@@ -88,7 +88,7 @@ export default function AdminActionAlertsPage(_props: AdminActionAlertsPageProps
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h2 className="inline-flex items-center gap-2 text-xl font-bold">
-                            <BellRing className="h-5 w-5" />
+                            <BellRing className="h-5 w-5" aria-hidden="true" />
                             Actionable Alerts
                         </h2>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -96,11 +96,12 @@ export default function AdminActionAlertsPage(_props: AdminActionAlertsPageProps
                         </p>
                     </div>
                     <button
+                        type="button"
                         onClick={() => markAllMutation.mutate()}
                         disabled={markAllMutation.isPending || unreadCount === 0}
                         className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
                     >
-                        <CheckCheck className="h-4 w-4" />
+                        <CheckCheck className="h-4 w-4" aria-hidden="true" />
                         Mark all read
                     </button>
                 </div>
@@ -139,13 +140,13 @@ export default function AdminActionAlertsPage(_props: AdminActionAlertsPageProps
             </div>
 
             {alertsQuery.isLoading ? (
-                <div className="space-y-3">
+                <div className="space-y-3" role="status" aria-label="Loading alerts">
                     {Array.from({ length: 4 }).map((_, index) => (
                         <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
                     ))}
                 </div>
             ) : alertsQuery.isError ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+                <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
                     Failed to load admin alerts.
                 </div>
             ) : (alertsQuery.data?.items || []).length === 0 ? (
@@ -187,7 +188,7 @@ export default function AdminActionAlertsPage(_props: AdminActionAlertsPageProps
                                     <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                                         {item.type ? (
                                             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 dark:bg-slate-800">
-                                                <ShieldAlert className="h-3 w-3" />
+                                                <ShieldAlert className="h-3 w-3" aria-hidden="true" />
                                                 {humanize(item.type)}
                                             </span>
                                         ) : null}
@@ -203,7 +204,7 @@ export default function AdminActionAlertsPage(_props: AdminActionAlertsPageProps
                                     {item.linkUrl && (
                                         <span className="mt-2 inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-300">
                                             Open
-                                            <ExternalLink className="h-3.5 w-3.5" />
+                                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                                         </span>
                                     )}
                                 </div>

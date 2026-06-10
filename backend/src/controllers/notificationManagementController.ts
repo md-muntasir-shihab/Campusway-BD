@@ -1,9 +1,12 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
+import mongoose from 'mongoose';
 import Notification from '../models/Notification';
 import Settings from '../models/Settings';
 import GroupMembership from '../models/GroupMembership';
+import StudentNotificationRead from '../models/StudentNotificationRead';
+import User from '../models/User';
 
 // ── Notification Management Controller ──────────────────────
 // Thin handlers for admin notification management endpoints:
@@ -55,7 +58,45 @@ export async function getSentNotifications(req: AuthRequest, res: Response): Pro
             .limit(limit)
             .lean();
 
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
+        // Read counts: number of distinct students who have read each notification
+        // (from the existing per-student read records).
+        const notificationIds = items.map((n) => n._id);
+        const readAgg = notificationIds.length > 0
+            ? await StudentNotificationRead.aggregate([
+                { $match: { notificationId: { $in: notificationIds } } },
+                { $group: { _id: '$notificationId', count: { $sum: 1 } } },
+            ])
+            : [];
+        const readCountById = new Map<string, number>(
+            readAgg.map((r: { _id: mongoose.Types.ObjectId; count: number }) => [String(r._id), Number(r.count || 0)]),
+        );
+
+        // Total recipients: explicit targetUserIds when present, otherwise the
+        // size of the targeted role/group audience.
+        const totalStudentsCache = { value: -1 };
+        const resolveTotalRecipients = async (n: typeof items[number]): Promise<number> => {
+            const explicit = Array.isArray(n.targetUserIds) ? n.targetUserIds.length : 0;
+            if (explicit > 0) return explicit;
+            const role = String(n.targetRole || 'student');
+            if (role === 'student' || role === 'all') {
+                if (totalStudentsCache.value < 0) {
+                    totalStudentsCache.value = await User.countDocuments({ role: 'student', isActive: { $ne: false } });
+                }
+                return totalStudentsCache.value;
+            }
+            return 0;
+        };
+
+        const withCounts = [];
+        for (const n of items) {
+            withCounts.push({
+                ...n,
+                readCount: readCountById.get(String(n._id)) || 0,
+                totalRecipients: await resolveTotalRecipients(n),
+            });
+        }
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: withCounts }));
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Server error';
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));

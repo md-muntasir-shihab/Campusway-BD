@@ -74,7 +74,7 @@ function PreviewPanel({
         <div className="card-flat p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-semibold cw-text">
-                    <FlaskConical className="h-4 w-4 text-primary" />
+                    <FlaskConical className="h-4 w-4 text-primary" aria-hidden="true" />
                     Configuration Preview
                 </h3>
                 <button
@@ -83,14 +83,14 @@ function PreviewPanel({
                     disabled={loading}
                     className="btn-outline inline-flex items-center gap-1.5 text-xs px-3 py-1.5"
                 >
-                    {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+                    {loading ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <FlaskConical className="h-3 w-3" aria-hidden="true" />}
                     Test Config
                 </button>
             </div>
 
             {error && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 flex items-start gap-2">
-                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 flex items-start gap-2" role="alert">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden="true" />
                     {error}
                 </div>
             )}
@@ -114,7 +114,7 @@ function PreviewPanel({
                     {/* Blocked indicator */}
                     {simulation.blocked && (
                         <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 flex items-start gap-2">
-                            <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                            <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden="true" />
                             <span>
                                 Blocked by <span className="font-semibold">{simulation.blockingPolicy}</span>
                                 {simulation.blockingReason && `: ${simulation.blockingReason}`}
@@ -141,7 +141,7 @@ function PreviewPanel({
 
             {!simulation && !error && !loading && (
                 <p className="text-xs cw-muted flex items-center gap-1.5">
-                    <Info className="h-3.5 w-3.5" />
+                    <Info className="h-3.5 w-3.5" aria-hidden="true" />
                     Click "Test Config" to simulate a send with current settings.
                 </p>
             )}
@@ -159,9 +159,9 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 function PolicyStatusIcon({ status }: { status: 'pass' | 'fail' | 'warn' }) {
-    if (status === 'pass') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />;
-    if (status === 'fail') return <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />;
-    return <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />;
+    if (status === 'pass') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" aria-hidden="true" />;
+    if (status === 'fail') return <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" aria-hidden="true" />;
+    return <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" aria-hidden="true" />;
 }
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
@@ -303,16 +303,16 @@ export default function CampaignSettingsPage() {
     // ─── Loading state ───────────────────────────────────────────────────────
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <div className="flex items-center justify-center py-20" role="status" aria-label="Loading campaign settings">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
             </div>
         );
     }
 
     if (!settings) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 gap-2">
-                <AlertTriangle className="h-6 w-6 text-rose-400" />
+            <div className="flex flex-col items-center justify-center py-20 gap-2" role="alert">
+                <AlertTriangle className="h-6 w-6 text-rose-400" aria-hidden="true" />
                 <p className="text-sm cw-muted">Unable to load campaign settings.</p>
             </div>
         );
@@ -335,9 +335,9 @@ export default function CampaignSettingsPage() {
                     className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold"
                 >
                     {saving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                     ) : (
-                        <Save className="h-4 w-4" />
+                        <Save className="h-4 w-4" aria-hidden="true" />
                     )}
                     {saving ? 'Saving…' : 'Save Settings'}
                 </button>
@@ -345,14 +345,14 @@ export default function CampaignSettingsPage() {
 
             {/* Save feedback */}
             {saveError && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300 flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300 flex items-start gap-2" role="alert">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
                     {saveError}
                 </div>
             )}
             {saveSuccess && (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 flex items-center gap-2" role="status">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
                     Settings saved successfully.
                 </div>
             )}

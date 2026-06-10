@@ -16,9 +16,13 @@ import {
     Users,
     AlertTriangle,
     BarChart3,
+    Ban,
+    Bell,
+    User,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../services/api';
+import { adminUi } from '../../../lib/appRoutes';
 import type { ViolationType, AntiCheatViolationLog } from '../../../types/exam-system';
 
 // ─── Types ───────────────────────────────────────────────────────────────
@@ -223,6 +227,8 @@ export default function AntiCheatReport() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expandedSession, setExpandedSession] = useState<string | null>(null);
+    // sessionId currently running an action (cancel/warn), to disable its buttons
+    const [actioningId, setActioningId] = useState<string | null>(null);
 
     // Early return: if no examId, show exam selector
     if (!examId) {
@@ -275,6 +281,49 @@ export default function AntiCheatReport() {
     useEffect(() => {
         fetchReport();
     }, [fetchReport]);
+
+    // ── Per-session admin actions ──
+    const handleCancelSession = useCallback(async (s: FlaggedSession) => {
+        if (!examId) return;
+        if (!window.confirm(
+            `Cancel ${s.studentName || 'this student'}'s session and void their marks? This cannot be undone.`,
+        )) return;
+        setActioningId(s.sessionId);
+        try {
+            await api.patch(`${BASE}/${examId}/sessions/${s.sessionId}/cancel`, {});
+            toast.success('Session cancelled and marks voided.');
+            await fetchReport();
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || 'Failed to cancel session';
+            toast.error(msg);
+        } finally {
+            setActioningId(null);
+        }
+    }, [examId, fetchReport]);
+
+    const handleWarnStudent = useCallback(async (s: FlaggedSession) => {
+        if (!examId) return;
+        setActioningId(s.sessionId);
+        try {
+            await api.post(`${BASE}/${examId}/sessions/${s.sessionId}/warn`, {});
+            toast.success('Warning sent to student.');
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || 'Failed to send warning';
+            toast.error(msg);
+        } finally {
+            setActioningId(null);
+        }
+    }, [examId]);
+
+    const handleViewProfile = useCallback((s: FlaggedSession) => {
+        if (!s.studentId) {
+            toast.error('Student profile unavailable');
+            return;
+        }
+        navigate(adminUi(`student-management/students/${s.studentId}`));
+    }, [navigate]);
 
     // Compute max violation count for bar width scaling
     const maxViolationCount = useMemo(() => {
@@ -422,8 +471,11 @@ export default function AntiCheatReport() {
                                         <th className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                             Device Fingerprint
                                         </th>
-                                        <th className="pb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <th className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                             Submitted
+                                        </th>
+                                        <th className="pb-2 text-right text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                            Actions
                                         </th>
                                     </tr>
                                 </thead>
@@ -484,8 +536,52 @@ export default function AntiCheatReport() {
                                                     <span className="text-xs text-slate-400">—</span>
                                                 )}
                                             </td>
-                                            <td className="whitespace-nowrap py-2.5 text-slate-500 dark:text-slate-400">
+                                            <td className="whitespace-nowrap py-2.5 pr-4 text-slate-500 dark:text-slate-400">
                                                 {fmtDate(s.submittedAt)}
+                                            </td>
+                                            <td
+                                                className="whitespace-nowrap py-2.5 text-right"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="inline-flex items-center gap-1.5">
+                                                    {s.status === 'cancelled' ? (
+                                                        <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[11px] font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                                                            <Ban size={12} /> Cancelled
+                                                        </span>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCancelSession(s)}
+                                                            disabled={actioningId === s.sessionId}
+                                                            className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800/60 dark:text-red-400 dark:hover:bg-red-950/30"
+                                                            title="Cancel session & void marks"
+                                                        >
+                                                            {actioningId === s.sessionId ? (
+                                                                <Loader2 size={12} className="animate-spin" />
+                                                            ) : (
+                                                                <Ban size={12} />
+                                                            )}
+                                                            Cancel
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleWarnStudent(s)}
+                                                        disabled={actioningId === s.sessionId}
+                                                        className="inline-flex items-center gap-1 rounded-md border border-amber-200 px-2 py-1 text-[11px] font-medium text-amber-600 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800/60 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                                        title="Warn student"
+                                                    >
+                                                        <Bell size={12} /> Warn
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleViewProfile(s)}
+                                                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                                                        title="View student profile"
+                                                    >
+                                                        <User size={12} /> Profile
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

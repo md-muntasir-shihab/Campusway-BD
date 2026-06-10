@@ -132,7 +132,7 @@ function Section({
 
 function PageSkeleton() {
     return (
-        <div className="min-w-0 space-y-6 animate-pulse">
+        <div className="min-w-0 space-y-6 animate-pulse" role="status" aria-label="Loading notification data">
             <div className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/60">
                 <div className="h-7 w-64 rounded bg-slate-200 dark:bg-slate-700" />
                 <div className="mt-2 h-4 w-48 rounded bg-slate-100 dark:bg-slate-800" />
@@ -318,11 +318,11 @@ export default function NotificationManagement() {
     if (error) {
         return (
             <AdminGuardShell title="Notification Management" requiredModule="exam_center">
-                <div className="flex flex-col items-center justify-center gap-4 py-20">
-                    <AlertCircle className="h-12 w-12 text-red-400" />
+                <div className="flex flex-col items-center justify-center gap-4 py-20" role="alert">
+                    <AlertCircle className="h-12 w-12 text-red-400" aria-hidden="true" />
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{error}</p>
                     <button onClick={fetchData} className={btnPrimary}>
-                        <RefreshCw size={14} /> Retry
+                        <RefreshCw size={14} aria-hidden="true" /> Retry
                     </button>
                 </div>
             </AdminGuardShell>
@@ -505,19 +505,19 @@ export default function NotificationManagement() {
                             <table className="w-full text-left text-sm">
                                 <thead>
                                     <tr className="border-b border-slate-200 dark:border-slate-700">
-                                        <th className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <th scope="col" className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                             Type
                                         </th>
-                                        <th className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <th scope="col" className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                             Message
                                         </th>
-                                        <th className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <th scope="col" className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                             Target
                                         </th>
-                                        <th className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <th scope="col" className="pb-2 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                             Date
                                         </th>
-                                        <th className="pb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <th scope="col" className="pb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                             Reach
                                         </th>
                                     </tr>
@@ -598,19 +598,19 @@ export default function NotificationManagement() {
                         <table className="w-full text-left text-sm">
                             <thead>
                                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                                    <th className="pb-2 pr-6 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    <th scope="col" className="pb-2 pr-6 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                         Event Type
                                     </th>
-                                    <th className="pb-2 pr-6 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    <th scope="col" className="pb-2 pr-6 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
                                         In-App
                                     </th>
-                                    <th className="pb-2 pr-6 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    <th scope="col" className="pb-2 pr-6 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
                                         Email
                                     </th>
-                                    <th className="pb-2 pr-6 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    <th scope="col" className="pb-2 pr-6 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
                                         Push
                                     </th>
-                                    <th className="pb-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    <th scope="col" className="pb-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
                                         SMS
                                     </th>
                                 </tr>

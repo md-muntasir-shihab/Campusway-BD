@@ -150,11 +150,14 @@ export default function NotificationBell() {
                 ].join(' ')}
                 aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
                 aria-expanded={open}
-                aria-haspopup="true"
+                aria-haspopup="dialog"
             >
-                <Bell className="h-4 w-4" />
+                <Bell className="h-4 w-4" aria-hidden="true" />
                 {unreadCount > 0 && (
-                    <span className="absolute -right-1 -top-1 inline-flex min-w-[1.05rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-4 text-white">
+                    <span
+                        aria-hidden="true"
+                        className="absolute -right-1 -top-1 inline-flex min-w-[1.05rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-4 text-white"
+                    >
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
@@ -163,7 +166,8 @@ export default function NotificationBell() {
             {/* Dropdown */}
             {open && (
                 <div
-                    role="menu"
+                    role="dialog"
+                    aria-label="Notifications"
                     className="absolute right-0 top-full mt-2 w-80 max-h-[28rem] overflow-y-auto rounded-2xl border border-card-border/70 dark:border-dark-border/70 bg-surface dark:bg-dark-surface shadow-xl z-50"
                 >
                     <div className="sticky top-0 z-10 flex items-center justify-between border-b border-card-border/50 dark:border-dark-border/50 bg-surface dark:bg-dark-surface px-4 py-3">
@@ -178,8 +182,9 @@ export default function NotificationBell() {
                     </div>
 
                     {isLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-5 w-5 animate-spin text-text-muted dark:text-dark-text/60" />
+                        <div className="flex items-center justify-center py-8" role="status">
+                            <Loader2 className="h-5 w-5 animate-spin text-text-muted dark:text-dark-text/60" aria-hidden="true" />
+                            <span className="sr-only">Loading notifications</span>
                         </div>
                     ) : recentNotifications.length === 0 ? (
                         <div className="py-8 text-center text-sm text-text-muted dark:text-dark-text/60">
@@ -188,7 +193,7 @@ export default function NotificationBell() {
                     ) : (
                         <ul className="divide-y divide-card-border/40 dark:divide-dark-border/40">
                             {recentNotifications.map((n) => (
-                                <li key={n._id} role="menuitem">
+                                <li key={n._id}>
                                     <div
                                         className={[
                                             'flex items-start gap-3 px-4 py-3 transition-colors',
@@ -200,6 +205,7 @@ export default function NotificationBell() {
                                     >
                                         {/* Priority dot */}
                                         <span
+                                            aria-hidden="true"
                                             className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.isRead ? 'bg-transparent' : priorityDot(n.priority)
                                                 }`}
                                         />
@@ -249,7 +255,7 @@ export default function NotificationBell() {
                                                 aria-label="Mark as read"
                                                 title="Mark as read"
                                             >
-                                                <Check className="h-3.5 w-3.5" />
+                                                <Check className="h-3.5 w-3.5" aria-hidden="true" />
                                             </button>
                                         )}
                                     </div>

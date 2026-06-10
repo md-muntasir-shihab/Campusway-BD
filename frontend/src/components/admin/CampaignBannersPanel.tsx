@@ -107,6 +107,7 @@ function NumInput({
                 value={value}
                 onChange={(e) => onChange(Math.max(min, Number(e.target.value)))}
                 className="w-full bg-slate-800/60 border border-indigo-500/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                aria-label={label}
             />
             {helper && <p className="text-[10px] text-slate-500 mt-0.5">{helper}</p>}
         </div>
@@ -270,7 +271,7 @@ export default function CampaignBannersPanel() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        <Megaphone className="w-5 h-5 text-[var(--primary)]" /> Campaign Banners
+                        <Megaphone className="w-5 h-5 text-[var(--primary)]" aria-hidden="true" /> Campaign Banners
                     </h2>
                     <p className="text-xs text-slate-500 mt-0.5">
                         Manage promotional banners and popup ad campaigns.
@@ -278,16 +279,19 @@ export default function CampaignBannersPanel() {
                 </div>
                 <div className="flex gap-2">
                     <button
+                        type="button"
                         onClick={() => void fetchBanners()}
+                        aria-label="Refresh banners"
                         className="p-2 text-slate-400 hover:text-white bg-white/5 rounded-xl transition-colors"
                     >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
                     </button>
                     <button
+                        type="button"
                         onClick={openCreate}
                         className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white text-sm px-4 py-2 rounded-xl flex items-center gap-2 hover:opacity-90 shadow-lg shadow-[var(--primary)]/20"
                     >
-                        <Plus className="w-4 h-4" />{activeTab === 'popup' ? 'New Popup' : 'New Campaign'}
+                        <Plus className="w-4 h-4" aria-hidden="true" />{activeTab === 'popup' ? 'New Popup' : 'New Campaign'}
                     </button>
                 </div>
             </div>
@@ -295,22 +299,26 @@ export default function CampaignBannersPanel() {
             {/* Tab switcher */}
             <div className="flex gap-1 p-1 bg-slate-900/60 border border-indigo-500/10 rounded-xl w-fit">
                 <button
+                    type="button"
                     onClick={() => setActiveTab('home_ads')}
+                    aria-pressed={activeTab === 'home_ads'}
                     className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-all ${activeTab === 'home_ads'
                         ? 'bg-[var(--primary)] text-white shadow'
                         : 'text-slate-400 hover:text-white'
                         }`}
                 >
-                    <span className="flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Home Banners</span>
+                    <span className="flex items-center gap-1.5"><Image className="w-3.5 h-3.5" aria-hidden="true" /> Home Banners</span>
                 </button>
                 <button
+                    type="button"
                     onClick={() => setActiveTab('popup')}
+                    aria-pressed={activeTab === 'popup'}
                     className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-all ${activeTab === 'popup'
                         ? 'bg-[var(--primary)] text-white shadow'
                         : 'text-slate-400 hover:text-white'
                         }`}
                 >
-                    <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Popup Campaigns</span>
+                    <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" aria-hidden="true" /> Popup Campaigns</span>
                 </button>
             </div>
 
@@ -331,7 +339,7 @@ export default function CampaignBannersPanel() {
             {/* Popup explanation banner */}
             {activeTab === 'popup' && (
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-sm text-slate-300">
-                    <AlertCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                    <AlertCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" aria-hidden="true" />
                     <div>
                         <p className="font-semibold text-indigo-200 mb-1">Popup Campaigns</p>
                         <p className="text-xs text-slate-400">Popup ads appear as full-screen overlay when visitors land on your public website. You can control the close-button delay, auto-dismiss timer, and how often each visitor sees the popup.</p>
@@ -342,14 +350,14 @@ export default function CampaignBannersPanel() {
             {/* Banner list */}
             <div className="bg-slate-900/60 backdrop-blur-sm rounded-2xl border border-indigo-500/10 overflow-hidden">
                 {loading ? (
-                    <div className="p-12 text-center">
-                        <RefreshCw className="w-8 h-8 text-[var(--primary)] animate-spin mx-auto" />
+                    <div className="p-12 text-center" role="status" aria-label="Loading campaign banners">
+                        <RefreshCw className="w-8 h-8 text-[var(--primary)] animate-spin mx-auto" aria-hidden="true" />
                     </div>
                 ) : campaigns.length === 0 ? (
                     <div className="p-12 text-center">
                         {activeTab === 'popup'
-                            ? <Zap className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                            : <Megaphone className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                            ? <Zap className="w-12 h-12 text-slate-600 mx-auto mb-3" aria-hidden="true" />
+                            : <Megaphone className="w-12 h-12 text-slate-600 mx-auto mb-3" aria-hidden="true" />
                         }
                         <p className="text-slate-500">
                             {activeTab === 'popup'
@@ -375,7 +383,7 @@ export default function CampaignBannersPanel() {
                                             />
                                         ) : (
                                             <div className="h-full flex items-center justify-center">
-                                                <Image className="w-6 h-6 text-slate-500" />
+                                                <Image className="w-6 h-6 text-slate-500" aria-hidden="true" />
                                             </div>
                                         )}
                                     </div>
@@ -400,7 +408,7 @@ export default function CampaignBannersPanel() {
                                         )}
                                         <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
                                             <span className="flex items-center gap-1">
-                                                <Calendar className="w-3 h-3" />
+                                                <Calendar className="w-3 h-3" aria-hidden="true" />
                                                 {banner.startDate ? new Date(banner.startDate).toLocaleDateString() : 'No start'}
                                                 {' → '}
                                                 {banner.endDate ? new Date(banner.endDate).toLocaleDateString() : 'No end'}
@@ -408,11 +416,11 @@ export default function CampaignBannersPanel() {
                                             {activeTab === 'popup' && banner.popupConfig && (
                                                 <>
                                                     <span className="flex items-center gap-1">
-                                                        <Timer className="w-3 h-3 text-amber-400" />
+                                                        <Timer className="w-3 h-3 text-amber-400" aria-hidden="true" />
                                                         X after {banner.popupConfig.closeButtonDelaySeconds}s
                                                     </span>
                                                     <span className="flex items-center gap-1">
-                                                        <Users className="w-3 h-3 text-blue-400" />
+                                                        <Users className="w-3 h-3 text-blue-400" aria-hidden="true" />
                                                         {banner.popupConfig.maxViewsPerDay}×/day
                                                     </span>
                                                 </>
@@ -424,7 +432,7 @@ export default function CampaignBannersPanel() {
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-1 text-[var(--primary)] hover:underline"
                                                 >
-                                                    <ExternalLink className="w-3 h-3" /> Link
+                                                    <ExternalLink className="w-3 h-3" aria-hidden="true" /> Link
                                                 </a>
                                             )}
                                         </div>
@@ -433,44 +441,54 @@ export default function CampaignBannersPanel() {
                                     {/* Actions */}
                                     <div className="flex md:flex-col items-center gap-1 shrink-0">
                                         <button
+                                            type="button"
                                             onClick={() => void togglePublish(banner)}
                                             className="p-1.5 rounded-lg hover:bg-emerald-500/10"
                                             title={state === 'live' ? 'Unpublish' : 'Publish'}
+                                            aria-label={state === 'live' ? 'Unpublish' : 'Publish'}
                                         >
                                             {banner.status === 'published'
-                                                ? <Eye className="w-4 h-4 text-emerald-400" />
-                                                : <EyeOff className="w-4 h-4 text-slate-400" />
+                                                ? <Eye className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+                                                : <EyeOff className="w-4 h-4 text-slate-400" aria-hidden="true" />
                                             }
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => openEdit(banner)}
                                             className="p-1.5 rounded-lg hover:bg-amber-500/10"
                                             title="Edit"
+                                            aria-label="Edit"
                                         >
-                                            <Edit className="w-4 h-4 text-amber-400" />
+                                            <Edit className="w-4 h-4 text-amber-400" aria-hidden="true" />
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => void moveBanner(banner, 'up')}
                                             disabled={idx === 0}
                                             className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30"
                                             title="Move up"
+                                            aria-label="Move up"
                                         >
-                                            <ChevronUp className="w-4 h-4 text-slate-400" />
+                                            <ChevronUp className="w-4 h-4 text-slate-400" aria-hidden="true" />
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => void moveBanner(banner, 'down')}
                                             disabled={idx === campaigns.length - 1}
                                             className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30"
                                             title="Move down"
+                                            aria-label="Move down"
                                         >
-                                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                                            <ChevronDown className="w-4 h-4 text-slate-400" aria-hidden="true" />
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => void removeBanner(banner._id)}
                                             className="p-1.5 rounded-lg hover:bg-red-500/10"
                                             title="Delete"
+                                            aria-label="Delete"
                                         >
-                                            <Trash2 className="w-4 h-4 text-red-400" />
+                                            <Trash2 className="w-4 h-4 text-red-400" aria-hidden="true" />
                                         </button>
                                     </div>
                                 </article>
@@ -483,17 +501,17 @@ export default function CampaignBannersPanel() {
             {/* ── Create / Edit Modal ── */}
             {modal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-slate-900 border border-indigo-500/15 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                    <div className="bg-slate-900 border border-indigo-500/15 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="campaign-banner-modal-title">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-indigo-500/10">
-                            <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                                {activeTab === 'popup' ? <Zap className="w-4 h-4 text-indigo-400" /> : <Megaphone className="w-4 h-4 text-[var(--primary)]" />}
+                            <h3 id="campaign-banner-modal-title" className="text-base font-semibold text-white flex items-center gap-2">
+                                {activeTab === 'popup' ? <Zap className="w-4 h-4 text-indigo-400" aria-hidden="true" /> : <Megaphone className="w-4 h-4 text-[var(--primary)]" aria-hidden="true" />}
                                 {modal === 'create'
                                     ? (activeTab === 'popup' ? 'New Popup Campaign' : 'New Campaign Banner')
                                     : (activeTab === 'popup' ? 'Edit Popup Campaign' : 'Edit Campaign Banner')
                                 }
                             </h3>
-                            <button onClick={() => setModal(null)} className="p-1 hover:bg-white/10 rounded-lg">
-                                <X className="w-5 h-5 text-slate-400" />
+                            <button type="button" onClick={() => setModal(null)} aria-label="Close" className="p-1 hover:bg-white/10 rounded-lg">
+                                <X className="w-5 h-5 text-slate-400" aria-hidden="true" />
                             </button>
                         </div>
 
@@ -558,7 +576,7 @@ export default function CampaignBannersPanel() {
                             {/* Link URL */}
                             <div>
                                 <label className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                                    <ExternalLink className="w-3 h-3" />
+                                    <ExternalLink className="w-3 h-3" aria-hidden="true" />
                                     Click Destination URL
                                 </label>
                                 <input
@@ -644,6 +662,7 @@ export default function CampaignBannersPanel() {
                                                 value={form.popupConfig.targetAudience}
                                                 onChange={(e) => setForm((p) => ({ ...p, popupConfig: { ...p.popupConfig, targetAudience: e.target.value as PopupConfig['targetAudience'] } }))}
                                                 className="w-full bg-slate-800/60 border border-indigo-500/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                                                aria-label="Target Audience"
                                             >
                                                 <option value="all">Everyone</option>
                                                 <option value="guests">Guests only (not logged in)</option>
@@ -704,6 +723,7 @@ export default function CampaignBannersPanel() {
                                         value={form.priority}
                                         onChange={(e) => setForm((p) => ({ ...p, priority: Number(e.target.value) }))}
                                         className="w-full bg-slate-800/60 border border-indigo-500/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                                        aria-label="Priority"
                                     />
                                 </div>
                                 <div>
@@ -713,6 +733,7 @@ export default function CampaignBannersPanel() {
                                         value={form.order}
                                         onChange={(e) => setForm((p) => ({ ...p, order: Number(e.target.value) }))}
                                         className="w-full bg-slate-800/60 border border-indigo-500/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                                        aria-label="Order"
                                     />
                                 </div>
                             </div>
@@ -721,24 +742,26 @@ export default function CampaignBannersPanel() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                                        <Clock className="w-3 h-3" /> Start Date
+                                        <Clock className="w-3 h-3" aria-hidden="true" /> Start Date
                                     </label>
                                     <input
                                         type="datetime-local"
                                         value={form.startDate}
                                         onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
                                         className="w-full bg-slate-800/60 border border-indigo-500/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                                        aria-label="Start Date"
                                     />
                                 </div>
                                 <div>
                                     <label className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                                        <Clock className="w-3 h-3" /> End Date
+                                        <Clock className="w-3 h-3" aria-hidden="true" /> End Date
                                     </label>
                                     <input
                                         type="datetime-local"
                                         value={form.endDate}
                                         onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
                                         className="w-full bg-slate-800/60 border border-indigo-500/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                                        aria-label="End Date"
                                     />
                                 </div>
                             </div>
@@ -760,12 +783,14 @@ export default function CampaignBannersPanel() {
                         {/* Footer */}
                         <div className="flex justify-end gap-2 px-5 py-4 border-t border-indigo-500/10">
                             <button
+                                type="button"
                                 onClick={() => setModal(null)}
                                 className="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-xl hover:bg-white/5"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={() => void saveBanner()}
                                 disabled={saving}
                                 className="px-5 py-2 text-sm rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[var(--primary)]/20"

@@ -44,10 +44,14 @@ export default function TestimonialsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{featured.map((t, i) => (
                             <motion.div key={t._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
                                 onClick={() => setSelected(t)}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Read full review from ${t.name}`}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(t); } }}
                                 className="group relative rounded-3xl border-2 border-amber-500/20 bg-gradient-to-br from-amber-500/[0.03] to-transparent dark:from-amber-500/[0.05] p-8 shadow-lg hover:shadow-xl hover:border-amber-500/40 transition-all duration-500 hover:-translate-y-1 cursor-pointer">
-                                <div className="absolute top-5 right-5"><Quote className="h-20 w-20 text-amber-500/[0.06] group-hover:text-amber-500/[0.12] transition-colors" /></div>
-                                <div className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 shadow-lg shadow-amber-500/30"><Award className="h-3.5 w-3.5 text-white" /><span className="text-[11px] font-bold text-white">Featured</span></div>
-                                <div className="flex gap-1 mb-4 mt-8">{Array.from({ length: 5 }).map((_, j) => <Star key={j} className={`h-5 w-5 ${j < t.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-700'}`} />)}</div>
+                                <div className="absolute top-5 right-5"><Quote aria-hidden="true" className="h-20 w-20 text-amber-500/[0.06] group-hover:text-amber-500/[0.12] transition-colors" /></div>
+                                <div className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 shadow-lg shadow-amber-500/30"><Award aria-hidden="true" className="h-3.5 w-3.5 text-white" /><span className="text-[11px] font-bold text-white">Featured</span></div>
+                                <div className="flex gap-1 mb-4 mt-8" role="img" aria-label={`Rated ${t.rating} out of 5 stars`}>{Array.from({ length: 5 }).map((_, j) => <Star key={j} aria-hidden="true" className={`h-5 w-5 ${j < t.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-700'}`} />)}</div>
                                 <blockquote className="text-base leading-relaxed text-text/90 dark:text-dark-text/85 font-medium mb-4 relative z-10 line-clamp-5">&ldquo;{t.fullQuote}&rdquo;</blockquote>
                                 <p className="text-xs text-indigo-400 dark:text-indigo-300 font-semibold mb-2 hover:underline">পুরো রিভিউ পড়ুন →</p>
                                 <div className="flex items-center gap-4 pt-5 border-t border-amber-500/10">
@@ -68,8 +72,8 @@ export default function TestimonialsPage() {
                         {(regular.length > 0 ? regular : testimonials).map((t, i) => (
                             <motion.div key={t._id} variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
                                 className={`group relative rounded-3xl border border-card-border/50 dark:border-white/[0.06] bg-white dark:bg-slate-900/70 backdrop-blur-xl p-7 shadow-sm hover:shadow-2xl ${CB[i % CB.length]} transition-all duration-500 hover:-translate-y-1 overflow-hidden`}>
-                                <div className="absolute top-5 right-5"><Quote className="h-14 w-14 text-primary/[0.04] dark:text-white/[0.03] group-hover:text-primary/[0.08] transition-colors duration-500" /></div>
-                                <div className="flex gap-1 mb-4">{Array.from({ length: 5 }).map((_, j) => <Star key={j} className={`h-[18px] w-[18px] transition-transform duration-300 group-hover:scale-110 ${j < t.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 dark:text-slate-700'}`} style={{ transitionDelay: `${j * 40}ms` }} />)}</div>
+                                <div className="absolute top-5 right-5"><Quote aria-hidden="true" className="h-14 w-14 text-primary/[0.04] dark:text-white/[0.03] group-hover:text-primary/[0.08] transition-colors duration-500" /></div>
+                                <div className="flex gap-1 mb-4" role="img" aria-label={`Rated ${t.rating} out of 5 stars`}>{Array.from({ length: 5 }).map((_, j) => <Star key={j} aria-hidden="true" className={`h-[18px] w-[18px] transition-transform duration-300 group-hover:scale-110 ${j < t.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 dark:text-slate-700'}`} style={{ transitionDelay: `${j * 40}ms` }} />)}</div>
                                 <blockquote className="relative z-10 mb-6"><p className="text-[15px] leading-[1.75] text-text/85 dark:text-dark-text/80 font-medium line-clamp-4">&ldquo;{t.shortQuote || t.fullQuote}&rdquo;</p></blockquote>
                                 <div className="relative z-10 flex items-center gap-3.5 pt-5 border-t border-card-border/30 dark:border-white/[0.04]">
                                     <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${AG[i % AG.length]} flex items-center justify-center text-white text-base font-black shadow-lg`}>{t.name.charAt(0)}</div>

@@ -153,6 +153,17 @@ function formatTime(totalSeconds: number): string {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+/** Human-readable remaining time for screen readers, e.g. "5 minutes 30 seconds remaining". */
+function formatTimeSpoken(totalSeconds: number): string {
+    const safe = Math.max(0, totalSeconds);
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    const parts: string[] = [];
+    if (mins > 0) parts.push(`${mins} minute${mins === 1 ? '' : 's'}`);
+    if (secs > 0 || mins === 0) parts.push(`${secs} second${secs === 1 ? '' : 's'}`);
+    return `${parts.join(' ')} remaining`;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Sub-Components
 // ═══════════════════════════════════════════════════════════════════════════
@@ -174,15 +185,17 @@ function CountdownTimer({
 
     return (
         <div
+            role="timer"
+            aria-label={remainingSeconds >= 0 ? formatTimeSpoken(remainingSeconds) : 'Time remaining'}
             className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 border-b px-4 ${isMobile ? 'py-2' : 'py-3'
                 } ${urgency}`}
         >
-            <Clock className={isMobile ? 'h-4 w-4' : 'h-5 w-5'} />
-            <span className={`font-mono font-bold ${isMobile ? 'text-lg' : 'text-xl'}`}>
+            <Clock className={isMobile ? 'h-4 w-4' : 'h-5 w-5'} aria-hidden="true" />
+            <span className={`font-mono font-bold ${isMobile ? 'text-lg' : 'text-xl'}`} aria-hidden="true">
                 {formatTime(remainingSeconds)}
             </span>
             {remainingSeconds <= 60 && (
-                <span className="text-xs font-medium animate-pulse">Time running out!</span>
+                <span className="text-xs font-medium animate-pulse" aria-hidden="true">Time running out!</span>
             )}
         </div>
     );
@@ -200,24 +213,24 @@ function SaveIndicator({
 }) {
     if (isOffline) {
         return (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                <CloudOff className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400" role="status" aria-live="polite">
+                <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Offline — answers saved locally</span>
             </div>
         );
     }
     if (isSaving) {
         return (
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 <span>Saving...</span>
             </div>
         );
     }
     if (showSaved) {
         return (
-            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-                <Save className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400" role="status" aria-live="polite">
+                <Save className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Saved</span>
             </div>
         );
@@ -267,10 +280,11 @@ function QuestionNavPanel({
                         className={`relative min-h-[44px] min-w-[44px] rounded-lg border text-sm font-semibold transition-all ${statusStyles[status]
                             } ${isActive ? 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-slate-900' : ''}`}
                         aria-label={`Question ${idx + 1} — ${status}`}
+                        aria-current={isActive ? 'true' : undefined}
                     >
                         {idx + 1}
                         {status === 'review' && (
-                            <Flag className="absolute -top-1 -right-1 h-3 w-3 text-amber-500" />
+                            <Flag className="absolute -top-1 -right-1 h-3 w-3 text-amber-500" aria-hidden="true" />
                         )}
                     </button>
                 );
@@ -292,9 +306,10 @@ function MCQOptions({
     const optionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-3" role="radiogroup" aria-label="Answer options">
             {question.options.map((opt, idx) => {
                 const isSelected = selectedAnswer === opt.key;
+                const optionLabel = optionLabels[idx] ?? String(idx + 1);
                 return (
                     <button
                         key={opt.key}
@@ -304,22 +319,25 @@ function MCQOptions({
                             ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-400'
                             : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
                             }`}
-                        aria-pressed={isSelected}
+                        role="radio"
+                        aria-checked={isSelected}
+                        aria-label={`Option ${optionLabel}: ${opt.text_en || opt.text_bn || ''}`}
                     >
                         <span
+                            aria-hidden="true"
                             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isSelected
                                 ? 'bg-indigo-500 text-white'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                                 }`}
                         >
-                            {isSelected ? <Check className="h-4 w-4" /> : optionLabels[idx] ?? idx + 1}
+                            {isSelected ? <Check className="h-4 w-4" /> : optionLabel}
                         </span>
                         <span className="pt-1 text-sm text-slate-700 dark:text-slate-200">
                             {opt.text_en || opt.text_bn || '—'}
                             {opt.imageUrl && (
                                 <img
                                     src={opt.imageUrl}
-                                    alt={`Option ${optionLabels[idx]}`}
+                                    alt={`Option ${optionLabel}`}
                                     className="mt-2 max-h-40 rounded-lg"
                                 />
                             )}
@@ -402,6 +420,7 @@ function WrittenAnswerArea({
                         onChange={handleFileChange}
                         accept="image/jpeg,image/png,application/pdf"
                         className="hidden"
+                        aria-label="Upload handwritten answer file (JPG, PNG, or PDF, max 10MB)"
                     />
                     <button
                         type="button"
@@ -440,13 +459,18 @@ function SubmitConfirmDialog({
     onCancel: () => void;
 }) {
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="submit-dialog-title"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+        >
             <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/40">
-                        <Send className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        <Send className="h-5 w-5 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <h3 id="submit-dialog-title" className="text-lg font-bold text-slate-800 dark:text-slate-100">
                         Submit Exam?
                     </h3>
                 </div>
@@ -652,7 +676,6 @@ export default function ExamRunner() {
         if (remainingSeconds < 0 || remainingSeconds > 0 || !session || autoSubmitTriggeredRef.current) return;
         autoSubmitTriggeredRef.current = true;
         void handleSubmit();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [remainingSeconds, session]);
 
     // ── Session restore on mount ─────────────────────────────────────────
@@ -863,6 +886,56 @@ export default function ExamRunner() {
     // ── Main exam interface ──────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+            {/* Anti-cheat signal collector — active only while a session is live */}
+            {session.sessionId && (
+                <ExamAntiCheatBridge
+                    examId={examId}
+                    sessionId={session.sessionId}
+                    attemptRevision={session.attemptRevision ?? 0}
+                    onLock={() => {
+                        setSessionLocked(true);
+                        toast.error('Your exam session was locked due to suspicious activity.');
+                    }}
+                    onForceSubmit={() => {
+                        if (autoSubmitTriggeredRef.current) return;
+                        autoSubmitTriggeredRef.current = true;
+                        toast.error('Exam auto-submitted due to repeated violations.');
+                        void handleSubmit();
+                    }}
+                />
+            )}
+
+            {/* Session-locked overlay — blocks interaction after a server lock decision */}
+            {sessionLocked && (
+                <div
+                    role="alertdialog"
+                    aria-modal="true"
+                    aria-labelledby="session-locked-title"
+                    className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4"
+                >
+                    <div className="w-full max-w-md rounded-2xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 p-6 text-center">
+                        <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" aria-hidden="true" />
+                        <h2 id="session-locked-title" className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">
+                            Session Locked
+                        </h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                            Your session was locked due to repeated suspicious activity. You can submit
+                            what you have so far.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => void handleSubmit()}
+                            disabled={isSubmitting}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 min-h-[44px]"
+                        >
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            Submit Now
+                        </button>
+                    </div>
+                </div>
+            )}
+
+
             {/* Countdown Timer — fixed top bar */}
             <CountdownTimer remainingSeconds={remainingSeconds} isMobile={isMobile} />
 
@@ -1054,8 +1127,9 @@ export default function ExamRunner() {
                                         type="button"
                                         onClick={() => setShowNavSheet(false)}
                                         className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                        aria-label="Close question navigation"
                                     >
-                                        <X className="h-4 w-4 text-slate-500" />
+                                        <X className="h-4 w-4 text-slate-500" aria-hidden="true" />
                                     </button>
                                 </div>
                                 <QuestionNavPanel

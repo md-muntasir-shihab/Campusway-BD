@@ -73,9 +73,9 @@ export default function ResourceCard({ resource: res }: ResourceCardProps) {
             rel={isExternal ? 'noopener noreferrer' : undefined}
             className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors group/link"
           >
-            {isPdf ? <Download className="w-3.5 h-3.5" /> : <ExternalLink className="w-3.5 h-3.5" />}
+            {isPdf ? <Download className="w-3.5 h-3.5" aria-hidden="true" /> : <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />}
             {isPdf ? 'Download' : 'Open'}
-            <span className="inline-block transition-transform group-hover/link:translate-x-0.5">→</span>
+            <span aria-hidden="true" className="inline-block transition-transform group-hover/link:translate-x-0.5">→</span>
           </a>
         )}
       </div>

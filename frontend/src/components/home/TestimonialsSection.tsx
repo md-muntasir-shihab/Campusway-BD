@@ -53,7 +53,7 @@ export default function TestimonialsSection() {
             </div>
 
             {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-label="Loading testimonials">
                     {[1, 2, 3].map(i => <div key={i} className="h-64 rounded-3xl bg-surface2 dark:bg-slate-800/40 animate-pulse" />)}
                 </div>
             ) : (
@@ -76,9 +76,9 @@ export default function TestimonialsSection() {
                                 <div className="absolute top-5 right-5 z-0">
                                     <Quote className="h-16 w-16 text-primary/[0.04] dark:text-white/[0.03] group-hover:text-primary/[0.08] dark:group-hover:text-white/[0.06] transition-colors duration-500" />
                                 </div>
-                                <div className="flex gap-1 mb-5 relative z-10">
+                                <div className="flex gap-1 mb-5 relative z-10" role="img" aria-label={`Rated ${t.rating} out of 5 stars`}>
                                     {Array.from({ length: 5 }).map((_, i) => (
-                                        <Star key={i} className={`h-[18px] w-[18px] transition-transform duration-300 ${i < t.rating ? 'text-amber-400 fill-amber-400 group-hover:scale-110' : 'text-slate-200 dark:text-slate-700'}`}
+                                        <Star key={i} aria-hidden="true" className={`h-[18px] w-[18px] transition-transform duration-300 ${i < t.rating ? 'text-amber-400 fill-amber-400 group-hover:scale-110' : 'text-slate-200 dark:text-slate-700'}`}
                                             style={{ transitionDelay: `${i * 50}ms` }} />
                                     ))}
                                     {t.socialProofLabel && (

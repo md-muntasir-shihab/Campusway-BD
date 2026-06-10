@@ -327,7 +327,7 @@ export default function Profile() {
                             disabled={startingExternalExamId === String(exam._id)}
                             className="px-5 py-2 bg-purple-500 hover:bg-purple-600 rounded-xl text-white text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-500/20 disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            {startingExternalExamId === String(exam._id) ? 'Opening...' : 'Go to Exam'} <ChevronRight className="w-4 h-4" />
+                            {startingExternalExamId === String(exam._id) ? 'Opening...' : 'Go to Exam'} <ChevronRight className="w-4 h-4" aria-hidden="true" />
                         </button>
                     ) : (
                         <button
@@ -358,7 +358,9 @@ export default function Profile() {
                     return (
                         <button
                             key={et}
+                            type="button"
                             onClick={() => setExamTab(et)}
+                            aria-pressed={examTab === et}
                             className={`px-5 py-2.5 rounded-xl whitespace-nowrap text-sm font-bold transition-all flex items-center gap-2 ${examTab === et
                                 ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
                                 : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'

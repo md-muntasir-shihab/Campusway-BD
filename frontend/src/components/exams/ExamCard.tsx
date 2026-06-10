@@ -15,7 +15,7 @@ export const ExamCard = ({ item, blockedReasons = [] }: { item: ExamListItem; bl
 
   return (
     <motion.article whileHover={{ y: -2 }} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <img src={item.bannerImageUrl || "/placeholder-exam.jpg"} className="h-40 w-full object-cover" />
+      <img src={item.bannerImageUrl || "/placeholder-exam.jpg"} alt={item.title ? `${item.title} banner` : "Exam banner"} className="h-40 w-full object-cover" />
       <div className="space-y-2 p-4">
         <h3 className="line-clamp-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">{item.title}</h3>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.subject} • {item.examCategory}</p>

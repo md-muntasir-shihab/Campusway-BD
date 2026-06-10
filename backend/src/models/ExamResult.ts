@@ -68,6 +68,8 @@ export interface IExamResult extends Document {
     createdAt: Date;
 
     status: 'submitted' | 'evaluated' | 'pending_evaluation';
+    cancelled?: boolean;
+    cancelReason?: string;
     writtenGrades?: {
         questionId: mongoose.Types.ObjectId;
         marks: number;
@@ -152,6 +154,8 @@ const ExamResultSchema = new Schema<IExamResult>({
     }],
 
     status: { type: String, enum: ['submitted', 'evaluated', 'pending_evaluation'], default: 'submitted' },
+    cancelled: { type: Boolean, default: false },
+    cancelReason: { type: String, default: '' },
     writtenGrades: [{
         questionId: { type: Schema.Types.ObjectId, ref: 'Question', required: true },
         marks: { type: Number, required: true },

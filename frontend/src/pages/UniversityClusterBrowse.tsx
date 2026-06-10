@@ -54,7 +54,7 @@ export default function UniversityClusterBrowsePage() {
     if (isLoading) {
         return (
             <div className="section-container py-12">
-                <div className="mx-auto max-w-5xl space-y-6">
+                <div className="mx-auto max-w-5xl space-y-6" role="status" aria-label="Loading cluster">
                     <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />
                     <div className="h-64 animate-pulse rounded-3xl bg-slate-200 dark:bg-slate-800" />
                     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -67,8 +67,8 @@ export default function UniversityClusterBrowsePage() {
 
     if (isError || !data?.cluster) {
         return (
-            <div className="section-container py-16 text-center">
-                <GraduationCap className="mx-auto h-12 w-12 text-slate-400" />
+            <div className="section-container py-16 text-center" role="alert">
+                <GraduationCap className="mx-auto h-12 w-12 text-slate-400" aria-hidden="true" />
                 <p className="mt-4 text-lg font-semibold text-text dark:text-dark-text">Cluster not found</p>
                 <p className="mt-1 text-sm text-text-muted dark:text-dark-text/70">
                     The cluster &ldquo;{clusterSlug}&rdquo; does not exist or has been removed.

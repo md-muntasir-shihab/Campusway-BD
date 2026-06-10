@@ -148,7 +148,7 @@ function ExamCard({
             ) : (
                 <div className="relative h-40 w-full bg-gradient-to-br from-primary/15 via-accent/10 to-primary/5">
                     <div className="absolute inset-0 flex items-center justify-center opacity-[0.08]">
-                        <BookOpen className="h-20 w-20" />
+                        <BookOpen className="h-20 w-20" aria-hidden="true" />
                     </div>
                     <span className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg ${isLive ? "bg-success/90" : item.status === "upcoming" ? "bg-primary/90" : "bg-slate-500/90"
                         }`}>
@@ -170,13 +170,13 @@ function ExamCard({
 
                 <div className="grid gap-2 text-xs text-text-muted dark:text-dark-text/70">
                     <div className="flex items-center gap-1.5">
-                        <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                        <CalendarDays className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                         <span>
                             {formatDateTime(item.examWindowStartUTC)} - {formatDateTime(item.examWindowEndUTC)}
                         </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <Clock3 className="h-3.5 w-3.5 text-primary" />
+                        <Clock3 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                         <span>Duration: {durationLabel(item.durationMinutes || 0)}</span>
                     </div>
                 </div>
@@ -224,7 +224,7 @@ function ExamCard({
             {isBlocked ? (
                 <div className="absolute inset-0 flex flex-col justify-end gap-3 bg-gradient-to-t from-black/70 via-black/35 to-transparent p-4 sm:p-5">
                     <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-danger/20 px-2.5 py-1 text-[11px] font-semibold text-white">
-                        <Lock className="h-3.5 w-3.5" />
+                        <Lock className="h-3.5 w-3.5" aria-hidden="true" />
                         Locked
                     </div>
                     <div className="rounded-xl border border-white/25 bg-black/40 p-2.5 backdrop-blur-sm">
@@ -310,7 +310,7 @@ export const ExamsListPage = () => {
                 >
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                            <Sparkles className="h-5 w-5 text-primary" />
+                            <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-text dark:text-dark-text sm:text-2xl">Exams</h1>
@@ -330,7 +330,8 @@ export const ExamsListPage = () => {
                 >
                     <div className="grid gap-3">
                         <label className="relative block">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted dark:text-dark-text/60" />
+                            <span className="sr-only">Search exams</span>
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted dark:text-dark-text/60" aria-hidden="true" />
                             <input
                                 type="search"
                                 value={search}
@@ -347,6 +348,7 @@ export const ExamsListPage = () => {
                                     key={tab.id}
                                     type="button"
                                     onClick={() => setStatus(tab.id)}
+                                    aria-pressed={status === tab.id}
                                     className={status === tab.id ? "tab-pill-active" : "tab-pill-inactive"}
                                 >
                                     {tab.label}
@@ -358,6 +360,7 @@ export const ExamsListPage = () => {
                             <select
                                 value={category}
                                 onChange={(event) => setCategory(event.target.value)}
+                                aria-label="Filter by category"
                                 className="select-field"
                             >
                                 <option value="">All Categories</option>
@@ -374,6 +377,7 @@ export const ExamsListPage = () => {
                                         key={chip}
                                         type="button"
                                         onClick={() => setPaid(chip)}
+                                        aria-pressed={paid === chip}
                                         className={
                                             paid === chip
                                                 ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white"
@@ -389,7 +393,7 @@ export const ExamsListPage = () => {
                 </motion.div>
 
                 {isLoading ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" role="status" aria-label="Loading exams">
                         {Array.from({ length: 6 }).map((_, index) => (
                             <ExamCardSkeleton key={`exam-skeleton-${index}`} />
                         ))}
@@ -397,9 +401,9 @@ export const ExamsListPage = () => {
                 ) : null}
 
                 {isError ? (
-                    <div className="card-flat flex flex-col items-start gap-3 p-5">
+                    <div className="card-flat flex flex-col items-start gap-3 p-5" role="alert">
                         <div className="inline-flex items-center gap-2 text-sm font-semibold text-danger">
-                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                             {statusCode === 401 || statusCode === 403
                                 ? "Exam list access requires login"
                                 : statusCode === 404
@@ -417,7 +421,7 @@ export const ExamsListPage = () => {
                             </Link>
                         ) : null}
                         <button type="button" onClick={() => refetch()} className="btn-secondary">
-                            <RefreshCw className="mr-2 h-4 w-4" />
+                            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
                             Retry
                         </button>
                     </div>
@@ -430,7 +434,7 @@ export const ExamsListPage = () => {
                         className="card-flat flex flex-col items-center gap-3 p-8 text-center"
                     >
                         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                            <Search className="h-6 w-6 text-primary" />
+                            <Search className="h-6 w-6 text-primary" aria-hidden="true" />
                         </div>
                         <p className="text-sm font-medium text-text dark:text-dark-text">No exams found</p>
                         <p className="text-xs text-text-muted dark:text-dark-text/60">Try adjusting your filters or search terms.</p>
@@ -440,7 +444,7 @@ export const ExamsListPage = () => {
                 {!isLoading && !isError && filteredItems.length > 0 ? (
                     <>
                         <div className="mb-3 flex items-center gap-2 text-xs text-text-muted dark:text-dark-text/60">
-                            <Users className="h-3.5 w-3.5" />
+                            <Users className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>{totalCount} exam{totalCount !== 1 ? "s" : ""}</span>
                         </div>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">

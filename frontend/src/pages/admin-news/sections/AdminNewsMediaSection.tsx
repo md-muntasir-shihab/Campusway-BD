@@ -123,6 +123,7 @@ export default function AdminNewsMediaSection() {
                         <input
                             className="input-field"
                             placeholder="Alt text"
+                            aria-label="Alt text for uploaded image"
                             value={altText}
                             onChange={(e) => setAltText(e.target.value)}
                         />
@@ -151,12 +152,14 @@ export default function AdminNewsMediaSection() {
                         <input
                             className="input-field"
                             placeholder="https://example.com/image.jpg"
+                            aria-label="Image URL to import"
                             value={mediaUrl}
                             onChange={(e) => setMediaUrl(e.target.value)}
                         />
                         <input
                             className="input-field"
                             placeholder="Alt text"
+                            aria-label="Alt text for imported image"
                             value={mediaUrlAlt}
                             onChange={(e) => setMediaUrlAlt(e.target.value)}
                         />
@@ -171,8 +174,10 @@ export default function AdminNewsMediaSection() {
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-lg font-semibold">Media Library</h3>
                     <input
+                        type="search"
                         className="input-field w-full sm:w-80"
                         placeholder="Search by alt text or URL"
+                        aria-label="Search media by alt text or URL"
                         value={q}
                         onChange={(e) => {
                             setQ(e.target.value);

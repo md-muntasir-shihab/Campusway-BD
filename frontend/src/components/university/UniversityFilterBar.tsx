@@ -55,7 +55,7 @@ export default function UniversityFilterBar({
             <div className={`hidden md:flex gap-3 items-end ${!hideCategoryTabs ? 'mt-3' : ''}`}>
                 {!hideSearch && (
                     <div className="flex-1 min-w-[200px] max-w-sm relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted dark:text-dark-text/40 pointer-events-none" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted dark:text-dark-text/40 pointer-events-none" aria-hidden="true" />
                         <input
                             type="text"
                             value={search}
@@ -66,7 +66,7 @@ export default function UniversityFilterBar({
                         />
                         {search && (
                             <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-text-muted hover:text-text dark:text-dark-text/40 dark:hover:text-dark-text transition-colors" aria-label="Clear search">
-                                <X className="h-3.5 w-3.5" />
+                                <X className="h-3.5 w-3.5" aria-hidden="true" />
                             </button>
                         )}
                     </div>
@@ -79,6 +79,7 @@ export default function UniversityFilterBar({
                         <select
                             value={selectedCluster}
                             onChange={(e) => setSelectedCluster(e.target.value)}
+                            aria-label="Filter by cluster group"
                             className="input-field h-10"
                         >
                             <option value="">All Clusters</option>
@@ -93,6 +94,7 @@ export default function UniversityFilterBar({
                     <select
                         value={sort}
                         onChange={(e) => setSort(e.target.value as UniversityCardSort)}
+                        aria-label="Sort universities"
                         className="input-field h-10"
                     >
                         <option value="name_asc">Name (A-Z)</option>
@@ -107,7 +109,7 @@ export default function UniversityFilterBar({
             <div className={`${!hideCategoryTabs ? 'mt-2.5' : ''} md:hidden`}>
                 {!hideSearch && (
                     <div className="relative mb-2">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted dark:text-dark-text/40 pointer-events-none" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted dark:text-dark-text/40 pointer-events-none" aria-hidden="true" />
                         <input
                             type="text"
                             value={search}
@@ -118,7 +120,7 @@ export default function UniversityFilterBar({
                         />
                         {search && (
                             <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-text-muted" aria-label="Clear search">
-                                <X className="h-3.5 w-3.5" />
+                                <X className="h-3.5 w-3.5" aria-hidden="true" />
                             </button>
                         )}
                     </div>

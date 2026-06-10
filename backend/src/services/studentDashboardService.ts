@@ -69,6 +69,11 @@ export interface DashboardExamCard {
     status: ExamCardStatus;
     canTakeExam: boolean;
     externalExamUrl: string;
+    // Question-hierarchy references (optional) — used by the student exam hub
+    // to filter by group / sub-group / subject.
+    groupId?: string;
+    subGroupId?: string;
+    subjectId?: string;
 }
 
 export type StudentLiveAlertType =
@@ -467,6 +472,9 @@ export async function getUpcomingExamCards(studentId: string): Promise<Dashboard
             status,
             canTakeExam,
             externalExamUrl: String(exam.externalExamUrl || ''),
+            groupId: (exam as Record<string, unknown>).group_id ? String((exam as Record<string, unknown>).group_id) : undefined,
+            subGroupId: (exam as Record<string, unknown>).sub_group_id ? String((exam as Record<string, unknown>).sub_group_id) : undefined,
+            subjectId: (exam as Record<string, unknown>).subject_id ? String((exam as Record<string, unknown>).subject_id) : undefined,
         });
     }
 

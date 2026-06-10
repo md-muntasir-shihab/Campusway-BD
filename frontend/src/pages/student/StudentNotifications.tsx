@@ -164,8 +164,8 @@ export default function StudentNotifications() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => void refreshAll()} className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-500 hover:bg-slate-100 transition-colors dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700" title="Refresh">
-                            <RefreshCw className={`h-4 w-4 ${notificationsQuery.isFetching ? 'animate-spin' : ''}`} />
+                        <button onClick={() => void refreshAll()} className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-500 hover:bg-slate-100 transition-colors dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700" title="Refresh" aria-label="Refresh notifications">
+                            <RefreshCw className={`h-4 w-4 ${notificationsQuery.isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />
                         </button>
                         <button onClick={() => markAllMutation.mutate()} disabled={markAllMutation.isPending || unreadCount === 0}
                             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 sm:px-4 py-2.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm">
@@ -205,16 +205,16 @@ export default function StudentNotifications() {
             {/* ── Reminder Center ── */}
             {reminders.length > 0 && (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <button type="button" onClick={() => setShowReminders(!showReminders)}
+                    <button type="button" onClick={() => setShowReminders(!showReminders)} aria-expanded={showReminders}
                         className="flex w-full items-center justify-between p-3.5 sm:p-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                         <div className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-amber-500 shrink-0" />
+                            <Sparkles className="h-5 w-5 text-amber-500 shrink-0" aria-hidden="true" />
                             <div className="min-w-0">
                                 <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Reminder Center</h2>
                                 <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">{reminders.length} active reminder{reminders.length !== 1 ? 's' : ''}</p>
                             </div>
                         </div>
-                        <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${showReminders ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${showReminders ? 'rotate-180' : ''}`} aria-hidden="true" />
                     </button>
                     {showReminders && (
                         <div className="border-t border-slate-100 dark:border-slate-800 p-3.5 sm:p-5 pt-3 sm:pt-4">
@@ -252,14 +252,14 @@ export default function StudentNotifications() {
                     </h2>
                 </div>
                 {notificationsQuery.isLoading ? (
-                    <div className="p-3.5 sm:p-5 space-y-3">
+                    <div className="p-3.5 sm:p-5 space-y-3" role="status" aria-label="Loading notifications">
                         {Array.from({ length: 5 }).map((_, i) => (
                             <div key={i} className="h-20 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
                         ))}
                     </div>
                 ) : notificationsQuery.isError ? (
-                    <div className="p-8 text-center">
-                        <BellOff className="h-8 w-8 mx-auto text-rose-400 mb-2" />
+                    <div className="p-8 text-center" role="alert">
+                        <BellOff className="h-8 w-8 mx-auto text-rose-400 mb-2" aria-hidden="true" />
                         <p className="text-sm text-rose-600 dark:text-rose-300">Failed to load notifications.</p>
                         <button onClick={() => void refreshAll()} className="mt-2 text-xs text-indigo-600 hover:underline dark:text-indigo-400">Try again</button>
                     </div>
@@ -314,11 +314,17 @@ export default function StudentNotifications() {
 
             {/* ── Notification Detail Panel ── */}
             {selectedNotification && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={() => setSelectedNotification(null)}>
-                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+                <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
                     <div
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+                        onClick={() => setSelectedNotification(null)}
+                        aria-hidden="true"
+                    />
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="notification-detail-title"
                         className="relative z-10 w-full max-w-lg mx-2 sm:mx-auto rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom-4 duration-300"
-                        onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-start justify-between gap-2 sm:gap-3 p-3.5 sm:p-5 border-b border-slate-100 dark:border-slate-800">
                             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -332,12 +338,12 @@ export default function StudentNotifications() {
                                             <span className={`rounded-md px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${selectedNotification.priority === 'urgent' ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200'}`}>{selectedNotification.priority}</span>
                                         )}
                                     </div>
-                                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-2 sm:truncate">{selectedNotification.title}</h3>
+                                    <h3 id="notification-detail-title" className="text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-2 sm:truncate">{selectedNotification.title}</h3>
                                     <p className="text-[11px] text-slate-400 mt-0.5">{formatRelativeTime(selectedNotification.publishAt)}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedNotification(null)} className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 shrink-0">
-                                <X className="h-4 w-4" />
+                            <button onClick={() => setSelectedNotification(null)} aria-label="Close notification details" className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 shrink-0">
+                                <X className="h-4 w-4" aria-hidden="true" />
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4">

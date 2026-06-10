@@ -125,7 +125,7 @@ function CampaignViewNav({ activeTab, onNavigate }: { activeTab: Tab; onNavigate
           return (
             <button key={item.tab} type="button" onClick={() => onNavigate(item.tab)} aria-pressed={isActive}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${isActive ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}>
-              {Icon && <Icon className="h-3.5 w-3.5" />} {item.label}
+              {Icon && <Icon className="h-3.5 w-3.5" aria-hidden="true" />} {item.label}
             </button>
           );
         })}
@@ -205,7 +205,7 @@ function DashboardPanel({ onNavigate }: { onNavigate: (t: Tab) => void }) {
           {/* Upcoming Jobs */}
           <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-800">
             <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200"><Calendar className="h-4 w-4 inline mr-1" />Upcoming Scheduled Jobs</h4>
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200"><Calendar className="h-4 w-4 inline mr-1" aria-hidden="true" />Upcoming Scheduled Jobs</h4>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {(summary?.upcomingJobs ?? []).length === 0 ? (
@@ -226,7 +226,7 @@ function DashboardPanel({ onNavigate }: { onNavigate: (t: Tab) => void }) {
         {/* Right Column */}
         <div className="space-y-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-900">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100"><Plug className="h-4 w-4 inline mr-1" />Provider Health</h3>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100"><Plug className="h-4 w-4 inline mr-1" aria-hidden="true" />Provider Health</h3>
             <div className="mt-4 space-y-3">
               {(summary?.providerHealth ?? []).slice(0, 4).map((p) => (
                 <div key={p.id} className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800 hover:shadow-sm transition-shadow">
@@ -249,7 +249,7 @@ function DashboardPanel({ onNavigate }: { onNavigate: (t: Tab) => void }) {
             </div>
           </div>
           <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-900">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100"><XCircle className="h-4 w-4 inline mr-1 text-rose-500" />Recent Failures</h3>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100"><XCircle className="h-4 w-4 inline mr-1 text-rose-500" aria-hidden="true" />Recent Failures</h3>
             <div className="mt-4 space-y-3">
               {(summary?.recentFailures ?? []).slice(0, 4).map((f, i) => (
                 <div key={`${f._id || i}`} className="rounded-2xl border border-rose-100 bg-rose-50/50 p-3 text-xs dark:border-rose-900/30 dark:bg-rose-950/20">
@@ -271,8 +271,8 @@ function DashboardPanel({ onNavigate }: { onNavigate: (t: Tab) => void }) {
           { label: 'Contact Center', desc: 'Manage subscription audiences', icon: Users, tab: 'contact' as Tab, gradient: 'from-cyan-600 to-cyan-500' },
           { label: 'Manage Triggers', desc: 'Configure auto-triggers', icon: Zap, tab: 'triggers' as Tab, gradient: 'from-amber-600 to-amber-500' },
         ].map(a => (
-          <button key={a.label} onClick={() => onNavigate(a.tab)} className={`group rounded-2xl bg-gradient-to-r ${a.gradient} p-5 text-left text-white shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5`}>
-            <a.icon className="h-6 w-6" />
+          <button key={a.label} type="button" onClick={() => onNavigate(a.tab)} className={`group rounded-2xl bg-gradient-to-r ${a.gradient} p-5 text-left text-white shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5`}>
+            <a.icon className="h-6 w-6" aria-hidden="true" />
             <p className="mt-2 text-sm font-bold">{a.label}</p>
             <p className="mt-0.5 text-xs text-white/70">{a.desc}</p>
           </button>
@@ -283,7 +283,7 @@ function DashboardPanel({ onNavigate }: { onNavigate: (t: Tab) => void }) {
       {campaigns.length > 0 && (
         <div className="rounded-2xl bg-white shadow-sm dark:bg-slate-900">
           <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200"><Send className="h-4 w-4 inline mr-1" />Recent Campaigns</h3>
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200"><Send className="h-4 w-4 inline mr-1" aria-hidden="true" />Recent Campaigns</h3>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {campaigns.slice(0, 5).map(c => (
@@ -334,12 +334,12 @@ function CampaignsListPanel({ onView, onRetry }: { onView: (id: string) => void;
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-900">
         <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-          <Search className="h-4 w-4 text-slate-400" />
+          <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search campaigns..." className="w-full bg-transparent text-sm outline-none text-slate-800 dark:text-slate-200" />
         </div>
         <div className="flex gap-1.5">
           {['', 'completed', 'pending', 'failed'].map(s => (
-            <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
+            <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(1); }} aria-pressed={statusFilter === s}
               className={`rounded-xl px-3 py-2 text-xs font-semibold transition-all ${statusFilter === s ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
               {s ? `${s.charAt(0).toUpperCase() + s.slice(1)}` : 'All'}
             </button>
@@ -352,19 +352,19 @@ function CampaignsListPanel({ onView, onRetry }: { onView: (id: string) => void;
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:text-slate-400">
-              <th className="px-5 py-3.5">Campaign</th><th className="px-5 py-3.5">Channel</th><th className="px-5 py-3.5">Audience</th>
-              <th className="px-5 py-3.5">Sent</th><th className="px-5 py-3.5">Failed</th><th className="px-5 py-3.5">Cost</th>
-              <th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5">Date</th><th className="px-5 py-3.5">Actions</th>
+              <th scope="col" className="px-5 py-3.5">Campaign</th><th scope="col" className="px-5 py-3.5">Channel</th><th scope="col" className="px-5 py-3.5">Audience</th>
+              <th scope="col" className="px-5 py-3.5">Sent</th><th scope="col" className="px-5 py-3.5">Failed</th><th scope="col" className="px-5 py-3.5">Cost</th>
+              <th scope="col" className="px-5 py-3.5">Status</th><th scope="col" className="px-5 py-3.5">Date</th><th scope="col" className="px-5 py-3.5">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {isLoading ? (
               <tr><td colSpan={9} className="px-5 py-12 text-center text-slate-400">
-                <div className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading campaigns...</div>
+                <div className="flex items-center justify-center gap-2" role="status" aria-label="Loading campaigns"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading campaigns...</div>
               </td></tr>
             ) : filtered.length === 0 ? (
               <tr><td colSpan={9} className="px-5 py-12 text-center text-slate-400">
-                <Inbox className="h-8 w-8 mx-auto mb-2 text-slate-300" />No campaigns found
+                <Inbox className="h-8 w-8 mx-auto mb-2 text-slate-300" aria-hidden="true" />No campaigns found
               </td></tr>
             ) : filtered.map(c => (
               <tr key={c._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -389,9 +389,9 @@ function CampaignsListPanel({ onView, onRetry }: { onView: (id: string) => void;
                 <td className="px-5 py-3.5 text-xs text-slate-500">{new Date(c.createdAt).toLocaleDateString()}</td>
                 <td className="px-5 py-3.5">
                   <div className="flex gap-1.5">
-                    <button onClick={() => onView(c._id)} className="rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-colors">View</button>
+                    <button type="button" onClick={() => onView(c._id)} className="rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-colors">View</button>
                     {(c.failedCount ?? 0) > 0 && (
-                      <button onClick={() => onRetry(c._id)} className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40 transition-colors">Retry</button>
+                      <button type="button" onClick={() => onRetry(c._id)} className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40 transition-colors">Retry</button>
                     )}
                   </div>
                 </td>
@@ -402,9 +402,9 @@ function CampaignsListPanel({ onView, onRetry }: { onView: (id: string) => void;
       </div>
       {pages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">← Prev</button>
+          <button type="button" disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">← Prev</button>
           <span className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">Page {page} of {pages}</span>
-          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">Next →</button>
+          <button type="button" disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">Next →</button>
         </div>
       )}
     </div>
@@ -495,8 +495,8 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
       <div className="flex items-center justify-center gap-2">
         {[1, 2, 3, 4].map(s => (
           <React.Fragment key={s}>
-            <button onClick={() => s < step ? setStep(s as 1 | 2 | 3 | 4) : undefined} className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all ${step >= s ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'} ${s < step ? 'cursor-pointer hover:bg-indigo-700' : ''}`}>
-              <span>{React.createElement(StepIcons[s - 1], { className: 'h-4 w-4' })}</span> {stepLabels[s - 1]}
+            <button type="button" aria-pressed={step >= s} onClick={() => s < step ? setStep(s as 1 | 2 | 3 | 4) : undefined} className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all ${step >= s ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'} ${s < step ? 'cursor-pointer hover:bg-indigo-700' : ''}`}>
+              <span>{React.createElement(StepIcons[s - 1], { className: 'h-4 w-4', 'aria-hidden': true })}</span> {stepLabels[s - 1]}
             </button>
             {s < 4 && <div className={`h-0.5 w-6 rounded-full ${step > s ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`} />}
           </React.Fragment>
@@ -506,34 +506,34 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
       {/* Step 1: Audience */}
       {step === 1 && (
         <div className="space-y-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900">
-          <div className="flex items-center gap-2"><Users className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Select Audience</h3></div>
+          <div className="flex items-center gap-2"><Users className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Select Audience</h3></div>
           <div><label className={lc}>Campaign Name</label><input value={form.campaignName} onChange={e => setForm(p => ({ ...p, campaignName: e.target.value }))} className={fc} placeholder="e.g. Exam Reminder Batch A" /></div>
           <div><label className={lc}>Channel</label>
             <div className="flex gap-2">
               {(['sms', 'email', 'both'] as const).map(ch => (
-                <button key={ch} onClick={() => setForm(p => ({ ...p, channelType: ch }))} className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${form.channelType === ch ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
+                <button key={ch} type="button" aria-pressed={form.channelType === ch} onClick={() => setForm(p => ({ ...p, channelType: ch }))} className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${form.channelType === ch ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
                   {ch === 'sms' ? 'SMS' : ch === 'email' ? 'Email' : 'Both'}
                 </button>
               ))}
             </div>
           </div>
-          <div><label className={lc}>Audience Type</label><select value={form.audienceType} onChange={e => setForm(p => ({ ...p, audienceType: e.target.value as typeof form.audienceType }))} className={fc}><option value="all">All Students</option><option value="group">Student Group</option><option value="filter">Custom Filter</option><option value="manual">Manual List</option></select></div>
-          {form.audienceType === 'group' && (<div><label className={lc}>Select Group</label><input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} className={fc} placeholder="Search groups by name or department..." /><div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">{filteredGroups.length === 0 ? <p className="p-3 text-sm text-slate-400">No groups found</p> : filteredGroups.map(g => (<button key={g._id} type="button" onClick={() => { setForm(p => ({ ...p, audienceRef: g._id })); setGroupSearch(''); }} className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${form.audienceRef === g._id ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}><span className="font-medium">{g.name}</span><span className="flex items-center gap-2 text-xs text-slate-400">{g.department && <span className="capitalize">{g.department}</span>}<span>{g.memberCountCached ?? g.memberCount ?? 0} members</span></span></button>))}</div></div>)}
+          <div><label className={lc}>Audience Type</label><select value={form.audienceType} onChange={e => setForm(p => ({ ...p, audienceType: e.target.value as typeof form.audienceType }))} className={fc} aria-label="Audience Type"><option value="all">All Students</option><option value="group">Student Group</option><option value="filter">Custom Filter</option><option value="manual">Manual List</option></select></div>
+          {form.audienceType === 'group' && (<div><label className={lc}>Select Group</label><input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} className={fc} placeholder="Search groups by name or department..." /><div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">{filteredGroups.length === 0 ? <p className="p-3 text-sm text-slate-400">No groups found</p> : filteredGroups.map(g => (<button key={g._id} type="button" aria-pressed={form.audienceRef === g._id} onClick={() => { setForm(p => ({ ...p, audienceRef: g._id })); setGroupSearch(''); }} className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${form.audienceRef === g._id ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}><span className="font-medium">{g.name}</span><span className="flex items-center gap-2 text-xs text-slate-400">{g.department && <span className="capitalize">{g.department}</span>}<span>{g.memberCountCached ?? g.memberCount ?? 0} members</span></span></button>))}</div></div>)}
           {form.audienceType === 'filter' && (<div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200">Prefilled from Subscription Contact Center.{lockedSelectedUserIds.length > 0 ? ` Locked to ${lockedSelectedUserIds.length} member${lockedSelectedUserIds.length === 1 ? '' : 's'}.` : ''}</div>)}
           <div className="grid gap-4 sm:grid-cols-2">
             <div><label className={lc}>Include user IDs</label><textarea value={form.includeUserIdsText} onChange={e => setForm(p => ({ ...p, includeUserIdsText: e.target.value }))} className={fc + ' min-h-[80px]'} placeholder="Comma or newline separated" /></div>
             <div><label className={lc}>Exclude user IDs</label><textarea value={form.excludeUserIdsText} onChange={e => setForm(p => ({ ...p, excludeUserIdsText: e.target.value }))} className={fc + ' min-h-[80px]'} placeholder="Comma or newline separated" /></div>
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" checked={form.guardianTargeted} onChange={e => setForm(p => ({ ...p, guardianTargeted: e.target.checked }))} className="rounded border-slate-300" /> Also send to guardians</label>
-          <button onClick={() => setStep(2)} disabled={!form.campaignName} className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm">Next: Content →</button>
+          <button type="button" onClick={() => setStep(2)} disabled={!form.campaignName} className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm">Next: Content →</button>
         </div>
       )}
 
       {/* Step 2: Content */}
       {step === 2 && (
         <div className="space-y-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900">
-          <div className="flex items-center gap-2"><FileText className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Message Content</h3></div>
-          <div><label className={lc}>Use Template</label><select value={form.templateId} onChange={e => setForm(p => ({ ...p, templateId: e.target.value }))} className={fc}><option value="">Write custom message instead...</option>{filteredTemplates.map(t => <option key={t._id} value={t.templateKey}>{t.name} ({t.channel})</option>)}</select></div>
+          <div className="flex items-center gap-2"><FileText className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Message Content</h3></div>
+          <div><label className={lc}>Use Template</label><select value={form.templateId} onChange={e => setForm(p => ({ ...p, templateId: e.target.value }))} className={fc} aria-label="Use Template"><option value="">Write custom message instead...</option>{filteredTemplates.map(t => <option key={t._id} value={t.templateKey}>{t.name} ({t.channel})</option>)}</select></div>
           {!form.templateId && (<>
             {(form.channelType === 'email' || form.channelType === 'both') && (<div><label className={lc}>Email Subject</label><input value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} className={fc} placeholder="Subject line..." /></div>)}
             <div>
@@ -543,8 +543,8 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
             </div>
           </>)}
           <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 transition-colors">← Back</button>
-            <button onClick={() => setStep(3)} disabled={!form.templateId && !form.customBody} className="flex-1 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors">Preview & Estimate →</button>
+            <button type="button" onClick={() => setStep(1)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 transition-colors">← Back</button>
+            <button type="button" onClick={() => setStep(3)} disabled={!form.templateId && !form.customBody} className="flex-1 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors">Preview & Estimate →</button>
           </div>
         </div>
       )}
@@ -552,19 +552,19 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
       {/* Step 3: Delivery */}
       {step === 3 && (
         <div className="space-y-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900">
-          <div className="flex items-center gap-2"><Rocket className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Delivery Options</h3></div>
+          <div className="flex items-center gap-2"><Rocket className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Delivery Options</h3></div>
           <div className="flex gap-2">
             {(['now', 'scheduled'] as const).map(m => (
-              <button key={m} onClick={() => setForm(p => ({ ...p, scheduleMode: m }))} className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-all ${form.scheduleMode === m ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
+              <button key={m} type="button" aria-pressed={form.scheduleMode === m} onClick={() => setForm(p => ({ ...p, scheduleMode: m }))} className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-all ${form.scheduleMode === m ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
                 {m === 'now' ? 'Send Now' : 'Schedule'}
               </button>
             ))}
           </div>
-          {form.scheduleMode === 'scheduled' && (<div><label className={lc}>Scheduled date and time</label><input type="datetime-local" value={form.scheduledAtUTC} onChange={e => setForm(p => ({ ...p, scheduledAtUTC: e.target.value }))} className={fc} /></div>)}
+          {form.scheduleMode === 'scheduled' && (<div><label className={lc}>Scheduled date and time</label><input type="datetime-local" value={form.scheduledAtUTC} onChange={e => setForm(p => ({ ...p, scheduledAtUTC: e.target.value }))} className={fc} aria-label="Scheduled date and time" /></div>)}
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">ℹ️ Retry, quiet hours, and queue defaults come from Communication Hub settings and Smart Triggers.</div>
           <div className="flex gap-3">
-            <button onClick={() => setStep(2)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 transition-colors">← Back</button>
-            <button onClick={handlePreview} className="flex-1 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 transition-colors">Preview & Estimate</button>
+            <button type="button" onClick={() => setStep(2)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 transition-colors">← Back</button>
+            <button type="button" onClick={handlePreview} className="flex-1 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 transition-colors">Preview & Estimate</button>
           </div>
         </div>
       )}
@@ -572,7 +572,7 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
       {/* Step 4: Review & Send */}
       {step === 4 && (
         <div className="space-y-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900">
-          <div className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Review & Send</h3></div>
+          <div className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Review & Send</h3></div>
           <div className="grid gap-3 sm:grid-cols-3">
             {[
               { label: 'Recipients', value: preview?.recipientCount ?? 0, icon: Users, color: 'text-indigo-600' },
@@ -587,7 +587,7 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
             ))}
           </div>
           {preview?.sampleRendered && (
-            <div><p className="mb-1.5 text-sm font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5"><FileText className="h-4 w-4" />Sample Message</p>
+            <div><p className="mb-1.5 text-sm font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5"><FileText className="h-4 w-4" aria-hidden="true" />Sample Message</p>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 {preview.sampleRendered?.subject && <p className="mb-1 font-semibold">{preview.sampleRendered.subject}</p>}
                 {preview.sampleRendered?.body}
@@ -595,7 +595,7 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
             </div>
           )}
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" />Summary</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" aria-hidden="true" />Summary</p>
             <ul className="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
               <li>Campaign: <strong className="text-slate-700 dark:text-slate-200">{form.campaignName}</strong></li>
               <li>Audience: <strong className="text-slate-700 dark:text-slate-200">{form.audienceType}</strong></li>
@@ -606,8 +606,8 @@ function NewCampaignPanel({ showToast, onSent }: { showToast: (m: string, t?: 's
             </ul>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setStep(2)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 transition-colors">← Back</button>
-            <button onClick={handleSend} disabled={sending} className="flex-1 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 py-3 text-sm font-bold text-white hover:from-emerald-700 hover:to-emerald-600 disabled:opacity-50 shadow-lg shadow-emerald-500/20 transition-all">
+            <button type="button" onClick={() => setStep(2)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 transition-colors">← Back</button>
+            <button type="button" onClick={handleSend} disabled={sending} className="flex-1 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 py-3 text-sm font-bold text-white hover:from-emerald-700 hover:to-emerald-600 disabled:opacity-50 shadow-lg shadow-emerald-500/20 transition-all">
               {sending ? 'Sending...' : 'Launch Campaign'}
             </button>
           </div>
@@ -647,8 +647,8 @@ function TemplatesPanel({ showToast }: { showToast: (m: string, t?: 'success' | 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2"><FileText className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Templates</h3><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-800">{templates.length}</span></div>
-        <button onClick={startCreate} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm">+ New Template</button>
+        <div className="flex items-center gap-2"><FileText className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Templates</h3><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-800">{templates.length}</span></div>
+        <button type="button" onClick={startCreate} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm">+ New Template</button>
       </div>
       {(creating || editing) && (
         <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-900 space-y-3 border-l-4 border-indigo-500">
@@ -658,8 +658,8 @@ function TemplatesPanel({ showToast }: { showToast: (m: string, t?: 'success' | 
             <input value={form.templateKey} onChange={e => setForm(p => ({ ...p, templateKey: e.target.value }))} className={fc} placeholder="Template Key (e.g. EXAM_REMINDER)" />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <select value={form.channel} onChange={e => setForm(p => ({ ...p, channel: e.target.value }))} className={fc}><option value="sms">SMS</option><option value="email">Email</option></select>
-            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className={fc}>{['account', 'password', 'subscription', 'payment', 'exam', 'result', 'news', 'resource', 'support', 'campaign', 'guardian', 'other'].map(c => <option key={c} value={c}>{c}</option>)}</select>
+            <select value={form.channel} onChange={e => setForm(p => ({ ...p, channel: e.target.value }))} className={fc} aria-label="Template channel"><option value="sms">SMS</option><option value="email">Email</option></select>
+            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className={fc} aria-label="Template category">{['account', 'password', 'subscription', 'payment', 'exam', 'result', 'news', 'resource', 'support', 'campaign', 'guardian', 'other'].map(c => <option key={c} value={c}>{c}</option>)}</select>
           </div>
           {form.channel === 'email' && <input value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} className={fc} placeholder="Email Subject" />}
           {/* Body format toggle for email */}
@@ -667,8 +667,8 @@ function TemplatesPanel({ showToast }: { showToast: (m: string, t?: 'success' | 
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Format:</span>
               <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800">
-                <button type="button" onClick={() => setForm(p => ({ ...p, bodyFormat: 'plain' }))} className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${form.bodyFormat === 'plain' ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500'}`}>Plain Text</button>
-                <button type="button" onClick={() => setForm(p => ({ ...p, bodyFormat: 'html' }))} className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${form.bodyFormat === 'html' ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500'}`}>HTML Design</button>
+                <button type="button" aria-pressed={form.bodyFormat === 'plain'} onClick={() => setForm(p => ({ ...p, bodyFormat: 'plain' }))} className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${form.bodyFormat === 'plain' ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500'}`}>Plain Text</button>
+                <button type="button" aria-pressed={form.bodyFormat === 'html'} onClick={() => setForm(p => ({ ...p, bodyFormat: 'html' }))} className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${form.bodyFormat === 'html' ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500'}`}>HTML Design</button>
               </div>
             </div>
           )}
@@ -715,16 +715,16 @@ function TemplatesPanel({ showToast }: { showToast: (m: string, t?: 'success' | 
             </div>
           )}
           <div className="flex gap-2">
-            <button onClick={() => { setCreating(false); setEditing(null); }} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400 transition-colors">Cancel</button>
-            <button onClick={() => saveMut.mutate({ id: editing?._id, data: form })} disabled={!form.name || !form.body} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors">Save</button>
+            <button type="button" onClick={() => { setCreating(false); setEditing(null); }} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400 transition-colors">Cancel</button>
+            <button type="button" onClick={() => saveMut.mutate({ id: editing?._id, data: form })} disabled={!form.name || !form.body} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors">Save</button>
           </div>
         </div>
       )}
       <div className="overflow-x-auto rounded-2xl bg-white shadow-sm dark:bg-slate-900">
         <table className="w-full text-sm">
-          <thead><tr className="border-b border-slate-200 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:border-slate-700"><th className="px-5 py-3.5">Name</th><th className="px-5 py-3.5">Key</th><th className="px-5 py-3.5">Channel</th><th className="px-5 py-3.5">Format</th><th className="px-5 py-3.5">Category</th><th className="px-5 py-3.5">Actions</th></tr></thead>
+          <thead><tr className="border-b border-slate-200 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:border-slate-700"><th scope="col" className="px-5 py-3.5">Name</th><th scope="col" className="px-5 py-3.5">Key</th><th scope="col" className="px-5 py-3.5">Channel</th><th scope="col" className="px-5 py-3.5">Format</th><th scope="col" className="px-5 py-3.5">Category</th><th scope="col" className="px-5 py-3.5">Actions</th></tr></thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {isLoading ? (<tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400">Loading...</td></tr>) : templates.length === 0 ? (<tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400"><FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />No templates yet</td></tr>) : templates.map(t => (
+            {isLoading ? (<tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400">Loading...</td></tr>) : templates.length === 0 ? (<tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400"><FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" aria-hidden="true" />No templates yet</td></tr>) : templates.map(t => (
               <tr key={t._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                 <td className="px-5 py-3.5 font-semibold text-slate-800 dark:text-slate-200">{t.name}</td>
                 <td className="px-5 py-3.5 font-mono text-xs text-slate-500">{t.templateKey}</td>
@@ -733,9 +733,9 @@ function TemplatesPanel({ showToast }: { showToast: (m: string, t?: 'success' | 
                 <td className="px-5 py-3.5 text-slate-500">{t.category ?? '—'}</td>
                 <td className="px-5 py-3.5">
                   <div className="flex gap-1.5">
-                    <button onClick={() => startEdit(t)} className="rounded-lg bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 transition-colors">Edit</button>
-                    <button onClick={() => duplicateTemplate(t)} className="rounded-lg bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-400 transition-colors">Duplicate</button>
-                    <button onClick={() => setPreviewTpl(t)} className="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors">Preview</button>
+                    <button type="button" onClick={() => startEdit(t)} className="rounded-lg bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 transition-colors">Edit</button>
+                    <button type="button" onClick={() => duplicateTemplate(t)} className="rounded-lg bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-400 transition-colors">Duplicate</button>
+                    <button type="button" onClick={() => setPreviewTpl(t)} className="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors">Preview</button>
                   </div>
                 </td>
               </tr>
@@ -746,8 +746,8 @@ function TemplatesPanel({ showToast }: { showToast: (m: string, t?: 'success' | 
       {/* Preview Modal */}
       {previewTpl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPreviewTpl(null)}>
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-bold text-slate-800 dark:text-white">Template Preview</h3><button onClick={() => setPreviewTpl(null)} className="text-slate-400 hover:text-slate-600 text-xl">✕</button></div>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="template-preview-title">
+            <div className="flex items-center justify-between mb-4"><h3 id="template-preview-title" className="text-lg font-bold text-slate-800 dark:text-white">Template Preview</h3><button type="button" onClick={() => setPreviewTpl(null)} aria-label="Close" className="text-slate-400 hover:text-slate-600 text-xl">✕</button></div>
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800"><span className="text-xs font-semibold text-slate-500">Name:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{previewTpl.name}</span></div>
@@ -796,12 +796,12 @@ function LogsPanel() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-900">
-        <div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-indigo-500" /><h3 className="text-base font-bold text-slate-800 dark:text-white">Delivery Logs</h3></div>
+        <div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-base font-bold text-slate-800 dark:text-white">Delivery Logs</h3></div>
         <div className="ml-auto flex flex-wrap gap-2">
-          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" aria-label="Filter by status">
             <option value="">All Statuses</option><option value="sent">Sent</option><option value="failed">Failed</option><option value="pending">Pending</option>
           </select>
-          <select value={channelFilter} onChange={e => setChannelFilter(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <select value={channelFilter} onChange={e => setChannelFilter(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" aria-label="Filter by channel">
             <option value="">All Channels</option><option value="sms">SMS</option><option value="email">Email</option>
           </select>
         </div>
@@ -809,11 +809,11 @@ function LogsPanel() {
       <div className="overflow-x-auto rounded-2xl bg-white shadow-sm dark:bg-slate-900">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-slate-200 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            <th className="px-5 py-3.5">Recipient</th><th className="px-5 py-3.5">Channel</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5">Provider</th><th className="px-5 py-3.5">Origin</th><th className="px-5 py-3.5">Cost</th><th className="px-5 py-3.5">Date</th><th className="px-5 py-3.5"></th>
+            <th scope="col" className="px-5 py-3.5">Recipient</th><th scope="col" className="px-5 py-3.5">Channel</th><th scope="col" className="px-5 py-3.5">Status</th><th scope="col" className="px-5 py-3.5">Provider</th><th scope="col" className="px-5 py-3.5">Origin</th><th scope="col" className="px-5 py-3.5">Cost</th><th scope="col" className="px-5 py-3.5">Date</th><th scope="col" className="px-5 py-3.5"></th>
           </tr></thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {isLoading ? (<tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400"><Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />Loading...</td></tr>
-            ) : filtered.length === 0 ? (<tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400"><Inbox className="h-8 w-8 mx-auto mb-2 text-slate-300" />No logs found</td></tr>
+            {isLoading ? (<tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400" role="status" aria-label="Loading logs"><Loader2 className="h-5 w-5 animate-spin inline-block mr-2" aria-hidden="true" />Loading...</td></tr>
+            ) : filtered.length === 0 ? (<tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400"><Inbox className="h-8 w-8 mx-auto mb-2 text-slate-300" aria-hidden="true" />No logs found</td></tr>
             ) : filtered.map(l => (
               <React.Fragment key={l._id}>
                 <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onClick={() => setExpandedLog(expandedLog === l._id ? null : l._id)}>
@@ -845,9 +845,9 @@ function LogsPanel() {
       </div>
       {pages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">← Prev</button>
+          <button type="button" disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">← Prev</button>
           <span className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">Page {page} of {pages}</span>
-          <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">Next →</button>
+          <button type="button" disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">Next →</button>
         </div>
       )}
     </div>
@@ -871,55 +871,55 @@ function SettingsPanel({ showToast }: { showToast: (m: string, t?: 'success' | '
   const fc = 'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all';
   const lc = 'block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5';
 
-  if (isLoading) return <div className="py-10 text-center text-slate-400"><Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />Loading settings...</div>;
+  if (isLoading) return <div className="py-10 text-center text-slate-400" role="status" aria-label="Loading settings"><Loader2 className="h-5 w-5 animate-spin inline-block mr-2" aria-hidden="true" />Loading settings...</div>;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900 space-y-4">
-        <div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Send Limits</h3></div>
+        <div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Send Limits</h3></div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><label className={lc}>Daily SMS Limit</label><input type="number" value={merged.dailySmsLimit ?? 500} onChange={e => setForm(p => ({ ...p, dailySmsLimit: Number(e.target.value) }))} className={fc} /></div>
-          <div><label className={lc}>Daily Email Limit</label><input type="number" value={merged.dailyEmailLimit ?? 2000} onChange={e => setForm(p => ({ ...p, dailyEmailLimit: Number(e.target.value) }))} className={fc} /></div>
-          <div><label className={lc}>Monthly SMS Budget (BDT)</label><input type="number" value={merged.monthlySmsBudgetBDT ?? 10000} onChange={e => setForm(p => ({ ...p, monthlySmsBudgetBDT: Number(e.target.value) }))} className={fc} /></div>
-          <div><label className={lc}>Monthly Email Budget (BDT)</label><input type="number" value={merged.monthlyEmailBudgetBDT ?? 5000} onChange={e => setForm(p => ({ ...p, monthlyEmailBudgetBDT: Number(e.target.value) }))} className={fc} /></div>
+          <div><label className={lc}>Daily SMS Limit</label><input type="number" value={merged.dailySmsLimit ?? 500} onChange={e => setForm(p => ({ ...p, dailySmsLimit: Number(e.target.value) }))} className={fc} aria-label="Daily SMS Limit" /></div>
+          <div><label className={lc}>Daily Email Limit</label><input type="number" value={merged.dailyEmailLimit ?? 2000} onChange={e => setForm(p => ({ ...p, dailyEmailLimit: Number(e.target.value) }))} className={fc} aria-label="Daily Email Limit" /></div>
+          <div><label className={lc}>Monthly SMS Budget (BDT)</label><input type="number" value={merged.monthlySmsBudgetBDT ?? 10000} onChange={e => setForm(p => ({ ...p, monthlySmsBudgetBDT: Number(e.target.value) }))} className={fc} aria-label="Monthly SMS Budget (BDT)" /></div>
+          <div><label className={lc}>Monthly Email Budget (BDT)</label><input type="number" value={merged.monthlyEmailBudgetBDT ?? 5000} onChange={e => setForm(p => ({ ...p, monthlyEmailBudgetBDT: Number(e.target.value) }))} className={fc} aria-label="Monthly Email Budget (BDT)" /></div>
         </div>
       </div>
       <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900 space-y-4">
-        <div className="flex items-center gap-2"><Clock className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Quiet Hours</h3></div>
+        <div className="flex items-center gap-2"><Clock className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Quiet Hours</h3></div>
         <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" checked={merged.quietHours?.enabled ?? false} onChange={e => setForm(p => ({ ...p, quietHours: { ...merged.quietHours!, enabled: e.target.checked } }))} className="rounded border-slate-300" /> Enable quiet hours</label>
         {merged.quietHours?.enabled && (
           <div className="grid gap-4 sm:grid-cols-3">
-            <div><label className={lc}>Start Hour (UTC)</label><input type="number" min={0} max={23} value={merged.quietHours?.startHour ?? 22} onChange={e => setForm(p => ({ ...p, quietHours: { ...merged.quietHours!, startHour: Number(e.target.value) } }))} className={fc} /></div>
-            <div><label className={lc}>End Hour (UTC)</label><input type="number" min={0} max={23} value={merged.quietHours?.endHour ?? 7} onChange={e => setForm(p => ({ ...p, quietHours: { ...merged.quietHours!, endHour: Number(e.target.value) } }))} className={fc} /></div>
-            <div><label className={lc}>Timezone</label><input value={merged.quietHours?.timezone ?? 'Asia/Dhaka'} onChange={e => setForm(p => ({ ...p, quietHours: { ...merged.quietHours!, timezone: e.target.value } }))} className={fc} /></div>
+            <div><label className={lc}>Start Hour (UTC)</label><input type="number" min={0} max={23} value={merged.quietHours?.startHour ?? 22} onChange={e => setForm(p => ({ ...p, quietHours: { ...merged.quietHours!, startHour: Number(e.target.value) } }))} className={fc} aria-label="Start Hour (UTC)" /></div>
+            <div><label className={lc}>End Hour (UTC)</label><input type="number" min={0} max={23} value={merged.quietHours?.endHour ?? 7} onChange={e => setForm(p => ({ ...p, quietHours: { ...merged.quietHours!, endHour: Number(e.target.value) } }))} className={fc} aria-label="End Hour (UTC)" /></div>
+            <div><label className={lc}>Timezone</label><input value={merged.quietHours?.timezone ?? 'Asia/Dhaka'} onChange={e => setForm(p => ({ ...p, quietHours: { ...merged.quietHours!, timezone: e.target.value } }))} className={fc} aria-label="Timezone" /></div>
           </div>
         )}
       </div>
       <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900 space-y-4">
-        <div className="flex items-center gap-2"><RefreshCw className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Retry & Duplicate Prevention</h3></div>
+        <div className="flex items-center gap-2"><RefreshCw className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Retry & Duplicate Prevention</h3></div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><label className={lc}>Max Retry Count</label><input type="number" value={merged.maxRetryCount ?? 2} onChange={e => setForm(p => ({ ...p, maxRetryCount: Number(e.target.value) }))} className={fc} /></div>
-          <div><label className={lc}>Duplicate Window (mins)</label><input type="number" value={merged.duplicatePreventionWindowMinutes ?? 60} onChange={e => setForm(p => ({ ...p, duplicatePreventionWindowMinutes: Number(e.target.value) }))} className={fc} /></div>
-          <div><label className={lc}>Retry Delay (mins)</label><input type="number" min={0} value={(merged as any).retryDelayMinutes ?? 5} onChange={e => setForm(p => ({ ...p, retryDelayMinutes: Number(e.target.value) } as any))} className={fc} /></div>
+          <div><label className={lc}>Max Retry Count</label><input type="number" value={merged.maxRetryCount ?? 2} onChange={e => setForm(p => ({ ...p, maxRetryCount: Number(e.target.value) }))} className={fc} aria-label="Max Retry Count" /></div>
+          <div><label className={lc}>Duplicate Window (mins)</label><input type="number" value={merged.duplicatePreventionWindowMinutes ?? 60} onChange={e => setForm(p => ({ ...p, duplicatePreventionWindowMinutes: Number(e.target.value) }))} className={fc} aria-label="Duplicate Window (mins)" /></div>
+          <div><label className={lc}>Retry Delay (mins)</label><input type="number" min={0} value={(merged as any).retryDelayMinutes ?? 5} onChange={e => setForm(p => ({ ...p, retryDelayMinutes: Number(e.target.value) } as any))} className={fc} aria-label="Retry Delay (mins)" /></div>
         </div>
       </div>
       <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900 space-y-4">
-        <div className="flex items-center gap-2"><Zap className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Automation</h3></div>
+        <div className="flex items-center gap-2"><Zap className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Automation</h3></div>
         <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" checked={merged.resultPublishAutoSend ?? true} onChange={e => setForm(p => ({ ...p, resultPublishAutoSend: e.target.checked }))} className="rounded border-slate-300" /> Auto-send result notifications on publish</label>
         <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" checked={merged.autoSyncCostToFinance ?? true} onChange={e => setForm(p => ({ ...p, autoSyncCostToFinance: e.target.checked }))} className="rounded border-slate-300" /> Auto-sync costs to Finance Center</label>
       </div>
       <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-900 space-y-4">
-        <div className="flex items-center gap-2"><Bell className="h-5 w-5 text-indigo-500" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Subscription Reminders</h3></div>
+        <div className="flex items-center gap-2"><Bell className="h-5 w-5 text-indigo-500" aria-hidden="true" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">Subscription Reminders</h3></div>
         <div><label className={lc}>Reminder Days Before Expiry (comma-separated)</label>
           <input value={((merged as any).subscriptionReminderDays ?? [7, 3, 1]).join(', ')} onChange={e => { const days = e.target.value.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n) && n > 0); setForm(p => ({ ...p, subscriptionReminderDays: days } as any)); }} className={fc} placeholder="7, 3, 1" />
           <p className="mt-1 text-xs text-slate-400">Days before subscription expiry to send reminder notifications</p>
         </div>
       </div>
       <div className="rounded-2xl border border-indigo-500/20 bg-gradient-to-r from-indigo-50 to-indigo-100/50 p-5 flex items-center justify-between gap-4 dark:from-indigo-950/30 dark:to-indigo-900/20 dark:border-indigo-500/10">
-        <div><p className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5"><Zap className="h-4 w-4 text-indigo-500" />Advanced Campaign Settings</p><p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Frequency caps, budget guardrails, approval workflows, A/B testing, provider routing, and more.</p></div>
+        <div><p className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5"><Zap className="h-4 w-4 text-indigo-500" aria-hidden="true" />Advanced Campaign Settings</p><p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Frequency caps, budget guardrails, approval workflows, A/B testing, provider routing, and more.</p></div>
         <a href="/__cw_admin__/campaigns/advanced-settings" className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 transition-colors shadow-sm">Open →</a>
       </div>
-      <button onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending} className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-5 py-3.5 text-sm font-bold text-white hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-50 shadow-lg shadow-indigo-500/20 transition-all">
+      <button type="button" onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending} className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-5 py-3.5 text-sm font-bold text-white hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-50 shadow-lg shadow-indigo-500/20 transition-all">
         {saveMut.isPending ? 'Saving...' : 'Save Settings'}
       </button>
     </div>
@@ -936,9 +936,9 @@ function CampaignDetailModal({ id, onClose }: { id: string; onClose: () => void 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="campaign-detail-title">
         {isLoading ? (
-          <div className="py-10 text-center text-slate-400"><span className="animate-spin inline-block mr-2">⏳</span>Loading...</div>
+          <div className="py-10 text-center text-slate-400" role="status" aria-label="Loading campaign"><span className="animate-spin inline-block mr-2" aria-hidden="true">⏳</span>Loading...</div>
         ) : campaign ? (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
@@ -947,11 +947,11 @@ function CampaignDetailModal({ id, onClose }: { id: string; onClose: () => void 
                   {campaign.channelType === 'email' ? '📧' : '💬'}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">{campaign.campaignName || 'Campaign Detail'}</h3>
+                  <h3 id="campaign-detail-title" className="text-lg font-bold text-slate-800 dark:text-white">{campaign.campaignName || 'Campaign Detail'}</h3>
                   <p className="text-xs text-slate-500">{new Date(campaign.createdAt).toLocaleString()}</p>
                 </div>
               </div>
-              <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 transition-colors">✕</button>
+              <button type="button" onClick={onClose} aria-label="Close" className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 transition-colors">✕</button>
             </div>
 
             {/* Progress Bar */}

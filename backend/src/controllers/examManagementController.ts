@@ -10,6 +10,9 @@ import Exam from '../models/Exam';
 import ExamResult from '../models/ExamResult';
 import AntiCheatViolationLog from '../models/AntiCheatViolationLog';
 import ExamSession from '../models/ExamSession';
+import User from '../models/User';
+import QuestionBankQuestion from '../models/QuestionBankQuestion';
+import { triggerWrittenResultGraded, triggerAntiCheatWarning, triggerSessionCancelled } from '../services/NotificationTriggerService';
 
 // ── Exam Management Controller ──────────────────────────────
 // Thin handlers delegating to ExamBuilderService, ExamRunnerService,
@@ -383,6 +386,167 @@ export async function getAntiCheatReport(req: AuthRequest, res: Response): Promi
     }
 }
 
+// ─── Admin: Anti-Cheat Actions ──────────────────────────────
+
+/**
+ * PATCH /:examId/sessions/:sessionId/cancel — Void a flagged exam session.
+ *
+ * Marks the session cancelled/locked, zeroes the student's result for that
+ * attempt, and notifies the student. Used by the Anti-Cheat report when an
+ * admin decides a flagged attempt should not count.
+ */
+export async function cancelExamSession(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const examId = String(req.params.examId);
+        const sessionId = String(req.params.sessionId);
+        if (!/^[a-fA-F0-9]{24}$/.test(examId) || !/^[a-fA-F0-9]{24}$/.test(sessionId)) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam or session ID format'));
+            return;
+        }
+
+        const reason = String((req.body as { reason?: string })?.reason || 'Cancelled by admin (anti-cheat)').trim();
+        const session = await ExamSession.findOne({ _id: sessionId, exam: examId });
+        if (!session) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Session not found'));
+            return;
+        }
+
+        session.status = 'cancelled';
+        session.sessionLocked = true;
+        session.lockReason = reason;
+        session.isActive = false;
+        session.forcedSubmittedBy = req.user!._id as unknown as mongoose.Types.ObjectId;
+        session.cheat_flags.push({ reason: 'admin_cancelled', timestamp: new Date() });
+        await session.save();
+
+        // Void the student's result for this attempt (zero marks).
+        await ExamResult.updateOne(
+            { exam: examId, student: session.student, attemptNo: session.attemptNo },
+            {
+                $set: {
+                    obtainedMarks: 0,
+                    percentage: 0,
+                    status: 'evaluated',
+                    cancelled: true,
+                    cancelReason: reason,
+                },
+            },
+        );
+
+        try {
+            await triggerSessionCancelled({ examId, studentId: String(session.student) });
+        } catch (notifyErr) {
+            console.error('triggerSessionCancelled failed:', notifyErr);
+        }
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ sessionId, status: 'cancelled' }, 'Session cancelled and marks voided.'));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
+/**
+ * POST /:examId/sessions/:sessionId/warn — Send a warning notification to the
+ * student of a flagged session without changing their marks.
+ */
+export async function warnExamSessionStudent(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const examId = String(req.params.examId);
+        const sessionId = String(req.params.sessionId);
+        if (!/^[a-fA-F0-9]{24}$/.test(examId) || !/^[a-fA-F0-9]{24}$/.test(sessionId)) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam or session ID format'));
+            return;
+        }
+
+        const session = await ExamSession.findOne({ _id: sessionId, exam: examId }).select('student').lean();
+        if (!session) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Session not found'));
+            return;
+        }
+
+        const message = String((req.body as { message?: string })?.message || '').trim() || undefined;
+        await triggerAntiCheatWarning({ examId, studentId: String(session.student), message });
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ sessionId }, 'Warning sent to student.'));
+    } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', errMsg));
+    }
+}
+
+// ─── Admin: List Exams for Selection ────────────────────────
+
+/**
+ * GET / — List exams for the admin selector panels (grading, anti-cheat).
+ * Supports `?status=completed` (closed or past end date) and
+ * `?hasPendingEvaluation=true` (exams with written results awaiting grading).
+ * Returns `{ items: [{ _id, title, status, startTime, participantCount }] }`.
+ */
+export async function listExams(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const statusFilter = String(req.query.status || '').trim().toLowerCase();
+        const hasPendingEvaluation = String(req.query.hasPendingEvaluation || '').toLowerCase() === 'true';
+        let limit = parseInt(String(req.query.limit ?? ''), 10);
+        if (Number.isNaN(limit)) limit = 50;
+        limit = Math.max(1, Math.min(200, limit));
+
+        const query: Record<string, unknown> = {};
+        const now = new Date();
+
+        if (hasPendingEvaluation) {
+            const pendingExamIds = await ExamResult.distinct('exam', { status: 'pending_evaluation' });
+            if (pendingExamIds.length === 0) {
+                ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: [] }));
+                return;
+            }
+            query._id = { $in: pendingExamIds };
+        }
+
+        if (statusFilter === 'completed') {
+            query.isPublished = true;
+            query.$or = [{ status: 'closed' }, { endDate: { $lt: now } }];
+        } else if (['draft', 'scheduled', 'live', 'closed'].includes(statusFilter)) {
+            query.status = statusFilter;
+        }
+
+        const exams = await Exam.find(query)
+            .sort({ startDate: -1 })
+            .limit(limit)
+            .select('title status startDate endDate isPublished')
+            .lean();
+
+        const examIds = exams.map((e) => e._id);
+        const countAgg = examIds.length > 0
+            ? await ExamResult.aggregate([
+                { $match: { exam: { $in: examIds } } },
+                { $group: { _id: '$exam', count: { $sum: 1 } } },
+            ])
+            : [];
+        const countById = new Map<string, number>(
+            countAgg.map((c: { _id: mongoose.Types.ObjectId; count: number }) => [String(c._id), Number(c.count || 0)]),
+        );
+
+        const items = exams.map((e) => {
+            const endMs = e.endDate ? new Date(e.endDate as Date).getTime() : 0;
+            const ended = endMs > 0 && endMs < now.getTime();
+            const displayStatus = (e.status === 'closed' || ended) ? 'completed' : String(e.status || 'draft');
+            return {
+                _id: String(e._id),
+                title: String(e.title || 'Untitled Exam'),
+                status: displayStatus,
+                startTime: e.startDate ? new Date(e.startDate as Date).toISOString() : undefined,
+                participantCount: countById.get(String(e._id)) || 0,
+            };
+        });
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
 // ─── Analytics Overview Helpers ────────────────────────────────────
 
 /**
@@ -611,6 +775,139 @@ export async function getResult(req: AuthRequest, res: Response): Promise<void> 
         }
 
         ResponseBuilder.send(res, 200, ResponseBuilder.success(result));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
+// ─── Student: Detailed Result (per-question review) ─────────
+
+/**
+ * GET /:id/result/detailed — Per-question review for the authenticated student.
+ * Returns { scoreBreakdown, questions[], examTitle, rank, totalParticipants,
+ * resultPublished } shaped for the ExamResultView page. When results are not
+ * yet published, returns resultPublished:false with an empty questions list.
+ */
+export async function getDetailedResult(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const studentId = req.user!._id as string;
+        const examId = String(req.params.id);
+
+        const exam = await Exam.findById(examId)
+            .select('title resultPublishMode resultPublishDate passPercentage')
+            .lean();
+        if (!exam) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
+            return;
+        }
+
+        const result = await ExamResult.findOne({ exam: examId, student: studentId })
+            .sort({ attemptNo: -1, submittedAt: -1 })
+            .lean();
+        if (!result) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Result not found'));
+            return;
+        }
+
+        // Determine publish state from the exam's result-publish policy.
+        const modeRaw = String((exam as { resultPublishMode?: string }).resultPublishMode || 'scheduled');
+        const mode = ['immediate', 'manual', 'scheduled'].includes(modeRaw) ? modeRaw : 'scheduled';
+        const now = new Date();
+        let resultPublished = false;
+        if (mode === 'immediate') {
+            resultPublished = true;
+        } else if (mode === 'manual') {
+            resultPublished = result.status === 'evaluated';
+        } else {
+            const pd = (exam as { resultPublishDate?: Date }).resultPublishDate
+                ? new Date(String((exam as { resultPublishDate?: Date }).resultPublishDate))
+                : null;
+            resultPublished = Boolean(pd && !Number.isNaN(pd.getTime()) && now >= pd);
+        }
+
+        const totalMarks = Number(result.totalMarks || 0);
+        const obtainedMarks = Number(result.obtainedMarks || 0);
+        const percentage = Number(result.percentage || (totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0));
+        const passThreshold = Number((exam as { passPercentage?: number }).passPercentage || 0) || 40;
+        const passed = result.passFail
+            ? /pass/i.test(String(result.passFail))
+            : percentage >= passThreshold;
+
+        const scoreBreakdown = {
+            obtainedMarks,
+            totalMarks,
+            correctCount: Number(result.correctCount || 0),
+            incorrectCount: Number(result.wrongCount || 0),
+            unansweredCount: Number(result.unansweredCount || 0),
+            percentage,
+            passed,
+            timeTakenSeconds: Number(result.timeTaken || 0),
+        };
+
+        if (!resultPublished) {
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({
+                scoreBreakdown,
+                questions: [],
+                examTitle: String(exam.title || ''),
+                resultPublished: false,
+            }));
+            return;
+        }
+
+        // Build per-question review from the stored answers + question bank.
+        const answers = Array.isArray(result.answers) ? result.answers : [];
+        const questionIds = answers.map((a) => a.question).filter(Boolean);
+        const questionDocs = questionIds.length > 0
+            ? await QuestionBankQuestion.find({ _id: { $in: questionIds } }).lean()
+            : [];
+        const qMap = new Map(questionDocs.map((q) => [String(q._id), q]));
+
+        const questions = answers
+            .filter((a) => a.questionType !== 'written') // written answers shown via writtenGrades elsewhere
+            .map((a, index) => {
+                const q = qMap.get(String(a.question));
+                const options = Array.isArray(q?.options)
+                    ? q!.options.map((o) => ({
+                        key: String(o.key),
+                        text_en: o.text_en,
+                        text_bn: o.text_bn,
+                        imageUrl: o.imageUrl,
+                        isCorrect: Boolean(o.isCorrect),
+                    }))
+                    : [];
+                const correctAnswer = String(
+                    q?.correctKey || options.find((o) => o.isCorrect)?.key || '',
+                );
+                return {
+                    questionId: String(a.question),
+                    questionIndex: index,
+                    question_en: q?.question_en,
+                    question_bn: q?.question_bn,
+                    options,
+                    selectedAnswer: a.selectedAnswer || null,
+                    correctAnswer,
+                    isCorrect: Boolean(a.isCorrect),
+                    explanation_en: q?.explanation_en,
+                    explanation_bn: q?.explanation_bn,
+                    marks: Number(a.marks ?? q?.marks ?? 0),
+                    negativeMarks: Number(q?.negativeMarks ?? 0),
+                };
+            });
+
+        const [betterCount, totalParticipants] = await Promise.all([
+            ExamResult.countDocuments({ exam: examId, obtainedMarks: { $gt: obtainedMarks } }),
+            ExamResult.countDocuments({ exam: examId }),
+        ]);
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            scoreBreakdown,
+            questions,
+            examTitle: String(exam.title || ''),
+            rank: betterCount + 1,
+            totalParticipants,
+            resultPublished: true,
+        }));
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Server error';
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));

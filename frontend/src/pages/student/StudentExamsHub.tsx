@@ -30,6 +30,7 @@ function statusBadgeLabel(exam: StudentUpcomingExam): string {
 export default function StudentExamsHub() {
     const [activeTab, setActiveTab] = useState<TabKey>('live');
     const [startingExamId, setStartingExamId] = useState('');
+    const [subjectFilter, setSubjectFilter] = useState('');
     const examsQuery = useQuery({
         queryKey: ['student-hub', 'exams'],
         queryFn: async () => {
@@ -50,14 +51,36 @@ export default function StudentExamsHub() {
         },
     });
 
+    // Subject options derived from all loaded exam cards (no admin hierarchy
+    // endpoint is reachable from the student app, so we filter on the subject
+    // labels already present in the response).
+    const subjectOptions = useMemo(() => {
+        const all = examsQuery.data?.all || [];
+        const seen = new Set<string>();
+        const options: string[] = [];
+        for (const exam of all) {
+            const subject = String(exam.subject || '').trim();
+            if (subject && !seen.has(subject)) {
+                seen.add(subject);
+                options.push(subject);
+            }
+        }
+        return options.sort((a, b) => a.localeCompare(b));
+    }, [examsQuery.data]);
+
     const tabData = useMemo(() => {
         const data = examsQuery.data;
         if (!data) return [] as StudentUpcomingExam[];
-        if (activeTab === 'live') return data.live;
-        if (activeTab === 'upcoming') return data.upcoming;
-        if (activeTab === 'missed') return data.missed;
-        return [];
-    }, [activeTab, examsQuery.data]);
+        const base = activeTab === 'live'
+            ? data.live
+            : activeTab === 'upcoming'
+                ? data.upcoming
+                : activeTab === 'missed'
+                    ? data.missed
+                    : [];
+        if (!subjectFilter) return base;
+        return base.filter((exam) => String(exam.subject || '').trim() === subjectFilter);
+    }, [activeTab, examsQuery.data, subjectFilter]);
 
     const handleExternalExamStart = async (examId: string) => {
         try {
@@ -102,6 +125,33 @@ export default function StudentExamsHub() {
                         View Results
                     </Link>
                 </div>
+                {subjectOptions.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <label htmlFor="subject-filter" className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            Subject
+                        </label>
+                        <select
+                            id="subject-filter"
+                            value={subjectFilter}
+                            onChange={(e) => setSubjectFilter(e.target.value)}
+                            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200"
+                        >
+                            <option value="">All Subjects</option>
+                            {subjectOptions.map((subject) => (
+                                <option key={subject} value={subject}>{subject}</option>
+                            ))}
+                        </select>
+                        {subjectFilter && (
+                            <button
+                                type="button"
+                                onClick={() => setSubjectFilter('')}
+                                className="text-xs font-medium text-indigo-600 dark:text-indigo-300 hover:underline"
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {examsQuery.isLoading ? (

@@ -85,8 +85,8 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
         return () => window.clearTimeout(timeoutId);
     }, [onDismiss]);
     return (
-        <div className="animate-slide-up fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-text px-5 py-3 text-sm font-medium text-surface shadow-elevated dark:bg-dark-text dark:text-dark-bg">
-            <CheckCircle className="h-4 w-4 text-success" /> {message}
+        <div role="status" aria-live="polite" className="animate-slide-up fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-text px-5 py-3 text-sm font-medium text-surface shadow-elevated dark:bg-dark-text dark:text-dark-bg">
+            <CheckCircle className="h-4 w-4 text-success" aria-hidden="true" /> {message}
         </div>
     );
 }
@@ -149,7 +149,7 @@ function ResourceCard({
                 <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${config.badge}`}><Icon className="h-5 w-5" /></div>
                 <div className="min-w-0 flex-1">
                     <span className={`mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${config.badge}`}>{config.label}</span>
-                    <h3 onClick={() => onNavigate(resource)} className="line-clamp-2 cursor-pointer text-sm font-semibold leading-snug transition-colors hover:text-primary dark:text-dark-text">{resource.title}</h3>
+                    <h3 className="text-sm font-semibold leading-snug dark:text-dark-text"><button type="button" onClick={() => onNavigate(resource)} className="line-clamp-2 cursor-pointer text-left transition-colors hover:text-primary">{resource.title}</button></h3>
                 </div>
             </div>
             <p className="line-clamp-2 flex-1 text-xs leading-relaxed text-text-muted dark:text-dark-text/60">{resource.description}</p>
@@ -191,7 +191,7 @@ function FeaturedCard(props: {
                     <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent"><Star className="h-2.5 w-2.5 fill-current" /> Featured</span>
                     <span className="order-last mt-1 w-full text-[10px] text-text-muted dark:text-dark-text/50 sm:order-none sm:ml-auto sm:mt-0 sm:w-auto">{resource.category}</span>
                 </div>
-                <h3 onClick={() => onNavigate(resource)} className="line-clamp-2 cursor-pointer text-base font-bold transition-colors hover:text-primary sm:line-clamp-1 sm:text-sm dark:text-dark-text">{resource.title}</h3>
+                <h3 className="text-base font-bold sm:text-sm dark:text-dark-text"><button type="button" onClick={() => onNavigate(resource)} className="line-clamp-2 cursor-pointer text-left transition-colors hover:text-primary sm:line-clamp-1">{resource.title}</button></h3>
                 <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-text-muted dark:text-dark-text/60 sm:line-clamp-1">{resource.description}</p>
             </div>
             <div className="mt-3 flex w-full flex-shrink-0 items-center justify-between gap-3 border-t border-card-border pt-3 sm:mt-0 sm:w-auto sm:justify-end sm:border-0 sm:pt-0 dark:border-dark-border">
@@ -350,7 +350,7 @@ export default function ResourcesPage() {
                         {totalPages > 1 ? <><div className="mt-10 flex items-center justify-center gap-2" role="navigation" aria-label="Pagination"><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} className="btn-ghost rounded-xl border border-card-border p-2 disabled:opacity-40 dark:border-dark-border" aria-label="Previous page"><ChevronLeft className="h-4 w-4" /></button>{Array.from({ length: Math.min(totalPages, 7) }, (_, index) => { const pageNumber = totalPages <= 7 ? index + 1 : page <= 4 ? index + 1 : page >= totalPages - 3 ? totalPages - 6 + index : page - 3 + index; return <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} aria-current={pageNumber === page ? 'page' : undefined} className={`h-9 w-9 rounded-xl text-sm font-medium transition-all ${pageNumber === page ? 'bg-primary text-white shadow-md' : 'btn-ghost border border-card-border dark:border-dark-border'}`}>{pageNumber}</button>; })}<button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page === totalPages} className="btn-ghost rounded-xl border border-card-border p-2 disabled:opacity-40 dark:border-dark-border" aria-label="Next page"><ChevronRight className="h-4 w-4" /></button></div><p className="mt-3 text-center text-xs text-text-muted dark:text-dark-text/40">Page {page} of {totalPages} · {filtered.length} total results</p></> : null}
                     </div>
                 </section>
-                {loading ? <div className="pointer-events-none fixed inset-0 z-20 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-30" /></div> : null}
+                {loading ? <div className="pointer-events-none fixed inset-0 z-20 flex items-center justify-center" role="status" aria-label="Loading resources"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-30" aria-hidden="true" /></div> : null}
             </div>
         </>
     );

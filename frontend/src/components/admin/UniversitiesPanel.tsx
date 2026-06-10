@@ -218,6 +218,7 @@ function AdminDateField({
         type="date"
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
         className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
       />
     </div>
@@ -1318,24 +1319,25 @@ export default function UniversitiesPanel() {
           <div className="rounded-2xl border border-slate-700/30 bg-slate-900/50 backdrop-blur-sm p-5 ring-1 ring-white/[0.03]">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               <label className="xl:col-span-2 relative block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <span className="sr-only">Search universities</span>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" aria-hidden="true" />
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name/short form/category" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 py-2 pl-9 pr-3 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
               </label>
-              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filter by category" className="rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                 <option value="">All categories</option>
                 {homeCategoryOptions.map((cat) => <option key={cat.key} value={cat.name}>{cat.label} ({cat.count})</option>)}
               </select>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} aria-label="Filter by status" className="rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                 <option value="all">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option>
               </select>
-              <select value={clusterFilter} onChange={(e) => setClusterFilter(e.target.value)} className="rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+              <select value={clusterFilter} onChange={(e) => setClusterFilter(e.target.value)} aria-label="Filter by cluster" className="rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                 <option value="">All Clusters</option>
                 {clusters.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
               </select>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <select value={exportScope} onChange={(e) => setExportScope(e.target.value as BulkScope)} className="rounded-lg border border-slate-700/40 bg-slate-950/50 px-3 py-1.5 text-xs text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+              <select value={exportScope} onChange={(e) => setExportScope(e.target.value as BulkScope)} aria-label="Export scope" className="rounded-lg border border-slate-700/40 bg-slate-950/50 px-3 py-1.5 text-xs text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                 <option value="selected">Export Selected</option>
                 <option value="filtered">Export Filtered</option>
                 <option value="all">Export All</option>
@@ -1364,7 +1366,7 @@ export default function UniversitiesPanel() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-end">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Bulk Action</label>
-                  <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value as BulkAction)} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+                  <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value as BulkAction)} aria-label="Bulk action" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                     <option value="">Select Action</option>
                     <option value="softDelete">Soft Delete</option>
                     <option value="hardDelete">Hard Delete</option>
@@ -1377,7 +1379,7 @@ export default function UniversitiesPanel() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Apply Scope</label>
-                  <select value={bulkScope} onChange={(e) => setBulkScope(e.target.value as BulkScope)} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+                  <select value={bulkScope} onChange={(e) => setBulkScope(e.target.value as BulkScope)} aria-label="Apply scope" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                     <option value="selected">Selected Items</option>
                     <option value="filtered">All Filtered Results</option>
                     <option value="all">All Universities</option>
@@ -1386,7 +1388,7 @@ export default function UniversitiesPanel() {
                 {bulkAction === 'setCluster' && (
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Target Cluster</label>
-                    <select value={targetClusterId} onChange={(e) => setTargetClusterId(e.target.value)} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+                    <select value={targetClusterId} onChange={(e) => setTargetClusterId(e.target.value)} aria-label="Target cluster" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                       <option value="">Choose...</option>{clusters.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
                     </select>
                   </div>
@@ -1394,7 +1396,7 @@ export default function UniversitiesPanel() {
                 {bulkAction === 'setCategory' && (
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Target Category</label>
-                    <select value={targetCategory} onChange={(e) => setTargetCategory(e.target.value)} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+                    <select value={targetCategory} onChange={(e) => setTargetCategory(e.target.value)} aria-label="Target category" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                       <option value="">Choose...</option>{categorySelectOptions.map((category) => <option key={category} value={category}>{category}</option>)}
                     </select>
                   </div>
@@ -1402,7 +1404,7 @@ export default function UniversitiesPanel() {
                 {bulkAction === 'setStatus' && (
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Target Status</label>
-                    <select value={targetStatus} onChange={(e) => setTargetStatus(e.target.value as 'active' | 'inactive')} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+                    <select value={targetStatus} onChange={(e) => setTargetStatus(e.target.value as 'active' | 'inactive')} aria-label="Target status" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
@@ -1411,7 +1413,7 @@ export default function UniversitiesPanel() {
                 {bulkAction === 'setFeatured' && (
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Featured</label>
-                    <select value={targetFeatured} onChange={(e) => setTargetFeatured(e.target.value as 'featured' | 'not_featured')} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+                    <select value={targetFeatured} onChange={(e) => setTargetFeatured(e.target.value as 'featured' | 'not_featured')} aria-label="Featured" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-3 py-2 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                       <option value="featured">Featured</option>
                       <option value="not_featured">Not Featured</option>
                     </select>
@@ -1829,7 +1831,7 @@ export default function UniversitiesPanel() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-3 bg-slate-950/40 rounded-xl p-4 border border-indigo-500/5 transition-all hover:border-indigo-500/20">
-              <input ref={importFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={(e: ChangeEvent<HTMLInputElement>) => setImportFile(e.target.files?.[0] || null)} className="hidden" />
+              <input ref={importFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={(e: ChangeEvent<HTMLInputElement>) => setImportFile(e.target.files?.[0] || null)} className="hidden" aria-label="Choose import file (CSV or Excel)" />
               <button type="button" onClick={() => importFileRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-xs font-bold text-indigo-400 hover:bg-indigo-500/20 transition-all"><Upload className="w-4 h-4" /> Choose File</button>
               <button type="button" onClick={() => void downloadTemplate('csv')} className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 transition-all"><Download className="w-4 h-4" /> Demo CSV</button>
               <button type="button" onClick={() => void downloadTemplate('xlsx')} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all"><Download className="w-4 h-4" /> Demo XLSX</button>
@@ -1915,7 +1917,7 @@ export default function UniversitiesPanel() {
                             {isRequired && <span className="ml-1.5 text-[9px] font-bold text-rose-400 uppercase">required</span>}
                           </td>
                           <td className="px-4 py-2.5">
-                            <select value={importMapping[field] || ''} onChange={(e) => setImportMapping((prev) => ({ ...prev, [field]: e.target.value }))} className={`w-full rounded-lg border px-3 py-1.5 text-white focus:border-indigo-500/40 outline-none transition-all ${isMapped ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-700/40 bg-slate-900/65'}`}>
+                            <select value={importMapping[field] || ''} onChange={(e) => setImportMapping((prev) => ({ ...prev, [field]: e.target.value }))} aria-label={`Column mapping for ${field}`} className={`w-full rounded-lg border px-3 py-1.5 text-white focus:border-indigo-500/40 outline-none transition-all ${isMapped ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-700/40 bg-slate-900/65'}`}>
                               <option value="">-- unmapped --</option>
                               {(importInit.headers || []).map((h) => <option key={`${field}-${h}`} value={h}>{h}</option>)}
                             </select>
@@ -1996,6 +1998,7 @@ export default function UniversitiesPanel() {
                   <select
                     value={importMode}
                     onChange={(e) => setImportMode(e.target.value as 'create-only' | 'update-existing')}
+                    aria-label="Import mode"
                     className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all"
                   >
                     <option value="update-existing">Create or Update Existing</option>
@@ -2131,16 +2134,16 @@ export default function UniversitiesPanel() {
                 <h3 className="text-lg font-black text-white tracking-tight uppercase">{modalUniversity === 'create' ? 'Create University' : 'Edit University Profile'}</h3>
                 <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-0.5">Global Admin Data Console</p>
               </div>
-              <button type="button" onClick={() => setModalUniversity(null)} className="rounded-xl border border-white/5 bg-white/5 p-2 text-slate-400 hover:text-white hover:bg-white/10 transition-all"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setModalUniversity(null)} aria-label="Close dialog" className="rounded-xl border border-white/5 bg-white/5 p-2 text-slate-400 hover:text-white hover:bg-white/10 transition-all"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Official Name</label><input value={form.name || ''} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Short Form</label><input value={form.shortForm || ''} onChange={(e) => setForm((prev) => ({ ...prev, shortForm: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Official Name</label><input value={form.name || ''} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} aria-label="Official Name" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Short Form</label><input value={form.shortForm || ''} onChange={(e) => setForm((prev) => ({ ...prev, shortForm: e.target.value }))} aria-label="Short Form" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Category</label>
-                  <select value={form.category || ''} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
+                  <select value={form.category || ''} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} aria-label="Category" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all">
                     <option value="">Select category</option>
                     {categorySelectOptions.map((name) => <option key={name} value={name}>{name}</option>)}
                   </select>
@@ -2153,12 +2156,26 @@ export default function UniversitiesPanel() {
                 <AdminDateField label="Business Exam Date" value={form.businessExamDate} onChange={(next) => setForm((prev) => ({ ...prev, businessExamDate: next }))} />
                 <AdminDateField label="Humanities Exam Date" value={form.artsExamDate} onChange={(next) => setForm((prev) => ({ ...prev, artsExamDate: next }))} />
 
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Contact Phone</label><input value={form.contactNumber || ''} onChange={(e) => setForm((prev) => ({ ...prev, contactNumber: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
-                <div className="space-y-1.5 lg:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Full Address</label><input value={form.address || ''} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Contact Phone</label><input value={form.contactNumber || ''} onChange={(e) => setForm((prev) => ({ ...prev, contactNumber: e.target.value }))} aria-label="Contact Phone" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5 lg:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Full Address</label><input value={form.address || ''} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} aria-label="Full Address" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
 
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Email</label><input value={form.email || ''} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Main Website</label><input value={form.website || ''} onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Admission Portal</label><input value={form.admissionWebsite || ''} onChange={(e) => setForm((prev) => ({ ...prev, admissionWebsite: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Email</label><input value={form.email || ''} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} aria-label="Email" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Main Website</label><input value={form.website || ''} onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))} aria-label="Main Website" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Admission Portal</label><input value={form.admissionWebsite || ''} onChange={(e) => setForm((prev) => ({ ...prev, admissionWebsite: e.target.value }))} aria-label="Admission Portal" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+
+                <div className="lg:col-span-3 mt-2">
+                  <AdminImageUploadField
+                    label="University Logo"
+                    value={form.logoUrl}
+                    onChange={(nextValue) => setForm((prev) => ({ ...prev, logoUrl: nextValue }))}
+                    category="admin_upload"
+                    helper="Upload the official university logo (square WebP or PNG format recommended)."
+                    previewAlt="University logo preview"
+                    fit="contain"
+                    previewClassName="min-h-[120px]"
+                    panelClassName="bg-slate-950/20"
+                  />
+                </div>
               </div>
 
               <div className="space-y-4 rounded-2xl border border-slate-700/30 bg-slate-950/25 p-4">
@@ -2230,8 +2247,8 @@ export default function UniversitiesPanel() {
                 <h3 className="text-lg font-black text-white tracking-tight uppercase">{categoryModal === 'create' ? 'Create Category' : 'Edit Category'}</h3>
                 <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-0.5">Category Master Control</p>
               </div>
-              <button type="button" onClick={() => setCategoryModal(null)} className="rounded-xl border border-white/5 bg-white/5 p-2 text-slate-400 hover:text-white hover:bg-white/10 transition-all">
-                <X className="w-5 h-5" />
+              <button type="button" onClick={() => setCategoryModal(null)} aria-label="Close dialog" className="rounded-xl border border-white/5 bg-white/5 p-2 text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -2239,23 +2256,23 @@ export default function UniversitiesPanel() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Category Name</label>
-                  <input value={categoryForm.name} onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
+                  <input value={categoryForm.name} onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))} aria-label="Category Name" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Slug</label>
-                  <input value={categoryForm.slug} onChange={(e) => setCategoryForm((prev) => ({ ...prev, slug: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
+                  <input value={categoryForm.slug} onChange={(e) => setCategoryForm((prev) => ({ ...prev, slug: e.target.value }))} aria-label="Slug" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Bangla Label</label>
-                  <input value={categoryForm.labelBn} onChange={(e) => setCategoryForm((prev) => ({ ...prev, labelBn: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
+                  <input value={categoryForm.labelBn} onChange={(e) => setCategoryForm((prev) => ({ ...prev, labelBn: e.target.value }))} aria-label="Bangla Label" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">English Label</label>
-                  <input value={categoryForm.labelEn} onChange={(e) => setCategoryForm((prev) => ({ ...prev, labelEn: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
+                  <input value={categoryForm.labelEn} onChange={(e) => setCategoryForm((prev) => ({ ...prev, labelEn: e.target.value }))} aria-label="English Label" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Home Order</label>
-                  <input type="number" value={String(categoryForm.homeOrder)} onChange={(e) => setCategoryForm((prev) => ({ ...prev, homeOrder: Number(e.target.value || 0) }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
+                  <input type="number" value={String(categoryForm.homeOrder)} onChange={(e) => setCategoryForm((prev) => ({ ...prev, homeOrder: Number(e.target.value || 0) }))} aria-label="Home Order" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" />
                 </div>
               </div>
 
@@ -2314,13 +2331,13 @@ export default function UniversitiesPanel() {
                 <h3 className="text-lg font-black text-white tracking-tight uppercase">{clusterModal === 'create' ? 'Create University Cluster' : 'Edit Cluster Settings'}</h3>
                 <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-0.5">Cluster Logic & Date Synchronization</p>
               </div>
-              <button type="button" onClick={() => setClusterModal(null)} className="rounded-xl border border-white/5 bg-white/5 p-2 text-slate-400 hover:text-white hover:bg-white/10 transition-all"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setClusterModal(null)} aria-label="Close dialog" className="rounded-xl border border-white/5 bg-white/5 p-2 text-slate-400 hover:text-white hover:bg-white/10 transition-all"><X className="w-5 h-5" aria-hidden="true" /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Cluster Name</label><input value={clusterForm.name} onChange={(e) => setClusterForm((p) => ({ ...p, name: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">URL Slug</label><input value={clusterForm.slug} onChange={(e) => setClusterForm((p) => ({ ...p, slug: e.target.value }))} className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Cluster Name</label><input value={clusterForm.name} onChange={(e) => setClusterForm((p) => ({ ...p, name: e.target.value }))} aria-label="Cluster Name" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">URL Slug</label><input value={clusterForm.slug} onChange={(e) => setClusterForm((p) => ({ ...p, slug: e.target.value }))} aria-label="URL Slug" className="w-full rounded-xl border border-slate-700/40 bg-slate-950/50 px-4 py-2.5 text-sm text-white focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-500/20 outline-none transition-all" /></div>
                 <div className="space-y-1.5 lg:col-span-3">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Description</label>
                   <textarea
@@ -2375,9 +2392,10 @@ export default function UniversitiesPanel() {
                       <button
                         type="button"
                         onClick={() => setClusterForm((p) => ({ ...p, heroImageUrl: '' }))}
+                        aria-label="Remove hero image"
                         className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-600"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     </div>
                   )}

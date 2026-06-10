@@ -65,8 +65,8 @@ export default function SecurityAlertsPanel() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center py-16">
-                <ArrowPathIcon className="w-5 h-5 animate-spin text-gray-400" />
+            <div className="flex items-center justify-center py-16" role="status" aria-label="Loading security alerts">
+                <ArrowPathIcon className="w-5 h-5 animate-spin text-gray-400" aria-hidden="true" />
             </div>
         );
     }
@@ -77,7 +77,7 @@ export default function SecurityAlertsPanel() {
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-                        <BellAlertIcon className="w-5 h-5" /> Security Alerts
+                        <BellAlertIcon className="w-5 h-5" aria-hidden="true" /> Security Alerts
                         {unacknowledgedCount > 0 && (
                             <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white">
                                 {unacknowledgedCount}
@@ -112,10 +112,11 @@ export default function SecurityAlertsPanel() {
                         <option value="info">Info</option>
                     </select>
                     <button
+                        type="button"
                         onClick={() => refetch()}
                         className="inline-flex items-center gap-1.5 rounded-full border border-white/8 bg-white/6 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
                     >
-                        <ArrowPathIcon className="w-3.5 h-3.5" /> Refresh
+                        <ArrowPathIcon className="w-3.5 h-3.5" aria-hidden="true" /> Refresh
                     </button>
                 </div>
             </div>
@@ -123,7 +124,7 @@ export default function SecurityAlertsPanel() {
             {/* Alerts List */}
             {items.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">
-                    <CheckCircleIcon className="w-8 h-8 mx-auto mb-2 text-emerald-400" />
+                    <CheckCircleIcon className="w-8 h-8 mx-auto mb-2 text-emerald-400" aria-hidden="true" />
                     No unacknowledged alerts
                 </div>
             ) : (
@@ -146,7 +147,7 @@ export default function SecurityAlertsPanel() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex items-start gap-3 min-w-0 flex-1">
                                         <div className="flex-shrink-0 mt-0.5">
-                                            <TypeIcon className="w-5 h-5 text-gray-400" />
+                                            <TypeIcon className="w-5 h-5 text-gray-400" aria-hidden="true" />
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
@@ -182,12 +183,13 @@ export default function SecurityAlertsPanel() {
                                     {/* Acknowledge button */}
                                     {!alert.acknowledged && (
                                         <button
+                                            type="button"
                                             onClick={() => acknowledgeMutation.mutate(alert._id)}
                                             disabled={acknowledgeMutation.isPending}
                                             className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
                                             title="Acknowledge alert"
                                         >
-                                            <CheckCircleIcon className="w-3.5 h-3.5" />
+                                            <CheckCircleIcon className="w-3.5 h-3.5" aria-hidden="true" />
                                             Acknowledge
                                         </button>
                                     )}
@@ -202,6 +204,7 @@ export default function SecurityAlertsPanel() {
             {data && data.pages > 1 && (
                 <div className="flex justify-center gap-2">
                     <button
+                        type="button"
                         disabled={page <= 1}
                         onClick={() => setPage((p) => p - 1)}
                         className="px-3 py-1 text-xs rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-600 disabled:opacity-40"
@@ -211,6 +214,7 @@ export default function SecurityAlertsPanel() {
                     </button>
                     <span className="text-xs text-gray-500 self-center">{page} / {data.pages}</span>
                     <button
+                        type="button"
                         disabled={page >= data.pages}
                         onClick={() => setPage((p) => p + 1)}
                         className="px-3 py-1 text-xs rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-600 disabled:opacity-40"

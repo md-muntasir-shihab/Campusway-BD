@@ -90,7 +90,7 @@ export default function UniversityGrid({
 
     if (loading) {
         return (
-            <div className={`grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 ${className}`}>
+            <div className={`grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 ${className}`} role="status" aria-label="Loading universities">
                 {Array.from({ length: skeletonCount }).map((_, index) => <UniversityCardSkeleton key={index} />)}
             </div>
         );
@@ -131,13 +131,15 @@ export default function UniversityGrid({
 
             {totalPages > 1 && (
                 <div className="flex flex-col items-center gap-4 py-8">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" role="navigation" aria-label="Pagination">
                         <button
+                            type="button"
                             onClick={() => handlePageChange(currentPage - 1)}
                             disabled={currentPage === 1}
+                            aria-label="Previous page"
                             className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:bg-slate-50 disabled:opacity-40 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
                         >
-                            <ChevronLeft className="h-5 w-5" />
+                            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
                         </button>
 
                         <div className="flex items-center gap-1.5 px-2">
@@ -156,7 +158,10 @@ export default function UniversityGrid({
                                 return (
                                     <button
                                         key={pageNum}
+                                        type="button"
                                         onClick={() => handlePageChange(pageNum)}
+                                        aria-label={`Page ${pageNum}`}
+                                        aria-current={currentPage === pageNum ? 'page' : undefined}
                                         className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === pageNum
                                             ? 'scale-110 bg-primary text-white shadow-lg shadow-primary/20'
                                             : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -169,11 +174,13 @@ export default function UniversityGrid({
                         </div>
 
                         <button
+                            type="button"
                             onClick={() => handlePageChange(currentPage + 1)}
                             disabled={currentPage === totalPages}
+                            aria-label="Next page"
                             className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:bg-slate-50 disabled:opacity-40 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
                         >
-                            <ChevronRight className="h-5 w-5" />
+                            <ChevronRight className="h-5 w-5" aria-hidden="true" />
                         </button>
                     </div>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">

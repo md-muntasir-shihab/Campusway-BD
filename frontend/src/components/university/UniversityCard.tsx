@@ -419,8 +419,9 @@ const UniversityCard = memo(function UniversityCard({
                                     onClick={copyAddress}
                                     className="mt-2.5 flex w-full items-start gap-2.5 text-left text-[13px] leading-relaxed text-slate-600 transition hover:text-primary dark:text-slate-300 dark:hover:text-cyan-300"
                                     title="Copy address"
+                                    aria-label={`Copy address: ${address}`}
                                 >
-                                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden="true" />
                                     <span className="line-clamp-2 break-words">{address}</span>
                                 </button>
                             ) : (

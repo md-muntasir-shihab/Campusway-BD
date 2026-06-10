@@ -92,7 +92,7 @@ function useSEO(title: string, description: string) {
 function DetailSkeleton() {
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-            <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+            <div className="max-w-5xl mx-auto px-4 py-8 space-y-6" role="status" aria-label="Loading university details">
                 <div className="h-10 w-48 rounded-xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
                 <div className="h-64 rounded-[2rem] bg-slate-200 dark:bg-slate-800 animate-pulse" />
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -211,14 +211,14 @@ export default function UniversityDetailsPage() {
 
     if (isError || !uni) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-5 text-center bg-slate-50 dark:bg-slate-950">
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-5 text-center bg-slate-50 dark:bg-slate-950" role="alert">
                 <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                    <AlertTriangle className="w-8 h-8 text-red-500" />
+                    <AlertTriangle className="w-8 h-8 text-red-500" aria-hidden="true" />
                 </div>
                 <h1 className="text-xl font-heading font-bold text-slate-900 dark:text-white">University Not Found</h1>
                 <p className="text-sm text-slate-500 max-w-sm">The university page doesn't exist or has been removed.</p>
                 <div className="flex gap-3 mt-4">
-                    <button onClick={() => refetch()} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    <button type="button" onClick={() => refetch()} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         <Loader2 className="w-4 h-4" /> Retry
                     </button>
                     <Link to="/universities" className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
@@ -345,8 +345,8 @@ export default function UniversityDetailsPage() {
                                             <Globe className="w-3.5 h-3.5" /> Official Site
                                         </a>
                                     ) : null}
-                                    <button onClick={handleShare} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                                        <Share2 className="w-3.5 h-3.5" /> {shareMsg || 'Share'}
+                                    <button type="button" onClick={handleShare} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                                        <Share2 className="w-3.5 h-3.5" aria-hidden="true" /> {shareMsg || 'Share'}
                                     </button>
                                 </div>
                             </div>
@@ -582,10 +582,11 @@ export default function UniversityDetailsPage() {
                                     <button
                                         type="button"
                                         onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                                        aria-expanded={faqOpen === i}
                                         className="flex items-center justify-between gap-3 w-full px-4 py-3.5 text-left bg-slate-50/80 hover:bg-slate-100/80 transition dark:bg-slate-800/40 dark:hover:bg-slate-800/60"
                                     >
                                         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 text-left">{faq.q}</span>
-                                        <ChevronRight className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${faqOpen === i ? 'rotate-90' : ''}`} />
+                                        <ChevronRight className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${faqOpen === i ? 'rotate-90' : ''}`} aria-hidden="true" />
                                     </button>
                                     {faqOpen === i && (
                                         <div className="px-4 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">

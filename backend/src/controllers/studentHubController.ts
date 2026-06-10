@@ -250,15 +250,30 @@ export async function getStudentMeExams(req: AuthRequest, res: Response): Promis
         const studentId = ensureStudent(req, res);
         if (!studentId) return;
 
-        const [cards, history] = await Promise.all([
+        const [allCards, history] = await Promise.all([
             getUpcomingExamCards(studentId),
             getExamHistoryAndProgress(studentId),
         ]);
 
+        // Optional hierarchy filtering (group / sub-group / subject) from query.
+        const groupId = String(req.query.group_id || '').trim();
+        const subGroupId = String(req.query.sub_group_id || '').trim();
+        const subjectId = String(req.query.subject_id || '').trim();
+        const hierarchyFilterActive = Boolean(groupId || subGroupId || subjectId);
+        const cards = allCards.filter((item) => {
+            if (groupId && String(item.groupId || '') !== groupId) return false;
+            if (subGroupId && String(item.subGroupId || '') !== subGroupId) return false;
+            if (subjectId && String(item.subjectId || '') !== subjectId) return false;
+            return true;
+        });
+
         const live = cards.filter((item) => item.status === 'live');
         const upcoming = cards.filter((item) => item.status === 'upcoming');
         const missed = cards.filter((item) => item.status === 'completed' && Number(item.attemptsUsed || 0) === 0);
-        const completed = history.history;
+        // Completed history rows carry no hierarchy ids, so a hierarchy filter
+        // can't be applied to them — hide them while a filter is active rather
+        // than show unfiltered results.
+        const completed = hierarchyFilterActive ? [] : history.history;
 
         ResponseBuilder.send(res, 200, ResponseBuilder.success({
             live,

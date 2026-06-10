@@ -90,6 +90,7 @@ export const examSchedulingSchema = z.object({
             couponCodes: z.array(z.string().trim()).default([]),
         })
         .default({ isFree: true, amountBDT: 0, couponCodes: [] }),
+    notifyOnPublish: z.boolean().optional(),
 });
 
 // ── Step 5: Publish ─────────────────────────────────────

@@ -322,6 +322,89 @@ export async function triggerResultPublished(examId: string): Promise<void> {
 }
 
 /**
+ * Notify a single student that their written/CQ answers have been fully graded
+ * and their final result is now available. Fired from the written-grading flow
+ * once every written question in a result has a grade.
+ *
+ * @requirement 24.1 — Event-driven trigger: result published (per-student)
+ */
+export async function triggerWrittenResultGraded(params: {
+    examId: string;
+    studentId: string;
+    obtainedMarks: number;
+    totalMarks: number;
+}): Promise<void> {
+    const studentObjectId = toObjectId(params.studentId);
+    const filteredIds = await filterByChannelPreference([studentObjectId], 'result_published');
+
+    await createNotification({
+        title: 'লিখিত উত্তর মূল্যায়ন সম্পন্ন',
+        message: `আপনার লিখিত উত্তর মূল্যায়ন সম্পন্ন হয়েছে। মোট নম্বর: ${params.obtainedMarks}/${params.totalMarks}`,
+        type: 'result_published',
+        category: 'exam',
+        priority: 'high',
+        targetUserIds: filteredIds,
+        sourceType: 'exam',
+        sourceId: params.examId,
+        targetRoute: `/student/exam/${params.examId}/result`,
+        targetEntityId: params.examId,
+        dedupeKey: `written_result_${params.examId}_${params.studentId}`,
+    });
+}
+
+/**
+ * Warn a single student that their exam session was flagged for suspicious
+ * activity during the anti-cheat review (admin action, no marks change).
+ */
+export async function triggerAntiCheatWarning(params: {
+    examId: string;
+    studentId: string;
+    message?: string;
+}): Promise<void> {
+    const studentObjectId = toObjectId(params.studentId);
+    const filteredIds = await filterByChannelPreference([studentObjectId], 'system_alert');
+
+    await createNotification({
+        title: 'সতর্কতা: সন্দেহজনক কার্যকলাপ',
+        message: params.message
+            || 'আপনার পরীক্ষার সেশনটি সন্দেহজনক কার্যকলাপের জন্য চিহ্নিত করা হয়েছে। অনুগ্রহ করে পরীক্ষার নিয়ম মেনে চলুন।',
+        type: 'system_alert',
+        category: 'exam',
+        priority: 'high',
+        targetUserIds: filteredIds,
+        sourceType: 'exam',
+        sourceId: params.examId,
+        targetRoute: `/student/exam/${params.examId}/result`,
+        targetEntityId: params.examId,
+    });
+}
+
+/**
+ * Notify a single student that their exam session was cancelled (voided) due to
+ * suspicious activity. Their marks for that attempt have been set to zero.
+ */
+export async function triggerSessionCancelled(params: {
+    examId: string;
+    studentId: string;
+}): Promise<void> {
+    const studentObjectId = toObjectId(params.studentId);
+    const filteredIds = await filterByChannelPreference([studentObjectId], 'system_alert');
+
+    await createNotification({
+        title: 'পরীক্ষার সেশন বাতিল',
+        message: 'সন্দেহজনক কার্যকলাপের কারণে আপনার পরীক্ষার সেশনটি বাতিল করা হয়েছে এবং নম্বর শূন্য করা হয়েছে।',
+        type: 'system_alert',
+        category: 'exam',
+        priority: 'urgent',
+        targetUserIds: filteredIds,
+        sourceType: 'exam',
+        sourceId: params.examId,
+        targetRoute: `/student/exam/${params.examId}/result`,
+        targetEntityId: params.examId,
+    });
+}
+
+/**
  * Warn a student at 8 PM if they have no activity today (streak about to break).
  *
  * @requirement 24.1 — Event-driven trigger: streak about to break

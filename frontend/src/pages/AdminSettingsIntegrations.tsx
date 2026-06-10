@@ -60,27 +60,27 @@ export function StatusBadge({ status }: { status: 'success' | 'failed' | 'unknow
     if (status === 'success') {
         return (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Healthy
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Healthy
             </span>
         );
     }
     if (status === 'failed') {
         return (
             <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-300">
-                <XCircle className="h-3.5 w-3.5" /> Failing
+                <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Failing
             </span>
         );
     }
     if (status === 'skipped') {
         return (
             <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-semibold text-yellow-800 dark:bg-yellow-500/10 dark:text-yellow-300">
-                <SkipForward className="h-3.5 w-3.5" /> Skipped
+                <SkipForward className="h-3.5 w-3.5" aria-hidden="true" /> Skipped
             </span>
         );
     }
     return (
         <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-            <ShieldAlert className="h-3.5 w-3.5" /> Untested
+            <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" /> Untested
         </span>
     );
 }
@@ -228,7 +228,7 @@ function IntegrationCard({ item }: { item: IntegrationItem }) {
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                        <Plug className="h-4 w-4 text-primary" />
+                        <Plug className="h-4 w-4 text-primary" aria-hidden="true" />
                         <h3 className="text-base font-semibold cw-text">{item.displayName}</h3>
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
                             {getCategoryLabel(item.category)}
@@ -352,9 +352,9 @@ function IntegrationCard({ item }: { item: IntegrationItem }) {
                         disabled={testMutation.isPending || saveMutation.isPending}
                     >
                         {testMutation.isPending ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                         ) : (
-                            <RefreshCw className="h-3.5 w-3.5" />
+                            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                         )}
                         Test connection
                     </button>
@@ -369,7 +369,7 @@ function IntegrationCard({ item }: { item: IntegrationItem }) {
                         }}
                         disabled={saveMutation.isPending}
                     >
-                        {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Save className="h-3.5 w-3.5" aria-hidden="true" />}
                         Save changes
                     </button>
                 </div>
@@ -405,14 +405,14 @@ export default function AdminSettingsIntegrationsPage() {
                         onClick={() => refetch()}
                         disabled={isFetching}
                     >
-                        {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
                         Refresh
                     </button>
                 </div>
 
                 {!isLoading && !isError && didFallBackToMock() && (
                     <div className="flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 dark:border-yellow-500/30 dark:bg-yellow-500/10">
-                        <WifiOff className="h-4 w-4 flex-shrink-0 text-yellow-700 dark:text-yellow-300" />
+                        <WifiOff className="h-4 w-4 flex-shrink-0 text-yellow-700 dark:text-yellow-300" aria-hidden="true" />
                         <p className="text-xs font-medium text-yellow-800 dark:text-yellow-200">
                             Backend unreachable — showing cached configuration
                         </p>
@@ -420,7 +420,7 @@ export default function AdminSettingsIntegrationsPage() {
                 )}
 
                 {isLoading ? (
-                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2" role="status" aria-label="Loading integrations">
                         {Array.from({ length: 4 }).map((_, i) => (
                             <div key={i} className="card-flat animate-pulse border border-cyan-500/20 p-5">
                                 <div className="flex items-start justify-between gap-3">
@@ -454,9 +454,9 @@ export default function AdminSettingsIntegrationsPage() {
                         ))}
                     </div>
                 ) : isError ? (
-                    <div className="card-flat border border-rose-500/30 px-5 py-6">
+                    <div className="card-flat border border-rose-500/30 px-5 py-6" role="alert">
                         <div className="flex items-center gap-2 text-sm text-rose-700 dark:text-rose-300">
-                            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                            <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                             Failed to load integrations: {error instanceof Error ? error.message : 'unknown error'}
                         </div>
                         <button
@@ -465,7 +465,7 @@ export default function AdminSettingsIntegrationsPage() {
                             onClick={() => refetch()}
                             disabled={isFetching}
                         >
-                            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
                             Retry
                         </button>
                     </div>
