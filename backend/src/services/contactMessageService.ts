@@ -18,6 +18,7 @@ import {
     resolveCommunicationProfiles,
 } from './communicationProfileService';
 import { getCanonicalSubscriptionSnapshot } from './subscriptionAccessService';
+import { escapeRegex } from '../utils/escapeRegex';
 
 type LeanUser = {
     _id: mongoose.Types.ObjectId;
@@ -262,7 +263,8 @@ function buildContactListFilter(input: ContactMessageListInput): Record<string, 
 
     const search = String(input.search || '').trim();
     if (search) {
-        const regex = new RegExp(search, 'i');
+        // eslint-disable-next-line security/detect-non-literal-regexp
+        const regex = new RegExp(escapeRegex(search), 'i');
         filter.$or = [
             { name: regex },
             { email: regex },

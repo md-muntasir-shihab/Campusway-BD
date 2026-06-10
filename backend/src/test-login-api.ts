@@ -21,7 +21,6 @@ async function testLogin() {
             logger.info('User Role:', undefined, { role: data.user?.role });
         } else {
             logger.warn('Login Failed!');
-            logger.warn('Data:', undefined, data);
         }
     } catch (error: any) {
         logger.error('Error:', undefined, { message: error.message });
