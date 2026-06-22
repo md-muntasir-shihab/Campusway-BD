@@ -390,6 +390,50 @@ export default function QuestionBankManager() {
         setImportModalOpen(true);
     }, []);
 
+    const handleImportFile = useCallback(
+        async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            try {
+                const result = await importQuestions.mutateAsync(file);
+                // Axios interceptor unwraps { success, data } → data.
+                // ImportPipelineService returns { total, success, failed, errors }.
+                const data = result as unknown as Record<string, unknown>;
+                const successCount = Number(data.successful ?? data.success ?? 0);
+                const failedCount = Number(data.failed ?? 0);
+                const totalCount = Number(data.totalRows ?? data.total ?? 0);
+                const hierarchyCreated = Number(data.hierarchyCreated ?? 0);
+
+                formatImportToast(successCount, failedCount, totalCount, hierarchyCreated);
+
+                if (failedCount > 0 && Array.isArray(data.errors) && data.errors.length > 0) {
+                    showImportErrors(data.errors);
+                }
+            } catch (err) {
+                // A 422 (all rows failed) makes axios throw, so the detailed
+                // per-row reasons live on err.response.data.data — surface them
+                // instead of a bare "Request failed with status code 422".
+                const resp = (err as { response?: { data?: { data?: Record<string, unknown>; message?: string } } })?.response;
+                const result = resp?.data?.data;
+                if (result && typeof result === 'object') {
+                    const successCount = Number(result.successful ?? result.success ?? 0);
+                    const failedCount = Number(result.failed ?? 0);
+                    const totalCount = Number(result.totalRows ?? result.total ?? 0);
+                    const hierarchyCreated = Number(result.hierarchyCreated ?? 0);
+                    formatImportToast(successCount, failedCount, totalCount, hierarchyCreated);
+                    if (Array.isArray(result.errors) && result.errors.length > 0) {
+                        showImportErrors(result.errors);
+                    }
+                } else {
+                    const message = resp?.data?.message || (err instanceof Error ? err.message : 'Import failed');
+                    toast.error(message);
+                }
+            }
+            // Reset input so same file can be re-imported
+            if (importInputRef.current) importInputRef.current.value = '';
+        },
+        [importQuestions],
+    );
     const handleDownloadTemplate = useCallback(async () => {
         try {
             const TEMPLATE_HEADERS = [
