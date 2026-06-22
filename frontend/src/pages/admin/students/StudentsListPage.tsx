@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
 import { ADMIN_PATHS } from '../../../routes/adminPaths';
+import { buildMediaUrl } from '../../../utils/mediaUrl';
 import {
   getStudentsList, suspendStudent, activateStudent, resetStudentPassword,
   exportStudents, importStudentsPreview, importStudentsCommit, bulkDeleteStudents, bulkUpdateStudents,
@@ -203,9 +204,9 @@ export default function StudentsListPage() {
       <div className="p-4 space-y-3">
         {/* Search + actions */}
         <div className="flex flex-col sm:flex-row gap-2">
-          <input className={inp + ' flex-1'} placeholder="Search name, phone, user ID..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className={inp + ' flex-1'} aria-label="Search students" placeholder="Search name, phone, user ID..." value={search} onChange={e => setSearch(e.target.value)} />
           <div className="flex gap-2">
-            <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'csv' | 'xlsx')} className={inp}>
+            <select aria-label="Export format" value={exportFormat} onChange={e => setExportFormat(e.target.value as 'csv' | 'xlsx')} className={inp}>
               <option value="xlsx">XLSX</option>
               <option value="csv">CSV</option>
             </select>
@@ -231,7 +232,7 @@ export default function StudentsListPage() {
             <button onClick={() => handleBulkUpdate({ status: 'suspended' }, 'Selected students suspended')} className="px-3 py-1 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full hover:bg-orange-200">Suspend All</button>
             <button onClick={() => handleBulkUpdate({ status: 'active' }, 'Selected students activated')} className="px-3 py-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full hover:bg-green-200">Activate All</button>
             <div className="flex flex-wrap items-center gap-2 rounded-full border border-blue-200 bg-white/70 px-2 py-1 dark:border-blue-700 dark:bg-slate-900/50">
-              <select value={bulkField} onChange={e => {
+              <select aria-label="Bulk edit field" value={bulkField} onChange={e => {
                 const nextField = e.target.value as (typeof BULK_FIELDS)[number]['value'];
                 setBulkField(nextField);
                 setBulkValue(nextField === 'status' ? 'active' : '');
@@ -239,14 +240,14 @@ export default function StudentsListPage() {
                 {BULK_FIELDS.map((field) => <option key={field.value} value={field.value}>{field.label}</option>)}
               </select>
               {bulkField === 'status' ? (
-                <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className="rounded-full bg-transparent px-2 py-1 text-xs text-gray-700 outline-none dark:text-gray-200">
+                <select aria-label="Bulk status value" value={bulkValue} onChange={e => setBulkValue(e.target.value)} className="rounded-full bg-transparent px-2 py-1 text-xs text-gray-700 outline-none dark:text-gray-200">
                   <option value="active">Active</option>
                   <option value="suspended">Suspended</option>
                   <option value="blocked">Blocked</option>
                   <option value="pending">Pending</option>
                 </select>
               ) : (
-                <input value={bulkValue} onChange={e => setBulkValue(e.target.value)} placeholder="Value" className="min-w-[110px] rounded-full bg-transparent px-2 py-1 text-xs text-gray-700 outline-none dark:text-gray-200" />
+                <input aria-label="Bulk value" value={bulkValue} onChange={e => setBulkValue(e.target.value)} placeholder="Value" className="min-w-[110px] rounded-full bg-transparent px-2 py-1 text-xs text-gray-700 outline-none dark:text-gray-200" />
               )}
               <button onClick={() => void handleBulkEdit()} className="rounded-full bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700">Bulk Edit</button>
             </div>
@@ -263,7 +264,7 @@ export default function StudentsListPage() {
           <thead className="bg-gray-50 dark:bg-gray-800/60">
             <tr>
               <th className="px-4 py-3 w-8">
-                <input type="checkbox" checked={allChecked} onChange={() => setSelected(allChecked ? [] : students.map((s: Record<string, unknown>) => s._id as string))} className="rounded" />
+                <input type="checkbox" aria-label="Select all students" checked={allChecked} onChange={() => setSelected(allChecked ? [] : students.map((s: Record<string, unknown>) => s._id as string))} className="rounded" />
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Name / ID</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 hidden sm:table-cell">Phone</th>
@@ -282,7 +283,7 @@ export default function StudentsListPage() {
               return (
                 <tr key={s._id as string} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 cursor-pointer" onClick={() => navigate(`/__cw_admin__/students-v2/${s._id}`)}>
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" checked={selected.includes(s._id as string)} onChange={() => toggleSelect(s._id as string)} className="rounded" />
+                    <input type="checkbox" aria-label="Select student" checked={selected.includes(s._id as string)} onChange={() => toggleSelect(s._id as string)} className="rounded" />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -291,7 +292,7 @@ export default function StudentsListPage() {
                         if (photoUrl) {
                           return (
                             <img
-                              src={photoUrl}
+                              src={buildMediaUrl(photoUrl)}
                               alt={(s.fullName || s.name) as string}
                               className="h-8 w-8 rounded-full object-cover ring-2 ring-blue-200 dark:ring-blue-800 shrink-0"
                               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -360,7 +361,7 @@ export default function StudentsListPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-sm p-6">
             <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Reset Password</h3>
-            <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="New password" className={inp + ' mb-4'} />
+            <input type="password" aria-label="New password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="New password" className={inp + ' mb-4'} />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setResetModal({ open: false, id: '' })} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800">Cancel</button>
               <button onClick={handleResetPw} disabled={!newPass.trim()} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40">Reset</button>
@@ -379,7 +380,7 @@ export default function StudentsListPage() {
                 <>
                   <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload a CSV or XLSX file</p>
-                    <input type="file" accept=".csv,.xlsx" onChange={e => setImportFile(e.target.files?.[0] ?? null)} className="text-sm text-gray-600 dark:text-gray-400" />
+                    <input type="file" aria-label="Upload CSV or XLSX file" accept=".csv,.xlsx" onChange={e => setImportFile(e.target.files?.[0] ?? null)} className="text-sm text-gray-600 dark:text-gray-400" />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setImportOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">Cancel</button>
@@ -395,7 +396,7 @@ export default function StudentsListPage() {
                     {importPreview.headers.map(col => (
                       <div key={col} className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 truncate w-28 shrink-0">{col}</span>
-                        <select value={importMapping[col] ?? ''} onChange={e => setImportMapping(m => ({ ...m, [col]: e.target.value }))}
+                        <select aria-label={`Map column ${col}`} value={importMapping[col] ?? ''} onChange={e => setImportMapping(m => ({ ...m, [col]: e.target.value }))}
                           className="flex-1 text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                           <option value="">-- skip --</option>
                           {SYSTEM_FIELDS.map(f => <option key={f} value={f}>{f}</option>)}

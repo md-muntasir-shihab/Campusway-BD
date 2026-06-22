@@ -3621,6 +3621,9 @@ export const getExamAttemptStreamUrl = (examId: string, attemptId: string, token
     void token;
     return resolveApiUrl(`/exams/${examId}/attempt/${attemptId}/stream`);
 };
+export const getExamLeaderboardStreamUrl = (examId: string) => {
+    return resolveApiUrl(`/exams/${examId}/leaderboard/stream`);
+};
 export const getAdminLiveStreamUrl = (token?: string) => {
     void token;
     return resolveApiUrl(`/${ADMIN_PATH}/live/stream`);
@@ -6365,3 +6368,17 @@ export const adminGetAntiCheatAlerts = (params?: {
 
 export const adminAcknowledgeAntiCheatAlert = (alertId: string) =>
     api.put<{ data: AntiCheatAlertItem; message: string }>(`/${ADMIN_PATH}/security/alerts/${alertId}/acknowledge`);
+
+/* ── User & Profile Management Custom Endpoints ── */
+
+export const uploadStudentAvatar = (data: FormData) =>
+    api.post<{ url: string; profile_photo_url: string }>('/users/me/avatar', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+export const adminBanUser = (id: string) =>
+    api.post(`/${ADMIN_PATH}/users/${id}/ban`);
+
+export const adminUnbanUser = (id: string) =>
+    api.patch(`/${ADMIN_PATH}/users/${id}/set-status`, { status: 'active' });
+

@@ -78,6 +78,15 @@ export function showImportErrors(errors: unknown[]): void {
     });
 }
 
+/** Pull the real backend message out of an axios error so failed bulk/CRUD
+ *  actions show WHY (e.g. permission denied) instead of a bare status code. */
+export function apiErrorMessage(err: unknown, fallback: string): string {
+    return (
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || (err instanceof Error ? err.message : fallback)
+    );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────
 
 /**
@@ -215,8 +224,7 @@ export default function QuestionBankManager() {
                 }
                 handleFormClose();
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Operation failed';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Operation failed'));
             }
         },
         [editingId, createQuestion, updateQuestion, handleFormClose],
@@ -233,8 +241,7 @@ export default function QuestionBankManager() {
                     return next;
                 });
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Failed to archive';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Failed to archive'));
             }
         },
         [archiveQuestion],
@@ -246,8 +253,7 @@ export default function QuestionBankManager() {
                 await reviewQuestion.mutateAsync({ id, payload: { action } });
                 toast.success(`Question ${action}d`);
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Review failed';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Review failed'));
             }
         },
         [reviewQuestion],
@@ -263,8 +269,7 @@ export default function QuestionBankManager() {
             toast.success(`${selectedIds.size} question(s) archived`);
             setSelectedIds(new Set());
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Bulk archive failed';
-            toast.error(message);
+            toast.error(apiErrorMessage(err, 'Bulk archive failed'));
         }
     }, [selectedIds, bulkAction]);
 
@@ -280,8 +285,7 @@ export default function QuestionBankManager() {
                 toast.success(`${selectedIds.size} question(s) updated to ${status}`);
                 setSelectedIds(new Set());
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Bulk status change failed';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Bulk status change failed'));
             }
         },
         [selectedIds, bulkAction],
@@ -297,8 +301,7 @@ export default function QuestionBankManager() {
             toast.success(`${selectedIds.size} question(s) approved`);
             setSelectedIds(new Set());
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Bulk approve failed';
-            toast.error(message);
+            toast.error(apiErrorMessage(err, 'Bulk approve failed'));
         }
     }, [selectedIds, bulkAction]);
 
@@ -406,8 +409,24 @@ export default function QuestionBankManager() {
                     showImportErrors(data.errors);
                 }
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Import failed';
-                toast.error(message);
+                // A 422 (all rows failed) makes axios throw, so the detailed
+                // per-row reasons live on err.response.data.data — surface them
+                // instead of a bare "Request failed with status code 422".
+                const resp = (err as { response?: { data?: { data?: Record<string, unknown>; message?: string } } })?.response;
+                const result = resp?.data?.data;
+                if (result && typeof result === 'object') {
+                    const successCount = Number(result.successful ?? result.success ?? 0);
+                    const failedCount = Number(result.failed ?? 0);
+                    const totalCount = Number(result.totalRows ?? result.total ?? 0);
+                    const hierarchyCreated = Number(result.hierarchyCreated ?? 0);
+                    formatImportToast(successCount, failedCount, totalCount, hierarchyCreated);
+                    if (Array.isArray(result.errors) && result.errors.length > 0) {
+                        showImportErrors(result.errors);
+                    }
+                } else {
+                    const message = resp?.data?.message || (err instanceof Error ? err.message : 'Import failed');
+                    toast.error(message);
+                }
             }
             // Reset input so same file can be re-imported
             if (importInputRef.current) importInputRef.current.value = '';

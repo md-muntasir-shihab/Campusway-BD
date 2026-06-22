@@ -28,6 +28,7 @@ import {
     cancelExamSession,
     warnExamSessionStudent,
     listExams,
+    deleteExam,
     getAnalyticsOverview,
     startExamSession,
     saveAnswers,
@@ -35,6 +36,7 @@ import {
     getResult,
     getDetailedResult,
     getExamLeaderboardHandler,
+    getExamLeaderboardStreamHandler,
 } from '../controllers/examManagementController';
 import { gradeWrittenAnswerSchema } from '../validators/examGrading.validator';
 
@@ -143,6 +145,13 @@ router.post(
     cloneExam,
 );
 
+// DELETE /:id — Delete an exam (refused if it already has participant results)
+router.delete(
+    '/:id',
+    requirePermission('exams', 'delete'),
+    deleteExam,
+);
+
 // ═══════════════════════════════════════════════════════════
 // Admin Routes — Grading & Anti-Cheat
 // ═══════════════════════════════════════════════════════════
@@ -216,6 +225,12 @@ router.get(
 router.get(
     '/:id/leaderboard',
     getExamLeaderboardHandler,
+);
+
+// GET /:id/leaderboard/stream — Live leaderboard SSE stream
+router.get(
+    '/:id/leaderboard/stream',
+    getExamLeaderboardStreamHandler,
 );
 
 export default router;

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getProfileDashboard, startExam, updateProfile } from '../services/api';
+import MediaImage from '../components/common/MediaImage';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -96,11 +97,12 @@ export default function Profile() {
             <div className="relative group">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-[2px]">
                     <div className="w-full h-full bg-[#0a0f1c] rounded-2xl flex items-center justify-center overflow-hidden">
-                        {user.profilePictureUrl ? (
-                            <img src={user.profilePictureUrl} alt={user.fullName} className="w-full h-full object-cover" />
-                        ) : (
-                            <User className="w-12 h-12 text-indigo-400" />
-                        )}
+                        <MediaImage
+                            src={user.profilePictureUrl}
+                            alt={user.fullName}
+                            className="w-full h-full object-cover"
+                            fallback={<User className="w-12 h-12 text-indigo-400" />}
+                        />
                     </div>
                 </div>
             </div>
@@ -405,19 +407,19 @@ export default function Profile() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-300">Full Name <span className="text-red-500">*</span></label>
-                                <input type="text" value={formParams.full_name || ''} onChange={(e) => setFormParams({ ...formParams, full_name: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                                <input type="text" aria-label="Full Name" value={formParams.full_name || ''} onChange={(e) => setFormParams({ ...formParams, full_name: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-300">Phone Number <span className="text-red-500">*</span></label>
-                                <input type="text" value={formParams.phone_number || ''} onChange={(e) => setFormParams({ ...formParams, phone_number: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+                                <input type="text" aria-label="Phone Number" value={formParams.phone_number || ''} onChange={(e) => setFormParams({ ...formParams, phone_number: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-300">Guardian Contact Number <span className="text-red-500">*</span></label>
-                                <input type="text" value={formParams.guardian_number || ''} onChange={(e) => setFormParams({ ...formParams, guardian_number: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+                                <input type="text" aria-label="Guardian Contact Number" value={formParams.guardian_number || ''} onChange={(e) => setFormParams({ ...formParams, guardian_number: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-300">Date of Birth <span className="text-red-500">*</span></label>
-                                <input type="date" value={formParams.date_of_birth ? formParams.date_of_birth.split('T')[0] : ''} onChange={(e) => setFormParams({ ...formParams, date_of_birth: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+                                <input type="date" aria-label="Date of Birth" value={formParams.date_of_birth ? formParams.date_of_birth.split('T')[0] : ''} onChange={(e) => setFormParams({ ...formParams, date_of_birth: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
                             </div>
                         </div>
 
@@ -426,15 +428,15 @@ export default function Profile() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-medium text-slate-300">SSC Batch Year <span className="text-red-500">*</span></label>
-                                    <input type="text" placeholder="e.g. 2022" value={formParams.ssc_batch || ''} onChange={(e) => setFormParams({ ...formParams, ssc_batch: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+                                    <input type="text" placeholder="e.g. 2022" aria-label="SSC Batch Year" value={formParams.ssc_batch || ''} onChange={(e) => setFormParams({ ...formParams, ssc_batch: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-medium text-slate-300">HSC Batch Year <span className="text-red-500">*</span></label>
-                                    <input type="text" placeholder="e.g. 2024" value={formParams.hsc_batch || ''} onChange={(e) => setFormParams({ ...formParams, hsc_batch: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+                                    <input type="text" placeholder="e.g. 2024" aria-label="HSC Batch Year" value={formParams.hsc_batch || ''} onChange={(e) => setFormParams({ ...formParams, hsc_batch: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-medium text-slate-300">Department Framework <span className="text-red-500">*</span></label>
-                                    <select value={formParams.department || ''} onChange={(e) => setFormParams({ ...formParams, department: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500">
+                                    <select aria-label="Department Framework" value={formParams.department || ''} onChange={(e) => setFormParams({ ...formParams, department: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500">
                                         <option value="">Select Department</option>
                                         <option value="Science">Science (বিজ্ঞান)</option>
                                         <option value="Humanities">Humanities (মানবিক)</option>
@@ -443,7 +445,7 @@ export default function Profile() {
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-medium text-slate-300">College Name <span className="text-red-500">*</span></label>
-                                    <input type="text" value={formParams.college_name || ''} onChange={(e) => setFormParams({ ...formParams, college_name: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+                                    <input type="text" aria-label="College Name" value={formParams.college_name || ''} onChange={(e) => setFormParams({ ...formParams, college_name: e.target.value })} required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
                                 </div>
                             </div>
                         </div>

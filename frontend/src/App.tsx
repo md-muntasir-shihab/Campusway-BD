@@ -33,13 +33,11 @@ import {
     AdminCampaignBannersPage,
     AdminContactPage,
     AdminDashboardPage,
-    AdminExamsPage,
     AdminHelpCenterPage,
     AdminHomeSettingsPage,
     AdminNewsConsole,
     AdminNotificationCenterEmbeddedPage,
     AdminProfileRequestsPage,
-    AdminQuestionBankPage,
     AdminReportsPage,
     AdminResourcesPage,
     AdminSettingsAnalyticsPage,
@@ -74,8 +72,6 @@ import {
     PendingApprovalsPage,
     CampaignConsolePage,
     CampaignSettingsPage,
-    ExamFormPage,
-    ExamPreviewPage,
     AdminLegalPagesPage,
     AdminFounderDetailsPage,
     AdminTestimonialsPage,
@@ -99,6 +95,7 @@ import {
     TeamAccessConsolePage,
     HierarchyManagerPage,
     QuestionBankManagerV2Page,
+    ExamListPageV2,
     ExamBuilderWizardPage,
     WrittenGradingInterfacePage,
     AntiCheatReportPage,
@@ -450,15 +447,17 @@ export default function App() {
                                         <Route path={adminUi('universities/:id/edit')} element={<AdminUniversitiesPage />} />
                                         <Route path={ADMIN_PATHS.news} element={<Navigate to={adminUi('news/pending')} replace />} />
                                         <Route path={adminUi('news/*')} element={<AdminNewsConsole />} />
-                                        <Route path={ADMIN_PATHS.exams} element={<AdminExamsPage />} />
-                                        <Route path={ADMIN_PATHS.examNew} element={<ExamFormPage />} />
-                                        <Route path={adminUi('exams/:examId/edit')} element={<ExamFormPage />} />
-                                        <Route path={adminUi('exams/:examId/preview')} element={<ExamPreviewPage />} />
-                                        <Route path={ADMIN_PATHS.questionBank} element={<AdminQuestionBankPage />} />
-                                        <Route path={adminUi('question-bank/*')} element={<AdminQuestionBankPage />} />
+                                        {/* Legacy exam + question-bank routes now redirect into the single Exam Center (v2). */}
+                                        <Route path={ADMIN_PATHS.exams} element={<Navigate to={ADMIN_PATHS.examCenterBuilder} replace />} />
+                                        <Route path={ADMIN_PATHS.examNew} element={<Navigate to={ADMIN_PATHS.examCenterBuilderNew} replace />} />
+                                        <Route path={adminUi('exams/:examId/edit')} element={<Navigate to={ADMIN_PATHS.examCenterBuilder} replace />} />
+                                        <Route path={adminUi('exams/:examId/preview')} element={<Navigate to={ADMIN_PATHS.examCenterBuilder} replace />} />
+                                        <Route path={ADMIN_PATHS.questionBank} element={<Navigate to={ADMIN_PATHS.examCenterQuestionBank} replace />} />
+                                        <Route path={adminUi('question-bank/*')} element={<Navigate to={ADMIN_PATHS.examCenterQuestionBank} replace />} />
                                         {/* Exam Management System v2 — Exam Center */}
                                         <Route path={ADMIN_PATHS.examCenterHierarchy} element={<HierarchyManagerPage />} />
                                         <Route path={ADMIN_PATHS.examCenterQuestionBank} element={<QuestionBankManagerV2Page />} />
+                                        <Route path={ADMIN_PATHS.examCenterExams} element={<ExamListPageV2 />} />
                                         <Route path={ADMIN_PATHS.examCenterBuilder} element={<ExamBuilderWizardPage />} />
                                         <Route path={ADMIN_PATHS.examCenterBuilderNew} element={<ExamBuilderWizardPage />} />
                                         <Route path={adminUi('exam-center/exam-builder/:examId/edit')} element={<ExamBuilderWizardPage />} />

@@ -68,10 +68,12 @@ const btnPrimary =
 // ─── API helpers ─────────────────────────────────────────────────────────
 
 async function fetchPendingResults(examId: string): Promise<PendingResult[]> {
-    const res = await api.get<ApiResponse<PendingResult[]>>(
+    // The axios response interceptor already unwraps the { success, data } envelope,
+    // so res.data IS the array here (not { data: [...] }).
+    const res = await api.get<PendingResult[]>(
         `${BASE}/${examId}/results/pending-evaluation`,
     );
-    return res.data.data ?? [];
+    return res.data ?? [];
 }
 
 async function submitGrade(
@@ -327,29 +329,23 @@ export default function WrittenGradingInterface() {
     // gradeState: resultId -> { questionId -> GradeInput }
     const [gradeState, setGradeState] = useState<Record<string, Record<string, GradeInput>>>({});
 
-    // ── Early return: Show exam selector if no examId ───────────────────
-
-    if (!examId) {
-        return (
-            <AdminGuardShell title="Written Answer Grading" requiredModule="exam_center">
-                <ExamSelectorPanel
-                    apiUrl="/v1/exams?hasPendingEvaluation=true"
-                    onSelect={(id) => navigate(`/exam-center/grading/${id}`)}
-                    title="Select an Exam to Grade"
-                    description="Choose an exam with pending written answer evaluations"
-                    emptyMessage="No exams with pending evaluations found"
-                />
-            </AdminGuardShell>
-        );
-    }
+    // NOTE: the "no examId → show selector" branch is rendered AFTER all hooks
+    // below (see the early return before the main render). Returning here would
+    // change the number of hooks between renders and violate the Rules of Hooks
+    // (React "Rendered more hooks than during the previous render" crash) when
+    // navigating from the selector into a specific exam.
 
     // ── Fetch pending results ────────────────────────────────────────────
 
     const loadResults = useCallback(async () => {
+        if (!examId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchPendingResults(examId!);
+            const data = await fetchPendingResults(examId);
             setResults(data);
 
             // Initialize grade inputs from existing writtenGrades or defaults
@@ -483,6 +479,22 @@ export default function WrittenGradingInterface() {
     }, [results, gradeState]);
 
     // ── Render ───────────────────────────────────────────────────────────
+
+    // No exam selected yet → show the exam selector. (Placed after all hooks
+    // above so the hook order stays stable across navigations.)
+    if (!examId) {
+        return (
+            <AdminGuardShell title="Written Answer Grading" requiredModule="exam_center">
+                <ExamSelectorPanel
+                    apiUrl="/v1/exams?hasPendingEvaluation=true"
+                    onSelect={(id) => navigate(`/exam-center/grading/${id}`)}
+                    title="Select an Exam to Grade"
+                    description="Choose an exam with pending written answer evaluations"
+                    emptyMessage="No exams with pending evaluations found"
+                />
+            </AdminGuardShell>
+        );
+    }
 
     if (loading) {
         return (

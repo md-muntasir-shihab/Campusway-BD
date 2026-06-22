@@ -230,23 +230,16 @@ export default function AntiCheatReport() {
     // sessionId currently running an action (cancel/warn), to disable its buttons
     const [actioningId, setActioningId] = useState<string | null>(null);
 
-    // Early return: if no examId, show exam selector
-    if (!examId) {
-        return (
-            <AdminGuardShell title="Anti-Cheat Report" requiredModule="exam_center">
-                <ExamSelectorPanel
-                    apiUrl="/v1/exams?status=completed"
-                    onSelect={(id) => navigate(`/exam-center/anti-cheat/${id}`)}
-                    title="Select an Exam"
-                    description="Choose a completed exam to view its anti-cheat report"
-                    emptyMessage="No completed exams found"
-                />
-            </AdminGuardShell>
-        );
-    }
+    // NOTE: the "no examId → show selector" branch is rendered AFTER all hooks
+    // below (see the early return before the main render). Returning here would
+    // change the hook count between renders and violate the Rules of Hooks when
+    // navigating from the selector into a specific exam.
 
     const fetchReport = useCallback(async () => {
-
+        if (!examId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
@@ -332,6 +325,23 @@ export default function AntiCheatReport() {
     }, [data]);
 
     // ── Render ──
+
+    // No exam selected yet → show the exam selector. (Placed after all hooks
+    // above so the hook order stays stable across navigations.)
+    if (!examId) {
+        return (
+            <AdminGuardShell title="Anti-Cheat Report" requiredModule="exam_center">
+                <ExamSelectorPanel
+                    apiUrl="/v1/exams?status=completed"
+                    onSelect={(id) => navigate(`/exam-center/anti-cheat/${id}`)}
+                    title="Select an Exam"
+                    description="Choose a completed exam to view its anti-cheat report"
+                    emptyMessage="No completed exams found"
+                />
+            </AdminGuardShell>
+        );
+    }
+
     if (loading) return <AdminGuardShell title="Anti-Cheat Report" requiredModule="exam_center"><PageSkeleton /></AdminGuardShell>;
 
     if (error) {

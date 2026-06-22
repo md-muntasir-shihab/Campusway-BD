@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Award,
     ChevronLeft,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import {
     useExamLeaderboard,
+    useExamLeaderboardStream,
     useWeeklyLeaderboard,
     useGlobalLeaderboard,
 } from '../../../hooks/useExamSystemQueries';
@@ -167,6 +169,9 @@ function ExamLeaderboardTab({ examId }: { examId: string }) {
     const params: PaginationParams = { page, limit: PAGE_SIZE };
     const { data, isLoading, isError } = useExamLeaderboard(examId, params);
 
+    // Subscribe to live real-time updates via SSE
+    useExamLeaderboardStream(examId);
+
     if (isLoading) return <LoadingState />;
     if (isError || !data?.data) return <ErrorState />;
 
@@ -181,15 +186,25 @@ function ExamLeaderboardTab({ examId }: { examId: string }) {
             {entries.length === 0 ? (
                 <EmptyState />
             ) : (
-                <div className="space-y-2">
-                    {entries.map((entry) => (
-                        <LeaderboardRow
-                            key={entry._id}
-                            entry={entry}
-                            isCurrentUser={myEntry?._id === entry._id}
-                        />
-                    ))}
-                </div>
+                <motion.div layout className="space-y-2">
+                    <AnimatePresence mode="popLayout">
+                        {entries.map((entry) => (
+                            <motion.div
+                                key={entry._id}
+                                layout
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ type: 'spring', stiffness: 500, damping: 50, mass: 1 }}
+                            >
+                                <LeaderboardRow
+                                    entry={entry}
+                                    isCurrentUser={myEntry?._id === entry._id}
+                                />
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                </motion.div>
             )}
             <PaginationControls page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>

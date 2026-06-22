@@ -29,11 +29,12 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
     { value: 'image_mcq', label: 'Image MCQ' },
 ];
 
+// NOTE: keep in sync with the backend model/validator difficulty enum,
+// which only allows easy | medium | hard. 'expert' would be rejected on save.
 const DIFFICULTY_LEVELS: { value: DifficultyLevel; label: string }[] = [
     { value: 'easy', label: 'Easy' },
     { value: 'medium', label: 'Medium' },
     { value: 'hard', label: 'Hard' },
-    { value: 'expert', label: 'Expert' },
 ];
 
 const inputCls =
@@ -260,7 +261,7 @@ export default function QuestionFormModal({
                             <div>
                                 <label className={labelCls}>Question Type</label>
                                 <select
-                                    value={questionType}
+                                    aria-label="Question Type" value={questionType}
                                     onChange={(e) => setQuestionType(e.target.value as QuestionType)}
                                     className={selectCls}
                                 >
@@ -422,7 +423,7 @@ export default function QuestionFormModal({
                                 <div>
                                     <label className={labelCls}>Difficulty</label>
                                     <select
-                                        value={difficulty}
+                                        aria-label="Difficulty" value={difficulty}
                                         onChange={(e) => setDifficulty(e.target.value as DifficultyLevel)}
                                         className={selectCls}
                                     >
@@ -439,6 +440,7 @@ export default function QuestionFormModal({
                                         type="number"
                                         min={0}
                                         step={0.25}
+                                        aria-label="Marks"
                                         value={marks}
                                         onChange={(e) => setMarks(Number(e.target.value))}
                                         className={inputCls}
@@ -450,6 +452,7 @@ export default function QuestionFormModal({
                                         type="number"
                                         min={0}
                                         step={0.25}
+                                        aria-label="Negative Marks"
                                         value={negativeMarks}
                                         onChange={(e) => setNegativeMarks(Number(e.target.value))}
                                         className={inputCls}

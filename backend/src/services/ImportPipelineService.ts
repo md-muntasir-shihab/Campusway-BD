@@ -241,6 +241,31 @@ const HEADER_TO_FIELD: Record<string, keyof ExtendedRawImportRow> = {
     reference: 'source',
 };
 
+/** Normalize a header/field name to lowercase alphanumerics only, so that
+ *  headers like "Question (EN)*", "Sub Group", and "correct_option" all
+ *  collapse to one canonical key. The generated import template uses verbose
+ *  headers with asterisks and parentheses, which the old space/underscore-only
+ *  normalization failed to match — causing every import to fail (422). */
+function normalizeHeaderKey(header: string): string {
+    return String(header || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** HEADER_TO_FIELD re-keyed by normalizeHeaderKey, plus explicit aliases for
+ *  the template's verbose "(EN)" columns. Built once at module load. */
+const NORMALIZED_HEADER_TO_FIELD: Record<string, keyof ExtendedRawImportRow> = (() => {
+    const out: Record<string, keyof ExtendedRawImportRow> = {};
+    for (const [key, field] of Object.entries(HEADER_TO_FIELD)) {
+        out[normalizeHeaderKey(key)] = field;
+    }
+    // Template columns "Question (EN)*", "Option 1 (EN)*" → questionen / option1en …
+    out.questionen = 'questionText';
+    out.option1en = 'option1';
+    out.option2en = 'option2';
+    out.option3en = 'option3';
+    out.option4en = 'option4';
+    return out;
+})();
+
 /** Positional column order (fallback when headers don't match). */
 /** Matches the template: questionType, questionText, questionTextBn, ... */
 const POSITIONAL_FIELDS: (keyof ExtendedRawImportRow)[] = [
@@ -817,17 +842,16 @@ async function processRows(rows: ExtendedRawImportRow[], adminId: string): Promi
 function matchHeader(header: string, customMapping?: Record<string, string>): keyof ExtendedRawImportRow | undefined {
     // Check custom mapping first (user-provided header-to-field mappings)
     if (customMapping) {
-        const customField = customMapping[header] || customMapping[header.trim()];
+        const customField = customMapping[header] || customMapping[String(header).trim()];
         if (customField) {
-            const normalizedCustom = customField.trim().toLowerCase().replace(/[\s_-]+/g, '');
-            if (HEADER_TO_FIELD[normalizedCustom]) return HEADER_TO_FIELD[normalizedCustom];
+            const normalizedCustom = normalizeHeaderKey(customField);
+            if (NORMALIZED_HEADER_TO_FIELD[normalizedCustom]) return NORMALIZED_HEADER_TO_FIELD[normalizedCustom];
             // Also check if the custom field IS a valid field name directly
             const directMatch = Object.values(HEADER_TO_FIELD).find((f) => f === customField);
             if (directMatch) return directMatch;
         }
     }
-    const lower = header.trim().toLowerCase().replace(/[\s_-]+/g, '');
-    return HEADER_TO_FIELD[lower];
+    return NORMALIZED_HEADER_TO_FIELD[normalizeHeaderKey(header)];
 }
 
 // ─── Excel Import ───────────────────────────────────────────

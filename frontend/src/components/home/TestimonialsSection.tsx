@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Star, Quote, GraduationCap, Sparkles, Award } from 'lucide-react';
 import { getPublicTestimonials } from '../../services/api';
+import MediaImage from '../common/MediaImage';
 
 interface Testimonial {
     _id: string; name: string; role: string; university?: string; department?: string;
@@ -89,11 +90,12 @@ export default function TestimonialsSection() {
                                     <p className="text-[15px] leading-[1.75] text-text/85 dark:text-dark-text/80 font-medium line-clamp-4">&ldquo;{t.shortQuote || t.fullQuote}&rdquo;</p>
                                 </blockquote>
                                 <div className="relative z-10 flex items-center gap-3.5 pt-5 border-t border-card-border/30 dark:border-white/[0.04]">
-                                    {t.avatarUrl ? (
-                                        <img src={t.avatarUrl} alt={t.name} className="h-12 w-12 rounded-2xl object-cover ring-2 ring-white dark:ring-slate-800 shadow-md" />
-                                    ) : (
-                                        <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center text-white text-base font-black shadow-lg`}>{t.name.charAt(0)}</div>
-                                    )}
+                                    <MediaImage
+                                        src={t.avatarUrl}
+                                        alt={t.name}
+                                        className="h-12 w-12 rounded-2xl object-cover ring-2 ring-white dark:ring-slate-800 shadow-md"
+                                        fallback={<div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center text-white text-base font-black shadow-lg`}>{t.name.charAt(0)}</div>}
+                                    />
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-bold text-text dark:text-dark-text truncate">{t.name}</p>
                                         <div className="flex items-center gap-1.5 text-[11px] text-text-muted dark:text-dark-text/45 mt-0.5">

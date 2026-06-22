@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Crown, UserCircle } from 'lucide-react';
 import DashboardSection from './DashboardSection';
+import MediaImage from '../../common/MediaImage';
 import type { StudentDashboardFullResponse } from '../../../services/api';
 
 interface Props {
@@ -26,13 +27,16 @@ export default function WelcomeHeader({ header, dailyFocus, personalizedCtas, on
                             aria-label="Open student access card"
                             className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full shrink-0 group transition-transform hover:scale-105 active:scale-95 cursor-pointer ${isPremium ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-[0_0_20px_rgba(251,191,36,0.3)]' : 'ring-2 ring-indigo-500/20 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 dark:ring-indigo-400/20 hover:ring-indigo-500/50 transition-all shadow-sm'}`}
                         >
-                            {header.profilePicture ? (
-                                <img src={header.profilePicture} alt={header.name} className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                    <UserCircle className="w-8 h-8 text-slate-400" />
-                                </div>
-                            )}
+                            <MediaImage
+                                src={header.profilePicture}
+                                alt={header.name}
+                                className="w-full h-full rounded-full object-cover"
+                                fallback={(
+                                    <div className="w-full h-full rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                        <UserCircle className="w-8 h-8 text-slate-400" />
+                                    </div>
+                                )}
+                            />
                             {/* Hover overlay */}
                             <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <span className="text-[10px] font-bold text-white uppercase tracking-wider hidden sm:block">View</span>

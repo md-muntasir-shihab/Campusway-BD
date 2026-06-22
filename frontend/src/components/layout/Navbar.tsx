@@ -222,7 +222,7 @@ export default function Navbar() {
                                     <ChevronDown className="hidden sm:block w-4 h-4 text-text-muted dark:text-dark-text/70" aria-hidden="true" />
                                 </div>
 
-                                <div role="menu" className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-card-border/70 dark:border-dark-border/70 bg-surface dark:bg-dark-surface shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2">
+                                <div role="menu" aria-label="Account menu" className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-card-border/70 dark:border-dark-border/70 bg-surface dark:bg-dark-surface shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2">
                                     {dashboardPath ? (
                                         <Link
                                             to={dashboardPath}

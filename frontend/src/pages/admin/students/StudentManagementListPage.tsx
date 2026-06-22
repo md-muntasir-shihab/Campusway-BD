@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { buildMediaUrl } from '../../../utils/mediaUrl';
 import {
   Search, Filter, Users, UserCheck, UserX, CreditCard,
   ChevronLeft, ChevronRight,
@@ -309,7 +310,7 @@ export default function StudentManagementListPage() {
                         <div className="flex items-center gap-3">
                           {(s.avatarUrl || s.profile?.profile_photo_url) ? (
                             <img
-                              src={s.avatarUrl || s.profile?.profile_photo_url}
+                              src={buildMediaUrl(s.avatarUrl || s.profile?.profile_photo_url)}
                               alt={s.full_name}
                               className="h-8 w-8 rounded-full object-cover ring-2 ring-indigo-200 dark:ring-indigo-800"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
@@ -491,7 +492,7 @@ function StudentQuickViewDrawer({ student, onClose, onNavigate, onSuspend, onAct
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xl font-bold text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 ring-2 ring-indigo-200 dark:ring-indigo-800 overflow-hidden">
                 {(s?.profile_photo || student.avatarUrl || student.profile?.profile_photo_url) ? (
-                  <img src={s?.profile_photo || student.avatarUrl || student.profile?.profile_photo_url} alt="" className="h-14 w-14 object-cover" />
+                  <img src={buildMediaUrl(s?.profile_photo || student.avatarUrl || student.profile?.profile_photo_url)} alt="" className="h-14 w-14 object-cover" />
                 ) : (student.full_name?.charAt(0).toUpperCase() || '?')}
               </div>
               <div className="min-w-0">

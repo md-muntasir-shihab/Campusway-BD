@@ -41,6 +41,14 @@ export interface AutoPickConfig {
     };
 }
 
+/** A question chosen by auto-pick, with enough data for the UI to display it. */
+export interface AutoPickedQuestion {
+    id: string;
+    text: string;
+    difficulty: string;
+    marks: number;
+}
+
 export interface ExamSettingsDto {
     marksPerQuestion: number;
     negativeMarking: number;
@@ -102,9 +110,27 @@ export async function createExamDraft(data: ExamInfoDto): Promise<IExam> {
     const now = new Date();
     const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+    if (!data.createdBy || !mongoose.Types.ObjectId.isValid(data.createdBy)) {
+        throw new Error('A valid creator id (createdBy) is required to create an exam draft');
+    }
+
+    // Only convert hierarchy filters that are genuine ObjectIds; ignore blanks or
+    // stray dropdown values so they can never crash the save with a BSON cast error.
+    const optionalId = (id?: string) =>
+        id && mongoose.Types.ObjectId.isValid(id) ? toObjectId(id) : undefined;
+
+    // Exam titles are NOT unique, but the Exam model has a unique index on `slug`.
+    // Derive a collision-proof slug so a repeated title (e.g. "test") can't throw E11000.
+    const slugBase = String(data.title || 'exam')
+        .toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+    const uniqueSlug = `${slugBase || 'exam'}-${now.getTime().toString(36)}`;
+
     const exam = new Exam({
         title: data.title,
         title_bn: data.title_bn,
+        slug: uniqueSlug,
         description: data.description || '',
         subject: data.title, // legacy field — use title as placeholder
         duration: data.duration || data.durationMinutes || 60,
@@ -112,9 +138,9 @@ export async function createExamDraft(data: ExamInfoDto): Promise<IExam> {
         isPublished: false,
 
         // Hierarchy filters from wizard step 1
-        group_id: data.group_id ? toObjectId(data.group_id) : undefined,
-        sub_group_id: data.sub_group_id ? toObjectId(data.sub_group_id) : undefined,
-        subject_id: data.subject_id ? toObjectId(data.subject_id) : undefined,
+        group_id: optionalId(data.group_id),
+        sub_group_id: optionalId(data.sub_group_id),
+        subject_id: optionalId(data.subject_id),
 
         // Defaults for required Exam fields
         totalQuestions: 0,
@@ -197,7 +223,7 @@ export async function updateQuestionSelection(
 export async function autoPick(
     examId: string,
     config: AutoPickConfig,
-): Promise<string[]> {
+): Promise<AutoPickedQuestion[]> {
     const { count, difficultyDistribution } = config;
 
     // Validate distribution sums to 100
@@ -229,31 +255,36 @@ export async function autoPick(
     async function sampleByDifficulty(
         difficulty: 'easy' | 'medium' | 'hard',
         target: number,
-    ): Promise<string[]> {
+    ): Promise<AutoPickedQuestion[]> {
         if (target <= 0) return [];
 
         const pipeline = [
             { $match: { ...baseFilter, difficulty } },
             { $sample: { size: target } },
-            { $project: { _id: 1 } },
+            { $project: { _id: 1, question_en: 1, question_bn: 1, difficulty: 1, marks: 1 } },
         ];
 
         const docs = await QuestionBankQuestion.aggregate(pipeline);
-        return docs.map((d) => d._id.toString());
+        return docs.map((d) => ({
+            id: d._id.toString(),
+            text: String(d.question_en || d.question_bn || 'Untitled question'),
+            difficulty: String(d.difficulty || difficulty),
+            marks: Number(d.marks ?? 1),
+        }));
     }
 
-    const [easyIds, mediumIds, hardIds] = await Promise.all([
+    const [easy, medium, hard] = await Promise.all([
         sampleByDifficulty('easy', easyTarget),
         sampleByDifficulty('medium', mediumTarget),
         sampleByDifficulty('hard', hardTarget),
     ]);
 
-    const selectedIds = [...easyIds, ...mediumIds, ...hardIds];
+    const selected = [...easy, ...medium, ...hard];
 
     // Shuffle the combined result so difficulties are interleaved
-    shuffleArray(selectedIds);
+    shuffleArray(selected);
 
-    return selectedIds;
+    return selected;
 }
 
 // ─── Step 3: Update Settings ────────────────────────────────
@@ -318,7 +349,13 @@ export async function updateSettings(
             : settings.visibility === 'private'
                 ? 'custom'
                 : 'custom'; // invite_only maps to custom
-    exam.accessMode = settings.visibility === 'public' ? 'all' : 'specific';
+    // accessMode governs the USER-level allow-list (exam.allowedUsers). The builder
+    // restricts by GROUP via visibilityMode + targetGroupIds, not by user list, so
+    // it must stay 'all' here. Setting 'specific' with an empty allowedUsers makes
+    // the student-side filter (specificModeDenied) hide the exam from EVERYONE —
+    // including members of the target group. Group enforcement is handled by
+    // visibilityMode/targetGroupIds above.
+    exam.accessMode = 'all';
 
     // Anti-cheat settings
     exam.security_policies = {
@@ -426,8 +463,19 @@ export async function publishExam(examId: string): Promise<IExam> {
         throw new Error(`Cannot publish exam: ${errors.join('; ')}`);
     }
 
-    // Publish the exam
-    exam.status = 'scheduled';
+    // Publish the exam. Choose the status from the schedule window so an exam
+    // meant to be available now goes 'live' (takeable by students) instead of
+    // always 'scheduled' — which looked like "publish didn't work".
+    const nowMs = Date.now();
+    const startMs = exam.startDate ? new Date(exam.startDate).getTime() : 0;
+    const endMs = exam.endDate ? new Date(exam.endDate).getTime() : 0;
+    if (endMs && endMs < nowMs) {
+        exam.status = 'closed';
+    } else if (!startMs || startMs <= nowMs) {
+        exam.status = 'live';
+    } else {
+        exam.status = 'scheduled';
+    }
     exam.isPublished = true;
 
     return exam.save();
