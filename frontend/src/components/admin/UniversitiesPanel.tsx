@@ -3,6 +3,8 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Activity, CheckSquare, ChevronDown, ChevronUp, Download, Edit, Loader2, Plus, RefreshCw, Save, Search, Square, Trash2, Upload, X } from 'lucide-react';
+import { buildMediaUrl } from '../../utils/mediaUrl';
+import AdminImageUploadField from './AdminImageUploadField';
 import {
   AdminBulkTargetOptions,
   AdminUniversityCluster,
@@ -1494,7 +1496,7 @@ export default function UniversitiesPanel() {
                               display = (
                                 <div className="flex items-center gap-2 min-w-[160px]">
                                   {u.logoUrl ? (
-                                    <img src={u.logoUrl.startsWith('http') ? u.logoUrl : `https://campusway-backend.onrender.com/${u.logoUrl}`} alt="" className="w-6 h-6 rounded-md object-cover ring-1 ring-white/10 flex-shrink-0" />
+                                    <img src={buildMediaUrl(u.logoUrl)} alt="" className="w-6 h-6 rounded-md object-cover ring-1 ring-white/10 flex-shrink-0" />
                                   ) : (
                                     <div className="w-6 h-6 rounded-md bg-indigo-500/20 flex items-center justify-center flex-shrink-0 text-[9px] font-bold text-indigo-300">{(u.shortForm || u.name || '?').slice(0, 2).toUpperCase()}</div>
                                   )}

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import { ResponseBuilder } from '../utils/responseBuilder';
 import * as ExamBuilderService from '../services/ExamBuilderService';
+import { addLeaderboardStreamClient } from '../realtime/leaderboardStream';
 import * as ExamRunnerService from '../services/ExamRunnerService';
 import { computeResult } from '../services/ResultEngineService';
 import { getExamLeaderboard } from '../services/LeaderboardService';
@@ -30,12 +31,15 @@ import { triggerWrittenResultGraded, triggerAntiCheatWarning, triggerSessionCanc
  */
 export async function createDraft(req: AuthRequest, res: Response): Promise<void> {
     try {
-        const createdBy = req.user!._id as string;
+        const createdBy = String(req.user?._id ?? req.user?.id ?? '');
         const exam = await ExamBuilderService.createExamDraft({ ...req.body, createdBy });
         ResponseBuilder.send(res, 201, ResponseBuilder.created(exam, 'Exam draft created'));
     } catch (err: unknown) {
+        console.error('[examManagement.createDraft] failed:', err);
         const message = err instanceof Error ? err.message : 'Server error';
-        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+        const status = message.includes('required') ? 400 : 500;
+        const code = status === 400 ? 'VALIDATION_ERROR' : 'SERVER_ERROR';
+        ResponseBuilder.send(res, status, ResponseBuilder.error(code, message));
     }
 }
 
@@ -63,8 +67,12 @@ export async function updateQuestions(req: AuthRequest, res: Response): Promise<
  */
 export async function autoPick(req: AuthRequest, res: Response): Promise<void> {
     try {
-        const questionIds = await ExamBuilderService.autoPick(String(req.params.id), req.body);
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ questionIds }, 'Questions auto-picked'));
+        const questions = await ExamBuilderService.autoPick(String(req.params.id), req.body);
+        ResponseBuilder.send(
+            res,
+            200,
+            ResponseBuilder.success({ questions, questionIds: questions.map((q) => q.id) }, 'Questions auto-picked'),
+        );
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Server error';
         const status = message.includes('not found') ? 404 : message.includes('draft') ? 400 : 500;
@@ -513,7 +521,7 @@ export async function listExams(req: AuthRequest, res: Response): Promise<void> 
         const exams = await Exam.find(query)
             .sort({ startDate: -1 })
             .limit(limit)
-            .select('title status startDate endDate isPublished')
+            .select('title title_bn status startDate endDate isPublished exam_schedule_type deliveryMode totalQuestions totalMarks duration')
             .lean();
 
         const examIds = exams.map((e) => e._id);
@@ -534,13 +542,56 @@ export async function listExams(req: AuthRequest, res: Response): Promise<void> 
             return {
                 _id: String(e._id),
                 title: String(e.title || 'Untitled Exam'),
+                title_bn: e.title_bn ? String(e.title_bn) : undefined,
                 status: displayStatus,
+                rawStatus: String(e.status || 'draft'),
+                isPublished: Boolean(e.isPublished),
+                scheduleType: e.exam_schedule_type ? String(e.exam_schedule_type) : undefined,
+                deliveryMode: e.deliveryMode ? String(e.deliveryMode) : 'internal',
+                totalQuestions: Number(e.totalQuestions || 0),
+                totalMarks: Number(e.totalMarks || 0),
+                duration: Number(e.duration || 0),
                 startTime: e.startDate ? new Date(e.startDate as Date).toISOString() : undefined,
+                endTime: e.endDate ? new Date(e.endDate as Date).toISOString() : undefined,
                 participantCount: countById.get(String(e._id)) || 0,
             };
         });
 
         ResponseBuilder.send(res, 200, ResponseBuilder.success({ items }));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
+// ─── Admin: Delete Exam ─────────────────────────────────────
+
+/**
+ * DELETE /:id — Delete an exam. Refuses if the exam already has participant
+ * results, to avoid destroying attempt history (close it instead).
+ */
+export async function deleteExam(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const examId = String(req.params.id);
+        if (!/^[a-fA-F0-9]{24}$/.test(examId)) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam ID format'));
+            return;
+        }
+        const resultCount = await ExamResult.countDocuments({ exam: examId });
+        if (resultCount > 0) {
+            ResponseBuilder.send(
+                res,
+                409,
+                ResponseBuilder.error('CONFLICT', `Cannot delete: this exam already has ${resultCount} participant result(s). Close it instead.`),
+            );
+            return;
+        }
+        const deleted = await Exam.findByIdAndDelete(examId);
+        if (!deleted) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
+            return;
+        }
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(null, 'Exam deleted'));
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Server error';
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
@@ -925,6 +976,25 @@ export async function getExamLeaderboardHandler(req: AuthRequest, res: Response)
         const studentId = req.user?._id as string | undefined;
         const leaderboard = await getExamLeaderboard(String(req.params.id), page, studentId);
         ResponseBuilder.send(res, 200, ResponseBuilder.success(leaderboard));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}
+
+/**
+ * GET /:id/leaderboard/stream — Subscribe to live leaderboard stream for an exam.
+ */
+export async function getExamLeaderboardStreamHandler(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const examId = String(req.params.id);
+        const studentId = req.user?._id ? String(req.user._id) : undefined;
+        
+        addLeaderboardStreamClient({
+            examId,
+            studentId,
+            res,
+        });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Server error';
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));

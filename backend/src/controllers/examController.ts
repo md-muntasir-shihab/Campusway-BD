@@ -90,7 +90,8 @@ async function verifySubscription(userId: string): Promise<SubscriptionGateResul
 async function canAccessExam(exam: typeof Exam.prototype, userId: string): Promise<boolean> {
     if (!exam.isPublished) return false;
     if (exam.accessMode === 'specific') {
-        return exam.allowedUsers.some((id: mongoose.Types.ObjectId) => id.toString() === userId);
+        return Array.isArray(exam.allowedUsers)
+            && exam.allowedUsers.some((id: mongoose.Types.ObjectId) => id.toString() === userId);
     }
     return true; // 'all' mode — any subscribed user
 }
@@ -189,6 +190,7 @@ export async function getStudentExams(req: AuthRequest, res: Response): Promise<
                 const subscriptionDenied = subscriptionRequired && !hasActiveSubscription;
                 const specificModeDenied = (
                     e.accessMode === 'specific' &&
+                    Array.isArray(e.allowedUsers) &&
                     !e.allowedUsers.some((uid: mongoose.Types.ObjectId) => uid.toString() === studentId)
                 );
                 // Keep strict identity/group restrictions hidden from list responses.
@@ -797,7 +799,9 @@ export async function getExamLanding(req: AuthRequest, res: Response): Promise<v
 
 function canAccessExamSync(exam: Record<string, unknown>, userId: string): boolean {
     if (exam.accessMode === 'specific') {
-        const allowedUsers = exam.allowedUsers as mongoose.Types.ObjectId[];
+        const allowedUsers = Array.isArray(exam.allowedUsers)
+            ? (exam.allowedUsers as mongoose.Types.ObjectId[])
+            : [];
         return allowedUsers.some(id => id.toString() === userId);
     }
     return true;

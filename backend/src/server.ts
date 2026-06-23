@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -370,9 +370,11 @@ const examSystemLimiter = rateLimit({
     max: 100,
     message: { message: 'Too many requests to exam system, please try again later.' },
     keyGenerator: (req: express.Request) => {
-        // Use authenticated user ID when available, fall back to IP
+        // Use authenticated user ID when available, fall back to IPv6-safe IP key.
         const userId = (req as any).user?.id || (req as any).user?._id;
-        return userId ? String(userId) : String(req.ip || req.socket?.remoteAddress || 'unknown');
+        if (userId) return String(userId);
+        const ip = req.ip || req.socket?.remoteAddress;
+        return ip ? ipKeyGenerator(ip) : 'unknown';
     },
     skip: shouldSkipExpressRateLimit,
 });

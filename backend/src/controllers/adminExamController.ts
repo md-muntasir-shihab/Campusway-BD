@@ -923,6 +923,13 @@ export async function adminAssignExamGroups(req: AuthRequest, res: Response): Pr
         }
         if (visibilityMode && ['all_students', 'group_only', 'subscription_only', 'custom'].includes(visibilityMode)) {
             updatePayload.visibilityMode = visibilityMode;
+        } else if (Array.isArray(targetGroupIds)) {
+            // No explicit visibilityMode supplied: infer it from the group assignment.
+            // Without this, assigning groups while visibilityMode stays the default
+            // 'all_students' leaves the student-side filter unrestricted, so the exam
+            // leaks to ALL students despite targetGroupIds being set. Empty list clears
+            // the restriction back to all students.
+            updatePayload.visibilityMode = targetGroupIds.length > 0 ? 'group_only' : 'all_students';
         }
 
         const exam = await Exam.findByIdAndUpdate(examId, updatePayload, { new: true, runValidators: true });

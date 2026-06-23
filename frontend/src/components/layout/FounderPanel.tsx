@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
+import MediaImage from '../common/MediaImage';
 import {
     Award,
     Briefcase,
@@ -100,13 +101,16 @@ function FounderContent({ founder }: { founder: FounderData }) {
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
                 <div className="relative flex-shrink-0">
                     <div className="h-24 w-24 overflow-hidden rounded-2xl ring-4 ring-blue-500/20 shadow-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20">
-                        {founder.photoUrl ? (
-                            <img src={founder.photoUrl} alt={founder.name} className="h-full w-full object-cover" />
-                        ) : (
-                            <div className="flex h-full w-full items-center justify-center">
-                                <span className="text-3xl font-bold text-blue-400">{founder.name.charAt(0)}</span>
-                            </div>
-                        )}
+                        <MediaImage
+                            src={founder.photoUrl}
+                            alt={founder.name}
+                            className="h-full w-full object-cover"
+                            fallback={(
+                                <div className="flex h-full w-full items-center justify-center">
+                                    <span className="text-3xl font-bold text-blue-400">{founder.name.charAt(0)}</span>
+                                </div>
+                            )}
+                        />
                     </div>
                 </div>
                 <div className="min-w-0 flex-1 text-center sm:text-left">

@@ -208,8 +208,16 @@ export const questionFiltersSchema = z.object({
     q: z.string().trim().optional(),
     search: z.string().trim().optional(),
 
-    // Recycle Bin flag
-    archivedOnly: z.coerce.boolean().optional(),
+    // Recycle Bin flag.
+    // NOTE: query params arrive as strings, and z.coerce.boolean() turns ANY
+    // non-empty string (including "false") into true — which made the active
+    // tab query archived-only and show "No questions found". Coerce explicitly.
+    archivedOnly: z
+        .preprocess(
+            (v) => (typeof v === 'string' ? ['true', '1', 'yes', 'on'].includes(v.trim().toLowerCase()) : v),
+            z.boolean(),
+        )
+        .optional(),
 
     // Sorting
     sortField: z.string().trim().optional(),

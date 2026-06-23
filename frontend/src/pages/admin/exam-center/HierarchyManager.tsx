@@ -247,7 +247,9 @@ function CreateNodeModal({ level, parentId, onClose, onCreated }: CreateNodeModa
             onCreated();
             onClose();
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to create node';
+            const message =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || (err instanceof Error ? err.message : 'Failed to create node');
             toast.error(message);
         } finally {
             setIsSubmitting(false);
@@ -434,7 +436,9 @@ function TreeNode({
             toast.success('Updated successfully');
             setIsEditing(false);
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to update';
+            const message =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || (err instanceof Error ? err.message : 'Failed to update');
             toast.error(message);
         } finally {
             setIsSaving(false);

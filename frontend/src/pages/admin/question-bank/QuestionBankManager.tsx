@@ -34,6 +34,7 @@ import type { CascadingDropdownsValue } from '../../../components/admin/question
 import FilterBar from './FilterBar';
 import QuestionTable, { SortState } from './QuestionTable';
 import QuestionFormModal from './QuestionFormModal';
+import BulkImportModal from './BulkImportModal';
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
@@ -78,6 +79,15 @@ export function showImportErrors(errors: unknown[]): void {
     });
 }
 
+/** Pull the real backend message out of an axios error so failed bulk/CRUD
+ *  actions show WHY (e.g. permission denied) instead of a bare status code. */
+export function apiErrorMessage(err: unknown, fallback: string): string {
+    return (
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || (err instanceof Error ? err.message : fallback)
+    );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────
 
 /**
@@ -109,8 +119,8 @@ export default function QuestionBankManager() {
     // ── Bulk selection state ─────────────────────────────────────────────
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    // ── Import ref ───────────────────────────────────────────────────────
-    const importInputRef = useRef<HTMLInputElement>(null);
+    // ── Import Modal State ───────────────────────────────────────────────
+    const [importModalOpen, setImportModalOpen] = useState(false);
 
     // ── Computed filters ─────────────────────────────────────────────────
     const activeFilters = useMemo<QuestionFilters>(() => {
@@ -215,8 +225,7 @@ export default function QuestionBankManager() {
                 }
                 handleFormClose();
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Operation failed';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Operation failed'));
             }
         },
         [editingId, createQuestion, updateQuestion, handleFormClose],
@@ -233,8 +242,7 @@ export default function QuestionBankManager() {
                     return next;
                 });
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Failed to archive';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Failed to archive'));
             }
         },
         [archiveQuestion],
@@ -246,8 +254,7 @@ export default function QuestionBankManager() {
                 await reviewQuestion.mutateAsync({ id, payload: { action } });
                 toast.success(`Question ${action}d`);
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Review failed';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Review failed'));
             }
         },
         [reviewQuestion],
@@ -263,8 +270,7 @@ export default function QuestionBankManager() {
             toast.success(`${selectedIds.size} question(s) archived`);
             setSelectedIds(new Set());
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Bulk archive failed';
-            toast.error(message);
+            toast.error(apiErrorMessage(err, 'Bulk archive failed'));
         }
     }, [selectedIds, bulkAction]);
 
@@ -280,8 +286,7 @@ export default function QuestionBankManager() {
                 toast.success(`${selectedIds.size} question(s) updated to ${status}`);
                 setSelectedIds(new Set());
             } catch (err) {
-                const message = err instanceof Error ? err.message : 'Bulk status change failed';
-                toast.error(message);
+                toast.error(apiErrorMessage(err, 'Bulk status change failed'));
             }
         },
         [selectedIds, bulkAction],
@@ -297,8 +302,7 @@ export default function QuestionBankManager() {
             toast.success(`${selectedIds.size} question(s) approved`);
             setSelectedIds(new Set());
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Bulk approve failed';
-            toast.error(message);
+            toast.error(apiErrorMessage(err, 'Bulk approve failed'));
         }
     }, [selectedIds, bulkAction]);
 
@@ -383,37 +387,8 @@ export default function QuestionBankManager() {
     // ── Import handler ───────────────────────────────────────────────────
 
     const handleImportClick = useCallback(() => {
-        importInputRef.current?.click();
+        setImportModalOpen(true);
     }, []);
-
-    const handleImportFile = useCallback(
-        async (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            try {
-                const result = await importQuestions.mutateAsync(file);
-                // Axios interceptor unwraps { success, data } → data.
-                // ImportPipelineService returns { total, success, failed, errors }.
-                const data = result as unknown as Record<string, unknown>;
-                const successCount = Number(data.successful ?? data.success ?? 0);
-                const failedCount = Number(data.failed ?? 0);
-                const totalCount = Number(data.totalRows ?? data.total ?? 0);
-                const hierarchyCreated = Number(data.hierarchyCreated ?? 0);
-
-                formatImportToast(successCount, failedCount, totalCount, hierarchyCreated);
-
-                if (failedCount > 0 && Array.isArray(data.errors) && data.errors.length > 0) {
-                    showImportErrors(data.errors);
-                }
-            } catch (err) {
-                const message = err instanceof Error ? err.message : 'Import failed';
-                toast.error(message);
-            }
-            // Reset input so same file can be re-imported
-            if (importInputRef.current) importInputRef.current.value = '';
-        },
-        [importQuestions],
-    );
 
     const handleDownloadTemplate = useCallback(async () => {
         try {
@@ -677,14 +652,6 @@ export default function QuestionBankManager() {
                         </div>
 
                         {/* Import */}
-                        <input
-                            ref={importInputRef}
-                            type="file"
-                            accept=".xlsx,.csv,.json"
-                            onChange={handleImportFile}
-                            className="hidden"
-                            aria-label="Import questions file"
-                        />
                         <button
                             type="button"
                             onClick={handleDownloadTemplate}
@@ -697,14 +664,9 @@ export default function QuestionBankManager() {
                         <button
                             type="button"
                             onClick={handleImportClick}
-                            disabled={importQuestions.isPending}
-                            className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 disabled:opacity-50"
+                            className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                         >
-                            {importQuestions.isPending ? (
-                                <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                                <Upload size={16} />
-                            )}
+                            <Upload size={16} />
                             Import
                         </button>
 
@@ -914,6 +876,14 @@ export default function QuestionBankManager() {
                         onClose={handleFormClose}
                         onSubmit={handleFormSubmit}
                         isSubmitting={createQuestion.isPending || updateQuestion.isPending}
+                    />
+                )}
+
+                {/* ── Bulk Import Modal ──────────────────────────────────────── */}
+                {importModalOpen && (
+                    <BulkImportModal
+                        onClose={() => setImportModalOpen(false)}
+                        onSuccess={() => refetch()}
                     />
                 )}
             </div>

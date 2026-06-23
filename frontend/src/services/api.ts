@@ -107,50 +107,41 @@ function removeLocalStorageValue(key: string): void {
     }
 }
 
-const LOCAL_ACCESS_TOKEN_KEY = 'campusway-access-token';
-const LOCAL_REFRESH_TOKEN_KEY = 'campusway-refresh-token';
-
+// SECURITY: tokens are kept in memory only — never persisted to localStorage.
+// Both access and refresh tokens are ALSO issued as httpOnly cookies by the
+// backend, so an XSS payload cannot read them from document.cookie or
+// localStorage. The in-memory copies exist solely to attach the Authorization
+// / X-Refresh-Token headers; a page reload clears them and the next request
+// transparently falls back to the httpOnly cookie (see refreshAccessToken +
+// the 401-interceptor + shouldAttemptAuthBootstrap).
 let inMemoryAccessToken = '';
+let inMemoryRefreshToken = '';
 
 export function setAccessToken(token: string): void {
     inMemoryAccessToken = String(token || '').trim();
     if (inMemoryAccessToken) {
         api.defaults.headers.common.Authorization = `Bearer ${inMemoryAccessToken}`;
-        writeLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY, inMemoryAccessToken);
         return;
     }
     delete api.defaults.headers.common.Authorization;
-    removeLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY);
 }
 
 export function clearAccessToken(): void {
     inMemoryAccessToken = '';
+    inMemoryRefreshToken = '';
     delete api.defaults.headers.common.Authorization;
-    removeLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY);
-    removeLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY);
 }
 
 export function readAccessToken(): string {
-    if (!inMemoryAccessToken) {
-        inMemoryAccessToken = readLocalStorageValue(LOCAL_ACCESS_TOKEN_KEY);
-        if (inMemoryAccessToken) {
-            api.defaults.headers.common.Authorization = `Bearer ${inMemoryAccessToken}`;
-        }
-    }
     return inMemoryAccessToken;
 }
 
 export function setRefreshToken(token: string): void {
-    const nextToken = String(token || '').trim();
-    if (nextToken) {
-        writeLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY, nextToken);
-    } else {
-        removeLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY);
-    }
+    inMemoryRefreshToken = String(token || '').trim();
 }
 
 export function readRefreshToken(): string {
-    return readLocalStorageValue(LOCAL_REFRESH_TOKEN_KEY);
+    return inMemoryRefreshToken;
 }
 
 export function markAuthSessionHint(portal?: 'student' | 'admin' | 'chairman' | string): void {
@@ -3621,9 +3612,15 @@ export const getExamAttemptStreamUrl = (examId: string, attemptId: string, token
     void token;
     return resolveApiUrl(`/exams/${examId}/attempt/${attemptId}/stream`);
 };
+export const getExamLeaderboardStreamUrl = (examId: string) => {
+    return resolveApiUrl(`/exams/${examId}/leaderboard/stream`);
+};
 export const getAdminLiveStreamUrl = (token?: string) => {
     void token;
     return resolveApiUrl(`/${ADMIN_PATH}/live/stream`);
+};
+export const getBrainClashStreamUrl = (battleId: string) => {
+    return resolveApiUrl(`/v1/brain-clash/${battleId}/stream`);
 };
 
 /* â”€â”€ Exams (auth-required) â”€â”€ */
@@ -6365,3 +6362,17 @@ export const adminGetAntiCheatAlerts = (params?: {
 
 export const adminAcknowledgeAntiCheatAlert = (alertId: string) =>
     api.put<{ data: AntiCheatAlertItem; message: string }>(`/${ADMIN_PATH}/security/alerts/${alertId}/acknowledge`);
+
+/* ── User & Profile Management Custom Endpoints ── */
+
+export const uploadStudentAvatar = (data: FormData) =>
+    api.post<{ url: string; profile_photo_url: string }>('/users/me/avatar', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+export const adminBanUser = (id: string) =>
+    api.post(`/${ADMIN_PATH}/users/${id}/ban`);
+
+export const adminUnbanUser = (id: string) =>
+    api.patch(`/${ADMIN_PATH}/users/${id}/set-status`, { status: 'active' });
+

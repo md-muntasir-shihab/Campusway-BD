@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, ExternalLink } from 'lucide-react';
+import MediaImage from '../common/MediaImage';
 import type { University } from '../../types/university';
 
 export default function ExamsTodayStrip({ universities }: { universities: University[] }) {
@@ -88,13 +89,16 @@ export default function ExamsTodayStrip({ universities }: { universities: Univer
                             >
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex items-center gap-2">
-                                        {exam.university.logo?.url ? (
-                                            <img src={exam.university.logo.url} alt="Logo" className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700" />
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
-                                                {exam.university.shortForm?.slice(0, 2)}
-                                            </div>
-                                        )}
+                                        <MediaImage
+                                            src={exam.university.logo?.url}
+                                            alt="Logo"
+                                            className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                                            fallback={(
+                                                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
+                                                    {exam.university.shortForm?.slice(0, 2)}
+                                                </div>
+                                            )}
+                                        />
                                         <div>
                                             <h3 className="font-bold text-sm leading-tight text-text dark:text-dark-text group-hover:text-primary transition-colors line-clamp-1">{exam.university.shortForm || exam.university.name}</h3>
                                             <p className="text-[11px] text-text-muted dark:text-dark-text/60">{exam.unitName} Unit</p>

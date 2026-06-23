@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getExamLeaderboardStreamUrl } from '../services/api';
 
 // ─── API Clients ─────────────────────────────────────────────────────────
 import * as hierarchyApi from '../api/questionHierarchyApi';
@@ -404,14 +406,22 @@ export const useReviewQuestion = () => {
     });
 };
 
-/** Import questions from a file (Excel/CSV/JSON). */
+/** Import questions from a file (Excel/CSV/JSON) with optional column mapping. */
 export const useImportQuestions = () => {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (file: File) => questionBankApi.importQuestions(file),
+        mutationFn: ({ file, mapping }: { file: File; mapping?: Record<string, string> }) =>
+            questionBankApi.importQuestions(file, mapping),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: examSystemKeys.questions });
         },
+    });
+};
+
+/** Check for potential duplicate questions via text similarity. */
+export const useCheckDuplicate = () => {
+    return useMutation({
+        mutationFn: (questionText: string) => questionBankApi.checkDuplicate(questionText),
     });
 };
 
@@ -494,6 +504,24 @@ export const useCloneExam = () => {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: (examId: string) => examBuilderApi.cloneExam(examId),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: examSystemKeys.exams });
+        },
+    });
+};
+
+/** List exams for the Exam Center management table. */
+export const useExamList = (params?: { status?: string }) =>
+    useQuery({
+        queryKey: [...examSystemKeys.exams, 'list', params ?? {}],
+        queryFn: () => examBuilderApi.listExams(params),
+    });
+
+/** Delete an exam (refused server-side if it already has participant results). */
+export const useDeleteExam = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (examId: string) => examBuilderApi.deleteExam(examId),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: examSystemKeys.exams });
         },
@@ -839,4 +867,99 @@ export const usePurchasePackage = () => {
             qc.invalidateQueries({ queryKey: examSystemKeys.gamification });
         },
     });
+};
+
+const IS_MOCK_MODE = String(import.meta.env.VITE_USE_MOCK_API || '').toLowerCase() === 'true';
+
+/**
+ * Hook to subscribe to real-time leaderboard update stream using EventSource (SSE).
+ * Automatically invalidates the exam leaderboard query cache on new broadcasts.
+ */
+export const useExamLeaderboardStream = (examId: string, enabled = true) => {
+    const queryClient = useQueryClient();
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reconnectAttemptRef = useRef(0);
+
+    useEffect(() => {
+        if (IS_MOCK_MODE || !enabled || !examId) {
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
+            return;
+        }
+
+        let source: EventSource | null = null;
+        let disposed = false;
+
+        const invalidate = () => {
+            queryClient.invalidateQueries({
+                queryKey: ['examSystem', 'examRunner', 'leaderboard', examId],
+            }).catch(() => undefined);
+        };
+
+        const clearReconnect = () => {
+            if (!reconnectTimerRef.current) return;
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+        };
+
+        const closeSource = () => {
+            if (!source) return;
+            source.close();
+            source = null;
+        };
+
+        const connect = () => {
+            if (disposed) return;
+            closeSource();
+            
+            source = new EventSource(getExamLeaderboardStreamUrl(examId), {
+                withCredentials: true,
+            });
+
+            source.addEventListener('rank-update', invalidate);
+            source.addEventListener('leaderboard-refresh', invalidate);
+            source.addEventListener('ping', () => {});
+
+            source.onopen = () => {
+                clearReconnect();
+                reconnectAttemptRef.current = 0;
+            };
+
+            source.onerror = () => {
+                if (disposed) return;
+                if (!reconnectTimerRef.current) {
+                    const attempt = reconnectAttemptRef.current;
+                    const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000);
+                    const jitter = Math.floor(Math.random() * 1000);
+                    const delay = baseDelay + jitter;
+                    reconnectAttemptRef.current = attempt + 1;
+
+                    reconnectTimerRef.current = setTimeout(() => {
+                        reconnectTimerRef.current = null;
+                        connect();
+                    }, delay);
+                }
+            };
+        };
+
+        connect();
+
+        const handlePageHide = () => {
+            closeSource();
+            clearReconnect();
+        };
+
+        window.addEventListener('pagehide', handlePageHide);
+        window.addEventListener('beforeunload', handlePageHide);
+
+        return () => {
+            disposed = true;
+            window.removeEventListener('pagehide', handlePageHide);
+            window.removeEventListener('beforeunload', handlePageHide);
+            closeSource();
+            clearReconnect();
+        };
+    }, [examId, enabled, queryClient]);
 };

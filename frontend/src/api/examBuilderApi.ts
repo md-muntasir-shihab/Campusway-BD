@@ -75,3 +75,32 @@ export const publishExam = (examId: string) =>
 /** POST /:id/clone — Clone an existing exam as a new draft. */
 export const cloneExam = (examId: string) =>
     api.post<ApiResponse<Record<string, unknown>>>(`${BASE}/${examId}/clone`).then((r) => r.data);
+
+// ─── Exam list / management ──────────────────────────────────────────────
+
+export interface ExamListItem {
+    _id: string;
+    title: string;
+    title_bn?: string;
+    status: string;
+    rawStatus: string;
+    isPublished: boolean;
+    scheduleType?: string;
+    deliveryMode?: string;
+    totalQuestions: number;
+    totalMarks: number;
+    duration: number;
+    startTime?: string;
+    endTime?: string;
+    participantCount: number;
+}
+
+/** GET / — List exams for the management table. Returns { items }. */
+export const listExams = (params?: { status?: string; limit?: number }) =>
+    api
+        .get<ApiResponse<{ items: ExamListItem[] }>>(`${BASE}`, { params })
+        .then((r) => r.data as unknown as { items?: ExamListItem[]; data?: { items?: ExamListItem[] } });
+
+/** DELETE /:id — Delete an exam (refused if it already has participant results). */
+export const deleteExam = (examId: string) =>
+    api.delete<ApiResponse<null>>(`${BASE}/${examId}`).then((r) => r.data);

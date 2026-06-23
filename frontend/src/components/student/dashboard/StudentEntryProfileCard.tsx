@@ -15,6 +15,7 @@ import {
     X,
     Trophy
 } from 'lucide-react';
+import MediaImage from '../../common/MediaImage';
 import type { StudentDashboardFullResponse } from '../../../services/api';
 
 interface Props {
@@ -96,8 +97,10 @@ export default function StudentEntryProfileCard({ header, support, onClose }: Pr
 
                 <div className="relative z-10 px-8 pb-8 pt-0 -mt-20">
                     {onClose && (
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            type="button"
+                            aria-label="Close profile card"
+                            onClick={onClose}
                             className="absolute xl:fixed top-4 right-4 xl:-top-4 xl:-right-12 z-50 p-2.5 rounded-full bg-white/20 hover:bg-white/40 dark:bg-slate-800/40 dark:hover:bg-slate-700/60 backdrop-blur-md transition-all text-slate-700 dark:text-slate-200 border border-white/30 dark:border-white/10 hover:shadow-lg hover:scale-110 active:scale-95 group"
                         >
                             <X className="w-5 h-5 transition-transform group-hover:rotate-90" />
@@ -112,17 +115,16 @@ export default function StudentEntryProfileCard({ header, support, onClose }: Pr
                             <div className="relative group shrink-0 mt-5">
                                 <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-sky-400 opacity-70 blur-md group-hover:opacity-100 group-hover:blur-lg transition duration-500 animate-pulse-slow" />
                                 <div className={`relative flex h-28 w-28 overflow-hidden rounded-full border-4 border-white/80 dark:border-slate-800/80 shadow-2xl ${isPremium ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-transparent' : ''}`}>
-                                    {header.profilePicture ? (
-                                        <img
-                                            src={header.profilePicture}
-                                            alt={header.name}
-                                            className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                                        />
-                                    ) : (
-                                        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
-                                            <UserCircle className="h-14 w-14 text-slate-400 dark:text-slate-500" />
-                                        </div>
-                                    )}
+                                    <MediaImage
+                                        src={header.profilePicture}
+                                        alt={header.name}
+                                        className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                                        fallback={(
+                                            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
+                                                <UserCircle className="h-14 w-14 text-slate-400 dark:text-slate-500" />
+                                            </div>
+                                        )}
+                                    />
                                 </div>
                                 <div className="absolute -bottom-1 -right-1 sm:right-2">
                                     {header.isProfileEligible ? (

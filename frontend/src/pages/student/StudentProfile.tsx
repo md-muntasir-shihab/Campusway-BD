@@ -4,6 +4,7 @@ import { User, Upload, Save, Loader2, AlertCircle, Lock, BookOpen, Clock3, FileT
 import toast from 'react-hot-toast';
 import { changePassword, getStudentProfile, updateStudentProfile, uploadStudentDocument } from '../../services/api';
 import AchievementPopupCard from '../../components/ui/AchievementPopupCard';
+import MediaImage from '../../components/common/MediaImage';
 import { useMySubscription } from '../../hooks/useSubscriptionPlans';
 import { compressImage } from '../../utils/imageCompressor';
 
@@ -372,7 +373,7 @@ export default function StudentProfile() {
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                     Full Name {(profile?.full_name && profile?.pendingRequest) && <span className="text-[10px] text-amber-500 font-bold uppercase tracking-tighter bg-amber-500/10 px-1.5 rounded">Pending Approval</span>}
                                 </label>
-                                <input type="text" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                <input type="text" aria-label="Full Name" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                                     disabled={Boolean(profile?.full_name && profile?.pendingRequest)}
                                     className={`w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white ${profile?.full_name && profile?.pendingRequest ? 'opacity-70 cursor-not-allowed' : ''}`} />
                             </div>
@@ -380,13 +381,13 @@ export default function StudentProfile() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5 relative group">
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Mobile Number</label>
-                                    <input type="text" value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                                    <input type="text" aria-label="Mobile Number" value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                                         disabled={Boolean(profile?.phone_number && profile?.pendingRequest)}
                                         className={`w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white ${profile?.phone_number && profile?.pendingRequest ? 'opacity-70 cursor-not-allowed' : ''}`} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Date of Birth</label>
-                                    <input type="date" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                                    <input type="date" aria-label="Date of Birth" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
                                 </div>
                             </div>
@@ -394,12 +395,12 @@ export default function StudentProfile() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-700">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">SSC Batch</label>
-                                    <input type="text" placeholder="e.g. 2022" value={formData.ssc_batch} onChange={(e) => setFormData({ ...formData, ssc_batch: e.target.value })}
+                                    <input type="text" placeholder="e.g. 2022" aria-label="SSC Batch" value={formData.ssc_batch} onChange={(e) => setFormData({ ...formData, ssc_batch: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">HSC Batch</label>
-                                    <input type="text" placeholder="e.g. 2024" value={formData.hsc_batch} onChange={(e) => setFormData({ ...formData, hsc_batch: e.target.value })}
+                                    <input type="text" placeholder="e.g. 2024" aria-label="HSC Batch" value={formData.hsc_batch} onChange={(e) => setFormData({ ...formData, hsc_batch: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
                                 </div>
                             </div>
@@ -407,7 +408,7 @@ export default function StudentProfile() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Gender</label>
-                                    <select value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                                    <select aria-label="Gender" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white">
                                         <option value="">Select gender...</option>
                                         <option value="male">Male</option>
@@ -417,7 +418,7 @@ export default function StudentProfile() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department Framework</label>
-                                    <select value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                    <select aria-label="Department Framework" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white">
                                         <option value="">Select Department</option>
                                         <option value="science">Science (বিজ্ঞান)</option>
@@ -429,13 +430,13 @@ export default function StudentProfile() {
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">College Name</label>
-                                <input type="text" value={formData.college_name} onChange={(e) => setFormData({ ...formData, college_name: e.target.value })}
+                                <input type="text" aria-label="College Name" value={formData.college_name} onChange={(e) => setFormData({ ...formData, college_name: e.target.value })}
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Full Address</label>
-                                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                <input type="text" aria-label="Full Address" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                                     placeholder="Street, City, State/Province, Country"
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
                             </div>
@@ -443,19 +444,19 @@ export default function StudentProfile() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-700">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Guardian Name</label>
-                                    <input type="text" value={formData.guardian_name} onChange={(e) => setFormData({ ...formData, guardian_name: e.target.value })}
+                                    <input type="text" aria-label="Guardian Name" value={formData.guardian_name} onChange={(e) => setFormData({ ...formData, guardian_name: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Guardian Phone</label>
-                                    <input type="text" value={formData.guardian_phone} onChange={(e) => setFormData({ ...formData, guardian_phone: e.target.value })}
+                                    <input type="text" aria-label="Guardian Phone" value={formData.guardian_phone} onChange={(e) => setFormData({ ...formData, guardian_phone: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
                                 </div>
                             </div>
 
                             <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Preferred Study Stream</label>
-                                <select value={formData.preferred_stream} onChange={(e) => setFormData({ ...formData, preferred_stream: e.target.value })}
+                                <select aria-label="Preferred Study Stream" value={formData.preferred_stream} onChange={(e) => setFormData({ ...formData, preferred_stream: e.target.value })}
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white">
                                     <option value="">Select a stream...</option>
                                     <option value="science">Science / Engineering / Tech</option>
@@ -484,7 +485,7 @@ export default function StudentProfile() {
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Current Password</label>
                                 <input
                                     type="password"
-                                    value={passwordData.currentPassword}
+                                    aria-label="Current Password" value={passwordData.currentPassword}
                                     onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white"
                                 />
@@ -494,6 +495,7 @@ export default function StudentProfile() {
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">New Password</label>
                                     <input
                                         type="password"
+                                        aria-label="New Password"
                                         value={passwordData.newPassword}
                                         onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white"
@@ -503,6 +505,7 @@ export default function StudentProfile() {
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Confirm Password</label>
                                     <input
                                         type="password"
+                                        aria-label="Confirm Password"
                                         value={passwordData.confirmPassword}
                                         onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white"
@@ -534,18 +537,17 @@ export default function StudentProfile() {
                             <div className="relative mb-6">
                                 <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 to-cyan-400 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
                                 <div className="relative w-36 h-36 rounded-full border-4 border-white dark:border-slate-800 shadow-xl overflow-hidden bg-slate-50 dark:bg-slate-900/50 ring-1 ring-slate-900/5 dark:ring-white/10">
-                                    {formData.profile_photo_url ? (
-                                        <img
-                                            src={formData.profile_photo_url}
-                                            alt="Profile"
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
-                                            <User className="w-12 h-12 mb-2 opacity-50" />
-                                            <span className="text-[10px] font-medium uppercase tracking-wider">No Photo</span>
-                                        </div>
-                                    )}
+                                    <MediaImage
+                                        src={formData.profile_photo_url}
+                                        alt="Profile"
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        fallback={(
+                                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                                                <User className="w-12 h-12 mb-2 opacity-50" />
+                                                <span className="text-[10px] font-medium uppercase tracking-wider">No Photo</span>
+                                            </div>
+                                        )}
+                                    />
                                 </div>
 
                                 <label className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm text-white opacity-0 hover:opacity-100 transition-all duration-300 cursor-pointer rounded-full z-10">

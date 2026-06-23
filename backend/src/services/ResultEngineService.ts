@@ -25,6 +25,7 @@ import { createMistakeEntries, IncorrectAnswerInput } from './MistakeVaultServic
 import { refreshExamLeaderboard } from './LeaderboardService';
 import { awardXP, awardCoins, updateStreak, checkLeaguePromotion } from './GamificationService';
 import { triggerResultPublished } from './NotificationTriggerService';
+import { broadcastLeaderboardEvent } from '../realtime/leaderboardStream';
 
 // ─── Exported Types ─────────────────────────────────────────
 
@@ -571,6 +572,14 @@ export async function computeRanks(examId: string): Promise<void> {
 
     if (leaderboardBulkOps.length > 0) {
         await LeaderboardEntry.bulkWrite(leaderboardBulkOps);
+        
+        try {
+            broadcastLeaderboardEvent(examId, 'leaderboard-refresh', {
+                refreshedAt: new Date().toISOString(),
+            });
+        } catch (err) {
+            console.error('Failed to broadcast leaderboard-refresh event:', err);
+        }
     }
 }
 
@@ -774,6 +783,14 @@ export async function gradeWrittenAnswer(
     }
 
     await result.save();
+
+    if (allWrittenGraded) {
+        try {
+            await computeRanks(result.exam.toString());
+        } catch (err) {
+            console.error('Failed to compute ranks after grading:', err);
+        }
+    }
 
     return result;
 }

@@ -1,12 +1,14 @@
 import { Request } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 type RequestWithUser = Request & { user?: { _id?: unknown } };
 
 function examRateLimitKeyGenerator(req: Request): string {
   const request = req as RequestWithUser;
   const userId = request.user?._id ? String(request.user._id) : '';
-  return userId || request.ip || 'anonymous';
+  if (userId) return userId;
+  // IPv6-safe: normalize IP via the helper instead of using req.ip directly.
+  return req.ip ? ipKeyGenerator(req.ip) : 'anonymous';
 }
 
 export const examSessionStartLimit = rateLimit({

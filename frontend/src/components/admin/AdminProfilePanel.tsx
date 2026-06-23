@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { changePassword, getProfileMe, updateProfile } from '../../services/api';
 import AdminImageUploadField from './AdminImageUploadField';
+import MediaImage from '../common/MediaImage';
 
 const formatTime = (value?: string | Date) => {
     if (!value) return '-';
@@ -115,11 +116,12 @@ const AdminProfilePanel: React.FC = () => {
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-indigo-500/15 bg-slate-950/70">
-                            {profilePhoto ? (
-                                <img src={profilePhoto} alt={displayName} className="h-full w-full object-cover" />
-                            ) : (
-                                <User className="h-10 w-10 text-indigo-300" />
-                            )}
+                            <MediaImage
+                                src={profilePhoto}
+                                alt={displayName}
+                                className="h-full w-full object-cover"
+                                fallback={<User className="h-10 w-10 text-indigo-300" />}
+                            />
                         </div>
                         <div className="space-y-2">
                             <div>
@@ -167,6 +169,7 @@ const AdminProfilePanel: React.FC = () => {
                             <label className="mb-1.5 block text-xs font-medium text-slate-400">Full Name</label>
                             <input
                                 type="text"
+                                aria-label="Full Name"
                                 value={profileData?.admin_name || ''}
                                 onChange={(e) => setProfileData({ ...(profileData || {}), admin_name: e.target.value })}
                                 className="w-full rounded-xl border border-indigo-500/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-indigo-400/40"
@@ -219,6 +222,8 @@ const AdminProfilePanel: React.FC = () => {
                             <input
                                 data-testid="admin-password-current"
                                 type="password"
+                                autoComplete="current-password"
+                                aria-label="Current Password"
                                 value={passwordData.currentPassword}
                                 onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                                 className="w-full rounded-xl border border-indigo-500/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-indigo-400/40"
@@ -230,6 +235,8 @@ const AdminProfilePanel: React.FC = () => {
                                 <input
                                     data-testid="admin-password-new"
                                     type="password"
+                                    autoComplete="new-password"
+                                    aria-label="New Password"
                                     value={passwordData.newPassword}
                                     onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                                     className="w-full rounded-xl border border-indigo-500/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-indigo-400/40"
@@ -240,6 +247,8 @@ const AdminProfilePanel: React.FC = () => {
                                 <input
                                     data-testid="admin-password-confirm"
                                     type="password"
+                                    autoComplete="new-password"
+                                    aria-label="Confirm Password"
                                     value={passwordData.confirmPassword}
                                     onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                                     className="w-full rounded-xl border border-indigo-500/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-indigo-400/40"

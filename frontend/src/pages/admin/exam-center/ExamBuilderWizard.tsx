@@ -252,8 +252,10 @@ function StepQuestions({
         subject_id: hierarchy.subject_id,
         chapter_id: hierarchy.chapter_id,
         topic_id: hierarchy.topic_id,
-        status: 'published',
-        limit: 20,
+        // Allow any non-archived question (draft included) to be picked — newly
+        // created/imported questions are 'draft' until published, and requiring
+        // 'published' here left the picker permanently empty.
+        limit: 50,
         page: 1,
     }), [searchQuery, hierarchy]);
 
@@ -261,7 +263,14 @@ function StepQuestions({
 
     const questionList = useMemo(() => {
         if (!questionsResponse) return [];
-        const items = 'data' in questionsResponse && Array.isArray(questionsResponse.data) ? questionsResponse.data : [];
+        // The axios interceptor reshapes paginated responses to { items, ...meta },
+        // so read items first and fall back to data for safety.
+        const resp = questionsResponse as unknown as { items?: unknown[]; data?: unknown[] };
+        const items = Array.isArray(resp.items)
+            ? resp.items
+            : Array.isArray(resp.data)
+                ? resp.data
+                : [];
         return items as Array<Record<string, unknown>>;
     }, [questionsResponse]);
 
@@ -387,7 +396,7 @@ function StepQuestions({
                             const difficulty = String(q.difficulty ?? '');
                             return (
                                 <li key={id} role="option" aria-selected={isSelected} className={`flex cursor-pointer items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : ''}`} onClick={() => toggleQuestion(q)}>
-                                    <input type="checkbox" checked={isSelected} readOnly className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" tabIndex={-1} />
+                                    <input type="checkbox" checked={isSelected} readOnly aria-hidden="true" className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" tabIndex={-1} />
                                     <span className="flex-1 truncate text-slate-800 dark:text-slate-200">{text}</span>
                                     {difficulty && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-500 dark:bg-slate-800 dark:text-slate-400">{difficulty}</span>}
                                 </li>
@@ -755,7 +764,9 @@ export default function ExamBuilderWizard() {
 
             setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to save';
+            const message =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || (err instanceof Error ? err.message : 'Failed to save');
             toast.error(message);
         } finally {
             setIsSaving(false);
@@ -778,7 +789,9 @@ export default function ExamBuilderWizard() {
             await publishExamMut.mutateAsync(examId);
             toast.success('Exam published successfully!');
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to publish';
+            const message =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || (err instanceof Error ? err.message : 'Failed to publish');
             toast.error(message);
         } finally {
             setIsSaving(false);
@@ -805,7 +818,9 @@ export default function ExamBuilderWizard() {
                 toast.success('Exam cloned successfully');
             }
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to clone';
+            const message =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || (err instanceof Error ? err.message : 'Failed to clone');
             toast.error(message);
         } finally {
             setIsSaving(false);
@@ -818,24 +833,35 @@ export default function ExamBuilderWizard() {
             return;
         }
         const result = await autoPickMut.mutateAsync({ examId, payload: config });
-        const resultRecord = result as unknown as { questionIds?: unknown; data?: { questionIds?: unknown } };
-        const pickedIds = Array.isArray(resultRecord.questionIds)
-            ? resultRecord.questionIds.map(String)
-            : Array.isArray(resultRecord.data?.questionIds)
-                ? resultRecord.data.questionIds.map(String)
-                : [];
+        type PickedQ = { id: string; text: string; difficulty: string; marks: number };
+        const rr = result as unknown as {
+            questions?: PickedQ[]; questionIds?: string[];
+            data?: { questions?: PickedQ[]; questionIds?: string[] };
+        };
+        const pickedQuestions: PickedQ[] = (Array.isArray(rr.questions) ? rr.questions : rr.data?.questions) ?? [];
+        const fallbackIds: string[] = (Array.isArray(rr.questionIds) ? rr.questionIds : rr.data?.questionIds) ?? [];
+        const pickedIds = pickedQuestions.length > 0 ? pickedQuestions.map((q) => String(q.id)) : fallbackIds.map(String);
 
         if (pickedIds.length === 0) {
             toast.error('No questions matched the auto-pick criteria.');
             return;
         }
 
-        setSelectedQuestions(pickedIds.map((id, idx) => ({
-            id,
-            text: `Auto-picked question ${idx + 1}`,
-            difficulty: 'mixed',
-            marks: settings.marksPerQuestion ?? 1,
-        })));
+        setSelectedQuestions(
+            pickedQuestions.length > 0
+                ? pickedQuestions.map((q) => ({
+                    id: String(q.id),
+                    text: q.text || 'Untitled question',
+                    difficulty: q.difficulty || 'mixed',
+                    marks: settings.marksPerQuestion ?? q.marks ?? 1,
+                }))
+                : pickedIds.map((id, idx) => ({
+                    id,
+                    text: `Auto-picked question ${idx + 1}`,
+                    difficulty: 'mixed',
+                    marks: settings.marksPerQuestion ?? 1,
+                })),
+        );
         toast.success(`Auto-picked ${pickedIds.length} questions.`);
     }, [examId, autoPickMut, settings.marksPerQuestion]);
 

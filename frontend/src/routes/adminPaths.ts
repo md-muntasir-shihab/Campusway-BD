@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 import {
     LayoutDashboard, Globe, Home, Image, Megaphone, Settings,
     GraduationCap, SlidersHorizontal, Newspaper, AlertCircle,
-    FolderOpen, ScrollText, BookOpen,
+    FolderOpen, ScrollText,
     Users, UserCog, ClipboardList, Bell,
     CreditCard, Wallet, LifeBuoy, Mail, Shield, BarChart3,
     User, Rss, Layers, Archive, Sparkles, Copy, Upload, Link2,
@@ -156,6 +156,7 @@ export const ADMIN_PATHS = {
     // Exam System routes
     examCenterHierarchy: adminUi('exam-center/hierarchy'),
     examCenterQuestionBank: adminUi('exam-center/question-bank'),
+    examCenterExams: adminUi('exam-center/exams'),
     examCenterBuilder: adminUi('exam-center/exam-builder'),
     examCenterBuilderNew: adminUi('exam-center/exam-builder/new'),
     examCenterGrading: adminUi('exam-center/grading'),
@@ -217,18 +218,11 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
         matchPrefixes: [adminUi('news'), adminUi('settings/news')],
     },
 
-    // 5. Exams
-    {
-        key: 'exams',
-        label: 'Exams',
-        path: ADMIN_PATHS.exams,
-        icon: BookOpen,
-        module: 'exams',
-        allowedRoles: ['superadmin', 'admin', 'moderator', 'editor'],
-        matchPrefixes: [adminUi('exams'), adminUi('exams/new')],
-    },
-
-    // 6. Exam Center (v2)
+    // 5. Exam Center (v2) — the single, canonical exam system.
+    // The legacy standalone "Exams" and "Question Bank" menus were removed to
+    // eliminate the duplicate systems; their old routes now redirect here
+    // (see App.tsx). Everything (hierarchy, question bank, builder, grading,
+    // anti-cheat, notifications, analytics) lives under Exam Center.
     {
         key: 'examCenter',
         label: 'Exam Center',
@@ -241,6 +235,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
             { key: 'ecHierarchy', label: 'Question Hierarchy', path: ADMIN_PATHS.examCenterHierarchy, icon: GitBranch },
             { key: 'ecQuestionBank', label: 'Question Bank', path: ADMIN_PATHS.examCenterQuestionBank, icon: Database },
             { key: 'ecExamBuilder', label: 'Exam Builder', path: ADMIN_PATHS.examCenterBuilder, icon: FileText },
+            { key: 'ecExams', label: 'Exams', path: ADMIN_PATHS.examCenterExams, icon: ClipboardList },
             { key: 'ecGrading', label: 'Written Grading', path: ADMIN_PATHS.examCenterGrading, icon: PenTool },
             { key: 'ecAntiCheat', label: 'Anti-Cheat Report', path: ADMIN_PATHS.examCenterAntiCheat, icon: ShieldAlert },
             { key: 'ecNotifications', label: 'Notifications', path: ADMIN_PATHS.examCenterNotifications, icon: BellRing },

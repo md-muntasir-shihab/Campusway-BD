@@ -71,6 +71,7 @@ export const AdminTestimonialsPage = lazy(() => import('./pages/admin/Testimonia
 // ─── Exam Management System v2 ─────────────────────────────────────────────
 export const HierarchyManagerPage = lazy(() => import('./pages/admin/exam-center/HierarchyManager'));
 export const QuestionBankManagerV2Page = lazy(() => import('./pages/admin/question-bank/QuestionBankManager'));
+export const ExamListPageV2 = lazy(() => import('./pages/admin/exam-center/ExamListPage'));
 export const ExamBuilderWizardPage = lazy(() => import('./pages/admin/exam-center/ExamBuilderWizard'));
 export const WrittenGradingInterfacePage = lazy(() => import('./pages/admin/exam-center/WrittenGradingInterface'));
 export const AntiCheatReportPage = lazy(() => import('./pages/admin/exam-center/AntiCheatReport'));

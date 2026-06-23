@@ -31,6 +31,7 @@ import type {
     DeviceInfo,
     QuestionType,
 } from '../../../types/exam-system';
+import ExamAntiCheatBridge from './ExamAntiCheatBridge';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
@@ -68,6 +69,7 @@ interface SessionData {
     questions: ExamQuestion[];
     examTitle?: string;
     durationMinutes?: number;
+    attemptRevision?: number;
 }
 
 type NavQuestionStatus = 'unanswered' | 'answered' | 'review';
@@ -545,6 +547,7 @@ export default function ExamRunner() {
     const [session, setSession] = useState<SessionData | null>(null);
     const [isStarting, setIsStarting] = useState(false);
     const [startError, setStartError] = useState<string | null>(null);
+    const [sessionLocked, setSessionLocked] = useState(false);
 
     // ── Exam state ───────────────────────────────────────────────────────
     const [currentIndex, setCurrentIndex] = useState(0);
