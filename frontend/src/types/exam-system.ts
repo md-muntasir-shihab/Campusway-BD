@@ -842,12 +842,15 @@ export interface LeagueStatus {
 
 /** Combined gamification profile for a student. */
 export interface GamificationProfile {
+    xp: number;
+    coins: number;
     xpTotal: number;
     coinsBalance: number;
     currentStreak: number;
     longestStreak: number;
     leagueTier: LeagueTier;
     xpMultiplier: number;
+    dailyBonusAvailable: boolean;
     badges: Array<{
         _id: string;
         title: string;
@@ -857,6 +860,7 @@ export interface GamificationProfile {
         awardedAt: string;
     }>;
     streakCalendar: StreakCalendarDay[];
+    lastLoginDate?: string | null;
 }
 
 // ─── Battle Progress Types ───────────────────────────────────────────────
@@ -922,4 +926,40 @@ export interface ExaminerEarnings {
         packageTitle?: string;
         date: string;
     }>;
+}
+
+// ─── Badge Types ─────────────────────────────────────────────────────────
+
+/** Badge definition. */
+export interface Badge {
+    _id: string;
+    title: string;
+    title_bn?: string;
+    description?: string;
+    category: BadgeCategory;
+    iconUrl?: string;
+    condition?: string;
+    isActive: boolean;
+    awardedAt?: string;
+}
+
+// ─── Leaderboard Types ──────────────────────────────────────────────────
+
+/** Paginated leaderboard response. */
+export interface LeaderboardPage {
+    items: Array<{
+        _id: string;
+        student: {
+            _id: string;
+            fullName: string;
+            profile_photo?: string;
+        };
+        xpEarned: number;
+        tier?: LeagueTier;
+        weekKey?: string;
+    }>;
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
 }

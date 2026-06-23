@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Activity, CheckSquare, ChevronDown, ChevronUp, Download, Edit, Loader2, Plus, RefreshCw, Save, Search, Square, Trash2, Upload, X } from 'lucide-react';
 import { buildMediaUrl } from '../../utils/mediaUrl';
+import AdminImageUploadField from './AdminImageUploadField';
 import {
   AdminBulkTargetOptions,
   AdminUniversityCluster,

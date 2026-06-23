@@ -11,7 +11,7 @@ import type {
     ImportResult,
 } from '../types/exam-system';
 
-const BASE = '/v1/questions';
+const BASE = '/qb/questions';
 
 /** GET / — List/search questions with filters and pagination. */
 export const listQuestions = (filters: QuestionFilters) =>
@@ -37,12 +37,16 @@ export const archiveQuestion = (id: string) =>
 export const bulkAction = (payload: BulkActionDto) =>
     api.post<ApiResponse<BulkResult>>(`${BASE}/bulk-action`, payload).then((r) => r.data);
 
-/** POST /:id/review — Approve or reject a question. */
+/** PATCH /:id/review — Approve or reject a question. */
 export const reviewQuestion = (id: string, payload: ReviewActionDto) =>
-    api.post<ApiResponse<Record<string, unknown>>>(`${BASE}/${id}/review`, payload).then((r) => r.data);
+    api.patch<ApiResponse<Record<string, unknown>>>(`${BASE}/${id}/review`, payload).then((r) => r.data);
 
 /** POST /import — Import questions from a file (Excel/CSV/JSON). */
-export const importQuestions = (file: File, mapping?: Record<string, string>) => {
+export const importQuestions = (
+    file: File,
+    mapping?: Record<string, string>,
+    onUploadProgress?: (progressEvent: any) => void
+) => {
     const fd = new FormData();
     fd.append('file', file);
     if (mapping && Object.keys(mapping).length > 0) {
@@ -52,6 +56,7 @@ export const importQuestions = (file: File, mapping?: Record<string, string>) =>
         headers: {
             'Content-Type': 'multipart/form-data',
         },
+        onUploadProgress,
     }).then((r) => r.data);
 };
 
@@ -61,3 +66,10 @@ export const exportQuestions = (filters: QuestionFilters, format: 'xlsx' | 'csv'
         params: { ...filters, format },
         responseType: 'blob',
     }).then((r) => r.data);
+
+/** POST /check-duplicate — Check for potential duplicate questions. */
+export const checkDuplicate = (questionText: string) =>
+    api.post<ApiResponse<{ duplicates: Record<string, unknown>[]; count: number }>>(
+        `${BASE}/check-duplicate`,
+        { questionText },
+    ).then((r) => r.data);
