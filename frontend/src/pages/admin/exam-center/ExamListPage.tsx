@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
 import {
     Plus,
@@ -166,6 +167,7 @@ export default function ExamListPage() {
                             <tr>
                                 <th className="px-4 py-3 font-medium">Title</th>
                                 <th className="px-4 py-3 font-medium">Status</th>
+                                <th className="px-4 py-3 font-medium">Created</th>
                                 <th className="px-4 py-3 font-medium">Type</th>
                                 <th className="px-4 py-3 text-center font-medium">Questions</th>
                                 <th className="px-4 py-3 text-center font-medium">Marks</th>
@@ -177,13 +179,13 @@ export default function ExamListPage() {
                         <tbody className="divide-y divide-slate-800/70">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-16 text-center text-slate-500">
+                                    <td colSpan={9} className="px-4 py-16 text-center text-slate-500">
                                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-indigo-400" />
                                     </td>
                                 </tr>
                             ) : exams.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-16 text-center text-slate-500">
+                                    <td colSpan={9} className="px-4 py-16 text-center text-slate-500">
                                         No exams yet. Click{' '}
                                         <span className="font-semibold text-indigo-400">New Exam</span> to build one.
                                     </td>
@@ -208,6 +210,9 @@ export default function ExamListPage() {
                                             >
                                                 {exam.status}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-400">
+                                            {exam.createdAt ? dayjs(exam.createdAt).format('DD MMM YYYY, hh:mm A') : '—'}
                                         </td>
                                         <td className="px-4 py-3 capitalize text-slate-400">{exam.scheduleType || '—'}</td>
                                         <td className="px-4 py-3 text-center text-slate-300">{exam.totalQuestions}</td>

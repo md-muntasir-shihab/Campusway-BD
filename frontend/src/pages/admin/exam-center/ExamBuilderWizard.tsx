@@ -17,6 +17,7 @@ import {
     Search,
     Plus,
     Minus,
+    Upload,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -31,6 +32,8 @@ import {
 } from '../../../hooks/useExamSystemQueries';
 import CascadingDropdowns from '../../../components/admin/question-bank/CascadingDropdowns';
 import type { CascadingDropdownsValue } from '../../../components/admin/question-bank/CascadingDropdowns';
+import GroupSuggestInput from '../../../components/admin/exam-center/GroupSuggestInput';
+import BulkImportModal from '../question-bank/BulkImportModal';
 import type {
     ExamInfoDto,
     ExamSettingsDto,
@@ -97,21 +100,21 @@ interface ToggleFieldProps {
 
 function ToggleField({ label, checked, onChange }: ToggleFieldProps) {
     return (
-        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/60">
-            <button
-                type="button"
-                role="switch"
-                aria-checked={checked}
-                onClick={() => onChange(!checked)}
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${checked ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
-                    }`}
-            >
-                <span
-                    className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'
-                        }`}
+        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/60" title={label}>
+            <div className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full">
+                <input 
+                    type="checkbox"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={(e) => onChange(e.target.checked)}
+                    aria-label={label}
                 />
-            </button>
-            <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
+                <div className={`absolute inset-0 rounded-full transition-colors ${checked ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                <span
+                    className={`relative inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`}
+                />
+            </div>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
         </label>
     );
 }
@@ -244,6 +247,7 @@ function StepQuestions({
     const [autoPickCount, setAutoPickCount] = useState(20);
     const [distribution, setDistribution] = useState<DifficultyDistribution>({ easy: 30, medium: 50, hard: 20 });
     const [dragIdx, setDragIdx] = useState<number | null>(null);
+    const [importModalOpen, setImportModalOpen] = useState(false);
 
     const filters: QuestionFilters = useMemo(() => ({
         q: searchQuery || undefined,
@@ -337,10 +341,28 @@ function StepQuestions({
                 <button type="button" onClick={() => setShowAutoPick(!showAutoPick)} className={showAutoPick ? btnPrimary : btnSecondary}>
                     <Wand2 size={14} /> Auto-Pick
                 </button>
+                <button type="button" onClick={() => setImportModalOpen(true)} className={btnSecondary}>
+                    <Upload size={14} /> Bulk Import
+                </button>
                 <span className="text-sm text-slate-500 dark:text-slate-400">
                     {selectedQuestions.length} question{selectedQuestions.length !== 1 ? 's' : ''} selected
                 </span>
             </div>
+
+            {importModalOpen && (
+                <BulkImportModal
+                    onClose={() => setImportModalOpen(false)}
+                    onSuccess={(res) => {
+                        setImportModalOpen(false);
+                        // Once imported to QBank, we can't easily auto-add them unless we refetch and find them,
+                        // but if we had `importedIds`, we could fetch their details or just refetch the list
+                        // so they appear at the top. For now, the user can search them, but ideally, 
+                        // if importedIds exists, we could theoretically fetch them. 
+                        // A simple reload is fine, but to be robust, we'll let the query cache update if we had it.
+                        // For ExamBuilderWizard, we just need the user to see the success message and then search.
+                    }}
+                />
+            )}
 
             {showAutoPick && (
                 <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
@@ -388,15 +410,18 @@ function StepQuestions({
                 ) : questionList.length === 0 ? (
                     <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No questions found. Adjust filters or search.</p>
                 ) : (
-                    <ul className="divide-y divide-slate-100 dark:divide-slate-800" role="listbox" aria-label="Available questions">
+                    <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-label="Available questions">
                         {questionList.map((q) => {
                             const id = String(q._id ?? q.id ?? '');
                             const isSelected = selectedIds.has(id);
                             const text = String(q.question_en ?? q.question_bn ?? q.questionText ?? 'Untitled');
                             const difficulty = String(q.difficulty ?? '');
                             return (
-                                <li key={id} role="option" aria-selected={isSelected} className={`flex cursor-pointer items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : ''}`} onClick={() => toggleQuestion(q)}>
-                                    <input type="checkbox" checked={isSelected} readOnly aria-hidden="true" className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" tabIndex={-1} />
+                                <li key={id} className={`flex cursor-pointer items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : ''}`} onClick={() => toggleQuestion(q)}>
+                                    <div aria-hidden="true" className={`relative flex h-4 w-4 items-center justify-center rounded border ${isSelected ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600'}`}>
+                                        <input type="checkbox" className="sr-only" checked={isSelected} readOnly aria-label={`Select ${text}`} />
+                                        {isSelected && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                    </div>
                                     <span className="flex-1 truncate text-slate-800 dark:text-slate-200">{text}</span>
                                     {difficulty && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-500 dark:bg-slate-800 dark:text-slate-400">{difficulty}</span>}
                                 </li>
@@ -483,8 +508,8 @@ function StepSettings({ data, onChange }: { data: ExamSettingsDto; onChange: (d:
             </div>
 
             <div>
-                <label htmlFor="assigned-groups" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Assigned Groups (comma-separated IDs)</label>
-                <input id="assigned-groups" type="text" value={(data.assignedGroups ?? []).join(', ')} onChange={(e) => update({ assignedGroups: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} placeholder="group-id-1, group-id-2" className={inputCls} />
+                <label htmlFor="assigned-groups" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Assigned Groups</label>
+                <GroupSuggestInput value={data.assignedGroups ?? []} onChange={(groups) => update({ assignedGroups: groups })} />
             </div>
 
             <div>

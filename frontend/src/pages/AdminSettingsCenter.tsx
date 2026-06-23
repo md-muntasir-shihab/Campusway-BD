@@ -20,6 +20,7 @@ import {
     SlidersHorizontal,
     Plug,
     User,
+    Calculator,
 } from 'lucide-react';
 import AdminGuardShell from '../components/admin/AdminGuardShell';
 import { useAuth } from '../hooks/useAuth';
@@ -42,6 +43,7 @@ const settingsCards = [
     { key: 'settings-logs', title: 'System Logs', description: 'Review audit and system-level logs from one place.', icon: ScrollText, to: '/__cw_admin__/settings/system-logs' },
     { key: 'settings-site', title: 'Site Settings', description: 'Global branding, contact, social links, and metadata controls.', icon: Settings, to: '/__cw_admin__/settings/site-settings' },
     { key: 'settings-profile', title: 'Admin Profile', description: 'Update admin profile and account preferences.', icon: User, to: '/__cw_admin__/settings/admin-profile' },
+    { key: 'settings-calculators', title: 'Calculator Hub', description: 'Manage CGPA/GPA calculators and analytics.', icon: Calculator, to: '/__cw_admin__/settings/calculators' },
 ];
 
 const DEFAULT_SETTINGS_CARD_ORDER = settingsCards.map((card) => card.key);

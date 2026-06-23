@@ -3207,6 +3207,34 @@ async function generateQuestionsForExam(exam: typeof Exam.prototype, seedText = 
             questions.push(...normalizedBank);
         }
 
+        // Include questions selected in Exam Builder (stored in exam.questionOrder)
+        if (exam.questionOrder && exam.questionOrder.length > 0) {
+            const QuestionBankQuestion = mongoose.model('QuestionBankQuestion');
+            const builderQuestions = await QuestionBankQuestion.find({ _id: { $in: exam.questionOrder } }).lean();
+            if (builderQuestions.length > 0) {
+                const normalizedBuilder = builderQuestions.map((bq: any) => ({
+                    ...bq,
+                    exam: exam._id,
+                    question: bq.question_en || bq.question_bn,
+                    optionA: bq.options?.[0]?.text_en || bq.options?.[0]?.text_bn || bq.options?.[0]?.text || '',
+                    optionB: bq.options?.[1]?.text_en || bq.options?.[1]?.text_bn || bq.options?.[1]?.text || '',
+                    optionC: bq.options?.[2]?.text_en || bq.options?.[2]?.text_bn || bq.options?.[2]?.text || '',
+                    optionD: bq.options?.[3]?.text_en || bq.options?.[3]?.text_bn || bq.options?.[3]?.text || '',
+                    correctAnswer: bq.correctKey || bq.correct_answer,
+                    order: exam.questionOrder.findIndex((id: any) => id.toString() === bq._id.toString()),
+                    explanation: bq.explanation_en || bq.explanation_bn || '',
+                    marks: bq.marks ?? exam.defaultMarksPerQuestion ?? 1,
+                    negativeMarks: bq.negativeMarks ?? exam.negativeMarkValue ?? 0,
+                    active: true,
+                    fromBank: true,
+                    questionType: bq.question_type || 'mcq',
+                }));
+                // Sort to match order in questionOrder
+                normalizedBuilder.sort((a, b) => a.order - b.order);
+                questions.push(...normalizedBuilder);
+            }
+        }
+
         // If still empty, fall back to subject-based search
         if (questions.length === 0 && exam.subject) {
             const subjectQuery: any = { active: { $ne: false } };
@@ -3250,7 +3278,7 @@ async function getQuestionsByIdsAndFormat(questionIds: string[], exam: typeof Ex
     const qMap = new Map(rawQs.map(q => [q._id!.toString(), q]));
 
     // Also check ExamQuestionModel for QB-attached questions not found in legacy collection
-    const missingIds = questionIds.filter(id => !qMap.has(id));
+    let missingIds = questionIds.filter(id => !qMap.has(id));
     if (missingIds.length > 0) {
         const bankQs = await ExamQuestionModel.find({ _id: { $in: missingIds } }).lean();
         for (const bq of bankQs) {
@@ -3266,6 +3294,28 @@ async function getQuestionsByIdsAndFormat(questionIds: string[], exam: typeof Ex
                 order: (bq as any).orderIndex ?? 0,
                 marks: (bq as any).marks ?? 1,
                 questionType: 'mcq',
+            } as any);
+        }
+    }
+
+    // Also check QuestionBankQuestion
+    missingIds = questionIds.filter(id => !qMap.has(id));
+    if (missingIds.length > 0) {
+        const QuestionBankQuestion = mongoose.model('QuestionBankQuestion');
+        const builderQs = await QuestionBankQuestion.find({ _id: { $in: missingIds } }).lean();
+        for (const bq of builderQs) {
+            const opts = (bq as any).options || [];
+            qMap.set(bq._id!.toString(), {
+                _id: bq._id,
+                question: (bq as any).question_en || (bq as any).question_bn || '',
+                optionA: opts[0]?.text_en || opts[0]?.text_bn || opts[0]?.text || '',
+                optionB: opts[1]?.text_en || opts[1]?.text_bn || opts[1]?.text || '',
+                optionC: opts[2]?.text_en || opts[2]?.text_bn || opts[2]?.text || '',
+                optionD: opts[3]?.text_en || opts[3]?.text_bn || opts[3]?.text || '',
+                correctAnswer: (bq as any).correctKey || (bq as any).correct_answer || '',
+                order: exam.questionOrder?.findIndex((id: any) => id.toString() === bq._id!.toString()) ?? 0,
+                marks: (bq as any).marks ?? exam.defaultMarksPerQuestion ?? 1,
+                questionType: (bq as any).question_type || 'mcq',
             } as any);
         }
     }

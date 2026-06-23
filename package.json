@@ -5,6 +5,7 @@
   "description": "CampusWay monorepo root — husky pre-commit hooks",
   "scripts": {
     "prepare": "husky",
+    "dev": "start npm run dev:be && start npm run dev:fe",
     "dev:be": "npm run --prefix backend dev",
     "dev:fe": "npm run --prefix frontend dev",
     "build": "npm run build:be && npm run build:fe",

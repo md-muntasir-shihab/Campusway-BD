@@ -92,6 +92,7 @@ export interface ExamListItem {
     duration: number;
     startTime?: string;
     endTime?: string;
+    createdAt?: string;
     participantCount: number;
 }
 

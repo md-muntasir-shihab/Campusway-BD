@@ -74,6 +74,7 @@ interface QuestionTableProps {
     onHardDelete?: (id: string) => void;
     pagination?: PaginationMeta;
     onPageChange: (page: number) => void;
+    onLimitChange?: (limit: number) => void;
     isRecycleBin?: boolean;
     sortState?: SortState;
     onSort?: (field: string) => void;
@@ -104,7 +105,7 @@ function SortableHeader({
     );
 
     return (
-        <th className={`px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 ${className}`}>
+        <th className={`px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300 ${className}`}>
             <button
                 type="button"
                 onClick={() => onSort?.(field)}
@@ -154,6 +155,7 @@ export default function QuestionTable({
     onHardDelete,
     pagination,
     onPageChange,
+    onLimitChange,
     isRecycleBin = false,
     sortState,
     onSort,
@@ -197,9 +199,7 @@ export default function QuestionTable({
                             <SortableHeader label="Type" field="question_type" sortState={sortState} onSort={onSort} />
                             <SortableHeader label="Difficulty" field="difficulty" sortState={sortState} onSort={onSort} />
                             <SortableHeader label="Status" field="status" sortState={sortState} onSort={onSort} />
-                            <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                                Review
-                            </th>
+                            <SortableHeader label="Review" field="review_status" sortState={sortState} onSort={onSort} className="text-left" />
                             <SortableHeader label="Marks" field="marks" sortState={sortState} onSort={onSort} className="text-right" />
                             <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">
                                 Actions
@@ -362,14 +362,33 @@ export default function QuestionTable({
             </div>
 
             {/* Pagination */}
-            {pagination && pagination.totalPages > 1 && (
-                <div className="mt-4 flex items-center justify-between">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Showing {(pagination.page - 1) * pagination.limit + 1}–
-                        {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                        {pagination.total} questions
-                    </p>
-                    <div className="flex items-center gap-1">
+            {pagination && pagination.total > 0 && (
+                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Showing {(pagination.page - 1) * pagination.limit + 1}–
+                            {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                            {pagination.total} questions
+                        </p>
+                        {onLimitChange && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-500 dark:text-slate-400">Rows per page:</span>
+                                <select
+                                    aria-label="Rows per page"
+                                    value={pagination.limit}
+                                    onChange={(e) => onLimitChange(Number(e.target.value))}
+                                    className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                >
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                    <option value={500}>500</option>
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                    {pagination.totalPages > 1 && (
+                        <div className="flex items-center gap-1">
                         <button
                             type="button"
                             onClick={() => onPageChange(pagination.page - 1)}
@@ -428,6 +447,7 @@ export default function QuestionTable({
                             <ChevronRight size={16} />
                         </button>
                     </div>
+                    )}
                 </div>
             )}
         </div>

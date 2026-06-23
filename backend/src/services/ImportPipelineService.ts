@@ -36,6 +36,7 @@ export interface ImportResult {
     errors: ImportRowError[];
     hierarchyCreated: number;
     jobId?: string;
+    importedIds?: string[];
 }
 
 /**
@@ -792,6 +793,7 @@ async function processRows(rows: ExtendedRawImportRow[], adminId: string): Promi
         failed: 0,
         errors: [],
         hierarchyCreated: 0,
+        importedIds: [],
     };
 
     for (let i = 0; i < rows.length; i++) {
@@ -821,8 +823,9 @@ async function processRows(rows: ExtendedRawImportRow[], adminId: string): Promi
         // Step 3: Build and insert document
         try {
             const doc = buildQuestionDoc(row, adminId, refs);
-            await QuestionBankQuestion.create(doc);
+            const created = await QuestionBankQuestion.create(doc);
             importResult.success++;
+            if (importResult.importedIds) importResult.importedIds.push(String(created._id));
         } catch (err: unknown) {
             importResult.failed++;
             const message = err instanceof Error ? err.message : 'Unknown insertion error';

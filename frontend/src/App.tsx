@@ -103,6 +103,7 @@ import {
     AdminAnalyticsDashboardV2Page,
     AdminUserManagementPage,
 } from './adminRouteComponents';
+import CalculatorSettingsPage from './pages/admin/settings/CalculatorSettings';
 import {
     CertificateVerifyPage,
     ChairmanDashboardPage,
@@ -151,6 +152,7 @@ import {
     UniversityClusterBrowsePage,
     UniversityDetailsPage,
 } from './publicStudentRouteComponents';
+const CalculatorHub = lazy(() => import('./pages/calculators/CalculatorHub'));
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -516,6 +518,7 @@ export default function App() {
                                         <Route path={adminUi('settings/news')} element={<AdminSettingsNewsPage />} />
                                         <Route path={adminUi('settings/resource-settings')} element={<AdminSettingsResourcesPage />} />
                                         <Route path={adminUi('settings/admin-profile')} element={<AdminSettingsProfilePage />} />
+                                        <Route path={adminUi('settings/calculators')} element={<CalculatorSettingsPage />} />
                                         <Route path={adminUi('settings/home')} element={<Navigate to={adminUi('settings/home-control')} replace />} />
                                         <Route path={adminUi('settings/site')} element={<Navigate to={adminUi('settings/site-settings')} replace />} />
                                         <Route path={adminUi('settings/banners')} element={<Navigate to={adminUi('settings/banner-manager')} replace />} />
@@ -582,6 +585,9 @@ export default function App() {
 
                                         <Route path="/admin/login" element={<Navigate to={ADMIN_LOGIN} replace />} />
                                         <Route path="/admin/*" element={<LegacyAdminRedirect />} />
+
+                                        {/* Tools & Calculators */}
+                                        <Route path="/calculators" element={<CalculatorHub />} />
 
                                         {/* Student Portal Routes */}
                                         <Route path="/student/login" element={<Navigate to={STUDENT_LOGIN} replace />} />

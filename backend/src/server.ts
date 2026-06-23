@@ -57,6 +57,7 @@ import examinerRoutes from './routes/examiner.routes';
 import examPackageRoutes from './routes/examPackage.routes';
 import adaptiveDifficultyRoutes from './routes/adaptiveDifficulty.routes';
 import brainClashRoutes from './routes/brainClash.routes';
+import calculatorRoutes from './routes/calculator.routes';
 import notificationManagementRoutes from './routes/notificationManagement.routes';
 import { serveSecureUpload } from './controllers/secureUploadController';
 import {
@@ -432,6 +433,7 @@ app.use('/api/v1/examiner', examinerRoutes);
 app.use('/api/v1/exam-packages', examPackageRoutes);
 app.use('/api/v1/adaptive-difficulty', adaptiveDifficultyRoutes);
 app.use('/api/v1/brain-clash', brainClashRoutes);
+app.use('/api/v1/calculators', calculatorRoutes);
 
 // Webhooks
 app.use('/api/webhooks', webhookRoutes);

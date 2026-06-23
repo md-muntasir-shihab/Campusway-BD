@@ -896,6 +896,7 @@ export interface ImportResult {
     successful: number;
     failed: number;
     errors: Array<{ row: number; field?: string; message: string }>;
+    importedIds?: string[];
 }
 
 // ─── Score Computation Types ─────────────────────────────────────────────

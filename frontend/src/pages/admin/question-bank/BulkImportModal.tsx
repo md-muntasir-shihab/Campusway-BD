@@ -19,7 +19,7 @@ import type { ImportResult } from '../../../types/exam-system';
 
 interface BulkImportModalProps {
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (result?: ImportResult) => void;
 }
 
 const EXPECTED_FIELDS = [
@@ -207,7 +207,7 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
             
             if (failedCount === 0) {
                 toast.success(`Successfully imported ${successCount} questions.`);
-                onSuccess();
+                onSuccess(data);
             } else {
                 toast.error(`Import completed with ${failedCount} errors.`);
             }

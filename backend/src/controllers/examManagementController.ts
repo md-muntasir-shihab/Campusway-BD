@@ -521,7 +521,7 @@ export async function listExams(req: AuthRequest, res: Response): Promise<void> 
         const exams = await Exam.find(query)
             .sort({ startDate: -1 })
             .limit(limit)
-            .select('title title_bn status startDate endDate isPublished exam_schedule_type deliveryMode totalQuestions totalMarks duration')
+            .select('title title_bn status startDate endDate isPublished exam_schedule_type deliveryMode totalQuestions totalMarks duration createdAt')
             .lean();
 
         const examIds = exams.map((e) => e._id);
@@ -553,6 +553,7 @@ export async function listExams(req: AuthRequest, res: Response): Promise<void> 
                 duration: Number(e.duration || 0),
                 startTime: e.startDate ? new Date(e.startDate as Date).toISOString() : undefined,
                 endTime: e.endDate ? new Date(e.endDate as Date).toISOString() : undefined,
+                createdAt: e.createdAt ? new Date(e.createdAt as Date).toISOString() : undefined,
                 participantCount: countById.get(String(e._id)) || 0,
             };
         });

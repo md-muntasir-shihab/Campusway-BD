@@ -12,13 +12,14 @@ import { getStudentMeNotifications } from '../../services/api';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 
 const BASE_LINKS = [
-    { name: 'Home', path: '/' },
-    { name: 'Universities', path: '/universities' },
-    { name: 'Exams', path: '/exams' },
-    { name: 'News', path: '/news' },
-    { name: 'Resources', path: '/resources' },
-    { name: 'Testimonials', path: '/testimonials' },
-    { name: 'Contact', path: '/contact' },
+    { name: 'Home', path: '/', title: 'CampusWay Home - Your Advanced Academic Platform' },
+    { name: 'Universities', path: '/universities', title: 'Explore Top Universities & Admission Details' },
+    { name: 'Exams', path: '/exams', title: 'Participate in Live & Practice Exams' },
+    { name: 'News', path: '/news', title: 'Latest Academic News and Updates' },
+    { name: 'Resources', path: '/resources', title: 'Free Academic Resources & Question Banks' },
+    { name: 'Calculator', path: '/calculators', title: 'Calculate GPA, CGPA and Academic Scores' },
+    { name: 'Testimonials', path: '/testimonials', title: 'Read Student Success Stories & Reviews' },
+    { name: 'Contact', path: '/contact', title: 'Get in Touch with CampusWay Support' },
 ];
 
 export default function Navbar() {
@@ -148,6 +149,7 @@ export default function Navbar() {
                                 <Link
                                     key={link.path}
                                     to={link.path}
+                                    title={link.title}
                                     aria-current={active ? 'page' : undefined}
                                     className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${active
                                         ? 'bg-primary text-white'
@@ -259,8 +261,7 @@ export default function Navbar() {
                                 type="button"
                                 onClick={() => setMobileOpen((prev) => !prev)}
                                 className="lg:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border border-card-border dark:border-dark-border"
-                                aria-label="Toggle menu"
-                                aria-expanded={mobileOpen}
+                                aria-label={mobileOpen ? "Close menu" : "Open menu"}
                             >
                                 {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
                             </button>
@@ -288,6 +289,7 @@ export default function Navbar() {
                                         <Link
                                             key={link.path}
                                             to={link.path}
+                                            title={link.title}
                                             aria-current={active ? 'page' : undefined}
                                             className={`block rounded-xl px-3 py-2 text-sm ${active ? 'bg-primary/10 text-primary' : 'text-text-muted dark:text-dark-text/70 hover:bg-primary/5'
                                                 }`}

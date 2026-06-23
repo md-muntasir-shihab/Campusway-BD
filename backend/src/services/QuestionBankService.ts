@@ -466,10 +466,13 @@ export async function listQuestions(
     const skip = (page - 1) * limit;
 
     // Build sort object from filters, defaulting to createdAt desc
-    const ALLOWED_SORT_FIELDS = ['createdAt', 'updatedAt', 'difficulty', 'marks', 'status', 'question_type', 'question_en'];
+    const ALLOWED_SORT_FIELDS = ['createdAt', 'updatedAt', 'difficulty', 'marks', 'status', 'review_status', 'question_type', 'question_en'];
     let sortObj: Record<string, 1 | -1> = { createdAt: -1 };
     if (filters.sortField && ALLOWED_SORT_FIELDS.includes(filters.sortField)) {
         sortObj = { [filters.sortField]: filters.sortOrder === 'asc' ? 1 : -1 };
+        if (filters.sortField !== 'createdAt') {
+            sortObj.createdAt = -1; // Secondary sort to ensure deterministic pagination
+        }
     }
 
     const [data, total] = await Promise.all([
@@ -649,6 +652,8 @@ export async function bulkStatusChange(ids: string[], status: string): Promise<B
     const updateFields: Record<string, unknown> = { status };
     if (status === 'archived') {
         updateFields.isArchived = true;
+    } else if (status === 'published') {
+        updateFields.review_status = 'approved';
     }
 
     try {

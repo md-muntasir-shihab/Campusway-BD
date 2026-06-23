@@ -33,6 +33,78 @@ function Test-PortListening($port) {
     }
 }
 
+function Wait-ForHttp($url, $label, $timeoutSeconds) {
+    Write-Host "  Waiting for $label at $url" -ForegroundColor DarkGray
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+    $lastError = ''
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $res = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+            if ($res.StatusCode -ge 200 -and $res.StatusCode -lt 500) {
+                Write-Host "  [OK] $label is ready." -ForegroundColor Green
+                return $true
+            }
+            $lastError = "HTTP $($res.StatusCode)"
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Write-Host "." -NoNewline -ForegroundColor DarkGray
+        Start-Sleep -Seconds 2
+    }
+
+    Write-Host ""
+    Write-Host "  [ERROR] $label did not become ready within $timeoutSeconds seconds." -ForegroundColor Red
+    if ($lastError) {
+        Write-Host "          Last check: $lastError" -ForegroundColor DarkGray
+    }
+    return $false
+}
+
+function Wait-ForPort($port, $label, $timeoutSeconds) {
+    Write-Host "  Waiting for $label on port $port" -ForegroundColor DarkGray
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+
+    while ((Get-Date) -lt $deadline) {
+        if (Test-PortListening $port) {
+            Write-Host "  [OK] $label is listening on port $port." -ForegroundColor Green
+            return $true
+        }
+
+        Write-Host "." -NoNewline -ForegroundColor DarkGray
+        Start-Sleep -Seconds 2
+    }
+
+    Write-Host ""
+    Write-Host "  [ERROR] $label did not open port $port within $timeoutSeconds seconds." -ForegroundColor Red
+    return $false
+}
+
+function Escape-PowerShellSingleQuote($text) {
+    return [string]$text -replace "'", "''"
+}
+
+function Start-DevWindow($title, $dir) {
+    $safeTitle = Escape-PowerShellSingleQuote $title
+    $safeDir = Escape-PowerShellSingleQuote $dir
+    $command = @"
+`$host.UI.RawUI.WindowTitle = '$safeTitle'
+Set-Location -LiteralPath '$safeDir'
+Write-Host 'Starting $safeTitle...' -ForegroundColor Cyan
+& npm.cmd run dev
+Write-Host ''
+Write-Host '$safeTitle stopped. Read the error above, then press Enter to close this window.' -ForegroundColor Yellow
+Read-Host
+"@
+
+    return Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+        '-NoExit',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command', $command
+    ) -PassThru
+}
+
 Write-Head "CampusWay Project Launcher"
 
 # ===================================================================
@@ -173,7 +245,7 @@ function Setup-Deps($dir, $label, $choice) {
             Write-Host "  [$label] Updating packages..." -ForegroundColor DarkGray
         }
         Push-Location $dir
-        npm install
+        & npm.cmd install
         $code = $LASTEXITCODE
         Pop-Location
         if ($code -ne 0) {
@@ -216,24 +288,30 @@ function Free-Port($port) {
 Free-Port 5003
 Free-Port 5175
 
-# Open a new PowerShell window per server; -NoExit keeps it open so errors stay visible.
 Write-Host "  Starting Backend  (port 5003)..." -ForegroundColor White
-Start-Process powershell -ArgumentList @(
-    '-NoExit','-Command',
-    "`$host.UI.RawUI.WindowTitle='CampusWay Backend'; Set-Location -LiteralPath '$BackendDir'; npm run dev"
-)
+$backendProcess = Start-DevWindow 'CampusWay Backend' $BackendDir
 
-Start-Sleep -Seconds 3
+if (-not (Wait-ForHttp 'http://127.0.0.1:5003/api/health' 'Backend API' 180)) {
+    Write-Host ""
+    Write-Host "  Backend did not become ready. Check the 'CampusWay Backend' window for the real error." -ForegroundColor Red
+    Write-Host "  Backend launcher process id: $($backendProcess.Id)" -ForegroundColor DarkGray
+    Write-Host ""
+    Read-Host "Press Enter to close this launcher window"
+    exit 1
+}
 
 Write-Host "  Starting Frontend (port 5175)..." -ForegroundColor White
-Start-Process powershell -ArgumentList @(
-    '-NoExit','-Command',
-    "`$host.UI.RawUI.WindowTitle='CampusWay Frontend'; Set-Location -LiteralPath '$FrontendDir'; npm run dev"
-)
+$frontendProcess = Start-DevWindow 'CampusWay Frontend' $FrontendDir
 
 Write-Host ""
-Write-Host "  Waiting for servers to start up..." -ForegroundColor DarkGray
-Start-Sleep -Seconds 8
+if (-not (Wait-ForPort 5175 'Frontend dev server' 90)) {
+    Write-Host ""
+    Write-Host "  Frontend did not become ready. Check the 'CampusWay Frontend' window for the real error." -ForegroundColor Red
+    Write-Host "  Frontend launcher process id: $($frontendProcess.Id)" -ForegroundColor DarkGray
+    Write-Host ""
+    Read-Host "Press Enter to close this launcher window"
+    exit 1
+}
 
 Start-Process "http://localhost:5175"
 
