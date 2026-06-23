@@ -7,6 +7,10 @@ import {
     updateNotificationDefaultsSchema,
     sendAnnouncementSchema,
 } from '../validators/notificationManagement.validator';
+import {
+    battleAnswerSchema,
+    doubtReplySchema,
+} from '../validators/gamification.validator';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -413,6 +417,48 @@ describe('sendAnnouncementSchema', () => {
                 targetGroupId: 'not-a-valid-id',
             }),
         );
+        expect(result.success).toBe(false);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// battleAnswerSchema — body contract for POST /v1/battles/:id/answer
+// Regression: battleId must NOT be required in the body (it is the route param);
+// the frontend sends only { questionId, answer }.
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('battleAnswerSchema', () => {
+    it('accepts the frontend payload { questionId, answer } (battleId is the route param)', () => {
+        const result = battleAnswerSchema.safeParse({
+            questionId: VALID_OBJECT_ID,
+            answer: 'B',
+        });
+        expect(result.success).toBe(true);
+    });
+
+    it('rejects an empty answer', () => {
+        const result = battleAnswerSchema.safeParse({
+            questionId: VALID_OBJECT_ID,
+            answer: '',
+        });
+        expect(result.success).toBe(false);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// doubtReplySchema — body contract for POST /v1/doubts/:id/reply
+// Regression: threadId must NOT be required in the body (it is the route param);
+// the frontend sends only { content }.
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('doubtReplySchema', () => {
+    it('accepts the frontend payload { content } (threadId is the route param)', () => {
+        const result = doubtReplySchema.safeParse({ content: 'Here is my answer.' });
+        expect(result.success).toBe(true);
+    });
+
+    it('rejects empty content', () => {
+        const result = doubtReplySchema.safeParse({ content: '   ' });
         expect(result.success).toBe(false);
     });
 });

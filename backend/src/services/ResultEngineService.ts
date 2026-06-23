@@ -23,9 +23,10 @@ import User from '../models/User';
 import { updateStudentAnalytics } from './StudentAnalyticsService';
 import { createMistakeEntries, IncorrectAnswerInput } from './MistakeVaultService';
 import { refreshExamLeaderboard } from './LeaderboardService';
-import { awardXP, awardCoins, updateStreak, checkLeaguePromotion } from './GamificationService';
+import { awardXP, awardCoins, updateStreak, checkLeaguePromotion, checkAndAwardMilestones, evaluateBadges } from './GamificationService';
 import { triggerResultPublished } from './NotificationTriggerService';
 import { broadcastLeaderboardEvent } from '../realtime/leaderboardStream';
+import { batchAdjustDifficulty } from './AdaptiveDifficultyService';
 
 // ─── Exported Types ─────────────────────────────────────────
 
@@ -219,6 +220,7 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
     // 4. Build AnswerData[] and detailed answer records
     const answerDataList: AnswerData[] = [];
     const detailedAnswers: IExamResult['answers'] = [];
+    const topicDifficultyInputs: Array<{ topicId: string; isCorrect: boolean; questionDifficulty: number }> = [];
 
     for (const qId of questionIds) {
         const qIdStr = qId.toString();
@@ -265,6 +267,14 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
                     correctAnswer.trim().toUpperCase();
                 correctWrongIndicator = isCorrect ? 'correct' : 'wrong';
             }
+        }
+
+        if (question.topic) {
+            topicDifficultyInputs.push({
+                topicId: question.topic.toString(),
+                isCorrect,
+                questionDifficulty: (question as any).difficulty_level || 2,
+            });
         }
 
         detailedAnswers.push({
@@ -431,7 +441,24 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
         console.error('Failed to check league promotion:', err);
     }
 
-    // 7g. Trigger result notification — Requirement 24.1
+    // 7g. Trigger milestones and badge evaluation for completed exams
+    try {
+        await checkAndAwardMilestones(session.student.toString(), 'exam');
+        await evaluateBadges(session.student.toString(), 'exam_complete');
+    } catch (err) {
+        console.error('Failed to trigger milestones or evaluate badges:', err);
+    }
+
+    // 7h-adaptive. Adjust per-topic difficulty ratings based on answers
+    try {
+        if (topicDifficultyInputs.length > 0) {
+            await batchAdjustDifficulty(session.student.toString(), topicDifficultyInputs);
+        }
+    } catch (err) {
+        console.error('Failed to adjust adaptive difficulty:', err);
+    }
+
+    // 7h. Trigger result notification — Requirement 24.1
     try {
         await triggerResultPublished(exam._id.toString());
     } catch (err) {

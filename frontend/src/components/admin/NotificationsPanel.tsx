@@ -181,6 +181,7 @@ export default function NotificationsPanel() {
                     value={form.title}
                     onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="Title"
+                    aria-label="Notification title"
                     className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none"
                 />
                 <textarea
@@ -188,12 +189,14 @@ export default function NotificationsPanel() {
                     onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
                     placeholder="Message"
                     rows={4}
+                    aria-label="Notification message"
                     className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none"
                 />
                 <div className="grid grid-cols-2 gap-2">
                     <select
                         value={form.category}
                         onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as 'general' | 'exam' | 'update' }))}
+                        aria-label="Notification category"
                         className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none"
                     >
                         <option value="general">General</option>
@@ -203,6 +206,7 @@ export default function NotificationsPanel() {
                     <select
                         value={form.targetRole}
                         onChange={(e) => setForm((prev) => ({ ...prev, targetRole: e.target.value as 'student' | 'admin' | 'moderator' | 'all' }))}
+                        aria-label="Notification target role"
                         className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none"
                     >
                         <option value="student">Student</option>
@@ -216,12 +220,14 @@ export default function NotificationsPanel() {
                         type="datetime-local"
                         value={form.publishAt}
                         onChange={(e) => setForm((prev) => ({ ...prev, publishAt: e.target.value }))}
+                        aria-label="Publish at"
                         className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none"
                     />
                     <input
                         type="datetime-local"
                         value={form.expireAt}
                         onChange={(e) => setForm((prev) => ({ ...prev, expireAt: e.target.value }))}
+                        aria-label="Expire at"
                         className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none"
                     />
                 </div>
@@ -231,6 +237,7 @@ export default function NotificationsPanel() {
                         value={form.linkUrl}
                         onChange={(e) => setForm((prev) => ({ ...prev, linkUrl: e.target.value }))}
                         placeholder="Link URL (optional)"
+                        aria-label="Link URL"
                         className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 pl-9 pr-3 py-2.5 text-sm text-white outline-none"
                     />
                 </div>
@@ -255,6 +262,7 @@ export default function NotificationsPanel() {
                         value={form.attachmentUrl}
                         onChange={(e) => setForm((prev) => ({ ...prev, attachmentUrl: e.target.value }))}
                         placeholder="Attachment URL (optional)"
+                        aria-label="Attachment URL"
                         className="w-full rounded-xl bg-slate-950/75 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none"
                     />
                     {form.attachmentUrl ? (

@@ -38,6 +38,10 @@ function normalizeRole(value: unknown, fallback: UserRole = 'student'): UserRole
     return valid.includes(role as UserRole) ? (role as UserRole) : fallback;
 }
 
+function escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function normalizeStatus(value: unknown, fallback: UserStatus = 'active'): UserStatus {
     const status = String(value || '').trim().toLowerCase();
     const valid: UserStatus[] = ['active', 'suspended', 'blocked', 'pending'];
@@ -477,24 +481,25 @@ export async function adminGetUsers(req: AuthRequest, res: Response): Promise<vo
 
         const searchFilters: any[] = [];
         if (search) {
-            const regex = new RegExp(search, 'i');
+            const escapedSearch = escapeRegExp(search);
             searchFilters.push(
-                { full_name: regex },
-                { username: regex },
-                { email: regex },
-                { 'studentProfile.institution_name': regex },
-                { 'studentProfile.roll_number': regex },
-                { 'studentProfile.registration_id': regex }
+                { full_name: { $regex: escapedSearch, $options: 'i' } },
+                { username: { $regex: escapedSearch, $options: 'i' } },
+                { email: { $regex: escapedSearch, $options: 'i' } },
+                { 'studentProfile.institution_name': { $regex: escapedSearch, $options: 'i' } },
+                { 'studentProfile.roll_number': { $regex: escapedSearch, $options: 'i' } },
+                { 'studentProfile.registration_id': { $regex: escapedSearch, $options: 'i' } }
             );
         }
         if (institution) {
-            searchFilters.push({ 'studentProfile.institution_name': new RegExp(institution, 'i') });
+            searchFilters.push({ 'studentProfile.institution_name': { $regex: escapeRegExp(institution), $options: 'i' } });
         }
         if (roll) {
+            const escapedRoll = escapeRegExp(roll);
             searchFilters.push({
                 $or: [
-                    { 'studentProfile.roll_number': new RegExp(roll, 'i') },
-                    { 'studentProfile.registration_id': new RegExp(roll, 'i') },
+                    { 'studentProfile.roll_number': { $regex: escapedRoll, $options: 'i' } },
+                    { 'studentProfile.registration_id': { $regex: escapedRoll, $options: 'i' } },
                 ],
             });
         }
@@ -1218,6 +1223,43 @@ export async function adminToggleUserStatus(req: AuthRequest, res: Response): Pr
     }
 }
 
+export async function adminBanUser(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'User not found'));
+            return;
+        }
+
+        if (user.role === 'superadmin' && req.user?.role !== 'superadmin') {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Only superadmin can update superadmin status'));
+            return;
+        }
+
+        user.status = 'suspended';
+        await user.save();
+
+        try {
+            const { revokeUploadsForUser } = await import('../services/secureUploadService');
+            await revokeUploadsForUser(String(user._id));
+        } catch (revokeErr) {
+            console.warn('[adminBanUser] Failed to revoke uploads for user:', revokeErr);
+        }
+
+        await createAuditLog(req, 'user_banned', String(user._id), 'user', { status: 'suspended' });
+        broadcastUserEvent({
+            type: 'user_status_changed',
+            userId: String(user._id),
+            actorId: req.user?._id,
+            meta: { status: 'suspended', banned: true },
+        });
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ status: 'suspended' }, 'User suspended successfully'));
+    } catch (error) {
+        console.error('adminBanUser error:', error);
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
+    }
+}
+
 export async function adminBulkUserAction(req: AuthRequest, res: Response): Promise<void> {
     try {
         const body = req.body as Record<string, unknown>;
@@ -1641,7 +1683,7 @@ export async function adminGetAuditLogs(req: AuthRequest, res: Response): Promis
         const skip = (pageNumber - 1) * limitNumber;
 
         const filter: Record<string, unknown> = {};
-        if (action) filter.action = new RegExp(action, 'i');
+        if (action) filter.action = { $regex: escapeRegExp(action), $options: 'i' };
         if (actor && mongoose.Types.ObjectId.isValid(actor)) filter.actor_id = actor;
         if (dateFrom || dateTo) {
             filter.timestamp = {};

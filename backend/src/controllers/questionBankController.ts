@@ -1660,3 +1660,31 @@ export async function exportQuestionsV2(req: AuthRequest, res: Response): Promis
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
     }
 }
+
+/**
+ * POST /check-duplicate — Check for potential duplicate questions using text similarity.
+ * Body: { questionText: string }
+ */
+export async function checkDuplicate(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const { questionText } = req.body;
+        if (!questionText || typeof questionText !== 'string' || questionText.trim().length === 0) {
+            ResponseBuilder.send(
+                res,
+                400,
+                ResponseBuilder.error('VALIDATION_ERROR', 'questionText is required'),
+            );
+            return;
+        }
+
+        const duplicates = await QuestionBankService.detectDuplicates(questionText.trim());
+        ResponseBuilder.send(
+            res,
+            200,
+            ResponseBuilder.success({ duplicates, count: duplicates.length }, 'Duplicate check completed'),
+        );
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Server error';
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', message));
+    }
+}

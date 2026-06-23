@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getExamLeaderboardStreamUrl } from '../services/api';
+import { getExamLeaderboardStreamUrl, getBrainClashStreamUrl } from '../services/api';
 
 // ─── API Clients ─────────────────────────────────────────────────────────
 import * as hierarchyApi from '../api/questionHierarchyApi';
@@ -15,6 +15,8 @@ import * as studyRoutineApi from '../api/studyRoutineApi';
 import * as doubtsApi from '../api/doubtsApi';
 import * as examinerApi from '../api/examinerApi';
 import * as examPackagesApi from '../api/examPackagesApi';
+import * as adaptiveDifficultyApi from '../api/adaptiveDifficultyApi';
+import * as brainClashApi from '../api/brainClashApi';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 import type {
@@ -87,6 +89,9 @@ export const examSystemKeys = {
         ['examSystem', 'gamification', 'leaderboard', 'weekly', params] as const,
     globalLeaderboard: (params?: PaginationParams) =>
         ['examSystem', 'gamification', 'leaderboard', 'global', params] as const,
+    badges: ['examSystem', 'gamification', 'badges'] as const,
+    myBadges: ['examSystem', 'gamification', 'myBadges'] as const,
+    points: ['examSystem', 'gamification', 'points'] as const,
 
     // Battle
     battles: ['examSystem', 'battles'] as const,
@@ -120,6 +125,19 @@ export const examSystemKeys = {
     packages: ['examSystem', 'packages'] as const,
     packageList: (params?: PaginationParams) =>
         ['examSystem', 'packages', 'list', params] as const,
+
+    // Adaptive Difficulty
+    adaptiveDifficulty: ['examSystem', 'adaptiveDifficulty'] as const,
+    topicDifficulty: (topicId: string) =>
+        ['examSystem', 'adaptiveDifficulty', 'topic', topicId] as const,
+    allDifficulties: ['examSystem', 'adaptiveDifficulty', 'all'] as const,
+
+    // Brain Clash (Live 1v1 Battle)
+    brainClash: ['examSystem', 'brainClash'] as const,
+    brainClashDetails: (battleId: string) =>
+        ['examSystem', 'brainClash', 'details', battleId] as const,
+    brainClashHistory: (params?: PaginationParams) =>
+        ['examSystem', 'brainClash', 'history', params] as const,
 } as const;
 
 
@@ -651,6 +669,39 @@ export const useGlobalLeaderboard = (params?: PaginationParams) =>
         queryFn: () => gamificationApi.getGlobalLeaderboard(params),
     });
 
+/** Get all active badges. */
+export const useBadges = () =>
+    useQuery({
+        queryKey: examSystemKeys.badges,
+        queryFn: gamificationApi.getBadges,
+    });
+
+/** Get student's earned badges. */
+export const useMyBadges = () =>
+    useQuery({
+        queryKey: examSystemKeys.myBadges,
+        queryFn: gamificationApi.getStudentBadges,
+    });
+
+/** Get student points/coins. */
+export const useUserPoints = () =>
+    useQuery({
+        queryKey: examSystemKeys.points,
+        queryFn: gamificationApi.getUserPoints,
+    });
+
+/** Claim daily login bonus. */
+export const useClaimDailyBonus = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: gamificationApi.claimDailyBonus,
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: examSystemKeys.gamificationProfile });
+            qc.invalidateQueries({ queryKey: examSystemKeys.points });
+        },
+    });
+};
+
 // ═════════════════════════════════════════════════════════════════════════
 // 6. Battle Hooks
 // ═════════════════════════════════════════════════════════════════════════
@@ -963,3 +1014,153 @@ export const useExamLeaderboardStream = (examId: string, enabled = true) => {
         };
     }, [examId, enabled, queryClient]);
 };
+
+// ═════════════════════════════════════════════════════════════════════════
+// 13. Adaptive Difficulty Hooks
+// ═════════════════════════════════════════════════════════════════════════
+
+/** Get all topic difficulty records for the student. */
+export const useAllTopicDifficulties = () =>
+    useQuery({
+        queryKey: examSystemKeys.allDifficulties,
+        queryFn: adaptiveDifficultyApi.getAllMyDifficulties,
+    });
+
+/** Get difficulty for a specific topic. */
+export const useTopicDifficulty = (topicId: string) =>
+    useQuery({
+        queryKey: examSystemKeys.topicDifficulty(topicId),
+        queryFn: () => adaptiveDifficultyApi.getTopicDifficulty(topicId),
+        enabled: !!topicId,
+    });
+
+// ═════════════════════════════════════════════════════════════════════════
+// 14. Brain Clash Hooks
+// ═════════════════════════════════════════════════════════════════════════
+
+/** Get student's completed battle history. */
+export const useBrainClashHistory = (params?: PaginationParams) =>
+    useQuery({
+        queryKey: examSystemKeys.brainClashHistory(params),
+        queryFn: () => brainClashApi.getBattleHistory(params),
+    });
+
+/** Get battle details. */
+export const useBrainClashDetails = (battleId: string) =>
+    useQuery({
+        queryKey: examSystemKeys.brainClashDetails(battleId),
+        queryFn: () => brainClashApi.getBattleDetails(battleId),
+        enabled: !!battleId,
+    });
+
+/** Mutation to join matchmaking queue. */
+export const useJoinBrainClashQueue = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (subjectId?: string) => brainClashApi.joinQueue(subjectId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: examSystemKeys.brainClash });
+        },
+    });
+};
+
+/** Mutation to leave matchmaking queue. */
+export const useLeaveBrainClashQueue = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => brainClashApi.leaveQueue(),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: examSystemKeys.brainClash });
+        },
+    });
+};
+
+/** Mutation to submit a battle answer. */
+export const useSubmitBrainClashAnswer = (battleId: string) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (payload: { questionIndex: number; selectedAnswer: string; timeTakenMs: number }) =>
+            brainClashApi.submitAnswer(battleId, payload.questionIndex, payload.selectedAnswer, payload.timeTakenMs),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: examSystemKeys.brainClashDetails(battleId) });
+        },
+    });
+};
+
+/** Hook to subscribe to live updates of an active battle session. */
+export const useBrainClashLiveStream = (
+    battleId: string,
+    onUpdate: (data: any) => void,
+    enabled = true,
+) => {
+    const queryClient = useQueryClient();
+
+    useEffect(() => {
+        if (!battleId || !enabled) return;
+
+        let disposed = false;
+        let source: EventSource | null = null;
+        let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+        const clearReconnect = () => {
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+        };
+
+        const closeSource = () => {
+            if (source) {
+                source.close();
+                source = null;
+            }
+        };
+
+        const connect = () => {
+            if (disposed) return;
+            closeSource();
+
+            source = new EventSource(getBrainClashStreamUrl(battleId), {
+                withCredentials: true,
+            });
+
+            source.onmessage = (event) => {
+                if (disposed) return;
+                try {
+                    const data = JSON.parse(event.data);
+                    onUpdate(data);
+                    // Invalidating details so components re-fetch fresh state
+                    queryClient.invalidateQueries({ queryKey: examSystemKeys.brainClashDetails(battleId) });
+                } catch (err) {
+                    console.error('Failed to parse Brain Clash SSE event:', err);
+                }
+            };
+
+            source.onerror = () => {
+                if (disposed) return;
+                closeSource();
+                clearReconnect();
+                reconnectTimeout = setTimeout(connect, 5000);
+            };
+        };
+
+        connect();
+
+        const handlePageHide = () => {
+            closeSource();
+            clearReconnect();
+        };
+
+        window.addEventListener('pagehide', handlePageHide);
+        window.addEventListener('beforeunload', handlePageHide);
+
+        return () => {
+            disposed = true;
+            window.removeEventListener('pagehide', handlePageHide);
+            window.removeEventListener('beforeunload', handlePageHide);
+            closeSource();
+            clearReconnect();
+        };
+    }, [battleId, enabled, onUpdate, queryClient]);
+};
+

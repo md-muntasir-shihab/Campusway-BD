@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { getFirebaseStorageBucket, isFirebaseAdminEnabled } from '../config/firebaseAdmin';
+import { logger } from '../utils/logger';
 
 export type SignedUploadResponse = {
     provider: 's3' | 'local' | 'firebase';
@@ -55,7 +56,10 @@ async function getFirebaseSignedUpload(filename: string, mimeType: string): Prom
             },
             expiresIn: 900,
         };
-    } catch {
+    } catch (err) {
+        logger.warn('Signed upload: Firebase presign failed, falling back.', undefined as any, {
+            error: err instanceof Error ? err.message : String(err),
+        });
         return null;
     }
 }
@@ -106,7 +110,10 @@ export async function getSignedUploadForBanner(
             headers: { 'Content-Type': mimeType || 'application/octet-stream' },
             expiresIn: 900,
         };
-    } catch {
+    } catch (err) {
+        logger.warn('Signed upload: S3 presign failed, falling back.', undefined as any, {
+            error: err instanceof Error ? err.message : String(err),
+        });
         return getLocalSignedUpload(filename);
     }
 }

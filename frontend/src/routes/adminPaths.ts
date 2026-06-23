@@ -163,6 +163,7 @@ export const ADMIN_PATHS = {
     examCenterAntiCheat: adminUi('exam-center/anti-cheat'),
     examCenterNotifications: adminUi('exam-center/notifications'),
     examCenterAnalytics: adminUi('exam-center/analytics'),
+    userManagement: adminUi('users'),
 } as const;
 
 export type AdminMenuItem = {
@@ -260,6 +261,16 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
             adminUi('settings/student-settings'),
             adminUi('pending-approvals'),
         ],
+    },
+
+    // 7b. User Management
+    {
+        key: 'userManagement',
+        label: 'User Management',
+        path: ADMIN_PATHS.userManagement,
+        icon: UserCog,
+        module: 'team_access_control',
+        matchPrefixes: [adminUi('users')],
     },
 
     // 8. Subscription & Payments
@@ -399,7 +410,6 @@ export const LEGACY_ADMIN_PATH_REDIRECTS: Record<string, string> = {
     [adminUi('alerts')]: ADMIN_PATHS.homeControl,
     [adminUi('file-upload')]: ADMIN_PATHS.students,
     [adminUi('backups')]: ADMIN_PATHS.systemLogs,
-    [adminUi('users')]: ADMIN_PATHS.adminProfile,
     [adminUi('exports')]: ADMIN_PATHS.reports,
     [adminUi('payments')]: ADMIN_PATHS.financeTransactions,
     [adminUi('subscription-plans')]: ADMIN_PATHS.subscriptionPlans,

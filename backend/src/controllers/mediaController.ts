@@ -37,11 +37,14 @@ try {
 
 /**
  * Build absolute URL for uploaded files.
- * Uses environment variable BACKEND_URL if available, otherwise falls back to request origin.
+ * Prefer server-side env values (BACKEND_URL, then FRONTEND_URL) so the URL is
+ * never derived from the attacker-controllable request Host header. The request
+ * origin is only used as a last-resort fallback when neither env var is set.
  */
 function buildAbsoluteUploadUrl(relativeUrl: string, requestOrigin: string): string {
     const backendUrl = String(process.env.BACKEND_URL || '').trim();
-    const baseUrl = backendUrl || requestOrigin;
+    const frontendUrl = String(process.env.FRONTEND_URL || '').trim();
+    const baseUrl = backendUrl || frontendUrl || requestOrigin;
     const normalizedBase = baseUrl.replace(/\/+$/, '');
     const normalizedPath = relativeUrl.startsWith('/') ? relativeUrl : `/${relativeUrl}`;
     return `${normalizedBase}${normalizedPath}`;
@@ -106,11 +109,18 @@ function isAllowedUpload(file: Pick<Express.Multer.File, 'mimetype' | 'originaln
     const mimeType = String(file.mimetype || '').trim().toLowerCase();
     const extension = path.extname(String(file.originalname || '')).trim().toLowerCase();
 
-    if (ALLOWED_MIME_TYPES.has(mimeType)) {
-        return true;
+    // The extension must ALWAYS be allow-listed. This blocks uploads like
+    // `payload.exe` masquerading with a spoofed MIME type, and also blocks
+    // extensionless / arbitrary-extension files even when the client declares
+    // a benign MIME (incl. the permissive `application/octet-stream`).
+    if (!ALLOWED_EXTENSIONS.has(extension)) {
+        return false;
     }
 
-    return ALLOWED_EXTENSIONS.has(extension);
+    // Extension is allow-listed. Also require the declared MIME to be either
+    // explicitly allow-listed OR the generic `application/octet-stream`
+    // (which is legal for PDF/Office binaries whose extension is allow-listed).
+    return ALLOWED_MIME_TYPES.has(mimeType);
 }
 const SECURE_CATEGORIES = new Set(['profile_photo', 'student_document', 'payment_proof', 'support_attachment', 'exam_upload', 'admin_upload']);
 
@@ -272,13 +282,32 @@ async function performLocalUpload(
     origin: string,
     res: Response
 ): Promise<void> {
-    // Runtime check: ensure upload directory exists before local storage write
+    // Runtime check: ensure upload directory exists before local storage write.
+    // If it cannot be created (read-only / unwriteable filesystem), fail the
+    // request honestly instead of returning a URL to a file that was never saved.
     try {
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
-    } catch {
-        // Fallback: directory may not be writable in containerised envs
+    } catch (mkdirErr) {
+        console.error('[uploadMedia] Local upload dir unavailable:', mkdirErr instanceof Error ? mkdirErr.message : mkdirErr);
+        ResponseBuilder.send(
+            res,
+            500,
+            ResponseBuilder.error('SERVER_ERROR', 'Upload storage is currently unavailable. Please retry later.'),
+        );
+        return;
+    }
+
+    // Sanity check: the multer-written file must actually exist on disk before
+    // we hand out a URL claiming it does.
+    if (!fs.existsSync(file.path)) {
+        ResponseBuilder.send(
+            res,
+            500,
+            ResponseBuilder.error('SERVER_ERROR', 'Uploaded file could not be stored. Please retry.'),
+        );
+        return;
     }
 
     // Construct the public URL for the uploaded file

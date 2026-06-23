@@ -108,7 +108,7 @@ const arbCreateGroupDto = fc.record({
     title: arbBilingualName,
     code: arbSlug,
     description: arbDescription,
-    icon: arbIcon,
+    iconUrl: arbIcon,
     color: arbColor,
     order: arbSortOrder,
     isActive: arbIsActive,
@@ -131,11 +131,11 @@ describe('Property 1: Hierarchy CRUD Round-Trip', () => {
                 expect(readBack).not.toBeNull();
 
                 // Title round-trip
-                expect(readBack!.title.en).toBe(dto.name.en);
-                expect(readBack!.title.bn).toBe(dto.name.bn);
+                expect(readBack!.title.en).toBe(dto.title.en);
+                expect(readBack!.title.bn).toBe(dto.title.bn);
 
                 // Code/slug round-trip
-                const expectedCode = dto.slug!.toLowerCase();
+                const expectedCode = dto.code!.toLowerCase();
                 expect(readBack!.code).toBe(expectedCode);
 
                 // Description round-trip (Mongoose LocalizedText has trim: true)
@@ -147,13 +147,13 @@ describe('Property 1: Hierarchy CRUD Round-Trip', () => {
                 }
 
                 // Icon round-trip
-                expect(readBack!.iconUrl).toBe(dto.icon || '');
+                expect(readBack!.iconUrl).toBe(dto.iconUrl || '');
 
                 // Color round-trip
                 expect(readBack!.color).toBe(dto.color || '');
 
                 // SortOrder round-trip
-                expect(readBack!.order).toBe(dto.sortOrder ?? 0);
+                expect(readBack!.order).toBe(dto.order ?? 0);
 
                 // isActive round-trip
                 expect(readBack!.isActive).toBe(dto.isActive ?? true);
@@ -238,22 +238,21 @@ describe('Property 2: Parent Chain Validity', () => {
 
                     // Level 2: Create SubGroup under Group
                     const subGroup = await createSubGroup({
-                        groupId: group._id.toString(),
+                        group_id: group._id.toString(),
                         code: subGroupCode,
                         title: subGroupTitle,
                     });
 
                     // Level 3: Create Subject under SubGroup
                     const subject = await createSubject({
-                        sub_groupId: subGroup._id.toString(),
+                        sub_group_id: subGroup._id.toString(),
                         code: subjectCode,
                         title: subjectTitle,
                     });
 
                     // Level 4: Create Chapter under Subject
                     const chapter = await createChapter({
-                        subjectId: subject._id.toString(),
-                        groupId: group._id.toString(),
+                        subject_id: subject._id.toString(),
                         code: chapterCode,
                         title: chapterTitle,
                     });
@@ -306,22 +305,22 @@ describe('Property 2: Parent Chain Validity', () => {
 });
 
 
-// ─── Property 3: Delete Rejection for Non-Leaf Nodes ─────────────────────────
+// ─── Property 3: Cascade Delete for Non-Leaf Nodes ──────────────────────────
 /**
- * Property 3: Delete Rejection for Non-Leaf Nodes
+ * Property 3: Cascade Delete for Non-Leaf Nodes
  *
  * Feature: exam-management-system
  *
  * **Validates: Requirements 1.9**
  *
  * WHEN an admin deletes a node that has child nodes,
- * THE Question_Hierarchy_Service SHALL reject the deletion
- * and return an error indicating dependent children exist.
- * The parent node SHALL still exist in the database after the rejected deletion.
+ * THE Question_Hierarchy_Service SHALL cascade-delete all descendants
+ * (children, grandchildren, etc.) along with the node itself.
+ * After deletion, neither the node nor its descendants SHALL exist.
  */
 
-describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
-    it('deleteGroup is rejected when Group has SubGroup children', async () => {
+describe('Property 3: Cascade Delete for Non-Leaf Nodes', () => {
+    it('deleteGroup cascades: deletes Group, its SubGroups, and all descendants', async () => {
         await fc.assert(
             fc.asyncProperty(
                 arbChainSlug,
@@ -336,22 +335,26 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
 
                     const group = await createGroup({ title: groupTitle, code: groupSlug });
                     await createSubGroup({
-                        groupId: group._id.toString(),
+                        group_id: group._id.toString(),
                         code: subGroupCode,
                         title: subGroupTitle,
                     });
 
-                    await expect(deleteGroup(group._id.toString())).rejects.toThrow();
+                    // deleteGroup should succeed (cascade delete, not rejection)
+                    await deleteGroup(group._id.toString());
 
-                    const stillExists = await QuestionGroup.findById(group._id).lean();
-                    expect(stillExists).not.toBeNull();
+                    const groupGone = await QuestionGroup.findById(group._id).lean();
+                    expect(groupGone).toBeNull();
+
+                    const childrenGone = await QuestionSubGroup.find({ group_id: group._id }).lean();
+                    expect(childrenGone).toHaveLength(0);
                 },
             ),
             { numRuns: 20 },
         );
     });
 
-    it('deleteSubGroup is rejected when SubGroup has Subject children', async () => {
+    it('deleteSubGroup cascades: deletes SubGroup, its Subjects, and all descendants', async () => {
         await fc.assert(
             fc.asyncProperty(
                 arbChainSlug,
@@ -369,27 +372,30 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
 
                     const group = await createGroup({ title: groupTitle, code: groupSlug });
                     const subGroup = await createSubGroup({
-                        groupId: group._id.toString(),
+                        group_id: group._id.toString(),
                         code: sgCode,
                         title: sgTitle,
                     });
                     await createSubject({
-                        sub_groupId: subGroup._id.toString(),
+                        sub_group_id: subGroup._id.toString(),
                         code: subjCode,
                         title: subjTitle,
                     });
 
-                    await expect(deleteSubGroup(subGroup._id.toString())).rejects.toThrow();
+                    await deleteSubGroup(subGroup._id.toString());
 
-                    const stillExists = await QuestionSubGroup.findById(subGroup._id).lean();
-                    expect(stillExists).not.toBeNull();
+                    const sgGone = await QuestionSubGroup.findById(subGroup._id).lean();
+                    expect(sgGone).toBeNull();
+
+                    const childrenGone = await QuestionCategory.find({ parent_id: subGroup._id }).lean();
+                    expect(childrenGone).toHaveLength(0);
                 },
             ),
             { numRuns: 20 },
         );
     });
 
-    it('deleteSubject is rejected when Subject has Chapter children', async () => {
+    it('deleteSubject cascades: deletes Subject and its Chapters and Topics', async () => {
         await fc.assert(
             fc.asyncProperty(
                 arbChainSlug,
@@ -415,33 +421,35 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
 
                     const group = await createGroup({ title: groupTitle, code: groupSlug });
                     const subGroup = await createSubGroup({
-                        groupId: group._id.toString(),
+                        group_id: group._id.toString(),
                         code: sgCode,
                         title: sgTitle,
                     });
                     const subject = await createSubject({
-                        sub_groupId: subGroup._id.toString(),
+                        sub_group_id: subGroup._id.toString(),
                         code: subjCode,
                         title: subjTitle,
                     });
                     await createChapter({
-                        subjectId: subject._id.toString(),
-                        groupId: group._id.toString(),
+                        subject_id: subject._id.toString(),
                         code: chapCode,
                         title: chapTitle,
                     });
 
-                    await expect(deleteSubject(subject._id.toString())).rejects.toThrow();
+                    await deleteSubject(subject._id.toString());
 
-                    const stillExists = await QuestionCategory.findById(subject._id).lean();
-                    expect(stillExists).not.toBeNull();
+                    const subjGone = await QuestionCategory.findById(subject._id).lean();
+                    expect(subjGone).toBeNull();
+
+                    const childrenGone = await QuestionChapter.find({ subject_id: subject._id }).lean();
+                    expect(childrenGone).toHaveLength(0);
                 },
             ),
             { numRuns: 20 },
         );
     });
 
-    it('deleteChapter is rejected when Chapter has Topic children', async () => {
+    it('deleteChapter cascades: deletes Chapter and its Topics', async () => {
         await fc.assert(
             fc.asyncProperty(
                 arbChainSlug,
@@ -471,18 +479,17 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
 
                     const group = await createGroup({ title: groupTitle, code: groupSlug });
                     const subGroup = await createSubGroup({
-                        groupId: group._id.toString(),
+                        group_id: group._id.toString(),
                         code: sgCode,
                         title: sgTitle,
                     });
                     const subject = await createSubject({
-                        sub_groupId: subGroup._id.toString(),
+                        sub_group_id: subGroup._id.toString(),
                         code: subjCode,
                         title: subjTitle,
                     });
                     const chapter = await createChapter({
-                        subjectId: subject._id.toString(),
-                        groupId: group._id.toString(),
+                        subject_id: subject._id.toString(),
                         code: chapCode,
                         title: chapTitle,
                     });
@@ -492,10 +499,13 @@ describe('Property 3: Delete Rejection for Non-Leaf Nodes', () => {
                         title: topicTitle,
                     });
 
-                    await expect(deleteChapter(chapter._id.toString())).rejects.toThrow();
+                    await deleteChapter(chapter._id.toString());
 
-                    const stillExists = await QuestionChapter.findById(chapter._id).lean();
-                    expect(stillExists).not.toBeNull();
+                    const chGone = await QuestionChapter.findById(chapter._id).lean();
+                    expect(chGone).toBeNull();
+
+                    const childrenGone = await QuestionTopic.find({ parent_id: chapter._id }).lean();
+                    expect(childrenGone).toHaveLength(0);
                 },
             ),
             { numRuns: 20 },
@@ -555,16 +565,16 @@ describe('Property 4: Tree Completeness and Sort Order', () => {
                     const group2 = await createGroup({ title: { en: 'Group B', bn: 'গ্রুপ খ' }, code: 'group-b', order: g2Order });
 
                     // Create 2 sub-groups under group1
-                    const sg1 = await createSubGroup({ groupId: group1._id.toString(), code: 'sg-a', title: { en: 'SG A', bn: 'এসজি ক' }, order: sg1Order });
-                    const sg2 = await createSubGroup({ groupId: group1._id.toString(), code: 'sg-b', title: { en: 'SG B', bn: 'এসজি খ' }, order: sg2Order });
+                    const sg1 = await createSubGroup({ group_id: group1._id.toString(), code: 'sg-a', title: { en: 'SG A', bn: 'এসজি ক' }, order: sg1Order });
+                    const sg2 = await createSubGroup({ group_id: group1._id.toString(), code: 'sg-b', title: { en: 'SG B', bn: 'এসজি খ' }, order: sg2Order });
 
                     // Create 2 subjects under sg1
-                    const subj1 = await createSubject({ sub_groupId: sg1._id.toString(), code: 'subj-a', title: { en: 'Subject A', bn: 'বিষয় ক' }, order: subj1Order });
-                    const subj2 = await createSubject({ sub_groupId: sg1._id.toString(), code: 'subj-b', title: { en: 'Subject B', bn: 'বিষয় খ' }, order: subj2Order });
+                    const subj1 = await createSubject({ sub_group_id: sg1._id.toString(), code: 'subj-a', title: { en: 'Subject A', bn: 'বিষয় ক' }, order: subj1Order });
+                    const subj2 = await createSubject({ sub_group_id: sg1._id.toString(), code: 'subj-b', title: { en: 'Subject B', bn: 'বিষয় খ' }, order: subj2Order });
 
                     // Create 2 chapters under subj1
-                    const ch1 = await createChapter({ subjectId: subj1._id.toString(), groupId: group1._id.toString(), code: 'ch-a', title: { en: 'Chapter A', bn: 'অধ্যায় ক' }, order: ch1Order });
-                    const ch2 = await createChapter({ subjectId: subj1._id.toString(), groupId: group1._id.toString(), code: 'ch-b', title: { en: 'Chapter B', bn: 'অধ্যায় খ' }, order: ch2Order });
+                    const ch1 = await createChapter({ subject_id: subj1._id.toString(), code: 'ch-a', title: { en: 'Chapter A', bn: 'অধ্যায় ক' }, order: ch1Order });
+                    const ch2 = await createChapter({ subject_id: subj1._id.toString(), code: 'ch-b', title: { en: 'Chapter B', bn: 'অধ্যায় খ' }, order: ch2Order });
 
                     // Create 2 topics under ch1
                     const topic1 = await createTopic({ chapter_id: ch1._id.toString(), code: 'topic-a', title: { en: 'Topic A', bn: 'টপিক ক' }, order: t1Order });
@@ -659,35 +669,35 @@ describe('Property 4: Tree Completeness and Sort Order', () => {
 });
 
 
-// ─── Property 5: Duplicate Name Rejection ────────────────────────────────────
+// ─── Property 5: Duplicate Code Rejection ────────────────────────────────────
 /**
- * Property 5: Duplicate Name Rejection
+ * Property 5: Duplicate Code Rejection
  *
  * Feature: exam-management-system
  *
  * **Validates: Requirements 1.11**
  *
  * For any two hierarchy nodes at the same level under the same parent,
- * if they have the same name (en or bn), the second creation attempt
- * SHALL be rejected with a duplicate name error.
+ * if they have the same code, the second creation attempt
+ * SHALL be rejected with a duplicate code error.
+ * (The service de-duplicates on the `code` field, not the display title.)
  */
 
-describe('Property 5: Duplicate Name Rejection', () => {
-    it('creating two Groups with the same title is rejected', async () => {
+describe('Property 5: Duplicate Code Rejection', () => {
+    it('creating two Groups with the same code is rejected', async () => {
         await fc.assert(
             fc.asyncProperty(
                 arbChainSlug,
                 arbChainTitle,
-                arbChainSlug,
-                async (slug1, sharedTitle, slug2) => {
+                async (sharedCode, sharedTitle) => {
                     await QuestionGroup.deleteMany({});
 
                     // First creation succeeds
-                    await createGroup({ title: sharedTitle, code: slug1 });
+                    await createGroup({ title: sharedTitle, code: sharedCode });
 
-                    // Second creation with same title is rejected
+                    // Second creation with the SAME code is rejected
                     await expect(
-                        createGroup({ title: sharedTitle, code: slug2 }),
+                        createGroup({ title: sharedTitle, code: sharedCode }),
                     ).rejects.toThrow(/already exists/i);
                 },
             ),
@@ -695,15 +705,14 @@ describe('Property 5: Duplicate Name Rejection', () => {
         );
     });
 
-    it('creating two SubGroups with the same title under the same parent Group is rejected', async () => {
+    it('creating two SubGroups with the same code under the same parent Group is rejected', async () => {
         await fc.assert(
             fc.asyncProperty(
                 arbChainSlug,
                 arbChainTitle,
                 arbChainSlug,
                 arbChainTitle,
-                arbChainSlug,
-                async (groupSlug, groupTitle, sgCode1, sharedSgTitle, sgCode2) => {
+                async (groupSlug, groupTitle, sgCode, sharedSgTitle) => {
                     await Promise.all([
                         QuestionGroup.deleteMany({}),
                         QuestionSubGroup.deleteMany({}),
@@ -713,16 +722,16 @@ describe('Property 5: Duplicate Name Rejection', () => {
 
                     // First sub-group creation succeeds
                     await createSubGroup({
-                        groupId: group._id.toString(),
-                        code: sgCode1,
+                        group_id: group._id.toString(),
+                        code: sgCode,
                         title: sharedSgTitle,
                     });
 
-                    // Second sub-group with same title under same parent is rejected
+                    // Second sub-group with the SAME code under same parent is rejected
                     await expect(
                         createSubGroup({
-                            groupId: group._id.toString(),
-                            code: sgCode2,
+                            group_id: group._id.toString(),
+                            code: sgCode,
                             title: sharedSgTitle,
                         }),
                     ).rejects.toThrow(/already exists/i);
@@ -774,7 +783,7 @@ describe('Property 6: Merge Reassigns All Children and Questions', () => {
                     const childIds: string[] = [];
                     for (let i = 0; i < numChildren; i++) {
                         const child = await createSubGroup({
-                            groupId: sourceGroup._id.toString(),
+                            group_id: sourceGroup._id.toString(),
                             code: `child-${sourceSlug}-${i}`,
                             title: { en: `Child EN ${i} ${sourceSlug}`, bn: `Child BN ${i} ${sourceSlug}` },
                         });
@@ -782,7 +791,7 @@ describe('Property 6: Merge Reassigns All Children and Questions', () => {
                     }
 
                     // Verify children belong to source before merge
-                    const beforeMerge = await QuestionSubGroup.find({ groupId: sourceGroup._id }).lean();
+                    const beforeMerge = await QuestionSubGroup.find({ group_id: sourceGroup._id }).lean();
                     expect(beforeMerge).toHaveLength(numChildren);
 
                     // Perform merge: source → target
@@ -804,7 +813,7 @@ describe('Property 6: Merge Reassigns All Children and Questions', () => {
                     }
 
                     // Assert: no SubGroups reference the source anymore
-                    const orphaned = await QuestionSubGroup.find({ groupId: sourceGroup._id }).lean();
+                    const orphaned = await QuestionSubGroup.find({ group_id: sourceGroup._id }).lean();
                     expect(orphaned).toHaveLength(0);
                 },
             ),

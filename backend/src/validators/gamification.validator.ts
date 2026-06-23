@@ -29,8 +29,9 @@ export const battleChallengeSchema = z.object({
     topicId: objectId.optional(),
 });
 
+// battleId comes from the route param (POST /:id/answer); the body carries
+// only questionId + answer (see battleController.submitAnswer).
 export const battleAnswerSchema = z.object({
-    battleId: objectId,
     questionId: objectId,
     answer: z.string().trim().min(1, 'Answer is required'),
 });
@@ -69,8 +70,9 @@ export const doubtCreateSchema = z.object({
     content: z.string().trim().optional(),
 });
 
+// threadId comes from the route param (POST /:id/reply); the body carries
+// only content (see doubtController.addReply).
 export const doubtReplySchema = z.object({
-    threadId: objectId,
     content: z.string().trim().min(1, 'Reply content is required'),
 });
 

@@ -101,6 +101,7 @@ import {
     AntiCheatReportPage,
     NotificationManagementPage,
     AdminAnalyticsDashboardV2Page,
+    AdminUserManagementPage,
 } from './adminRouteComponents';
 import {
     CertificateVerifyPage,
@@ -567,6 +568,7 @@ export default function App() {
                                         <Route path={ADMIN_PATHS.teamActivity} element={<TeamAccessConsolePage />} />
                                         <Route path={ADMIN_PATHS.teamSecurity} element={<TeamAccessConsolePage />} />
                                         <Route path={ADMIN_PATHS.teamInvites} element={<TeamAccessConsolePage />} />
+                                        <Route path={ADMIN_PATHS.userManagement} element={<AdminUserManagementPage />} />
                                         <Route path={ADMIN_PATHS.approvals} element={<ActionApprovalsPage />} />
                                         <Route path={ADMIN_PATHS.pendingApprovals} element={<PendingApprovalsPage />} />
                                         <Route path={adminUi('settings/student-settings')} element={<AdminStudentSettingsPage />} />

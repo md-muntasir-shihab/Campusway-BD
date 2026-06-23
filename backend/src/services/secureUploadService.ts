@@ -85,6 +85,35 @@ export function buildSecureUploadUrl(storedName: string): string {
     return `/uploads/${encodeURIComponent(storedName)}`;
 }
 
+/**
+ * Resolve a caller-supplied storedName to an absolute filesystem path that is
+ * guaranteed to live UNDER public/uploads. Any traversal attempt (.., absolute
+ * path, drive separator, NUL byte) returns null instead of an escaped path.
+ * Callers MUST treat a null result as "invalid / not found" — never create a
+ * SecureUpload record from it and never serve it.
+ */
+function resolveContainedUploadPath(storedName: string): string | null {
+    const UPLOADS_DIR = path.resolve(__dirname, '../../public/uploads');
+    // Reject anything that could traverse or break out before resolving.
+    if (
+        typeof storedName !== 'string' ||
+        storedName.length === 0 ||
+        storedName.includes('\0') ||
+        storedName.includes('..') ||
+        storedName.includes('\\') ||
+        path.isAbsolute(storedName)
+    ) {
+        return null;
+    }
+    const resolved = path.resolve(UPLOADS_DIR, storedName);
+    // Final containment check: resolved path must start with the uploads dir.
+    const prefix = UPLOADS_DIR + path.sep;
+    if (resolved !== UPLOADS_DIR && !resolved.startsWith(prefix)) {
+        return null;
+    }
+    return resolved;
+}
+
 export async function registerSecureUpload(input: RegisterSecureUploadInput): Promise<ISecureUpload> {
     const fileBuffer = await fs.promises.readFile(input.file.path);
     const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
@@ -131,12 +160,15 @@ export async function ensureSecureUploadUrl(input: EnsureSecureUploadUrlInput): 
     const storedName = decodeURIComponent(sanitizedUrl.replace(/^\/uploads\//, '').trim());
     if (!storedName) return rawUrl;
 
+    // Reject traversal attempts before any filesystem access.
+    const storagePath = resolveContainedUploadPath(storedName);
+    if (!storagePath) return rawUrl;
+
     const existing = await SecureUpload.findOne({ storedName, deletedAt: null }).lean();
     if (existing) {
         return buildSecureUploadUrl(existing.storedName);
     }
 
-    const storagePath = path.resolve(__dirname, '../../public/uploads', storedName);
     const fileExists = await fs.promises.stat(storagePath).then((stats) => stats.isFile()).catch(() => false);
     if (!fileExists) return rawUrl;
 

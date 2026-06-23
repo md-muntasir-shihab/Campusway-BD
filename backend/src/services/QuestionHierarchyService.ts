@@ -156,14 +156,26 @@ export async function deleteGroup(id: string): Promise<void> {
         throw new Error('Group not found');
     }
 
-    const childCount = await QuestionSubGroup.countDocuments({ group_id: toObjectId(id) });
-    if (childCount > 0) {
-        throw new Error(
-            `Cannot delete group "${group.title.en}": ${childCount} sub-group(s) still reference it. Remove or reassign children first.`,
-        );
-    }
+    const subGroups = await QuestionSubGroup.find({ group_id: toObjectId(id) });
+    const subGroupIds = subGroups.map((sg) => sg._id);
 
-    await QuestionGroup.findByIdAndDelete(id);
+    const subjects = await QuestionCategory.find({ parent_id: { $in: subGroupIds } });
+    const subjectIds = subjects.map((s) => s._id);
+
+    const chapters = await QuestionChapter.find({ subject_id: { $in: subjectIds } });
+    const chapterIds = chapters.map((c) => c._id);
+
+    const topics = await QuestionTopic.find({ parent_id: { $in: chapterIds } });
+    const topicIds = topics.map((t) => t._id);
+
+    await Promise.all([
+        QuestionTopic.deleteMany({ _id: { $in: topicIds } }),
+        QuestionChapter.deleteMany({ _id: { $in: chapterIds } }),
+        QuestionCategory.deleteMany({ _id: { $in: subjectIds } }),
+        QuestionSubGroup.deleteMany({ _id: { $in: subGroupIds } }),
+        QuestionGroup.findByIdAndDelete(id),
+        QuestionBankQuestion.deleteMany({ group_id: toObjectId(id) }),
+    ]);
 }
 
 
@@ -229,15 +241,22 @@ export async function deleteSubGroup(id: string): Promise<void> {
         throw new Error('Sub-group not found');
     }
 
-    // Subjects store sub_group_id in parent_id field
-    const childCount = await QuestionCategory.countDocuments({ parent_id: toObjectId(id) });
-    if (childCount > 0) {
-        throw new Error(
-            `Cannot delete sub-group "${subGroup.title.en}": ${childCount} subject(s) still reference it. Remove or reassign children first.`,
-        );
-    }
+    const subjects = await QuestionCategory.find({ parent_id: toObjectId(id) });
+    const subjectIds = subjects.map((s) => s._id);
 
-    await QuestionSubGroup.findByIdAndDelete(id);
+    const chapters = await QuestionChapter.find({ subject_id: { $in: subjectIds } });
+    const chapterIds = chapters.map((c) => c._id);
+
+    const topics = await QuestionTopic.find({ parent_id: { $in: chapterIds } });
+    const topicIds = topics.map((t) => t._id);
+
+    await Promise.all([
+        QuestionTopic.deleteMany({ _id: { $in: topicIds } }),
+        QuestionChapter.deleteMany({ _id: { $in: chapterIds } }),
+        QuestionCategory.deleteMany({ _id: { $in: subjectIds } }),
+        QuestionSubGroup.findByIdAndDelete(id),
+        QuestionBankQuestion.deleteMany({ sub_group_id: toObjectId(id) }),
+    ]);
 }
 
 // ─── Subject (Level 3) CRUD — uses QuestionCategory model ──
@@ -309,14 +328,18 @@ export async function deleteSubject(id: string): Promise<void> {
         throw new Error('Subject not found');
     }
 
-    const childCount = await QuestionChapter.countDocuments({ subject_id: toObjectId(id) });
-    if (childCount > 0) {
-        throw new Error(
-            `Cannot delete subject "${subject.title.en}": ${childCount} chapter(s) still reference it. Remove or reassign children first.`,
-        );
-    }
+    const chapters = await QuestionChapter.find({ subject_id: toObjectId(id) });
+    const chapterIds = chapters.map((c) => c._id);
 
-    await QuestionCategory.findByIdAndDelete(id);
+    const topics = await QuestionTopic.find({ parent_id: { $in: chapterIds } });
+    const topicIds = topics.map((t) => t._id);
+
+    await Promise.all([
+        QuestionTopic.deleteMany({ _id: { $in: topicIds } }),
+        QuestionChapter.deleteMany({ _id: { $in: chapterIds } }),
+        QuestionCategory.findByIdAndDelete(id),
+        QuestionBankQuestion.deleteMany({ subject_id: toObjectId(id) }),
+    ]);
 }
 
 
@@ -394,15 +417,14 @@ export async function deleteChapter(id: string): Promise<void> {
         throw new Error('Chapter not found');
     }
 
-    // Topics store chapter_id in parent_id field
-    const childCount = await QuestionTopic.countDocuments({ parent_id: toObjectId(id) });
-    if (childCount > 0) {
-        throw new Error(
-            `Cannot delete chapter "${chapter.title.en}": ${childCount} topic(s) still reference it. Remove or reassign children first.`,
-        );
-    }
+    const topics = await QuestionTopic.find({ parent_id: toObjectId(id) });
+    const topicIds = topics.map((t) => t._id);
 
-    await QuestionChapter.findByIdAndDelete(id);
+    await Promise.all([
+        QuestionTopic.deleteMany({ _id: { $in: topicIds } }),
+        QuestionChapter.findByIdAndDelete(id),
+        QuestionBankQuestion.deleteMany({ chapter_id: toObjectId(id) }),
+    ]);
 }
 
 // ─── Topic (Level 5) CRUD ───────────────────────────────────
@@ -474,7 +496,10 @@ export async function deleteTopic(id: string): Promise<void> {
         throw new Error('Topic not found');
     }
 
-    await QuestionTopic.findByIdAndDelete(id);
+    await Promise.all([
+        QuestionTopic.findByIdAndDelete(id),
+        QuestionBankQuestion.deleteMany({ topic_id: toObjectId(id) }),
+    ]);
 }
 
 // ─── Hierarchy Level Type ───────────────────────────────────

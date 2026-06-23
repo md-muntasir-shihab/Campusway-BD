@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { SEO } from '../../components/common/SEO';
-import { User, Upload, Save, Loader2, AlertCircle, Lock, BookOpen, Clock3, FileText, Hash, MapPin, Camera } from 'lucide-react';
+import { User, Upload, Save, Loader2, AlertCircle, Lock, BookOpen, Clock3, FileText, Hash, MapPin, Camera, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { changePassword, getStudentProfile, updateStudentProfile, uploadStudentDocument } from '../../services/api';
+import { uploadStudentDocument } from '../../services/api';
+import { useProfileQuery, useUpdateProfileMutation, useUploadAvatarMutation, useChangePasswordMutation } from '../../hooks/useProfile';
+import { useRequestOtp, useVerifyOtp, useResendOtp } from '../../hooks/useOtpQueries';
 import AchievementPopupCard from '../../components/ui/AchievementPopupCard';
 import MediaImage from '../../components/common/MediaImage';
 import { useMySubscription } from '../../hooks/useSubscriptionPlans';
@@ -19,8 +21,17 @@ const normalizeDepartmentValue = (value: string): 'science' | 'arts' | 'commerce
 
 export default function StudentProfile() {
     const mySubscriptionQuery = useMySubscription();
-    const [profile, setProfile] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    
+    // React Query Hooks
+    const profileQuery = useProfileQuery();
+    const updateProfileMutation = useUpdateProfileMutation();
+    const uploadAvatarMutation = useUploadAvatarMutation();
+    const changePasswordMutation = useChangePasswordMutation();
+    
+    const requestOtpMutation = useRequestOtp();
+    const verifyOtpMutation = useVerifyOtp();
+    const resendOtpMutation = useResendOtp();
+
     const [saving, setSaving] = useState(false);
     const [passwordSaving, setPasswordSaving] = useState(false);
     const [photoUploading, setPhotoUploading] = useState(false);
@@ -33,6 +44,7 @@ export default function StudentProfile() {
 
     const [formData, setFormData] = useState({
         full_name: '',
+        email: '',
         date_of_birth: '',
         gender: '',
         address: '',
@@ -50,19 +62,42 @@ export default function StudentProfile() {
         user_unique_id: ''
     });
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
+    // OTP Modal State
+    const [otpState, setOtpState] = useState<{
+        open: boolean;
+        contactType: 'phone' | 'email';
+        contactValue: string;
+        code: string;
+        payloadToSubmit: Record<string, any> | null;
+        cooldown: number;
+    }>({
+        open: false,
+        contactType: 'email',
+        contactValue: '',
+        code: '',
+        payloadToSubmit: null,
+        cooldown: 0,
+    });
 
-    const fetchProfile = async () => {
-        try {
-            const res = await getStudentProfile();
-            setProfile(res.data);
-            const celebration = res.data?.celebration;
+    // Cooldown Timer for OTP Resend
+    useEffect(() => {
+        if (otpState.cooldown <= 0) return;
+        const timer = setTimeout(() => {
+            setOtpState(prev => ({ ...prev, cooldown: prev.cooldown - 1 }));
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, [otpState.cooldown]);
+
+    const profile = profileQuery.data;
+    const loading = profileQuery.isLoading;
+
+    useEffect(() => {
+        if (profile) {
+            const celebration = profile?.celebration;
             if (celebration?.eligible && celebration.topPercentage > 0) {
                 const todayKey = new Date().toISOString().slice(0, 10);
                 const trackingKey = 'dashboard_celebration_tracking';
-                let trackingData: Record<string, unknown> = {};
+                let trackingData: Record<string, any> = {};
                 try {
                     trackingData = JSON.parse(localStorage.getItem(trackingKey) || '{}');
                     if (trackingData.date !== todayKey) {
@@ -79,30 +114,65 @@ export default function StudentProfile() {
                     setShowCelebration(true);
                 }
             }
-            if (res.data) {
-                setFormData({
-                    full_name: res.data.full_name || '',
-                    date_of_birth: res.data.date_of_birth ? new Date(res.data.date_of_birth).toISOString().split('T')[0] : '',
-                    gender: res.data.gender || '',
-                    address: res.data.address || '',
-                    guardian_name: res.data.guardian_name || '',
-                    guardian_phone: res.data.guardian_phone || '',
-                    ssc_batch: res.data.ssc_batch || '',
-                    hsc_batch: res.data.hsc_batch || '',
-                    department: normalizeDepartmentValue(res.data.department || ''),
-                    college_name: res.data.college_name || '',
-                    phone_number: res.data.phone_number || '',
-                    preferred_stream: normalizeDepartmentValue(res.data.preferred_stream || res.data.department || ''),
-                    profile_photo_url: res.data.profile_photo_url || '',
-                    roll_number: res.data.roll_number || '',
-                    registration_id: res.data.registration_id || '',
-                    user_unique_id: res.data.user_unique_id || ''
-                });
+            setFormData({
+                full_name: profile.full_name || '',
+                email: profile.email || '',
+                date_of_birth: profile.date_of_birth ? new Date(profile.date_of_birth).toISOString().split('T')[0] : '',
+                gender: profile.gender || '',
+                address: profile.address || '',
+                guardian_name: profile.guardian_name || '',
+                guardian_phone: profile.guardian_phone || '',
+                ssc_batch: profile.ssc_batch || '',
+                hsc_batch: profile.hsc_batch || '',
+                department: normalizeDepartmentValue(profile.department || ''),
+                college_name: profile.college_name || '',
+                phone_number: profile.phone_number || '',
+                preferred_stream: normalizeDepartmentValue(profile.preferred_stream || profile.department || ''),
+                profile_photo_url: profile.profile_photo_url || '',
+                roll_number: profile.roll_number || '',
+                registration_id: profile.registration_id || '',
+                user_unique_id: profile.user_unique_id || ''
+            });
+        }
+    }, [profile]);
+
+    const submitProfileUpdate = async (payload: Record<string, any>) => {
+        try {
+            const res = await updateProfileMutation.mutateAsync(payload);
+            if (res.pendingRequest) {
+                toast.success('Some changes submitted for admin approval');
+            } else {
+                toast.success('Profile updated');
             }
+            setOtpState(prev => ({ ...prev, open: false, payloadToSubmit: null, code: '' }));
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Failed to load profile');
-        } finally {
-            setLoading(false);
+            const details = err.response?.data?.error?.details;
+            if (details?.requiresOtp) {
+                // Trigger OTP Verification Flow
+                const targetContactType = details.contactType === 'phone' ? 'phone' : 'email';
+                const targetContactValue = String(details.contactValue);
+                
+                const toastId = toast.loading('Sending verification OTP...');
+                try {
+                    await requestOtpMutation.mutateAsync({
+                        contactType: targetContactType,
+                        contactValue: targetContactValue,
+                    });
+                    toast.success('Verification OTP sent successfully', { id: toastId });
+                    setOtpState({
+                        open: true,
+                        contactType: targetContactType,
+                        contactValue: targetContactValue,
+                        code: '',
+                        payloadToSubmit: payload,
+                        cooldown: 60,
+                    });
+                } catch (reqOtpErr: any) {
+                    toast.error(reqOtpErr.response?.data?.error?.message || 'Failed to send verification OTP', { id: toastId });
+                }
+            } else {
+                toast.error(err?.response?.data?.error?.message || err?.response?.data?.message || 'Failed to update profile');
+            }
         }
     };
 
@@ -110,8 +180,9 @@ export default function StudentProfile() {
         e.preventDefault();
         setSaving(true);
         try {
-            const payload: Record<string, unknown> = {
+            const payload: Record<string, any> = {
                 full_name: formData.full_name.trim(),
+                email: formData.email.trim(),
                 date_of_birth: formData.date_of_birth || undefined,
                 gender: formData.gender || undefined,
                 address: formData.address.trim(),
@@ -130,17 +201,46 @@ export default function StudentProfile() {
                 delete payload.department;
             }
 
-            const res = await updateStudentProfile(payload);
-            if (res.data.pendingRequest) {
-                toast.success('Some changes submitted for admin approval');
-            } else {
-                toast.success('Profile updated');
-            }
-            fetchProfile(); // refresh data
-        } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Failed to update profile');
+            await submitProfileUpdate(payload);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!otpState.code || otpState.code.length < 4) {
+            toast.error('Please enter a valid verification code');
+            return;
+        }
+
+        const toastId = toast.loading('Verifying code...');
+        try {
+            await verifyOtpMutation.mutateAsync({
+                contactType: otpState.contactType,
+                code: otpState.code,
+            });
+            toast.success('Contact verified successfully', { id: toastId });
+            if (otpState.payloadToSubmit) {
+                await submitProfileUpdate(otpState.payloadToSubmit);
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.error?.message || 'Verification failed. Please try again.', { id: toastId });
+        }
+    };
+
+    const handleResendOtp = async () => {
+        if (otpState.cooldown > 0) return;
+        const toastId = toast.loading('Resending OTP...');
+        try {
+            await resendOtpMutation.mutateAsync({
+                contactType: otpState.contactType,
+                contactValue: otpState.contactValue,
+            });
+            toast.success('Verification code resent successfully', { id: toastId });
+            setOtpState(prev => ({ ...prev, cooldown: 60 }));
+        } catch (err: any) {
+            toast.error(err.response?.data?.error?.message || 'Failed to resend code', { id: toastId });
         }
     };
 
@@ -157,11 +257,14 @@ export default function StudentProfile() {
 
         setPasswordSaving(true);
         try {
-            await changePassword(passwordData.currentPassword, passwordData.newPassword);
+            await changePasswordMutation.mutateAsync({
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword,
+            });
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             toast.success('Password updated successfully');
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to update password');
+            toast.error(err.response?.data?.error?.message || 'Failed to update password');
         } finally {
             setPasswordSaving(false);
         }
@@ -201,21 +304,18 @@ export default function StudentProfile() {
             formDataUpload.append('document_type', type);
             formDataUpload.append('file', fileToUpload);
 
-            const res = await uploadStudentDocument(formDataUpload);
-
             if (type === 'profile_photo') {
-                const photoUrl = res.data.url || (res.data as any).absoluteUrl || '';
+                const res = await uploadAvatarMutation.mutateAsync(formDataUpload);
+                const photoUrl = res.url || (res as any).profile_photo_url || '';
                 setFormData(prev => ({ ...prev, profile_photo_url: photoUrl }));
-                setProfile((prev: any) => ({ ...(prev || {}), profile_photo_url: photoUrl }));
                 toast.success('Profile photo uploaded successfully', { id: toastId });
             } else {
+                await uploadStudentDocument(formDataUpload);
                 toast.success('Document uploaded!', { id: toastId });
-                fetchProfile();
+                profileQuery.refetch().catch(() => undefined);
             }
-        } catch (err: unknown) {
-            const errMsg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
-                || (err as { message?: string })?.message
-                || 'Upload failed';
+        } catch (err: any) {
+            const errMsg = err?.response?.data?.error?.message || err?.message || 'Upload failed';
             toast.error(errMsg, { id: toastId });
         } finally {
             if (type === 'profile_photo') setPhotoUploading(false);
@@ -385,10 +485,29 @@ export default function StudentProfile() {
                                         disabled={Boolean(profile?.phone_number && profile?.pendingRequest)}
                                         className={`w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white ${profile?.phone_number && profile?.pendingRequest ? 'opacity-70 cursor-not-allowed' : ''}`} />
                                 </div>
+                                <div className="space-y-1.5 relative group">
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Email Address</label>
+                                    <input type="email" aria-label="Email Address" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        disabled={Boolean(profile?.email && profile?.pendingRequest)}
+                                        className={`w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white ${profile?.email && profile?.pendingRequest ? 'opacity-70 cursor-not-allowed' : ''}`} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Date of Birth</label>
                                     <input type="date" aria-label="Date of Birth" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Gender</label>
+                                    <select aria-label="Gender" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white">
+                                        <option value="">Select gender...</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -407,16 +526,6 @@ export default function StudentProfile() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Gender</label>
-                                    <select aria-label="Gender" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white">
-                                        <option value="">Select gender...</option>
-                                        <option value="male">Male</option>
-                                        <option value="female">Female</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                                <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department Framework</label>
                                     <select aria-label="Department Framework" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white">
@@ -426,12 +535,11 @@ export default function StudentProfile() {
                                         <option value="commerce">Business Studies (ব্যবসায় শিক্ষা)</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">College Name</label>
-                                <input type="text" aria-label="College Name" value={formData.college_name} onChange={(e) => setFormData({ ...formData, college_name: e.target.value })}
-                                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">College Name</label>
+                                    <input type="text" aria-label="College Name" value={formData.college_name} onChange={(e) => setFormData({ ...formData, college_name: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 dark:text-white" />
+                                </div>
                             </div>
 
                             <div>
@@ -578,7 +686,74 @@ export default function StudentProfile() {
                     </div>
                 </div>
             </div>
+
+            {/* OTP Verification Modal */}
+            {otpState.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                    <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/50 p-6 sm:p-8 animate-scale-up">
+                        <button
+                            onClick={() => setOtpState(prev => ({ ...prev, open: false }))}
+                            aria-label="Close OTP verification"
+                            className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="text-center">
+                            <div className="mx-auto w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4">
+                                <Lock className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">OTP Verification Required</h3>
+                            <p className="mt-2 text-sm text-slate-500">
+                                To complete changing your {otpState.contactType === 'email' ? 'email address' : 'phone number'}, please verify the code sent to:
+                            </p>
+                            <p className="mt-1.5 text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                                {otpState.contactValue}
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleVerifyOtpSubmit} className="mt-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">6-Digit Verification Code</label>
+                                <input
+                                    type="text"
+                                    maxLength={6}
+                                    placeholder="Enter 6-digit code"
+                                    aria-label="6-Digit Verification Code"
+                                    value={otpState.code}
+                                    onChange={(e) => setOtpState({ ...otpState, code: e.target.value.replace(/\D/g, '') })}
+                                    className="w-full text-center text-xl font-bold tracking-widest bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 dark:text-white"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={verifyOtpMutation.isPending}
+                                className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/10 disabled:opacity-50"
+                            >
+                                {verifyOtpMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Save Changes'}
+                            </button>
+
+                            <div className="text-center pt-2">
+                                <button
+                                    type="button"
+                                    disabled={otpState.cooldown > 0 || resendOtpMutation.isPending}
+                                    onClick={handleResendOtp}
+                                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 disabled:text-slate-400 disabled:dark:text-slate-600 transition-colors"
+                                >
+                                    {resendOtpMutation.isPending ? (
+                                        <span className="flex items-center justify-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Resending...</span>
+                                    ) : otpState.cooldown > 0 ? (
+                                        `Resend code in ${otpState.cooldown}s`
+                                    ) : (
+                                        'Resend Code'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
-

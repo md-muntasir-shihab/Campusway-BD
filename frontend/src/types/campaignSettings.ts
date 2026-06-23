@@ -110,7 +110,7 @@ export interface AdvancedNotificationSettings {
 
     // Advanced fields
     frequencyCap: FrequencyCapConfig;
-    budgetGuardrail: BudgetGuardrailConfig;
+    budgetGuardrails: BudgetGuardrailConfig;
     providerRouting: ProviderRoutingConfig;
     approvalPolicy: ApprovalPolicy;
     experiment: ExperimentConfig;

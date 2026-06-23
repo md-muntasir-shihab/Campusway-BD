@@ -194,10 +194,75 @@ export default function CascadingDropdowns({ value, onChange }: CascadingDropdow
         [onChange, value],
     );
 
+    // ── Breadcrumb Path ──────────────────────────────────────────────────
+
+    const breadcrumbs = useMemo(() => {
+        const crumbs: { label: string; level: number }[] = [];
+        const selectedGroup = findNode(groups, value.group_id);
+        if (selectedGroup) crumbs.push({ label: nodeLabel(selectedGroup), level: 1 });
+        const selectedSubGroup = findNode(subGroups, value.sub_group_id);
+        if (selectedSubGroup) crumbs.push({ label: nodeLabel(selectedSubGroup), level: 2 });
+        const selectedSubject = findNode(subjects, value.subject_id);
+        if (selectedSubject) crumbs.push({ label: nodeLabel(selectedSubject), level: 3 });
+        const selectedChapter = findNode(chapters, value.chapter_id);
+        if (selectedChapter) crumbs.push({ label: nodeLabel(selectedChapter), level: 4 });
+        const selectedTopic = findNode(topics, value.topic_id);
+        if (selectedTopic) crumbs.push({ label: nodeLabel(selectedTopic), level: 5 });
+        return crumbs;
+    }, [groups, subGroups, subjects, chapters, topics, value]);
+
+    const handleBreadcrumbClick = useCallback(
+        (level: number) => {
+            // Click on a breadcrumb resets everything downstream
+            switch (level) {
+                case 1:
+                    onChange({ group_id: value.group_id, sub_group_id: undefined, subject_id: undefined, chapter_id: undefined, topic_id: undefined });
+                    break;
+                case 2:
+                    onChange({ ...value, subject_id: undefined, chapter_id: undefined, topic_id: undefined });
+                    break;
+                case 3:
+                    onChange({ ...value, chapter_id: undefined, topic_id: undefined });
+                    break;
+                case 4:
+                    onChange({ ...value, topic_id: undefined });
+                    break;
+                default:
+                    break;
+            }
+        },
+        [onChange, value],
+    );
+
     // ── Render ───────────────────────────────────────────────────────────
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="space-y-3">
+            {/* Breadcrumb Path */}
+            {breadcrumbs.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 text-xs font-medium">
+                    <span className="text-slate-400 dark:text-slate-500">Path:</span>
+                    {breadcrumbs.map((crumb, idx) => (
+                        <span key={crumb.level} className="flex items-center gap-1">
+                            {idx > 0 && <span className="text-slate-300 dark:text-slate-600">›</span>}
+                            <button
+                                type="button"
+                                onClick={() => handleBreadcrumbClick(crumb.level)}
+                                className={`rounded px-1.5 py-0.5 transition ${
+                                    idx === breadcrumbs.length - 1
+                                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                                        : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-indigo-400'
+                                }`}
+                            >
+                                {crumb.label}
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {/* Dropdowns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Level 1 — Group */}
             <Dropdown
                 label="Group"
@@ -252,6 +317,7 @@ export default function CascadingDropdowns({ value, onChange }: CascadingDropdow
                 disabled={!value.chapter_id}
                 loading={isLoading}
             />
+            </div>
         </div>
     );
 }

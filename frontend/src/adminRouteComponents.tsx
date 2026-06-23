@@ -77,3 +77,5 @@ export const WrittenGradingInterfacePage = lazy(() => import('./pages/admin/exam
 export const AntiCheatReportPage = lazy(() => import('./pages/admin/exam-center/AntiCheatReport'));
 export const NotificationManagementPage = lazy(() => import('./pages/admin/exam-center/NotificationManagement'));
 export const AdminAnalyticsDashboardV2Page = lazy(() => import('./pages/admin/analytics/AdminAnalyticsDashboard'));
+export const AdminUserManagementPage = lazy(() => import('./pages/admin/users/AdminUserManagementPage'));
+

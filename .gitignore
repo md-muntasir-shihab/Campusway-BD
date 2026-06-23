@@ -142,3 +142,6 @@ snapshot-*.md
 .kiro/
 
 graphify-out/
+
+backend/nul
+nul

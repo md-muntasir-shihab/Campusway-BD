@@ -24,6 +24,7 @@ import {
     type PracticeSubmitResult,
     type PracticeTopicNode,
 } from '../../services/api';
+import { useAllTopicDifficulties } from '../../hooks/useExamSystemQueries';
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'mixed';
 
@@ -43,6 +44,20 @@ const DIFFICULTY_OPTIONS: { value: Difficulty; en: string; bn: string }[] = [
 ];
 
 const COUNT_OPTIONS = [5, 10, 20, 30];
+
+const DIFFICULTY_LEVEL_COLORS: Record<string, string> = {
+    beginner: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+    intermediate: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border-blue-100 dark:border-blue-800',
+    advanced: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 border-purple-100 dark:border-purple-800',
+    expert: 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 border-rose-100 dark:border-rose-800',
+};
+
+const DIFFICULTY_LEVEL_LABELS: Record<string, { en: string; bn: string }> = {
+    beginner: { en: 'Beginner', bn: 'শিক্ষানবিশ' },
+    intermediate: { en: 'Intermediate', bn: 'মধ্যম' },
+    advanced: { en: 'Advanced', bn: 'উন্নত' },
+    expert: { en: 'Expert', bn: 'দক্ষ' },
+};
 
 function bn(text: { en: string; bn: string } | undefined): string {
     if (!text) return '';
@@ -73,6 +88,22 @@ function getQuestionText(q: PracticeQuestion): string {
 }
 
 export default function StudentPractice() {
+    const { data: difficultiesData } = useAllTopicDifficulties();
+
+    const difficultyMap = useMemo(() => {
+        const list = (difficultiesData as any)?.data || difficultiesData || [];
+        const map = new Map<string, string>();
+        if (Array.isArray(list)) {
+            list.forEach((item: any) => {
+                const topicId = item.topic?._id || item.topic;
+                if (topicId) {
+                    map.set(topicId.toString(), item.difficultyLevel);
+                }
+            });
+        }
+        return map;
+    }, [difficultiesData]);
+
     const [step, setStep] = useState<'pick' | 'run' | 'finish'>('pick');
     const [filter, setFilter] = useState<SelectedFilter>({
         group: null,
@@ -338,18 +369,24 @@ export default function StudentPractice() {
                             </button>
                             {filter.category.topics.map((t) => {
                                 const isActive = filter.topic?._id === t._id;
+                                const diffLevel = difficultyMap.get(t._id.toString()) || 'beginner';
+                                const diffColor = DIFFICULTY_LEVEL_COLORS[diffLevel];
+                                const diffLabel = DIFFICULTY_LEVEL_LABELS[diffLevel]?.bn || DIFFICULTY_LEVEL_LABELS[diffLevel]?.en || 'Beginner';
                                 return (
                                     <button
                                         key={t._id}
                                         type="button"
                                         onClick={() => handleSelectTopic(t)}
-                                        className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
                                             isActive
                                                 ? 'border-cyan-500 bg-cyan-500 text-white shadow-sm'
                                                 : 'border-slate-200 bg-white text-slate-700 hover:border-cyan-300 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-200'
                                         }`}
                                     >
-                                        {bn(t.title)}
+                                        <span>{bn(t.title)}</span>
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${diffColor}`}>
+                                            {diffLabel}
+                                        </span>
                                     </button>
                                 );
                             })}

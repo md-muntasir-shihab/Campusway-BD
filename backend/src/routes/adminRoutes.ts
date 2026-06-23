@@ -476,7 +476,7 @@ import {
     adminUpdateUserRole, adminToggleUserStatus, adminGetAuditLogs as adminGetSystemAuditLogs, adminBulkImportStudents,
     adminGetStudentProfile, adminUpdateStudentProfile,
     adminResetUserPassword, adminExportStudents,
-    adminDeleteUser, adminSetUserStatus, adminSetUserPermissions,
+    adminDeleteUser, adminSetUserStatus, adminSetUserPermissions, adminBanUser,
     adminBulkUserAction, adminGetUserActivity, adminGetAdminProfile, adminUpdateAdminProfile,
     adminUserStream,
     adminGetStudents, adminCreateStudent, adminUpdateStudent,
@@ -1172,9 +1172,11 @@ router.get('/users/:id', requirePermission('team_access_control', 'view'), admin
 router.post('/users', requirePermission('team_access_control', 'create'), adminCreateUser);
 router.put('/users/:id', requirePermission('team_access_control', 'edit'), adminUpdateUser);
 router.put('/users/:id/role', requirePermission('team_access_control', 'edit'), requireSecurityStepUp('users', 'role_update'), adminUpdateUserRole);
+router.patch('/users/:id/role', requirePermission('team_access_control', 'edit'), requireSecurityStepUp('users', 'role_update'), adminUpdateUserRole);
 router.patch('/users/:id/toggle-status', requirePermission('team_access_control', 'edit'), adminToggleUserStatus);
 router.delete('/users/:id', requirePermission('team_access_control', 'delete'), requireDestructiveStepUp('users', 'user_delete'), adminDeleteUser);
 router.patch('/users/:id/set-status', requirePermission('team_access_control', 'edit'), adminSetUserStatus);
+router.post('/users/:id/ban', requirePermission('team_access_control', 'edit'), adminBanUser);
 router.patch('/users/:id/permissions', requirePermission('team_access_control', 'edit'), adminSetUserPermissions);
 router.post('/users/bulk-action', requirePermission('team_access_control', 'bulk'), adminBulkUserAction);
 router.get('/audit-logs', requirePermission('security_logs', 'view'), (req: Request, res: Response) => {

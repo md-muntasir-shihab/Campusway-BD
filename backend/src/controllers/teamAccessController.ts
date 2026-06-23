@@ -40,6 +40,53 @@ function canManageTeamPasswords(role: unknown): boolean {
     return normalized === 'superadmin' || normalized === 'admin';
 }
 
+/**
+ * Role privilege ordering (higher index = higher privilege). Used to prevent a
+ * lower-privileged admin from assigning / managing a role at or above their own.
+ * 'superadmin' is the ceiling; only a superadmin may manage superadmin-level
+ * accounts/roles. Students/chairman are not team-managed but are included so
+ * the helper degrades safely (treated as lowest privilege here).
+ */
+const ROLE_PRIVILEGE_RANK: Record<string, number> = {
+    student: 0,
+    chairman: 1,
+    viewer: 2,
+    support_agent: 3,
+    finance_agent: 3,
+    editor: 4,
+    moderator: 5,
+    admin: 6,
+    superadmin: 7,
+};
+
+function roleRank(role: unknown): number {
+    const normalized = String(role || '').trim().toLowerCase();
+    return ROLE_PRIVILEGE_RANK[normalized] ?? 0;
+}
+
+/**
+ * An actor may only manage a member whose effective role is STRICTLY below the
+ * actor's own role. superadmin is the only role that can manage equal-or-higher
+ * targets (effectively only other superadmins, since it is the ceiling).
+ */
+function actorCanManageTarget(actorRole: unknown, targetRole: unknown): boolean {
+    const actor = roleRank(actorRole);
+    const target = roleRank(targetRole);
+    if (actor >= ROLE_PRIVILEGE_RANK.superadmin) return true; // superadmin manages everyone
+    return target < actor;
+}
+
+/**
+ * An actor may only assign a role whose privilege rank is STRICTLY below their
+ * own. superadmin can assign any role.
+ */
+function actorCanAssignRole(actorRole: unknown, roleToAssign: unknown): boolean {
+    const actor = roleRank(actorRole);
+    const target = roleRank(roleToAssign);
+    if (actor >= ROLE_PRIVILEGE_RANK.superadmin) return true;
+    return target < actor;
+}
+
 function validateManagedPassword(value: unknown): string {
     return String(value || '').trim();
 }
@@ -368,6 +415,12 @@ export async function teamCreateMember(req: Request, res: Response): Promise<voi
             return;
         }
 
+        // Privilege guard: actor may only assign a role strictly below their own.
+        if (!actorCanAssignRole(authReq.user?.role, role.basePlatformRole)) {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot assign a role at or above your own privilege level.'));
+            return;
+        }
+
         const passwordHash = await bcrypt.hash(useDirectPassword ? directPassword : randomPassword(), 10);
 
         const user = await User.create({
@@ -465,10 +518,28 @@ export async function teamGetMemberById(req: Request, res: Response): Promise<vo
 
 export async function teamUpdateMember(req: Request, res: Response): Promise<void> {
     try {
+        const authReq = req as AuthRequest;
         const body = req.body as Record<string, unknown>;
         const member = await User.findById(req.params.id);
         if (!member) {
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
+            return;
+        }
+
+        // Privilege guard: actor may only manage a member strictly below their
+        // own role (superadmin excepted — they manage everyone).
+        if (!actorCanManageTarget(authReq.user?.role, member.role)) {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot modify a member at or above your own privilege level.'));
+            return;
+        }
+
+        const isSelf = Boolean(authReq.user?._id && String(authReq.user._id) === String(member._id));
+        const attemptsRoleChange = body.roleId !== undefined || body.teamRoleId !== undefined;
+        const attemptsStatusChange = body.status !== undefined;
+        // A member must not change their own role or status (self-escalation /
+        // self-lockout guard). superadmin remains unrestricted above.
+        if (isSelf && (attemptsRoleChange || attemptsStatusChange) && String(authReq.user?.role || '').toLowerCase() !== 'superadmin') {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot change your own role or status.'));
             return;
         }
 
@@ -514,6 +585,11 @@ export async function teamUpdateMember(req: Request, res: Response): Promise<voi
                 ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Role not found'));
                 return;
             }
+            // Privilege guard: actor may only assign a role strictly below their own.
+            if (!actorCanAssignRole(authReq.user?.role, role.basePlatformRole)) {
+                ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot assign a role at or above your own privilege level.'));
+                return;
+            }
             member.teamRoleId = role._id as mongoose.Types.ObjectId;
             member.role = role.basePlatformRole;
         }
@@ -544,9 +620,21 @@ export async function teamActivateMember(req: Request, res: Response): Promise<v
 
 async function teamUpdateStatus(req: Request, res: Response, status: string, action: string): Promise<void> {
     try {
+        const authReq = req as AuthRequest;
         const member = await User.findById(req.params.id);
         if (!member) {
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
+            return;
+        }
+        // Privilege guard: cannot change status of an equal/higher-privileged member,
+        // and cannot suspend/activate yourself (self-lockout / self-restore guard).
+        if (!actorCanManageTarget(authReq.user?.role, member.role)) {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot change the status of a member at or above your own privilege level.'));
+            return;
+        }
+        const isSelf = Boolean(authReq.user?._id && String(authReq.user._id) === String(member._id));
+        if (isSelf && String(authReq.user?.role || '').toLowerCase() !== 'superadmin') {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot change your own status.'));
             return;
         }
         const oldStatus = member.status;
@@ -567,6 +655,12 @@ export async function teamResetPassword(req: Request, res: Response): Promise<vo
         const member = await User.findById(req.params.id).select('+password');
         if (!member) {
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
+            return;
+        }
+
+        // Privilege guard: cannot reset the password of an equal/higher-privileged member.
+        if (!actorCanManageTarget(authReq.user?.role, member.role)) {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot reset the password of a member at or above your own privilege level.'));
             return;
         }
 
@@ -612,6 +706,17 @@ export async function teamResetPassword(req: Request, res: Response): Promise<vo
 
 export async function teamRevokeSessions(req: Request, res: Response): Promise<void> {
     try {
+        const authReq = req as AuthRequest;
+        const target = await User.findById(req.params.id).select('role').lean();
+        if (!target) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
+            return;
+        }
+        // Privilege guard: cannot revoke sessions of an equal/higher-privileged member.
+        if (!actorCanManageTarget(authReq.user?.role, target.role)) {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot revoke sessions of a member at or above your own privilege level.'));
+            return;
+        }
         const result = await ActiveSession.updateMany(
             { user_id: asObjectId(req.params.id), status: 'active' },
             { $set: { status: 'terminated', terminated_reason: 'admin_revoke', terminated_at: new Date() } },
@@ -637,6 +742,12 @@ export async function teamToggle2FA(req: Request, res: Response): Promise<void> 
         const member = await User.findById(req.params.id).select('+twoFactorSecret');
         if (!member) {
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
+            return;
+        }
+
+        // Privilege guard: cannot toggle 2FA on an equal/higher-privileged member.
+        if (!actorCanManageTarget(authReq.user?.role, member.role)) {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot modify 2FA for a member at or above your own privilege level.'));
             return;
         }
 
@@ -926,6 +1037,7 @@ export async function teamUpdateRolePermissions(req: Request, res: Response): Pr
 
 export async function teamUpdateMemberOverride(req: Request, res: Response): Promise<void> {
     try {
+        const authReq = req as AuthRequest;
         const memberId = String(req.params.id);
         if (!mongoose.Types.ObjectId.isValid(memberId)) {
             ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid member id'));
@@ -946,9 +1058,15 @@ export async function teamUpdateMemberOverride(req: Request, res: Response): Pro
             return;
         }
 
-        const member = await User.findById(memberId).select('teamRoleId').lean();
+        const member = await User.findById(memberId).select('teamRoleId role').lean();
         if (!member) {
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Member not found'));
+            return;
+        }
+
+        // Privilege guard: cannot override permissions of an equal/higher-privileged member.
+        if (!actorCanManageTarget(authReq.user?.role, member.role)) {
+            ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'You cannot modify permission overrides for a member at or above your own privilege level.'));
             return;
         }
 

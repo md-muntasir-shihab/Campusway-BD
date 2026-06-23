@@ -14,9 +14,10 @@ import {
     Zap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useGamificationProfile } from '../../../hooks/useExamSystemQueries';
+import { useGamificationProfile, useWeeklyLeaderboard } from '../../../hooks/useExamSystemQueries';
 import api from '../../../services/api';
 import type { BadgeCategory, LeagueTier, StreakCalendarDay } from '../../../types/exam-system';
+import BrainClashLive from './BrainClashLive';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
@@ -169,6 +170,64 @@ function DailyLoginBonus({ onClaim, isClaiming }: { onClaim: () => void; isClaim
     );
 }
 
+function WeeklyLeagueTable() {
+    const { data: leaderboardData, isLoading } = useWeeklyLeaderboard();
+    const rankings = leaderboardData?.data?.items || [];
+
+    if (isLoading) {
+        return (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 flex justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+            <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-indigo-500" />
+                    Weekly League Leaderboard
+                </h3>
+            </div>
+            {rankings.length === 0 ? (
+                <p className="p-6 text-center text-xs text-slate-400 dark:text-slate-500">No active students in this tier yet.</p>
+            ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {rankings.map((row: any, idx: number) => {
+                        const rank = idx + 1;
+                        return (
+                            <div key={row._id} className="flex items-center justify-between px-4 py-3 text-sm">
+                                <div className="flex items-center gap-3">
+                                    <span className={`w-5 text-center font-bold ${rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                        #{rank}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {row.student?.profile_photo ? (
+                                            <img src={row.student.profile_photo} alt={row.student.fullName} className="w-6 h-6 rounded-full" />
+                                        ) : (
+                                            <div className="w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">
+                                                {row.student?.fullName?.charAt(0) || 'U'}
+                                            </div>
+                                        )}
+                                        <span className="font-medium text-slate-800 dark:text-slate-200">
+                                            {row.student?.fullName || 'Anonymous Student'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400">
+                                    <span>{row.xpEarned}</span>
+                                    <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">XP</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════════════════════════════════
@@ -176,8 +235,9 @@ function DailyLoginBonus({ onClaim, isClaiming }: { onClaim: () => void; isClaim
 export default function GamificationProfile() {
     const { data, isLoading, isError, refetch } = useGamificationProfile();
     const [isClaiming, setIsClaiming] = useState(false);
+    const [showClash, setShowClash] = useState(false);
 
-    const profile = data?.data;
+    const profile = data;
 
     const handleClaimBonus = async () => {
         setIsClaiming(true);
@@ -192,7 +252,12 @@ export default function GamificationProfile() {
         }
     };
 
+    if (showClash) {
+        return <BrainClashLive onBack={() => setShowClash(false)} />;
+    }
+
     if (isLoading) {
+
         return (
             <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
@@ -258,8 +323,25 @@ export default function GamificationProfile() {
             {/* Daily Login Bonus */}
             <DailyLoginBonus onClaim={() => void handleClaimBonus()} isClaiming={isClaiming} />
 
+            {/* Brain Clash Entry Banner */}
+            <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/50 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h3 className="text-base font-bold text-indigo-850 dark:text-indigo-300">Brain Clash Live 1v1</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Challenge other online students in real-time speed battle and win up to 100 XP!</p>
+                </div>
+                <button
+                    onClick={() => setShowClash(true)}
+                    className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl shadow-md transition duration-200 active:scale-[0.98]"
+                >
+                    Clash Now
+                </button>
+            </div>
+
             {/* Streak Calendar */}
             <StreakCalendarView calendar={profile.streakCalendar} />
+
+            {/* Weekly League Leaderboard */}
+            <WeeklyLeagueTable />
 
             {/* Badge Collection */}
             <BadgeCollection badges={profile.badges} />

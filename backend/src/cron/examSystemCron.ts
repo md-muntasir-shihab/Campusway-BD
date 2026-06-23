@@ -14,7 +14,12 @@ import LeaderboardEntry from '../models/LeaderboardEntry';
 import StreakRecord from '../models/StreakRecord';
 import Exam from '../models/Exam';
 import BattleSession from '../models/BattleSession';
+import WeeklyLeagueRanking from '../models/WeeklyLeagueRanking';
+import LeagueProgress from '../models/LeagueProgress';
+import { TIER_XP_MULTIPLIERS, checkAndAwardMilestones, evaluateBadges } from '../services/GamificationService';
 import { triggerStreakWarning, triggerExamStartingSoon } from '../services/NotificationTriggerService';
+
+type LeagueTier = 'iron' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'platinum';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -40,6 +45,102 @@ async function resetWeeklyLeaderboard(): Promise<void> {
         console.log(`[CRON-EXAM] Weekly leaderboard reset: removed ${result.deletedCount} entries.`);
     } catch (err) {
         console.error('[CRON-EXAM] Failed to reset weekly leaderboard:', err);
+    }
+}
+
+function getWeekKey(date: Date): string {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+async function recalculateWeeklyLeagues(): Promise<void> {
+    try {
+        const lastWeekDate = new Date(Date.now() - 24 * 3600 * 1000);
+        const lastWeekKey = getWeekKey(lastWeekDate);
+        const nextWeekKey = getWeekKey(new Date());
+
+        console.log(`[CRON-EXAM] Starting weekly league recalculation for week: ${lastWeekKey}`);
+
+        const tiers = ['iron', 'bronze', 'silver', 'gold', 'diamond', 'platinum'];
+
+        for (const tier of tiers) {
+            // Find all rankings in this tier for the week that just ended
+            const rankings = await WeeklyLeagueRanking.find({ weekKey: lastWeekKey, tier })
+                .sort({ xpEarned: -1 })
+                .lean();
+
+            if (rankings.length === 0) continue;
+
+            const total = rankings.length;
+            const promoteCount = Math.max(1, Math.floor(total * 0.20));
+            const demoteCount = Math.max(1, Math.floor(total * 0.20));
+
+            for (let i = 0; i < total; i++) {
+                const ranking = rankings[i];
+                const studentId = ranking.student.toString();
+
+                let currentTierIndex = tiers.indexOf(tier);
+                let newTier = tier;
+
+                if (i < promoteCount) {
+                    // Promoted
+                    if (currentTierIndex < tiers.length - 1) {
+                        newTier = tiers[currentTierIndex + 1];
+                    }
+                } else if (i >= total - demoteCount) {
+                    // Demoted
+                    if (currentTierIndex > 0) {
+                        newTier = tiers[currentTierIndex - 1];
+                    }
+                }
+
+                // Update LeagueProgress
+                let league = await LeagueProgress.findOne({ student: ranking.student });
+                if (!league) {
+                    league = new LeagueProgress({
+                        student: ranking.student,
+                        currentTier: 'iron',
+                        mockTestsCompleted: 0,
+                        xpMultiplier: 1,
+                        history: [],
+                    });
+                }
+
+                const promoted = newTier !== league.currentTier && tiers.indexOf(newTier) > tiers.indexOf(league.currentTier);
+                
+                league.currentTier = newTier as any;
+                league.xpMultiplier = TIER_XP_MULTIPLIERS[newTier as LeagueTier] ?? 1;
+                league.promotedAt = new Date();
+                league.history.push({ tier: newTier as any, achievedAt: new Date() });
+                await league.save();
+
+                // Trigger milestones/badges if promoted
+                if (promoted) {
+                    await checkAndAwardMilestones(studentId, 'league');
+                    await evaluateBadges(studentId, 'league_promotion');
+                }
+
+                // Seed ranking for next week
+                await WeeklyLeagueRanking.updateOne(
+                    { student: ranking.student, weekKey: nextWeekKey },
+                    {
+                        $setOnInsert: {
+                            xpEarned: 0,
+                            tier: newTier,
+                        }
+                    },
+                    { upsert: true }
+                );
+            }
+        }
+
+        console.log(`[CRON-EXAM] Completed weekly league recalculation.`);
+    } catch (err) {
+        console.error('[CRON-EXAM] Failed to recalculate weekly leagues:', err);
     }
 }
 
@@ -157,8 +258,11 @@ async function expireBattleChallenges(): Promise<void> {
 export function startExamSystemCronJobs(): void {
     console.log('[cron] Starting exam system cron jobs.');
 
-    // 1. Weekly leaderboard reset — every Monday at 00:00 UTC
-    cron.schedule('0 0 * * 1', resetWeeklyLeaderboard);
+    // 1. Weekly leaderboard reset & league recalculation — every Monday at 00:00 UTC
+    cron.schedule('0 0 * * 1', async () => {
+        await resetWeeklyLeaderboard();
+        await recalculateWeeklyLeagues();
+    });
 
     // 2. Streak warning — daily at 8 PM Bangladesh time (UTC+6 = 14:00 UTC)
     cron.schedule('0 14 * * *', sendStreakWarnings);

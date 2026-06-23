@@ -140,7 +140,7 @@ export default function SupportTicketsPanel() {
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                     <Search className="h-4 w-4 text-slate-400" />
-                    <input value={ticketSearch} onChange={e => setTicketSearch(e.target.value)} placeholder="Search tickets..." className="w-full bg-transparent text-sm outline-none text-slate-800 dark:text-slate-200" />
+                    <input value={ticketSearch} onChange={e => setTicketSearch(e.target.value)} placeholder="Search tickets..." aria-label="Search tickets" className="w-full bg-transparent text-sm outline-none text-slate-800 dark:text-slate-200" />
                 </div>
                 <div className="flex gap-1.5">
                     {['', 'open', 'in_progress', 'resolved', 'closed'].map(s => (
@@ -217,7 +217,7 @@ export default function SupportTicketsPanel() {
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-950/40">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setSelectedTicket(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors dark:hover:bg-slate-800">
+                        <button onClick={() => setSelectedTicket(null)} aria-label="Back to ticket list" className="p-2 hover:bg-slate-200 rounded-xl transition-colors dark:hover:bg-slate-800">
                             <ArrowLeft className="h-5 w-5 text-slate-500 dark:text-slate-300" />
                         </button>
                         <div>
@@ -240,7 +240,7 @@ export default function SupportTicketsPanel() {
                             )}
                         </div>
                     </div>
-                    <select value={selectedTicket.status} onChange={(e) => updateStatus(selectedTicket._id, e.target.value as AdminSupportTicketItem['status'])}
+                    <select value={selectedTicket.status} onChange={(e) => updateStatus(selectedTicket._id, e.target.value as AdminSupportTicketItem['status'])} aria-label="Ticket status"
                         className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none transition-colors ${getStatusStyle(selectedTicket.status)}`}>
                         <option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option>
                     </select>
@@ -288,10 +288,10 @@ export default function SupportTicketsPanel() {
                 {/* Reply Bar */}
                 <div className="p-4 sm:p-5 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
                     <div className="relative flex items-end gap-3 max-w-4xl mx-auto">
-                        <textarea value={replyDraft} onChange={(e) => setReplyDraft(e.target.value)} placeholder="Type your response..."
+                        <textarea value={replyDraft} onChange={(e) => setReplyDraft(e.target.value)} placeholder="Type your response..." aria-label="Reply message"
                             className="flex-1 min-h-[50px] max-h-[150px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleReply(selectedTicket._id); } }} />
-                        <button onClick={() => void handleReply(selectedTicket._id)} disabled={!replyDraft.trim() || loading}
+                        <button onClick={() => void handleReply(selectedTicket._id)} disabled={!replyDraft.trim() || loading} aria-label="Send reply"
                             className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:shadow-xl disabled:opacity-50 transition-all flex-shrink-0">
                             <Send className="h-5 w-5" />
                         </button>
@@ -314,30 +314,30 @@ export default function SupportTicketsPanel() {
                     <div className="space-y-3">
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Title</label>
-                            <input value={noticeForm.title} onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })} placeholder="E.g. Class Rescheduled"
+                            <input value={noticeForm.title} onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })} placeholder="E.g. Class Rescheduled" aria-label="Notice title"
                                 className="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Message</label>
-                            <textarea value={noticeForm.message} onChange={(e) => setNoticeForm({ ...noticeForm, message: e.target.value })} placeholder="Enter details here..."
+                            <textarea value={noticeForm.message} onChange={(e) => setNoticeForm({ ...noticeForm, message: e.target.value })} placeholder="Enter details here..." aria-label="Notice message"
                                 className="h-28 w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" />
                         </div>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Audience</label>
-                                <select value={noticeForm.target} onChange={(e) => { setNoticeForm({ ...noticeForm, target: e.target.value as typeof noticeForm.target, targetIds: [] }); setRecipientSearch(''); }}
+                                <select value={noticeForm.target} onChange={(e) => { setNoticeForm({ ...noticeForm, target: e.target.value as typeof noticeForm.target, targetIds: [] }); setRecipientSearch(''); }} aria-label="Notice audience"
                                     className="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                                     <option value="all">All Users</option><option value="groups">Groups Only</option><option value="students">Single Students</option>
                                 </select>
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Start At</label>
-                                <input type="datetime-local" value={noticeForm.startAt} onChange={(e) => setNoticeForm({ ...noticeForm, startAt: e.target.value })}
+                                <input type="datetime-local" value={noticeForm.startAt} onChange={(e) => setNoticeForm({ ...noticeForm, startAt: e.target.value })} aria-label="Notice start time"
                                     className="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" />
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">End At</label>
-                                <input type="datetime-local" value={noticeForm.endAt} onChange={(e) => setNoticeForm({ ...noticeForm, endAt: e.target.value })}
+                                <input type="datetime-local" value={noticeForm.endAt} onChange={(e) => setNoticeForm({ ...noticeForm, endAt: e.target.value })} aria-label="Notice end time"
                                     className="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" />
                             </div>
                         </div>
@@ -347,7 +347,7 @@ export default function SupportTicketsPanel() {
                                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Select Recipients</label>
                                     <span className="text-[10px] font-semibold text-indigo-500">{noticeForm.targetIds.length} selected</span>
                                 </div>
-                                <input value={recipientSearch} onChange={(e) => setRecipientSearch(e.target.value)} placeholder={noticeForm.target === 'students' ? 'Search students...' : 'Search groups...'}
+                                <input value={recipientSearch} onChange={(e) => setRecipientSearch(e.target.value)} placeholder={noticeForm.target === 'students' ? 'Search students...' : 'Search groups...'} aria-label="Search recipients"
                                     className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200" />
                                 <div className="mt-2 max-h-44 space-y-1 overflow-y-auto pr-1">
                                     {(studentsQuery.isFetching || groupsQuery.isFetching) ? <p className="text-xs text-slate-400 px-1 py-2">Loading...</p>

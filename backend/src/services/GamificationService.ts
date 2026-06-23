@@ -14,6 +14,8 @@ import LeagueProgress from '../models/LeagueProgress';
 import Badge from '../models/Badge';
 import StudentBadge from '../models/StudentBadge';
 import StudentAnalyticsAggregate from '../models/StudentAnalyticsAggregate';
+import UserPoints from '../models/UserPoints';
+import WeeklyLeagueRanking from '../models/WeeklyLeagueRanking';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -59,6 +61,12 @@ export interface GamificationProfile {
     coinsBalance: number;
     streak: StreakInfo;
     league: LeagueStatus;
+    currentStreak: number;
+    longestStreak: number;
+    leagueTier: LeagueTier;
+    xpMultiplier: number;
+    streakCalendar: any[];
+    dailyBonusAvailable?: boolean;
     badges: {
         code: string;
         title: string;
@@ -210,6 +218,15 @@ function todayDateKey(now: Date = new Date()): string {
  *
  * Requirement 19.1
  */
+function getWeekKey(date: Date): string {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
 export async function awardXP(studentId: string, event: XPEvent): Promise<void> {
     const studentOid = toObjectId(studentId);
 
@@ -234,6 +251,25 @@ export async function awardXP(studentId: string, event: XPEvent): Promise<void> 
         { $inc: { xpTotal: amount } },
         { upsert: true },
     );
+
+    // Sync with UserPoints.xp
+    await UserPoints.updateOne(
+        { student: studentOid },
+        { $inc: { xp: amount } },
+        { upsert: true }
+    );
+
+    // Sync with WeeklyLeagueRanking.xpEarned
+    const weekKey = getWeekKey(new Date());
+    const currentTier = league?.currentTier ?? 'iron';
+    await WeeklyLeagueRanking.updateOne(
+        { student: studentOid, weekKey },
+        {
+            $inc: { xpEarned: amount },
+            $setOnInsert: { tier: currentTier }
+        },
+        { upsert: true }
+    );
 }
 
 /**
@@ -252,6 +288,13 @@ export async function awardCoins(studentId: string, event: CoinEvent): Promise<v
         event: event.event,
         sourceId: event.sourceId ? toObjectId(event.sourceId) : undefined,
     });
+
+    // Sync with UserPoints.coins
+    await UserPoints.updateOne(
+        { student: studentOid },
+        { $inc: { coins: event.amount } },
+        { upsert: true }
+    );
 }
 
 /**
@@ -372,6 +415,9 @@ export async function checkLeaguePromotion(studentId: string): Promise<LeagueSta
             { $set: { leagueTier: newTier } },
             { upsert: true },
         );
+
+        // Trigger milestones and badges
+        await checkAndAwardMilestones(studentId, 'league');
     }
 
     return {
@@ -431,6 +477,294 @@ export async function awardBadge(studentId: string, badgeCode: string): Promise<
             sourceId: (badge._id as mongoose.Types.ObjectId).toString(),
         });
     }
+}
+
+export async function detectAndResetBrokenStreak(studentId: string): Promise<void> {
+    const studentOid = toObjectId(studentId);
+    const now = new Date();
+    const record = await StreakRecord.findOne({ student: studentOid });
+    if (record && record.currentStreak > 0 && record.lastActivityDate) {
+        const daysDiff = diffInCalendarDays(record.lastActivityDate, now);
+        if (daysDiff > 1) {
+            record.currentStreak = 0;
+            await record.save();
+
+            await StudentAnalyticsAggregate.updateOne(
+                { student: studentOid },
+                { $set: { currentStreak: 0 } },
+                { upsert: true }
+            );
+        }
+    }
+}
+
+export async function checkAndAwardMilestones(
+    studentId: string,
+    triggerType: 'streak' | 'exam' | 'league'
+): Promise<void> {
+    const studentOid = toObjectId(studentId);
+
+    if (triggerType === 'streak') {
+        const streakRecord = await StreakRecord.findOne({ student: studentOid }).lean();
+        if (!streakRecord) return;
+        const current = streakRecord.currentStreak;
+
+        const streakMilestones = [
+            { threshold: 3, amount: 10, event: 'streak_3_milestone' },
+            { threshold: 7, amount: 25, event: 'streak_7_milestone' },
+            { threshold: 30, amount: 100, event: 'streak_30_milestone' },
+        ];
+
+        for (const milestone of streakMilestones) {
+            if (current >= milestone.threshold) {
+                const alreadyAwarded = await CoinLog.exists({
+                    student: studentOid,
+                    event: milestone.event,
+                });
+                if (!alreadyAwarded) {
+                    await awardCoins(studentId, {
+                        amount: milestone.amount,
+                        event: milestone.event,
+                    });
+                    await evaluateBadges(studentId, 'streak_milestone');
+                }
+            }
+        }
+    } else if (triggerType === 'exam') {
+        const examCount = await mongoose.model('ExamSession').countDocuments({
+            student: studentOid,
+            status: 'submitted',
+        });
+
+        const examMilestones = [
+            { threshold: 1, amount: 15, event: 'exams_1_milestone' },
+            { threshold: 5, amount: 50, event: 'exams_5_milestone' },
+            { threshold: 10, amount: 100, event: 'exams_10_milestone' },
+            { threshold: 25, amount: 250, event: 'exams_25_milestone' },
+        ];
+
+        for (const milestone of examMilestones) {
+            if (examCount >= milestone.threshold) {
+                const alreadyAwarded = await CoinLog.exists({
+                    student: studentOid,
+                    event: milestone.event,
+                });
+                if (!alreadyAwarded) {
+                    await awardCoins(studentId, {
+                        amount: milestone.amount,
+                        event: milestone.event,
+                    });
+                    await evaluateBadges(studentId, 'exam_complete');
+                }
+            }
+        }
+    } else if (triggerType === 'league') {
+        const league = await LeagueProgress.findOne({ student: studentOid }).lean();
+        if (!league) return;
+        const tier = league.currentTier;
+
+        const leagueMilestones = [
+            { tier: 'bronze', amount: 20, event: 'league_bronze_milestone' },
+            { tier: 'silver', amount: 50, event: 'league_silver_milestone' },
+            { tier: 'gold', amount: 100, event: 'league_gold_milestone' },
+            { tier: 'platinum', amount: 300, event: 'league_platinum_milestone' },
+        ];
+
+        for (const milestone of leagueMilestones) {
+            const tiers: LeagueTier[] = ['iron', 'bronze', 'silver', 'gold', 'diamond', 'platinum'];
+            const currentIdx = tiers.indexOf(tier);
+            const milestoneIdx = tiers.indexOf(milestone.tier as LeagueTier);
+
+            if (currentIdx >= milestoneIdx && milestoneIdx > 0) {
+                const alreadyAwarded = await CoinLog.exists({
+                    student: studentOid,
+                    event: milestone.event,
+                });
+                if (!alreadyAwarded) {
+                    await awardCoins(studentId, {
+                        amount: milestone.amount,
+                        event: milestone.event,
+                    });
+                    await evaluateBadges(studentId, 'league_promotion');
+                }
+            }
+        }
+    }
+}
+
+export async function evaluateBadges(
+    studentId: string,
+    eventType: 'exam_complete' | 'streak_milestone' | 'league_promotion'
+): Promise<void> {
+    const studentOid = toObjectId(studentId);
+
+    if (eventType === 'exam_complete') {
+        const examCount = await mongoose.model('ExamSession').countDocuments({
+            student: studentOid,
+            status: 'submitted',
+        });
+
+        if (examCount >= 5) {
+            await awardBadge(studentId, 'speed_demon');
+        }
+
+        if (examCount >= 10) {
+            await awardBadge(studentId, 'academic_champion');
+        }
+
+        const perfectExam = await mongoose.model('ExamSession').findOne({
+            student: studentOid,
+            status: 'submitted',
+            'scoreBreakdown.percentage': 100,
+        }).lean();
+
+        if (perfectExam) {
+            await awardBadge(studentId, 'perfectionist');
+        }
+    } else if (eventType === 'streak_milestone') {
+        const streakRecord = await StreakRecord.findOne({ student: studentOid }).lean();
+        if (streakRecord) {
+            const current = streakRecord.currentStreak;
+            if (current >= 3) {
+                await awardBadge(studentId, 'consistent_3');
+            }
+            if (current >= 7) {
+                await awardBadge(studentId, 'consistent_7');
+            }
+            if (current >= 30) {
+                await awardBadge(studentId, 'super_consistent');
+            }
+        }
+    } else if (eventType === 'league_promotion') {
+        const league = await LeagueProgress.findOne({ student: studentOid }).lean();
+        if (league) {
+            const tier = league.currentTier;
+            if (tier === 'bronze') await awardBadge(studentId, 'league_bronze');
+            if (tier === 'silver') await awardBadge(studentId, 'league_silver');
+            if (tier === 'gold') await awardBadge(studentId, 'league_gold');
+            if (tier === 'platinum') await awardBadge(studentId, 'league_platinum');
+        }
+    }
+}
+
+export async function seedBadges(): Promise<void> {
+    const defaultBadges = [
+        {
+            code: 'speed_demon',
+            title: 'Speed Demon',
+            title_bn: 'গতি দানব',
+            description: 'Finish 5 exams in record time',
+            criteriaType: 'auto',
+            category: 'academic',
+            xpReward: 100,
+            coinReward: 50,
+            isActive: true,
+        },
+        {
+            code: 'academic_champion',
+            title: 'Academic Champion',
+            title_bn: 'শিক্ষা চ্যাম্পিয়ন',
+            description: 'Complete 10 exams successfully',
+            criteriaType: 'auto',
+            category: 'academic',
+            xpReward: 200,
+            coinReward: 100,
+            isActive: true,
+        },
+        {
+            code: 'perfectionist',
+            title: 'Perfectionist',
+            title_bn: 'নিখুঁত অর্জনকারী',
+            description: 'Score 100% on any exam',
+            criteriaType: 'auto',
+            category: 'academic',
+            xpReward: 150,
+            coinReward: 75,
+            isActive: true,
+        },
+        {
+            code: 'consistent_3',
+            title: '3-Day Builder',
+            title_bn: '৩-দিনের ধারাবাহিকতা',
+            description: 'Maintain a 3-day study streak',
+            criteriaType: 'auto',
+            category: 'streak',
+            xpReward: 50,
+            coinReward: 20,
+            isActive: true,
+        },
+        {
+            code: 'consistent_7',
+            title: 'Weekly Warrior',
+            title_bn: 'সাপ্তাহিক যোদ্ধা',
+            description: 'Maintain a 7-day study streak',
+            criteriaType: 'auto',
+            category: 'streak',
+            xpReward: 120,
+            coinReward: 50,
+            isActive: true,
+        },
+        {
+            code: 'super_consistent',
+            title: 'Monthly Legend',
+            title_bn: 'মাসিক কিংবদন্তি',
+            description: 'Maintain a 30-day study streak',
+            criteriaType: 'auto',
+            category: 'streak',
+            xpReward: 500,
+            coinReward: 250,
+            isActive: true,
+        },
+        {
+            code: 'league_bronze',
+            title: 'Bronze League Competitor',
+            title_bn: 'ব্রোঞ্জ লীগ প্রতিযোগী',
+            description: 'Reach Bronze League',
+            criteriaType: 'auto',
+            category: 'league',
+            xpReward: 50,
+            coinReward: 25,
+            isActive: true,
+        },
+        {
+            code: 'league_silver',
+            title: 'Silver League Competitor',
+            title_bn: 'সিলভার লীগ প্রতিযোগী',
+            description: 'Reach Silver League',
+            criteriaType: 'auto',
+            category: 'league',
+            xpReward: 100,
+            coinReward: 50,
+            isActive: true,
+        },
+        {
+            code: 'league_gold',
+            title: 'Gold League Legend',
+            title_bn: 'গোল্ড লীগ কিংবদন্তি',
+            description: 'Reach Gold League',
+            criteriaType: 'auto',
+            category: 'league',
+            xpReward: 200,
+            coinReward: 100,
+            isActive: true,
+        },
+        {
+            code: 'league_platinum',
+            title: 'Platinum League Master',
+            title_bn: 'প্ল্যাটিনাম লীগ মাস্টার',
+            description: 'Reach Platinum League',
+            criteriaType: 'auto',
+            category: 'league',
+            xpReward: 500,
+            coinReward: 250,
+            isActive: true,
+        },
+    ];
+
+    for (const b of defaultBadges) {
+        await Badge.updateOne({ code: b.code }, { $set: b }, { upsert: true });
+    }
+    console.log('✅ [GamificationService] Seeded default badges.');
 }
 
 /**
@@ -500,12 +834,28 @@ export async function getStudentGamificationProfile(studentId: string): Promise<
             };
         });
 
+    // Check if daily claimed today
+    const now = new Date();
+    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    const dailyClaimed = await XPLog.exists({
+        student: studentOid,
+        event: 'daily_login',
+        createdAt: { $gte: startOfDay, $lt: endOfDay },
+    });
+
     return {
         xpTotal,
         coinsBalance,
         streak,
         league: leagueStatus,
         badges,
+        currentStreak: streak.currentStreak,
+        longestStreak: streak.longestStreak,
+        leagueTier: leagueStatus.currentTier,
+        xpMultiplier: leagueStatus.xpMultiplier,
+        streakCalendar: streakRecord?.streakCalendar ?? [],
+        dailyBonusAvailable: !dailyClaimed,
     };
 }
 
@@ -550,6 +900,16 @@ export async function dailyLoginBonus(studentId: string): Promise<{ awarded: boo
 
     // Also update streak on login
     await updateStreak(studentId);
+
+    // Update lastLoginDate in UserPoints
+    await UserPoints.updateOne(
+        { student: studentOid },
+        { $set: { lastLoginDate: now } },
+        { upsert: true }
+    );
+
+    // Trigger milestone/badge updates for streak
+    await checkAndAwardMilestones(studentId, 'streak');
 
     return {
         awarded: true,

@@ -207,6 +207,7 @@ export { default as TeamAuditLog } from './TeamAuditLog';
 export { default as TeamInvite } from './TeamInvite';
 export { default as TeamRole } from './TeamRole';
 export { default as TopicMastery, type ITopicMastery } from './TopicMastery';
+export { default as TopicDifficulty, type ITopicDifficulty } from './TopicDifficulty';
 export { default as University, type IExamCenter } from './University';
 export { default as UniversityCategory } from './UniversityCategory';
 export { default as UniversityCluster } from './UniversityCluster';
@@ -226,6 +227,8 @@ export {
     type IUserPermissionsV2,
 } from './User';
 export { default as UserSubscription, type IUserSubscription, type UserSubscriptionStatus } from './UserSubscription';
+export { default as UserPoints, type IUserPoints } from './UserPoints';
+export { default as WeeklyLeagueRanking, type IWeeklyLeagueRanking } from './WeeklyLeagueRanking';
 export { default as XPLog, type IXPLog } from './XPLog';
 export {
     default as WebsiteSettings,

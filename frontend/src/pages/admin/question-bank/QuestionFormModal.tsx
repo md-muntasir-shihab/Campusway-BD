@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     X,
     Plus,
@@ -8,8 +8,10 @@ import {
     Eye,
     AlertCircle,
     CheckCircle2,
+    AlertTriangle,
 } from 'lucide-react';
-import { useQuestion } from '../../../hooks/useExamSystemQueries';
+import { useQuestion, useCheckDuplicate } from '../../../hooks/useExamSystemQueries';
+import MathText from '../../../components/exam/MathText';
 import CascadingDropdowns from '../../../components/admin/question-bank/CascadingDropdowns';
 import type { CascadingDropdownsValue } from '../../../components/admin/question-bank/CascadingDropdowns';
 import type {
@@ -97,6 +99,31 @@ export default function QuestionFormModal({
     const [tags, setTags] = useState('');
     const [hierarchy, setHierarchy] = useState<CascadingDropdownsValue>({});
     const [showPreview, setShowPreview] = useState(false);
+
+    // ── Duplicate detection ──────────────────────────────────────────────
+    const checkDuplicateMutation = useCheckDuplicate();
+    const [duplicates, setDuplicates] = useState<Record<string, unknown>[]>([]);
+    const duplicateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (duplicateTimerRef.current) clearTimeout(duplicateTimerRef.current);
+        const text = (questionEn || questionBn).trim();
+        if (text.length < 10) {
+            setDuplicates([]);
+            return;
+        }
+        duplicateTimerRef.current = setTimeout(() => {
+            checkDuplicateMutation.mutate(text, {
+                onSuccess: (res) => {
+                    const data = res as unknown as { data?: { duplicates?: Record<string, unknown>[] } };
+                    setDuplicates(data?.data?.duplicates ?? []);
+                },
+                onError: () => setDuplicates([]),
+            });
+        }, 800);
+        return () => { if (duplicateTimerRef.current) clearTimeout(duplicateTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [questionEn, questionBn]);
 
     // ── Populate form when editing ───────────────────────────────────────
     useEffect(() => {
@@ -279,9 +306,10 @@ export default function QuestionFormModal({
                                     <label className={labelCls}>Question (English)</label>
                                     {showPreview ? (
                                         <div className="min-h-[5rem] rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
-                                            {questionEn || <span className="text-slate-400">No content</span>}
+                                            {questionEn ? <MathText>{questionEn}</MathText> : <span className="text-slate-400">No content</span>}
                                         </div>
                                     ) : (
+                                        <>
                                         <textarea
                                             value={questionEn}
                                             onChange={(e) => setQuestionEn(e.target.value)}
@@ -289,15 +317,22 @@ export default function QuestionFormModal({
                                             placeholder="Enter question text (supports $LaTeX$)…"
                                             className={inputCls}
                                         />
+                                        {questionEn && questionEn.includes('$') && (
+                                            <div className="mt-1 rounded-md border border-indigo-100 bg-indigo-50/50 p-2 text-sm dark:border-indigo-900/30 dark:bg-indigo-900/10">
+                                                <MathText>{questionEn}</MathText>
+                                            </div>
+                                        )}
+                                        </>
                                     )}
                                 </div>
                                 <div>
                                     <label className={labelCls}>Question (বাংলা)</label>
                                     {showPreview ? (
                                         <div className="min-h-[5rem] rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
-                                            {questionBn || <span className="text-slate-400">No content</span>}
+                                            {questionBn ? <MathText>{questionBn}</MathText> : <span className="text-slate-400">No content</span>}
                                         </div>
                                     ) : (
+                                        <>
                                         <textarea
                                             value={questionBn}
                                             onChange={(e) => setQuestionBn(e.target.value)}
@@ -305,9 +340,34 @@ export default function QuestionFormModal({
                                             placeholder="প্রশ্নের টেক্সট লিখুন ($LaTeX$ সাপোর্ট)…"
                                             className={inputCls}
                                         />
+                                        {questionBn && questionBn.includes('$') && (
+                                            <div className="mt-1 rounded-md border border-indigo-100 bg-indigo-50/50 p-2 text-sm dark:border-indigo-900/30 dark:bg-indigo-900/10">
+                                                <MathText>{questionBn}</MathText>
+                                            </div>
+                                        )}
+                                        </>
                                     )}
                                 </div>
                             </div>
+
+                            {/* ── Duplicate Detection Warning ──────────── */}
+                            {duplicates.length > 0 && (
+                                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-900/10">
+                                    <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-500" />
+                                    <div className="flex-1 text-sm">
+                                        <span className="font-semibold text-amber-800 dark:text-amber-300">
+                                            {duplicates.length} potential duplicate{duplicates.length > 1 ? 's' : ''} found
+                                        </span>
+                                        <ul className="mt-1 list-disc pl-4 text-amber-700 dark:text-amber-400">
+                                            {duplicates.slice(0, 3).map((d, i) => (
+                                                <li key={i} className="truncate">
+                                                    {String((d as Record<string, unknown>).question_en || (d as Record<string, unknown>).question_bn || 'Untitled question').slice(0, 80)}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* ── Options Editor (MCQ / True-False / Image MCQ) ── */}
                             {showOptionsSection && (
@@ -376,8 +436,8 @@ export default function QuestionFormModal({
                                             {opt.key}
                                         </button>
                                         <div className="flex-1 space-y-2">
-                                            {showPreview ? (
-                                                <div className="text-sm dark:text-white">{opt.text_en || <span className="text-slate-400">No English text</span>}</div>
+                                                    {showPreview ? (
+                                                <div className="text-sm dark:text-white">{opt.text_en ? <MathText inline>{opt.text_en}</MathText> : <span className="text-slate-400">No English text</span>}</div>
                                             ) : (
                                                 <input
                                                     type="text"
@@ -388,7 +448,7 @@ export default function QuestionFormModal({
                                                 />
                                             )}
                                             {showPreview ? (
-                                                <div className="text-sm dark:text-white">{opt.text_bn || <span className="text-slate-400">No Bengali text</span>}</div>
+                                                <div className="text-sm dark:text-white">{opt.text_bn ? <MathText inline>{opt.text_bn}</MathText> : <span className="text-slate-400">No Bengali text</span>}</div>
                                             ) : (
                                                 <input
                                                     type="text"
@@ -489,6 +549,11 @@ export default function QuestionFormModal({
                                         placeholder="Explanation (supports $LaTeX$)…"
                                         className={inputCls}
                                     />
+                                    {explanationEn && explanationEn.includes('$') && (
+                                        <div className="mt-1 rounded-md border border-indigo-100 bg-indigo-50/50 p-2 text-sm dark:border-indigo-900/30 dark:bg-indigo-900/10">
+                                            <MathText>{explanationEn}</MathText>
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className={labelCls}>Explanation (বাংলা)</label>
@@ -499,6 +564,11 @@ export default function QuestionFormModal({
                                         placeholder="ব্যাখ্যা ($LaTeX$ সাপোর্ট)…"
                                         className={inputCls}
                                     />
+                                    {explanationBn && explanationBn.includes('$') && (
+                                        <div className="mt-1 rounded-md border border-indigo-100 bg-indigo-50/50 p-2 text-sm dark:border-indigo-900/30 dark:bg-indigo-900/10">
+                                            <MathText>{explanationBn}</MathText>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

@@ -11,6 +11,7 @@ import path from 'path';
 import mongoose from 'mongoose';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
+import { ZodError } from 'zod';
 import { connectDB } from './config/db';
 import { isFirebaseAdminEnabled } from './config/firebaseAdmin';
 import { authenticate, requirePermission } from './middleware/auth';
@@ -32,6 +33,7 @@ import { startRetentionCronJobs } from './cron/retentionJobs';
 import { startSubscriptionExpiryCron } from './cron/subscriptionExpiryCron';
 import { startBackupCronJobs } from './cron/backupJobs';
 import { startExamSystemCronJobs } from './cron/examSystemCron';
+import { seedBadges } from './services/GamificationService';
 import adminStudentMgmtRoutes from './routes/adminStudentMgmtRoutes';
 import adminProviderRoutes from './routes/adminProviderRoutes';
 import adminNotificationRoutes from './routes/adminNotificationRoutes';
@@ -42,8 +44,10 @@ import publicIntegrationsRoutes from './routes/publicIntegrationsRoutes';
 // Exam Management System v1 routes
 import questionHierarchyRoutes from './routes/questionHierarchy.routes';
 import questionBankRoutes from './routes/questionBank.routes';
+import qbRoutes from './routes/qb.routes';
 import examManagementRoutes from './routes/examManagement.routes';
 import gamificationRoutes from './routes/gamification.routes';
+import leaguesRoutes from './routes/leagues.routes';
 import battleRoutes from './routes/battle.routes';
 import mistakeVaultRoutes from './routes/mistakeVault.routes';
 import practiceRoutes from './routes/practice.routes';
@@ -51,6 +55,8 @@ import studyRoutineRoutes from './routes/studyRoutine.routes';
 import doubtRoutes from './routes/doubt.routes';
 import examinerRoutes from './routes/examiner.routes';
 import examPackageRoutes from './routes/examPackage.routes';
+import adaptiveDifficultyRoutes from './routes/adaptiveDifficulty.routes';
+import brainClashRoutes from './routes/brainClash.routes';
 import notificationManagementRoutes from './routes/notificationManagement.routes';
 import { serveSecureUpload } from './controllers/secureUploadController';
 import {
@@ -65,6 +71,7 @@ import { requestIdMiddleware } from './middleware/requestId';
 import { cspNonceMiddleware } from './middleware/cspNonce';
 import { csrfTokenEndpoint } from './middleware/csrfGuard';
 import { logger } from './utils/logger';
+import { AppError } from './utils/appError';
 import { checkRedisConnection, isRedisConfigured } from './services/cacheService';
 import { runCommunicationCenterMigration } from './scripts/migrate-communication-center-v1';
 import {
@@ -411,9 +418,11 @@ app.use('/api', studentExamRoutes);
 // Exam Management System v1 routes (Requirement 17.1–17.6)
 app.use('/api/v1/question-hierarchy', questionHierarchyRoutes);
 app.use('/api/v1/questions', questionBankRoutes);
+app.use('/api/qb', qbRoutes); // Unified Question Bank mount
 app.use('/api/v1/exams', examManagementRoutes);
 app.use('/api/v1/notifications', notificationManagementRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
+app.use('/api/v1/leagues', leaguesRoutes);
 app.use('/api/v1/battles', battleRoutes);
 app.use('/api/v1/mistake-vault', mistakeVaultRoutes);
 app.use('/api/v1/practice', practiceRoutes);
@@ -421,6 +430,8 @@ app.use('/api/v1/study-routine', studyRoutineRoutes);
 app.use('/api/v1/doubts', doubtRoutes);
 app.use('/api/v1/examiner', examinerRoutes);
 app.use('/api/v1/exam-packages', examPackageRoutes);
+app.use('/api/v1/adaptive-difficulty', adaptiveDifficultyRoutes);
+app.use('/api/v1/brain-clash', brainClashRoutes);
 
 // Webhooks
 app.use('/api/webhooks', webhookRoutes);
@@ -483,9 +494,31 @@ app.use((_req, res) => {
 
 // Error handler
 app.use((err: Error & { status?: number }, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    const statusCode = Number(err.status || 500);
+    // ZodError that escaped per-route validation -> 400 with field-level errors
+    if (err instanceof ZodError) {
+        const errors = err.issues.map((e) => ({ path: e.path.join('.'), message: e.message }));
+        logger.info(`Validation error: ${err.issues.length} issue(s)`, req, {
+            path: req.path,
+            method: req.method,
+        });
+        res.status(400).json({
+            message: 'Validation failed',
+            errors,
+            requestId: (req as any).requestId,
+        });
+        return;
+    }
+
+    // AppError carries `statusCode` (not `status`); fall back to `status` for
+    // errors thrown by Express/middleware that use the conventional `status` field.
+    const statusCode = Number((err instanceof AppError ? err.statusCode : err.status) || 500);
     const isClientError = statusCode >= 400 && statusCode < 500;
-    const message = isClientError ? err.message || 'Request failed' : 'Internal server error';
+    const isOperational = err instanceof AppError && err.isOperational;
+    // Operational AppError messages are safe to expose to the client; for
+    // non-operational / 5xx errors, mask the message to avoid leaking internals.
+    const message = isClientError && isOperational
+        ? err.message || 'Request failed'
+        : (isClientError ? err.message || 'Request failed' : 'Internal server error');
     logger.error(`Unhandled error: ${err.message}`, req, {
         statusCode,
         stack: IS_PRODUCTION ? undefined : err.stack,
@@ -544,6 +577,9 @@ async function start() {
 
         // Seed integration registry rows (idempotent, all disabled by default)
         await seedIntegrationConfigs();
+
+        // Seed default badges (idempotent)
+        await seedBadges();
     } catch (err) { console.error('[startup] Core data/cron sync failed. MongoDB might be down. Keeping container ALIVE:', err); }
 
     const server = app.listen(Number(PORT), '0.0.0.0', () => {

@@ -158,18 +158,18 @@ export default function BadgeManagementPanel() {
             <section className="rounded-2xl border border-indigo-500/10 bg-slate-900/65 p-5 space-y-3">
                 <h3 className="text-white font-bold flex items-center gap-2"><Plus className="w-4 h-4 text-cyan-300" /> {editingId ? 'Edit Badge' : 'Create Badge'}</h3>
                 <div className="grid grid-cols-2 gap-2">
-                    <input value={form.code} onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value }))} placeholder="Code" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
-                    <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Title" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
+                    <input value={form.code} onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value }))} placeholder="Code" aria-label="Badge code" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
+                    <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Title" aria-label="Badge title" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
                 </div>
-                <textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" rows={3} className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
-                <input value={form.iconUrl} onChange={(e) => setForm((prev) => ({ ...prev, iconUrl: e.target.value }))} placeholder="Icon URL" className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
+                <textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" rows={3} aria-label="Badge description" className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
+                <input value={form.iconUrl} onChange={(e) => setForm((prev) => ({ ...prev, iconUrl: e.target.value }))} placeholder="Icon URL" aria-label="Badge icon URL" className="w-full rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
                 <div className="grid grid-cols-3 gap-2">
-                    <select value={form.criteriaType} onChange={(e) => setForm((prev) => ({ ...prev, criteriaType: e.target.value as 'auto' | 'manual' }))} className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none">
+                    <select value={form.criteriaType} onChange={(e) => setForm((prev) => ({ ...prev, criteriaType: e.target.value as 'auto' | 'manual' }))} aria-label="Badge criteria type" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none">
                         <option value="manual">Manual</option>
                         <option value="auto">Auto</option>
                     </select>
-                    <input type="number" value={form.minAvgPercentage} onChange={(e) => setForm((prev) => ({ ...prev, minAvgPercentage: Number(e.target.value) }))} placeholder="Min Avg %" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
-                    <input type="number" value={form.minCompletedExams} onChange={(e) => setForm((prev) => ({ ...prev, minCompletedExams: Number(e.target.value) }))} placeholder="Min Exams" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
+                    <input type="number" value={form.minAvgPercentage} onChange={(e) => setForm((prev) => ({ ...prev, minAvgPercentage: Number(e.target.value) }))} placeholder="Min Avg %" aria-label="Minimum average percentage" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
+                    <input type="number" value={form.minCompletedExams} onChange={(e) => setForm((prev) => ({ ...prev, minCompletedExams: Number(e.target.value) }))} placeholder="Min Exams" aria-label="Minimum completed exams" className="rounded-xl bg-slate-950/65 border border-indigo-500/15 px-3 py-2.5 text-sm text-white outline-none" />
                 </div>
                 <label className="inline-flex items-center gap-2 text-sm text-slate-200">
                     <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))} />
@@ -214,14 +214,14 @@ export default function BadgeManagementPanel() {
 
                 <div className="rounded-xl border border-indigo-500/15 bg-slate-950/65 p-3 space-y-2">
                     <p className="text-sm text-white font-semibold">Manual Assignment</p>
-                    <input value={assignStudentId} onChange={(e) => setAssignStudentId(e.target.value)} placeholder="Student User ID" className="w-full rounded-lg bg-slate-900/65 border border-indigo-500/15 px-3 py-2 text-sm text-white outline-none" />
-                    <select value={assignBadgeId} onChange={(e) => setAssignBadgeId(e.target.value)} className="w-full rounded-lg bg-slate-900/65 border border-indigo-500/15 px-3 py-2 text-sm text-white outline-none">
+                    <input value={assignStudentId} onChange={(e) => setAssignStudentId(e.target.value)} placeholder="Student User ID" aria-label="Student user ID" className="w-full rounded-lg bg-slate-900/65 border border-indigo-500/15 px-3 py-2 text-sm text-white outline-none" />
+                    <select value={assignBadgeId} onChange={(e) => setAssignBadgeId(e.target.value)} aria-label="Select badge to assign" className="w-full rounded-lg bg-slate-900/65 border border-indigo-500/15 px-3 py-2 text-sm text-white outline-none">
                         <option value="">Select badge</option>
                         {items.map((item) => (
                             <option key={item._id} value={item._id}>{item.title}</option>
                         ))}
                     </select>
-                    <input value={assignNote} onChange={(e) => setAssignNote(e.target.value)} placeholder="Note (optional)" className="w-full rounded-lg bg-slate-900/65 border border-indigo-500/15 px-3 py-2 text-sm text-white outline-none" />
+                    <input value={assignNote} onChange={(e) => setAssignNote(e.target.value)} placeholder="Note (optional)" aria-label="Assignment note" className="w-full rounded-lg bg-slate-900/65 border border-indigo-500/15 px-3 py-2 text-sm text-white outline-none" />
                     <div className="flex gap-2">
                         <button type="button" onClick={assign} className="flex-1 rounded-lg bg-emerald-600/80 px-3 py-2 text-xs font-medium text-white">Assign</button>
                         <button type="button" onClick={revoke} className="flex-1 rounded-lg bg-red-600/80 px-3 py-2 text-xs font-medium text-white">Revoke</button>

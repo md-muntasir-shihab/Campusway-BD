@@ -10,6 +10,7 @@ export interface IGroupMembership extends Document {
     joinedAtUTC: Date;
     removedAtUTC?: Date;
     note?: string;
+    role: 'member' | 'group_admin';
     createdAt: Date;
     updatedAt: Date;
 }
@@ -23,6 +24,12 @@ const GroupMembershipSchema = new Schema<IGroupMembership>(
             type: String,
             enum: ['active', 'removed', 'archived'],
             default: 'active',
+            required: true,
+        },
+        role: {
+            type: String,
+            enum: ['member', 'group_admin'],
+            default: 'member',
             required: true,
         },
         joinedAtUTC: { type: Date, default: Date.now },

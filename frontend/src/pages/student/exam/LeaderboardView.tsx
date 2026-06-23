@@ -173,12 +173,19 @@ function ExamLeaderboardTab({ examId }: { examId: string }) {
     useExamLeaderboardStream(examId);
 
     if (isLoading) return <LoadingState />;
-    if (isError || !data?.data) return <ErrorState />;
+    if (isError || !data) return <ErrorState />;
 
-    const leaderboard = data.data;
+    // examRunnerApi unwraps the { success, data } envelope, so `data` is the
+    // exam leaderboard payload itself: { entries, total, page, totalPages, myRank }
+    // (see backend LeaderboardService.queryLeaderboard).
+    const leaderboard = data as unknown as {
+        entries?: LeaderboardEntry[];
+        myRank?: LeaderboardEntry;
+        totalPages?: number;
+    };
     const entries = leaderboard.entries ?? [];
-    const myEntry = leaderboard.myEntry;
-    const totalPages = leaderboard.pagination?.totalPages ?? 1;
+    const myEntry = leaderboard.myRank;
+    const totalPages = leaderboard.totalPages ?? 1;
 
     return (
         <div>

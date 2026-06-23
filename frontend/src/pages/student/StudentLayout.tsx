@@ -13,11 +13,17 @@ import {
     NotebookText,
     Shield,
     X,
+    Flame,
+    Coins,
+    Star,
+    Trophy,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { getStudentMeNotifications } from '../../services/api';
 import GlobalAlertGate from '../../components/student/GlobalAlertGate';
+import { useGamificationProfile, useClaimDailyBonus } from '../../hooks/useExamSystemQueries';
+import toast from 'react-hot-toast';
 
 type NavItem = {
     label: string;
@@ -128,6 +134,32 @@ export default function StudentLayout() {
     });
     const unreadNotifCount = Number(notifQuery.data?.unreadCount || 0);
 
+    // Fetch student gamification profile
+    const { data: gamificationData } = useGamificationProfile();
+    const profile = gamificationData;
+
+    const [showBonusModal, setShowBonusModal] = useState(false);
+    const claimMutation = useClaimDailyBonus();
+
+    useEffect(() => {
+        if (profile?.dailyBonusAvailable) {
+            setShowBonusModal(true);
+        }
+    }, [profile?.dailyBonusAvailable]);
+
+    const handleClaimDailyBonus = () => {
+        claimMutation.mutate(undefined, {
+            onSuccess: (res) => {
+                toast.success(res.message || 'Daily login bonus claimed!');
+                setShowBonusModal(false);
+            },
+            onError: (err: any) => {
+                toast.error(err?.response?.data?.message || 'Failed to claim daily bonus.');
+                setShowBonusModal(false);
+            }
+        });
+    };
+
     const quickNavItems = useMemo(
         () => NAV_ITEMS.filter((item) => QUICK_NAV_PATHS.includes(item.path as (typeof QUICK_NAV_PATHS)[number])),
         [],
@@ -201,10 +233,54 @@ export default function StudentLayout() {
                                 </p>
                             </div>
                         </div>
-                        <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50/80 px-3 py-1.5 text-xs font-medium text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300">
-                            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                            Student navigation ready
-                        </div>
+                        {profile ? (
+                            <div className="flex items-center gap-2 md:gap-3">
+                                {/* Streak */}
+                                <Link
+                                    to="/student/gamification"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-orange-50 dark:bg-orange-500/10 border border-orange-200/50 dark:border-orange-500/20 text-orange-600 dark:text-orange-400 transition hover:scale-105 active:scale-95 shadow-sm"
+                                    title="Active login streak"
+                                >
+                                    <Flame className="w-4 h-4 fill-orange-500 text-orange-500 animate-pulse" />
+                                    <span className="text-xs font-bold">{profile.currentStreak}d</span>
+                                </Link>
+
+                                {/* Coins */}
+                                <Link
+                                    to="/student/gamification"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200/50 dark:border-amber-500/20 text-amber-600 dark:text-amber-400 transition hover:scale-105 active:scale-95 shadow-sm"
+                                    title="Coins balance"
+                                >
+                                    <Coins className="w-4 h-4 text-amber-500" />
+                                    <span className="text-xs font-bold">{profile.coins}</span>
+                                </Link>
+
+                                {/* XP */}
+                                <Link
+                                    to="/student/gamification"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200/50 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition hover:scale-105 active:scale-95 shadow-sm"
+                                    title="Experience points"
+                                >
+                                    <Star className="w-4 h-4 fill-indigo-500 text-indigo-500" />
+                                    <span className="text-xs font-bold">{profile.xp} XP</span>
+                                </Link>
+
+                                {/* League Tier */}
+                                <Link
+                                    to="/student/gamification"
+                                    className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-50 dark:bg-slate-500/10 border border-slate-200/50 dark:border-slate-500/20 text-slate-700 dark:text-slate-300 transition hover:scale-105 active:scale-95 shadow-sm"
+                                    title="Current league"
+                                >
+                                    <Trophy className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                                    <span className="text-[10px] font-black uppercase tracking-wider">{profile.leagueTier}</span>
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50/80 px-3 py-1.5 text-xs font-medium text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300">
+                                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                                Loading profile...
+                            </div>
+                        )}
                     </header>
 
                     <div className="w-full max-w-5xl">
@@ -289,6 +365,58 @@ export default function StudentLayout() {
                     </button>
                 </div>
             </nav>
+
+            {/* Daily Bonus Claim Popup Modal */}
+            {showBonusModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-white dark:bg-slate-900 shadow-2xl p-6 text-center animate-in zoom-in-95 duration-300">
+                        {/* Ambient Background Glow */}
+                        <div className="absolute -top-12 -left-12 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+                        <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
+
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-500/10 text-amber-500">
+                            <Coins className="w-10 h-10 animate-bounce" />
+                        </div>
+
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100">
+                            Daily Reward!
+                        </h3>
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            Welcome back! Claim your daily bonus to boost your rank in the weekly league.
+                        </p>
+
+                        <div className="my-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 flex justify-around items-center">
+                            <div className="text-center">
+                                <span className="block text-2xl font-extrabold text-amber-600 dark:text-amber-400">+10</span>
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Coins</span>
+                            </div>
+                            <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
+                            <div className="text-center">
+                                <span className="block text-2xl font-extrabold text-indigo-600 dark:text-indigo-400">+50</span>
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">XP</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowBonusModal(false)}
+                                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                            >
+                                Maybe later
+                            </button>
+                            <button
+                                type="button"
+                                disabled={claimMutation.isPending}
+                                onClick={handleClaimDailyBonus}
+                                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-white shadow-md shadow-amber-500/20 hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
+                            >
+                                {claimMutation.isPending ? 'Claiming...' : 'Claim Bonus!'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

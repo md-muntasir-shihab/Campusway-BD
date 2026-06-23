@@ -14,7 +14,7 @@ import type {
     HierarchyLevel,
 } from '../types/exam-system';
 
-const BASE = '/v1/question-hierarchy';
+const BASE = '/qb';
 
 /** GET /tree — Full hierarchy tree. */
 export const getTree = () =>

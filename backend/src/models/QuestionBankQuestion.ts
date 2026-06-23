@@ -6,7 +6,7 @@ export interface ILocalizedText {
 }
 
 export type QuestionType = 'mcq' | 'written_cq' | 'fill_blank' | 'true_false' | 'image_mcq';
-export type QuestionStatus = 'draft' | 'published' | 'archived' | 'flagged';
+export type QuestionStatus = 'draft' | 'published' | 'archived' | 'flagged' | 'pending' | 'approved' | 'rejected';
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export interface IBankQuestionOption {
@@ -68,6 +68,9 @@ export interface IQuestionBankQuestion extends Document {
     topic_id?: mongoose.Types.ObjectId;
     status: QuestionStatus;
     review_status: ReviewStatus;
+    review_rejected_reason?: string;
+    review_assigned_to?: mongoose.Types.ObjectId;
+    reviewed_by?: mongoose.Types.ObjectId;
     times_attempted: number;
     correct_rate: number;
     reported_count: number;
@@ -191,7 +194,7 @@ const QuestionBankQuestionSchema = new Schema<IQuestionBankQuestion>(
         },
         status: {
             type: String,
-            enum: ['draft', 'published', 'archived', 'flagged'],
+            enum: ['draft', 'published', 'archived', 'flagged', 'pending', 'approved', 'rejected'],
             default: 'draft',
             index: true,
         },
@@ -199,6 +202,19 @@ const QuestionBankQuestionSchema = new Schema<IQuestionBankQuestion>(
             type: String,
             enum: ['pending', 'approved', 'rejected'],
             default: 'pending',
+            index: true,
+        },
+        review_rejected_reason: { type: String, default: '' },
+        review_assigned_to: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
+            index: true,
+        },
+        reviewed_by: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
             index: true,
         },
         times_attempted: { type: Number, default: 0, min: 0 },

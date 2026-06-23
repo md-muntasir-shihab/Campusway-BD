@@ -5,8 +5,7 @@ import UniversitiesPanel from '../components/admin/UniversitiesPanel';
 import NewsPanel from '../components/admin/NewsPanel';
 
 import QuestionBankConsole from '../components/admin/questionBank/QuestionBankConsole';
-import FinancePanel from '../components/admin/FinancePanel';
-import FinanceCenterConsole from '../components/admin/finance/FinanceCenterConsole';
+
 import ResourcesPanel from '../components/admin/ResourcesPanel';
 import SupportTicketsPanel from '../components/admin/SupportTicketsPanel';
 import ContactPanel from '../components/admin/ContactPanel';
@@ -86,13 +85,6 @@ export function AdminStudentGroupsPage() {
     return <Navigate to="/__cw_admin__/student-management/groups" replace />;
 }
 
-export function AdminPaymentsPage() {
-    return (
-        <AdminGuardShell title="Payments" description="Review manual payments, approve transactions, and export logs." requiredModule="payments">
-            <FinancePanel />
-        </AdminGuardShell>
-    );
-}
 
 export function AdminResourcesPage() {
     return (
@@ -172,13 +164,7 @@ export function AdminStudentSettingsEmbeddedPage() {
     return <StudentSettingsPage noShell />;
 }
 
-export function AdminFinanceCenterPage() {
-    return (
-        <AdminGuardShell title="Finance Center" description="Unified financial management — income, expenses, invoices, budgets, and reports." requiredModule="finance_center">
-            <FinanceCenterConsole />
-        </AdminGuardShell>
-    );
-}
+
 
 export function AdminContactPage() {
     return (

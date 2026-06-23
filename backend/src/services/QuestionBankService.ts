@@ -537,6 +537,10 @@ export async function approveQuestion(id: string, reviewerId: string): Promise<v
     }
 
     question.review_status = 'approved';
+    question.status = 'approved';
+    question.reviewed_by = reviewerId && mongoose.Types.ObjectId.isValid(reviewerId)
+        ? toObjectId(reviewerId)
+        : undefined;
     question.updatedByAdminId = reviewerId;
     await question.save();
 }
@@ -564,9 +568,12 @@ export async function rejectQuestion(id: string, reviewerId: string, reason: str
     }
 
     question.review_status = 'rejected';
+    question.status = 'rejected';
+    question.reviewed_by = reviewerId && mongoose.Types.ObjectId.isValid(reviewerId)
+        ? toObjectId(reviewerId)
+        : undefined;
+    question.review_rejected_reason = reason.trim();
     question.updatedByAdminId = reviewerId;
-    // Store rejection reason in explanation field as a convention
-    // (the reason is also typically stored in audit logs by the controller layer)
     await question.save();
 }
 

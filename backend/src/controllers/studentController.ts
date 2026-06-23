@@ -1,5 +1,6 @@
 import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import StudentProfile from '../models/StudentProfile';
+import User from '../models/User';
 import StudentApplication from '../models/StudentApplication';
 import ProfileUpdateRequest from '../models/ProfileUpdateRequest';
 import { AuthRequest } from '../middleware/auth';
@@ -562,3 +563,43 @@ export const uploadStudentDocument = async (req: AuthRequest, res: ExpressRespon
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to upload document'));
     }
 };
+
+// @desc    Upload student avatar photo
+// @route   POST /api/student/users/me/avatar
+// @access  Private (Student)
+export const uploadStudentAvatar = async (req: AuthRequest, res: ExpressResponse) => {
+    try {
+        if (!req.user) return ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Not authenticated'));
+        if (req.user.role !== 'student') return ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Student access only'));
+        if (!req.file) return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded'));
+
+        const profile = await ensureProfile(req.user._id);
+        const secureUpload = await registerSecureUpload({
+            file: req.file,
+            category: 'profile_photo',
+            visibility: 'public',
+            ownerUserId: req.user._id,
+            ownerRole: req.user.role,
+            uploadedBy: req.user._id,
+            accessRoles: ['student', 'superadmin', 'admin', 'moderator', 'editor', 'viewer', 'support_agent', 'finance_agent'],
+        });
+        const docUrl = buildSecureUploadUrl(secureUpload.storedName);
+
+        profile.profile_photo_url = docUrl;
+        await profile.save();
+
+        await User.updateOne({ _id: req.user._id }, { $set: { profile_photo: docUrl } });
+
+        broadcastStudentDashboardEvent({ type: 'profile_updated', meta: { studentId: req.user._id } });
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            url: docUrl,
+            profile_photo_url: docUrl,
+            visibility: secureUpload.visibility
+        }, 'Avatar uploaded successfully'));
+    } catch (err: any) {
+        console.error('uploadStudentAvatar Error:', err);
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to upload avatar'));
+    }
+};
+

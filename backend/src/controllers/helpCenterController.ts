@@ -155,7 +155,7 @@ export async function adminDeleteHelpCategory(req: AuthRequest, res: Response): 
     if (!id) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid id')); return; }
 
     const articles = await HelpArticle.countDocuments({ categoryId: id });
-    if (articles > 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Cannot delete: ${articles} articles belong to this category')); return; }
+    if (articles > 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Cannot delete: ${articles} articles belong to this category`)); return; }
 
     const deleted = await HelpCategory.findByIdAndDelete(id);
     if (!deleted) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Category not found')); return; }

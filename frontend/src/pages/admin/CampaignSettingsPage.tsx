@@ -51,7 +51,7 @@ const PERMISSION_MATRIX: Record<SettingsSection, UserRole[]> = {
 };
 
 /** Sensitive top-level keys that require elevated confirmation before save. */
-const SENSITIVE_KEYS = new Set(['budgetGuardrail', 'approvalPolicy']);
+const SENSITIVE_KEYS = new Set(['budgetGuardrails', 'approvalPolicy']);
 
 function canEditSection(role: UserRole, section: SettingsSection): boolean {
     return PERMISSION_MATRIX[section]?.includes(role) ?? false;
@@ -387,9 +387,9 @@ export default function CampaignSettingsPage() {
 
                     {sectionAccess.Budget && (
                         <BudgetSettingsSection
-                            settings={settings.budgetGuardrail}
+                            settings={settings.budgetGuardrails}
                             onChange={(patch) =>
-                                patchSettings({ budgetGuardrail: { ...settings.budgetGuardrail, ...patch } })
+                                patchSettings({ budgetGuardrails: { ...settings.budgetGuardrails, ...patch } })
                             }
                         />
                     )}

@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import type { AdvancedNotificationSettings } from '../../types/campaignSettings';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ const defaultSettings: AdvancedNotificationSettings = {
     resultPublishAutoSend: true,
     autoSyncCostToFinance: true,
     frequencyCap: { dailyCap: 5, weeklyCap: 20, monthlyCap: 60, cooldownMinutes: 30 },
-    budgetGuardrail: { softLimitPercent: 80, hardLimitEnabled: true, anomalySpikeThresholdPercent: 200 },
+    budgetGuardrails: { softLimitPercent: 80, hardLimitEnabled: true, anomalySpikeThresholdPercent: 200 },
     providerRouting: {
         sms: { primary: 'provider-a' },
         email: { primary: 'provider-b' },
@@ -125,7 +126,7 @@ describe('Section Rendering (Req 16.1)', () => {
 
     it('BudgetSettingsSection renders title and fields', () => {
         const onChange = vi.fn();
-        render(<BudgetSettingsSection settings={defaultSettings.budgetGuardrail} onChange={onChange} />);
+        render(<BudgetSettingsSection settings={defaultSettings.budgetGuardrails} onChange={onChange} />);
         expect(screen.getByText('Budget Guardrails')).toBeInTheDocument();
         expect(screen.getByText('Soft Limit (%)')).toBeInTheDocument();
         expect(screen.getByText('Anomaly Spike Threshold (%)')).toBeInTheDocument();
@@ -365,11 +366,11 @@ describe('Elevated Confirmation Prompt (Req 16.5)', () => {
         setupAuthMock('superadmin');
     });
 
-    it('calls showConfirmDialog when saving with budgetGuardrail changes', async () => {
+    it('calls showConfirmDialog when saving with budgetGuardrails changes', async () => {
         render(<CampaignSettingsPage />);
         await waitFor(() => expect(screen.getByText('Campaign Settings')).toBeInTheDocument());
 
-        // Open Budget section and change a value to mark budgetGuardrail as dirty
+        // Open Budget section and change a value to mark budgetGuardrails as dirty
         fireEvent.click(screen.getByText('Budget Guardrails'));
         const softLimitInputs = screen.getAllByDisplayValue('80');
         fireEvent.change(softLimitInputs[0], { target: { value: '90' } });

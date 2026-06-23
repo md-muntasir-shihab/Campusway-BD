@@ -40,6 +40,14 @@ function asString(value: unknown): string {
     return typeof value === "string" ? value.trim() : "";
 }
 
+function unwrapResponse(raw: unknown): Record<string, unknown> {
+    const outer = asRecord(raw);
+    if (outer.data && typeof outer.data === 'object' && !Array.isArray(outer.data)) {
+        return asRecord(outer.data);
+    }
+    return outer;
+}
+
 function asNumber(value: unknown, fallback = 0): number {
     const next = Number(value);
     return Number.isFinite(next) ? next : fallback;
@@ -228,11 +236,7 @@ function normalizeAnswersFromSession(value: unknown) {
 }
 
 function normalizeExamListPayload(raw: unknown): ExamListResponse {
-    const outer = asRecord(raw);
-    // Handle ResponseBuilder envelope: { success, data: { items } }
-    const payload = outer.data && typeof outer.data === 'object' && !Array.isArray(outer.data)
-        ? asRecord(outer.data)
-        : outer;
+    const payload = unwrapResponse(raw);
     const isContractShape = Array.isArray(payload.items);
     const itemsSource = isContractShape ? payload.items : payload.exams;
     const items: ExamListItem[] = Array.isArray(itemsSource)
@@ -299,7 +303,7 @@ function normalizeExamListPayload(raw: unknown): ExamListResponse {
 }
 
 function normalizeExamDetailPayload(raw: unknown, examId: string): ExamDetailResponse {
-    const payload = asRecord(raw);
+    const payload = unwrapResponse(raw);
     const exam = asRecord(payload.exam);
     const source = Object.keys(exam).length > 0 ? exam : payload;
     const eligibility = asRecord(payload.eligibility);
@@ -372,7 +376,7 @@ function normalizeExamDetailPayload(raw: unknown, examId: string): ExamDetailRes
 }
 
 function normalizeSessionQuestionsPayload(raw: unknown): ExamQuestionsResponse {
-    const payload = asRecord(raw);
+    const payload = unwrapResponse(raw);
     const examSource = asRecord(payload.exam);
     const sessionSource = asRecord(payload.session);
     const sourceExam = Object.keys(examSource).length > 0 ? examSource : sessionSource;
@@ -490,7 +494,7 @@ export const fetchExamDetail = async (examId: string): Promise<ExamDetailRespons
 
 export const startExamSession = async (examId: string): Promise<StartSessionResponse> => {
     const normalizeStartPayload = (raw: unknown): StartSessionResponse => {
-        const payload = asRecord(raw);
+        const payload = unwrapResponse(raw);
         if (Boolean(payload.redirect) && asString(payload.externalExamUrl)) {
             return {
                 sessionId: "external_redirect",
@@ -566,7 +570,7 @@ export const saveAnswers = async (
     payload: SaveAnswersPayload,
 ): Promise<SaveAnswersResponse> => {
     const normalizeSavePayload = (raw: unknown): SaveAnswersResponse => {
-        const data = asRecord(raw);
+        const data = unwrapResponse(raw);
         if (Array.isArray(data.updated)) {
             return {
                 ok: Boolean(data.ok),
@@ -612,7 +616,7 @@ export const saveAnswers = async (
 
 export const submitExam = async (examId: string, sessionId: string): Promise<SubmitExamResponse> => {
     const normalizeSubmitPayload = (raw: unknown): SubmitExamResponse => {
-        const payload = asRecord(raw);
+        const payload = unwrapResponse(raw);
         return {
             ok: Boolean(payload.ok ?? payload.submitted ?? true),
             submittedAtUTC: asIso(payload.submittedAtUTC || payload.submittedAt || payload.savedAt),
@@ -634,8 +638,8 @@ export const submitExam = async (examId: string, sessionId: string): Promise<Sub
 
 export const fetchExamResult = async (examId: string, sessionId: string): Promise<ResultResponse> => {
     try {
-        const response = await api.get<ResultResponse>(examPath(`/${examId}/sessions/${sessionId}/result`));
-        return response.data;
+        const response = await api.get<unknown>(examPath(`/${examId}/sessions/${sessionId}/result`));
+        return unwrapResponse(response.data) as unknown as ResultResponse;
     } catch (error: unknown) {
         if (!isAxiosError(error) || error.response?.status !== 404) throw error;
 
@@ -716,8 +720,8 @@ export const fetchExamSolutions = async (
     sessionId: string,
 ): Promise<SolutionsResponse> => {
     try {
-        const response = await api.get<SolutionsResponse>(examPath(`/${examId}/sessions/${sessionId}/solutions`));
-        return response.data;
+        const response = await api.get<unknown>(examPath(`/${examId}/sessions/${sessionId}/solutions`));
+        return unwrapResponse(response.data) as unknown as SolutionsResponse;
     } catch (error: unknown) {
         if (!isAxiosError(error) || error.response?.status !== 404) throw error;
 

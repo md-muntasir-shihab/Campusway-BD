@@ -86,7 +86,7 @@ import {
     studentGetSupportTickets,
     studentReplySupportTicket,
 } from '../controllers/supportController';
-import { updateStudentProfile } from '../controllers/studentController';
+import { updateStudentProfile, uploadStudentAvatar } from '../controllers/studentController';
 import {
     getMySubscription,
     getHomeSubscriptionPlans,
@@ -123,6 +123,7 @@ import {
 import { contactRateLimiter, otpVerificationLimit } from '../middleware/securityRateLimit';
 import { uploadMedia, uploadMiddleware } from '../controllers/mediaController';
 import { validateBody } from '../validators/validateBody';
+import { getStudentPoints, getStudentBadges } from '../controllers/gamificationController';
 import { loginSchema, registerSchema, passwordResetSchema } from '../validators/authSchemas';
 import { examSubmitSchema } from '../validators/examSchemas';
 import { submitPublicContactMessage } from '../controllers/contactController';
@@ -146,9 +147,11 @@ import {
 } from '../controllers/contentBlockController';
 import { getPublicSystemStatus } from '../controllers/securityAlertController';
 import { getPublicLegalPage } from '../controllers/legalPageController';
+import { processSignalController } from '../controllers/antiCheatController';
 import { getPublicFounder } from '../controllers/founderController';
 import { requireAppCheck } from '../middleware/appCheck';
 import { csrfProtection } from '../middleware/csrfGuard';
+import { ResponseBuilder } from '../utils/responseBuilder';
 
 const router = Router();
 const examAccessMiddlewares = [authenticate, requireAuthStudent] as const;
@@ -161,7 +164,7 @@ router.post('/auth/chairman/login', loginRateLimiter, validateBody(loginSchema),
 router.post('/auth/refresh', csrfProtection, refresh);
 router.post('/auth/logout', authenticate, csrfProtection, logout);
 router.get('/auth/verify', verifyEmail);
-router.post('/auth/forgot-password', requireAppCheck, validateBody(passwordResetSchema), forgotPassword);
+router.post('/auth/forgot-password', requireAppCheck, loginRateLimiter, validateBody(passwordResetSchema), forgotPassword);
 router.post('/auth/reset-password', validateBody(passwordResetSchema), resetPassword);
 router.get('/auth/me', authenticate, getMe);
 router.post('/auth/change-password', authenticate, changePassword);
@@ -315,6 +318,9 @@ router.post('/subscriptions/:planId/request-payment', authenticate, subscription
 router.post('/subscriptions/:planId/upload-proof', authenticate, subscriptionActionRateLimiter, uploadMiddleware.single('file'), uploadSubscriptionProof);
 router.get('/users/me', authenticate, getStudentMe);
 router.put('/users/me', authenticate, updateStudentProfile);
+router.post('/users/me/avatar', authenticate, uploadMiddleware.single('file'), uploadStudentAvatar);
+router.get('/users/me/points', authenticate, getStudentPoints);
+router.get('/users/me/badges', authenticate, getStudentBadges);
 router.get('/students/me/exams', authenticate, getStudentMeExams);
 router.get('/students/me/exams/:examId', authenticate, getStudentMeExamById);
 router.get('/students/me/results', authenticate, getStudentMeResults);
