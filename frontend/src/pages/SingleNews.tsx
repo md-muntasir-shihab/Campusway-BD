@@ -320,6 +320,12 @@ export default function SingleNewsPage() {
             || shareButtons.telegram
         );
 
+    const studentExplanation = newsItem.aiEnrichment?.studentFriendlyExplanation || '';
+    const isStudentExplanationRedundant = studentExplanation && (
+        isDuplicateIntro(studentExplanation, String(newsItem.shortSummary || newsItem.shortDescription || '')) ||
+        (hasBodyContent && isDuplicateIntro(studentExplanation, cleanedArticleParagraphs[0]))
+    );
+
     return (
         <div className="min-h-screen bg-slate-50 pb-14 dark:bg-[#060f23]">
             {/* OG Meta Tags for social sharing */}
@@ -438,12 +444,12 @@ export default function SingleNewsPage() {
                                 ))}
                             </div>
                         ) : null}
-                        {newsItem.aiEnrichment?.studentFriendlyExplanation ? (
+                        {studentExplanation && !isStudentExplanationRedundant ? (
                             <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/8 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
                                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-600 dark:text-cyan-200">
                                     Student-Friendly Explanation
                                 </p>
-                                <p>{newsItem.aiEnrichment.studentFriendlyExplanation}</p>
+                                <p>{studentExplanation}</p>
                             </div>
                         ) : null}
                     </div>

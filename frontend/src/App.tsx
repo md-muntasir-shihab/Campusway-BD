@@ -418,6 +418,7 @@ export default function App() {
                                         <Route path="/certificate/verify/:certificateId" element={<CertificateVerifyPage />} />
                                         <Route path="/resources" element={<ResourcesPage />} />
                                         <Route path="/resources/:slug" element={<ResourceDetail />} />
+                                        <Route path="/calculators" element={<CalculatorHub />} />
                                         <Route path="/contact" element={<ContactPage />} />
                                         <Route path="/testimonials" element={<TestimonialsPage />} />
                                         <Route path="/help" element={<Navigate to="/help-center" replace />} />
@@ -586,8 +587,7 @@ export default function App() {
                                         <Route path="/admin/login" element={<Navigate to={ADMIN_LOGIN} replace />} />
                                         <Route path="/admin/*" element={<LegacyAdminRedirect />} />
 
-                                        {/* Tools & Calculators */}
-                                        <Route path="/calculators" element={<CalculatorHub />} />
+                                        {/* Tools & Calculators — moved out of admin block */}
 
                                         {/* Student Portal Routes */}
                                         <Route path="/student/login" element={<Navigate to={STUDENT_LOGIN} replace />} />

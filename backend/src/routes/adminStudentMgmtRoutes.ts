@@ -12,7 +12,7 @@ import UserSubscription from '../models/UserSubscription';
 import SubscriptionPlan from '../models/SubscriptionPlan';
 import StudentGroup from '../models/StudentGroup';
 import GroupMembership from '../models/GroupMembership';
-import StudentContactTimeline from '../models/StudentContactTimeline';
+import StudentContactTimeline, { MANUAL_TIMELINE_TYPES } from '../models/StudentContactTimeline';
 import NotificationProvider from '../models/NotificationProvider';
 import NotificationTemplate from '../models/NotificationTemplate';
 import NotificationJob from '../models/NotificationJob';
@@ -627,10 +627,19 @@ router.get('/students-v2/weak-topics-report', ...adminAuth, async (_req: Request
 // ── Global CRM Timeline — must be before :id wildcard ───────
 router.get('/students-v2/crm-timeline', ...adminAuth, async (req: Request, res: Response) => {
   try {
-    const { type, sourceType, limit: limitStr } = req.query;
+    const { type, sourceType, q, limit: limitStr } = req.query;
     const filter: Record<string, unknown> = {};
     if (type) filter['type'] = type;
     if (sourceType) filter['sourceType'] = sourceType;
+
+    // Server-side search: match entry content, and (if q looks like a name/email)
+    // match the linked student too. Avoids the client silently dropping matches
+    // beyond the first `limit` entries.
+    if (typeof q === 'string' && q.trim()) {
+      const needle = q.trim();
+      filter['content'] = { $regex: needle, $options: 'i' };
+    }
+
     const lim = Math.min(Number(limitStr) || 100, 500);
 
     const entries = await StudentContactTimeline.find(filter)
@@ -1744,15 +1753,27 @@ router.post('/student-contact-timeline/:studentId', ...adminAuth, async (req: Re
   try {
     const { type, content, linkedId } = req.body;
     if (!type || !content) return res.status(400).json({ message: 'type and content required' });
+    // Validate that the type is one an admin is allowed to create manually.
+    // System-only event types (login_event, subscription_event, ...) must be
+    // produced programmatically via addSystemTimelineEvent, never by direct POST.
+    if (!MANUAL_TIMELINE_TYPES.includes(type as (typeof MANUAL_TIMELINE_TYPES)[number])) {
+      return res.status(400).json({ message: `Invalid manual timeline type: ${type}. Allowed: ${MANUAL_TIMELINE_TYPES.join(', ')}` });
+    }
     const adminUser = (req as unknown as Record<string, unknown>)['user'] as Record<string, unknown> | undefined;
     const entry = await StudentContactTimeline.create({
       studentId: new mongoose.Types.ObjectId(req.params.studentId as string),
       type,
+      sourceType: 'manual',
       content: String(content).slice(0, 2000),
       linkedId: linkedId ? new mongoose.Types.ObjectId(linkedId) : undefined,
       createdByAdminId: adminUser?.['_id'],
     });
-    res.status(201).json(entry);
+    // Populate createdByAdminId so the returned shape matches the GET endpoint
+    // and can be rendered immediately by the client without a refetch.
+    const populated = await StudentContactTimeline.findById(entry._id)
+      .populate('createdByAdminId', 'full_name username')
+      .lean();
+    res.status(201).json(populated);
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }

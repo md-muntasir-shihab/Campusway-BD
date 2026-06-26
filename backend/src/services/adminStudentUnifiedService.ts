@@ -11,6 +11,7 @@ import { PaymentModel } from '../models/payment.model';
 import ManualPayment from '../models/ManualPayment';
 import FinanceTransaction from '../models/FinanceTransaction';
 import ExamResult from '../models/ExamResult';
+import Exam from '../models/Exam';
 import ExamProfileSyncLog from '../models/ExamProfileSyncLog';
 import NotificationDeliveryLog from '../models/NotificationDeliveryLog';
 import SupportTicket from '../models/SupportTicket';

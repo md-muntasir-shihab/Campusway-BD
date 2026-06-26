@@ -5,6 +5,15 @@ import api, {
 } from '../services/api';
 import type { AdminStudentUnifiedPayload } from '../types/studentManagement';
 
+// Manual (admin-authored) timeline types — MUST mirror backend
+// MANUAL_TIMELINE_TYPES in backend/src/models/StudentContactTimeline.ts.
+// System-only event types (login_event, subscription_event, ...) are produced
+// programmatically and must not be sent via the add-note UI.
+export const MANUAL_TIMELINE_TYPES = [
+  'note', 'call', 'message', 'support_ticket_link', 'payment_note',
+] as const;
+export type ManualTimelineType = (typeof MANUAL_TIMELINE_TYPES)[number];
+
 // ─── Unified Student Detail (Student Management OS) ──────────────────────
 export const getStudentUnified = (id: string): Promise<AdminStudentUnifiedPayload> =>
   api.get(`/admin/students-v2/${id}/unified`).then(r => r.data);
@@ -204,8 +213,19 @@ export const retryFailedJob = (jobId: string) =>
 export const getContactTimeline = (studentId: string) =>
   api.get(`/admin/student-contact-timeline/${studentId}`).then(r => r.data);
 
-export const addTimelineEntry = (studentId: string, data: { type: string; content: string; linkedId?: string }) =>
-  api.post(`/admin/student-contact-timeline/${studentId}`, data).then(r => r.data);
+export const addTimelineEntry = (
+  studentId: string,
+  data: { type: ManualTimelineType; content: string; linkedId?: string },
+) => {
+  // Client-side guard: reject types the backend will refuse before making the
+  // request. The backend enforces the same set, but failing early gives clearer UX.
+  if (!MANUAL_TIMELINE_TYPES.includes(data.type)) {
+    return Promise.reject(
+      new Error(`Invalid timeline type "${data.type}". Allowed: ${MANUAL_TIMELINE_TYPES.join(', ')}`),
+    );
+  }
+  return api.post(`/admin/student-contact-timeline/${studentId}`, data).then(r => r.data);
+};
 
 export const deleteTimelineEntry = (studentId: string, entryId: string) =>
   api.delete(`/admin/student-contact-timeline/${studentId}/${entryId}`).then(r => r.data);

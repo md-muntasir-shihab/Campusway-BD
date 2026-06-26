@@ -1,3 +1,11 @@
+/** A grade-table row, shaped to match the DB-driven CalculatorGrading model. */
+export interface GradeRow {
+  minMark: number;
+  maxMark: number;
+  grade: string;
+  point: number;
+}
+
 export interface SubjectResult {
   name: string;
   marks?: number;
@@ -16,8 +24,8 @@ export interface GPAResult {
   failedSubjects: string[];
 }
 
-// Official Bangladesh Board Grade Table
-export const BD_GRADE_TABLE = [
+// Official Bangladesh Board Grade Table (fallback when no DB table is supplied)
+export const BD_GRADE_TABLE: GradeRow[] = [
   { minMark: 80, maxMark: 100, grade: "A+", point: 5.0 },
   { minMark: 70, maxMark: 79, grade: "A", point: 4.0 },
   { minMark: 60, maxMark: 69, grade: "A-", point: 3.5 },
@@ -27,8 +35,13 @@ export const BD_GRADE_TABLE = [
   { minMark: 0, maxMark: 32, grade: "F", point: 0.0 },
 ];
 
-export function marksToGrade(marks: number): { grade: string; point: number } {
-  for (const row of BD_GRADE_TABLE) {
+function resolveTable(table?: GradeRow[]): GradeRow[] {
+  return table && table.length > 0 ? table : BD_GRADE_TABLE;
+}
+
+/** Convert numeric marks into a grade + point, optionally using an admin-defined table. */
+export function marksToGrade(marks: number, table?: GradeRow[]): { grade: string; point: number } {
+  for (const row of resolveTable(table)) {
     if (marks >= row.minMark && marks <= row.maxMark) {
       return { grade: row.grade, point: row.point };
     }
@@ -36,17 +49,19 @@ export function marksToGrade(marks: number): { grade: string; point: number } {
   return { grade: "F", point: 0.0 };
 }
 
-export function gradeToPoint(grade: string): number {
-  const row = BD_GRADE_TABLE.find((r) => r.grade === grade);
+/** Resolve a letter grade to its point, optionally using an admin-defined table. */
+export function gradeToPoint(grade: string, table?: GradeRow[]): number {
+  const row = resolveTable(table).find((r) => r.grade === grade);
   return row ? row.point : 0.0;
 }
 
 export function calculateSSCHSCGPA(
   mainSubjects: { name: string; marks: number; isMandatory: boolean }[],
-  optionalSubject?: { name: string; marks: number }
+  optionalSubject?: { name: string; marks: number },
+  table?: GradeRow[]
 ): GPAResult {
   const subjects: SubjectResult[] = mainSubjects.map((s) => {
-    const { grade, point } = marksToGrade(s.marks);
+    const { grade, point } = marksToGrade(s.marks, table);
     return {
       name: s.name,
       marks: s.marks,
@@ -78,7 +93,7 @@ export function calculateSSCHSCGPA(
   // 4th subject bonus
   let optionalResult: SubjectResult | undefined;
   if (optionalSubject) {
-    const { grade, point } = marksToGrade(optionalSubject.marks);
+    const { grade, point } = marksToGrade(optionalSubject.marks, table);
     const bonus = point > 2.0 ? point - 2.0 : 0;
     totalPoints += bonus;
     optionalResult = {

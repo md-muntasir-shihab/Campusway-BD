@@ -8,6 +8,7 @@ import {
   getNotificationLogs, sendNotification, getTemplates,
   getContactTimeline, addTimelineEntry, deleteTimelineEntry, getStudentExtendedProfile,
 } from '../../../api/adminStudentApi';
+import type { ManualTimelineType } from '../../../api/adminStudentApi';
 import { useEscapeKey } from '../../../hooks/useEscapeKey';
 import {
   getStudentSecurity, adminSetPassword, resendAccountInfo,
@@ -82,7 +83,7 @@ export default function StudentDetailPage() {
 
   // Timeline modal
   const [addNoteModal, setAddNoteModal] = useState(false);
-  const [noteForm, setNoteForm] = useState({ type: 'note', content: '' });
+  const [noteForm, setNoteForm] = useState<{ type: ManualTimelineType; content: string }>({ type: 'note', content: '' });
 
   // Notification modal
   const [sendNotiModal, setSendNotiModal] = useState(false);
@@ -480,7 +481,7 @@ export default function StudentDetailPage() {
         <div className="space-y-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">Type</label>
-            <select aria-label="Entry type" title="Entry type" value={noteForm.type} onChange={e => setNoteForm(f => ({ ...f, type: e.target.value }))} className={inp()}>
+            <select aria-label="Entry type" title="Entry type" value={noteForm.type} onChange={e => setNoteForm(f => ({ ...f, type: e.target.value as ManualTimelineType }))} className={inp()}>
               <option value="note">Note</option>
               <option value="call">Call</option>
               <option value="message">Message</option>

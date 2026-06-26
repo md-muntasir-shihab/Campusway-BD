@@ -11,25 +11,28 @@ type TimelineEntry = {
   student?: { full_name?: string; email?: string };
 };
 
+// Canonical timeline types — MUST match backend model
+// (backend/src/models/StudentContactTimeline.ts TIMELINE_TYPES).
+// Filtering by a type the DB can never contain yields a permanently-empty list.
 const TYPES = [
-  'note', 'call', 'message', 'sms', 'email', 'meeting',
-  'account_event', 'subscription_event', 'security_event',
-  'support_ticket', 'exam_event', 'follow_up',
+  'note', 'call', 'message', 'support_ticket_link', 'payment_note',
+  'account_event', 'login_event', 'profile_update',
+  'subscription_event', 'exam_event', 'notification_event', 'security_event',
 ];
 
 const TYPE_COLORS: Record<string, string> = {
   note: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
   call: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   message: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  sms: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-  email: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  support_ticket_link: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+  payment_note: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
   account_event: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  login_event: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  profile_update: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
   subscription_event: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  security_event: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  support_ticket: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
   exam_event: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-  follow_up: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  meeting: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+  notification_event: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  security_event: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
 export default function StudentCrmTimelinePage() {
@@ -38,11 +41,13 @@ export default function StudentCrmTimelinePage() {
   const [searchQ, setSearchQ] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['crm-timeline-global', typeFilter, sourceFilter],
+    // searchQ is part of the key so React Query refetches when the query changes.
+    queryKey: ['crm-timeline-global', typeFilter, sourceFilter, searchQ],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (typeFilter) params.set('type', typeFilter);
       if (sourceFilter) params.set('sourceType', sourceFilter);
+      if (searchQ.trim()) params.set('q', searchQ.trim());
       params.set('limit', '100');
       const res = await api.get(`/admin/students-v2/crm-timeline?${params}`);
       return res.data;

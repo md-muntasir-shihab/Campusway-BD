@@ -17,7 +17,9 @@ import {
   addTimelineEntry, deleteTimelineEntry,
   createFinanceAdjustment, getStudentPayments, getStudentFinanceStatement,
   getStudentExtendedProfile,
+  MANUAL_TIMELINE_TYPES,
 } from '../../../api/adminStudentApi';
+import type { ManualTimelineType } from '../../../api/adminStudentApi';
 import {
   adminSetPassword, resendAccountInfo, toggleForceReset, revokeStudentSessions,
 } from '../../../api/adminStudentSecurityApi';
@@ -120,7 +122,7 @@ export default function StudentManagementDetailPage() {
   const [setPassModal, setSetPassModal] = useState(false);
   const [newPass, setNewPass] = useState('');
   const [addNoteModal, setAddNoteModal] = useState(false);
-  const [noteForm, setNoteForm] = useState({ type: 'note', content: '' });
+  const [noteForm, setNoteForm] = useState<{ type: ManualTimelineType; content: string }>({ type: 'note', content: '' });
   const [adjModal, setAdjModal] = useState(false);
   const [adjForm, setAdjForm] = useState({ direction: 'income', amount: '', description: '', method: 'manual' });
 
@@ -163,7 +165,19 @@ export default function StudentManagementDetailPage() {
   const revokeMut = useMutation({ mutationFn: () => revokeStudentSessions(id!), onSuccess: () => flash('Sessions revoked') });
   const addNoteMut = useMutation({ mutationFn: () => addTimelineEntry(id!, noteForm), onSuccess: () => { refetch(); flash('Note added'); setAddNoteModal(false); setNoteForm({ type: 'note', content: '' }); } });
   const deleteNoteMut = useMutation({ mutationFn: (eid: string) => deleteTimelineEntry(id!, eid), onSuccess: () => { refetch(); flash('Entry deleted'); } });
-  const adjMut = useMutation({ mutationFn: () => createFinanceAdjustment(id!, { direction: adjForm.direction as 'income' | 'expense', amount: parseFloat(adjForm.amount), description: adjForm.description, method: adjForm.method }), onSuccess: () => { refetch(); flash('Adjustment recorded'); setAdjModal(false); setAdjForm({ direction: 'income', amount: '', description: '', method: 'manual' }); } });
+  const adjMut = useMutation({
+    mutationFn: () => {
+      const amount = parseFloat(adjForm.amount);
+      // Guard against empty/non-numeric input — parseFloat('') === NaN would
+      // otherwise be sent to the backend and stored as a corrupt transaction.
+      if (!Number.isFinite(amount) || amount < 0) {
+        return Promise.reject(new Error('Please enter a valid amount'));
+      }
+      return createFinanceAdjustment(id!, { direction: adjForm.direction as 'income' | 'expense', amount, description: adjForm.description, method: adjForm.method });
+    },
+    onSuccess: () => { refetch(); flash('Adjustment recorded'); setAdjModal(false); setAdjForm({ direction: 'income', amount: '', description: '', method: 'manual' }); },
+    onError: (err: any) => flash(String(err?.message || err?.response?.data?.message || 'Failed to record adjustment'), false),
+  });
 
   if (isLoading) return <div className="py-20 text-center text-slate-400">Loading student details...</div>;
   if (!student) return <div className="py-20 text-center text-slate-400">Student not found</div>;
@@ -294,8 +308,8 @@ export default function StudentManagementDetailPage() {
 
       <Modal open={addNoteModal} onClose={() => setAddNoteModal(false)} title="Add CRM Entry">
         <div className="space-y-3">
-          <select className={inputCls} value={noteForm.type} onChange={e => setNoteForm(p => ({ ...p, type: e.target.value }))}>
-            {['note', 'call', 'message', 'email', 'sms', 'meeting', 'follow_up', 'support_ticket'].map(t => (
+          <select className={inputCls} value={noteForm.type} onChange={e => setNoteForm(p => ({ ...p, type: e.target.value as ManualTimelineType }))}>
+            {MANUAL_TIMELINE_TYPES.map(t => (
               <option key={t} value={t}>{t.replace('_', ' ')}</option>
             ))}
           </select>

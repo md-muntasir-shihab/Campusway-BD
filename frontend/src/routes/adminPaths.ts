@@ -20,6 +20,7 @@ import {
     ShieldAlert,
     BellRing,
     BarChart2,
+    Calculator,
 } from 'lucide-react';
 
 export type AdminMenuIcon = ComponentType<{ className?: string }>;
@@ -119,6 +120,7 @@ export const ADMIN_PATHS = {
     adminProfile: adminUi('settings/admin-profile'),
     settingsCenter: adminUi('settings'),
     newsSettings: adminUi('settings/news'),
+    calculators: adminUi('settings/calculators'),
     // Legacy Notification Test Send redirect
     notificationTestSend: adminUi('notifications/test-send'),
     // Notification Triggers
@@ -217,6 +219,17 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
         icon: Newspaper,
         module: 'news',
         matchPrefixes: [adminUi('news'), adminUi('settings/news')],
+    },
+
+    // 4b. Calculator Hub
+    {
+        key: 'calculators',
+        label: 'Calculator Hub',
+        path: ADMIN_PATHS.calculators,
+        icon: Calculator,
+        module: 'site_settings',
+        allowedRoles: ['superadmin', 'admin'],
+        matchPrefixes: [adminUi('settings/calculators')],
     },
 
     // 5. Exam Center (v2) — the single, canonical exam system.

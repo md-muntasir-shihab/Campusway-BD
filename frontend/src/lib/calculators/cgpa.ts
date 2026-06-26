@@ -22,8 +22,16 @@ export interface CGPAResult {
   semesters: Semester[];
 }
 
-// Variant A — Public University
-export const PUBLIC_GRADE_TABLE = [
+/** A grade-table row, shaped to match the DB-driven CalculatorGrading model. */
+export interface GradeRow {
+  minMark: number;
+  maxMark: number;
+  grade: string;
+  point: number;
+}
+
+// Variant A — Public University (also the fallback when no DB table is supplied)
+export const PUBLIC_GRADE_TABLE: GradeRow[] = [
   { minMark: 80, maxMark: 100, grade: "A+", point: 4.0 },
   { minMark: 75, maxMark: 79, grade: "A", point: 3.75 },
   { minMark: 70, maxMark: 74, grade: "A-", point: 3.5 },
@@ -36,8 +44,8 @@ export const PUBLIC_GRADE_TABLE = [
   { minMark: 0, maxMark: 39, grade: "F", point: 0.0 },
 ];
 
-// Variant B — Private University
-export const PRIVATE_GRADE_TABLE = [
+// Variant B — Private University (fallback)
+export const PRIVATE_GRADE_TABLE: GradeRow[] = [
   { minMark: 97, maxMark: 100, grade: "A+", point: 4.0 },
   { minMark: 90, maxMark: 96, grade: "A", point: 4.0 },
   { minMark: 85, maxMark: 89, grade: "A-", point: 3.7 },
@@ -55,10 +63,21 @@ export const ALL_UNIVERSITY_GRADES = {
   private: ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "D", "F"],
 };
 
-export function gradeToPointUniversity(grade: string, isPrivate: boolean): number {
-  const table = isPrivate ? PRIVATE_GRADE_TABLE : PUBLIC_GRADE_TABLE;
-  const row = table.find((r) => r.grade === grade);
+/**
+ * Resolve a letter grade to its GPA point.
+ * Pass an admin-overridden table from the DB; falls back to the hardcoded
+ * default so behavior is unchanged when no table is supplied.
+ */
+export function gradeToPointUniversity(grade: string, isPrivate: boolean, table?: GradeRow[]): number {
+  const rows = table && table.length > 0 ? table : (isPrivate ? PRIVATE_GRADE_TABLE : PUBLIC_GRADE_TABLE);
+  const row = rows.find((r) => r.grade === grade);
   return row ? row.point : 0.0;
+}
+
+/** The list of grade letters for a variant, derived from the supplied table or the default. */
+export function universityGradeLetters(isPrivate: boolean, table?: GradeRow[]): string[] {
+  const rows = table && table.length > 0 ? table : (isPrivate ? PRIVATE_GRADE_TABLE : PUBLIC_GRADE_TABLE);
+  return rows.map((r) => r.grade);
 }
 
 export function calculateSGPA(courses: Course[]): number {

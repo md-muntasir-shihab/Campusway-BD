@@ -108,8 +108,12 @@ describe('Feature: finance-detail-view, Property 2: Invoice detail endpoint retu
                 await fcGetInvoice(req, res as unknown as Response);
 
                 expect(res._status).toBe(200);
-                expect(res._json).toEqual({ ok: true, data: invoiceDoc });
-                const data = (res._json as any).data;
+                // Controller wraps via ResponseBuilder.success({ ok: true, data })
+                // producing the standard envelope: { success: true, data: { ok, data } }
+                const envelope = res._json as { success: boolean; data: { ok: boolean; data: unknown } };
+                expect(envelope.success).toBe(true);
+                expect(envelope.data.ok).toBe(true);
+                const data = envelope.data.data as { _id: string; invoiceNo: string };
                 expect(data._id).toBe(invoiceDoc._id);
                 expect(data.invoiceNo).toBe(invoiceDoc.invoiceNo);
             }),
@@ -186,7 +190,11 @@ describe('Feature: finance-detail-view, Property 3: Invoice detail endpoint reje
                 await fcGetInvoice(req, res as unknown as Response);
 
                 expect(res._status).toBe(400);
-                expect(res._json).toEqual({ message: 'Invalid ID' });
+                // Controller returns the standard error envelope via ResponseBuilder
+                const errEnvelope = res._json as { success: boolean; message: string; error: { code: string } };
+                expect(errEnvelope.success).toBe(false);
+                expect(errEnvelope.message).toBe('Invalid ID');
+                expect(errEnvelope.error.code).toBe('VALIDATION_ERROR');
 
                 // Verify findById was never called with an invalid ID
                 expect(FinanceInvoice.findById).not.toHaveBeenCalled();

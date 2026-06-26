@@ -145,3 +145,5 @@ graphify-out/
 
 backend/nul
 nul
+# Vite transient config timestamp files
+**/vite.config.ts.timestamp-*.mjs
