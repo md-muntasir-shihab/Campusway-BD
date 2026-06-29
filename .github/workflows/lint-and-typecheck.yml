@@ -22,7 +22,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install Backend Dependencies
-        run: npm ci
+        run: npm install
         working-directory: backend
 
       - name: Build Backend
@@ -46,7 +46,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Frontend Dependencies
-        run: npm ci
+        run: npm install
         working-directory: frontend
 
       - name: ESLint Check (Frontend)
@@ -72,7 +72,7 @@ jobs:
 #           cache-dependency-path: frontend-next/package-lock.json
 #
 #       - name: Install Frontend Next Dependencies
-#         run: npm ci
+#         run: npm install
 #         working-directory: frontend-next
 #
 #       - name: Build Frontend Next
@@ -95,11 +95,11 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install Backend Dependencies
-        run: npm ci
+        run: npm install
         working-directory: backend
 
       - name: Install Frontend Dependencies
-        run: npm ci
+        run: npm install
         working-directory: frontend
 
       # Step 1: Dependency vulnerability scan
