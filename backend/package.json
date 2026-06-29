@@ -87,7 +87,7 @@
         "@types/pdfkit": "^0.17.3",
         "@types/sanitize-html": "^2.16.0",
         "@types/sharp": "^0.32.0",
-        "@types/supertest": "^6.0.2",
+        "@types/supertest": "^7.2.0",
         "@types/uuid": "^10.0.0",
         "@vitest/coverage-v8": "^4.1.6",
         "eslint": "^10.3.0",
