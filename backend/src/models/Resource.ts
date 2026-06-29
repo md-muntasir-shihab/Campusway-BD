@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IResource extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     slug?: string;
     description: string;

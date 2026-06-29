@@ -5,6 +5,7 @@ export type ContactMessageSourceType = 'public' | 'user' | 'student' | 'subscrib
 export type ContactMessageMatchedBy = 'email' | 'phone' | 'userId' | 'none';
 
 export interface IContactMessage extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     email: string;
     phone?: string;

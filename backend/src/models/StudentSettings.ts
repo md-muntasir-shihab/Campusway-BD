@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IStudentSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     key: string;
     expiryReminderDays: number[];
     autoExpireEnabled: boolean;

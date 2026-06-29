@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPartner extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     logoUrl: string;
     websiteUrl?: string;

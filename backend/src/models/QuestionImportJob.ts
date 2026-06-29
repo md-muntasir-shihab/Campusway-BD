@@ -7,6 +7,7 @@ export interface IQuestionImportRowError {
 }
 
 export interface IQuestionImportJob extends Document {
+    _id: mongoose.Types.ObjectId;
     status: 'pending' | 'processing' | 'completed' | 'failed';
     sourceFileName?: string;
     createdBy?: mongoose.Types.ObjectId | null;

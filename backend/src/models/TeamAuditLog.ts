@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ITeamAuditLog extends Document {
+    _id: mongoose.Types.ObjectId;
     actorId?: mongoose.Types.ObjectId;
     module: string;
     action: string;

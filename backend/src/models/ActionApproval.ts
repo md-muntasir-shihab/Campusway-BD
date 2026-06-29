@@ -29,6 +29,7 @@ export interface IActionApprovalTargetSummary {
 }
 
 export interface IActionApproval extends Document {
+    _id: mongoose.Types.ObjectId;
     actionKey: RiskyActionKey;
     module: string;
     action: string;

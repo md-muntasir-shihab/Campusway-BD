@@ -6,6 +6,7 @@ export type NotificationJobTarget = 'single' | 'group' | 'filter' | 'selected';
 export type NotificationJobStatus = 'queued' | 'processing' | 'done' | 'failed' | 'partial';
 
 export interface INotificationJob extends Document {
+    _id: mongoose.Types.ObjectId;
     campaignName?: string;
     type: NotificationJobType;
     channel: NotificationJobChannel;

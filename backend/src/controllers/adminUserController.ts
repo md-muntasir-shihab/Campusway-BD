@@ -2869,7 +2869,7 @@ export async function adminUpdateStudentGroup(req: AuthRequest, res: Response): 
 
         if (addStudentIds.length > 0) {
             addResult = await groupMembershipService.bulkAddMembers(
-                item._id,
+                (item._id as mongoose.Types.ObjectId),
                 addStudentIds,
                 req.user?._id,
                 'Added via group update'
@@ -2878,7 +2878,7 @@ export async function adminUpdateStudentGroup(req: AuthRequest, res: Response): 
 
         if (removeStudentIds.length > 0) {
             removeResult = await groupMembershipService.bulkRemoveMembers(
-                item._id,
+                (item._id as mongoose.Types.ObjectId),
                 removeStudentIds,
                 req.user?._id,
                 'Removed via group update'

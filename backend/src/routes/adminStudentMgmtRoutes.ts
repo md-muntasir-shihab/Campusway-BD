@@ -1092,7 +1092,7 @@ router.get('/student-groups/:id', ...adminAuth, requirePermission('students_grou
   try {
     const group = await StudentGroup.findById(req.params.id).lean();
     if (!group) return res.status(404).json({ message: 'Group not found' });
-    const memberCount = await groupMembershipService.getGroupMemberCount(group._id, 'active');
+    const memberCount = await groupMembershipService.getGroupMemberCount(group._id as any, 'active');
     res.json({ ...group, memberCount });
   } catch (err) {
     res.status(500).json({ message: String(err) });

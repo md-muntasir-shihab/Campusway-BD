@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IStaffPayout extends Document {
+    _id: mongoose.Types.ObjectId;
     userId: mongoose.Types.ObjectId;
     role: string;
     amount: number;

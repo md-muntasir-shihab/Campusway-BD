@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IExamCertificate extends Document {
+    _id: mongoose.Types.ObjectId;
     certificateId: string;
     verifyToken: string;
     examId: mongoose.Types.ObjectId;

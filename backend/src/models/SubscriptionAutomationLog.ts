@@ -10,6 +10,7 @@ export type AutomationAction =
     | 'payment_retry';
 
 export interface ISubscriptionAutomationLog extends Document {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     planId?: mongoose.Types.ObjectId;
     subscriptionId?: mongoose.Types.ObjectId;

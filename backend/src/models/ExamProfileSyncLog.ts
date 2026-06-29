@@ -4,6 +4,7 @@ export type ExamProfileSyncSource = 'external_import' | 'internal_result' | 'man
 export type ExamProfileSyncStatus = 'synced' | 'skipped' | 'failed';
 
 export interface IExamProfileSyncLog extends Document {
+    _id: mongoose.Types.ObjectId;
     examId: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     resultId?: mongoose.Types.ObjectId | null;

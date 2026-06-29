@@ -10,6 +10,7 @@ export type SecureUploadCategory =
     | 'admin_upload';
 
 export interface ISecureUpload extends Document {
+    _id: mongoose.Types.ObjectId;
     ownerUserId?: mongoose.Types.ObjectId | null;
     ownerRole?: string | null;
     category: SecureUploadCategory;

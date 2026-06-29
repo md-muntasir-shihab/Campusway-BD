@@ -42,6 +42,7 @@ export interface IUserPermissions {
 }
 
 export interface IUser extends Document {
+    _id: mongoose.Types.ObjectId;
     full_name: string;
     username: string;
     email: string;

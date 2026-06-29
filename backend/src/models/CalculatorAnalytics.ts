@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export type CalculatorType = 'ssc' | 'hsc' | 'olevel' | 'cgpa' | 'nu';
 
 export interface ICalculatorAnalytics extends Document {
+    _id: mongoose.Types.ObjectId;
     calculatorType: CalculatorType;
     date: string; // YYYY-MM-DD format for easy daily aggregation
     usageCount: number;

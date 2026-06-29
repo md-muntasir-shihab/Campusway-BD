@@ -612,7 +612,7 @@ export async function deleteQuestion(req: AuthRequest, res: Response): Promise<v
         }
 
         // Hard delete with cascade
-        const questionId = existing._id.toString();
+        const questionId = String(existing._id);
 
         // IMPORTANT: Get affected exam IDs BEFORE deleting ExamQuestions
         const affectedExamIds = await ExamQuestionModel.distinct('examId', {

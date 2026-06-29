@@ -360,7 +360,7 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
 
     // 7a. Refresh exam leaderboard — Requirement 8.1, 8.5
     try {
-        await refreshExamLeaderboard(exam._id.toString());
+        await refreshExamLeaderboard(String(exam._id));
     } catch (err) {
         console.error('Failed to refresh exam leaderboard:', err);
     }
@@ -393,7 +393,7 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
 
         await createMistakeEntries(
             session.student.toString(),
-            exam._id.toString(),
+            exam._id as any,
             incorrectAnswers,
         );
     } catch (err) {
@@ -412,7 +412,7 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
             baseXP: 50 + scoreBreakdown.correctCount * 5,
             difficultyFactor,
             event: 'exam_complete',
-            sourceId: exam._id.toString(),
+            sourceId: String(exam._id),
         });
 
         // Award coins for passing
@@ -420,7 +420,7 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
             await awardCoins(session.student.toString(), {
                 amount: 10 + Math.floor(scoreBreakdown.percentage / 10),
                 event: 'exam_pass',
-                sourceId: exam._id.toString(),
+                sourceId: String(exam._id),
             });
         }
     } catch (err) {
@@ -460,7 +460,7 @@ export async function computeResult(sessionId: string): Promise<IExamResult> {
 
     // 7h. Trigger result notification — Requirement 24.1
     try {
-        await triggerResultPublished(exam._id.toString());
+        await triggerResultPublished(String(exam._id));
     } catch (err) {
         console.error('Failed to trigger result notification:', err);
     }

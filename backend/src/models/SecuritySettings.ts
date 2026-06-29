@@ -215,6 +215,7 @@ export interface RuntimeGuardSettings {
 }
 
 export interface ISecuritySettings extends Document {
+    _id: mongoose.Types.ObjectId;
     key: 'global';
     passwordPolicy: PasswordPolicy;
     loginProtection: LoginProtectionSettings;

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface INewsFetchJob extends Document {
+    _id: mongoose.Types.ObjectId;
     sourceIds: mongoose.Types.ObjectId[];
     status: 'pending' | 'running' | 'completed' | 'failed';
     startedAt?: Date;

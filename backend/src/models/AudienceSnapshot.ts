@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 // ─── Audience Snapshot Interface ─────────────────────────────────────────────
 
 export interface IAudienceSnapshot extends Document {
+    _id: mongoose.Types.ObjectId;
     campaignId: mongoose.Types.ObjectId;
     memberIds: mongoose.Types.ObjectId[];
     hash: string;

@@ -13,6 +13,7 @@ export interface ISupportTicketTimelineItem {
 }
 
 export interface ISupportTicket extends Document {
+    _id: mongoose.Types.ObjectId;
     ticketNo: string;
     studentId: mongoose.Types.ObjectId;
     subject: string;

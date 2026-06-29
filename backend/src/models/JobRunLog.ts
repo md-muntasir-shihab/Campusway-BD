@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type JobRunStatus = 'running' | 'success' | 'failed';
 
 export interface IJobRunLog extends Document {
+    _id: mongoose.Types.ObjectId;
     jobName: string;
     startedAt: Date;
     endedAt?: Date | null;

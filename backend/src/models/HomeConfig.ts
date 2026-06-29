@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IHomeSection extends Document {
+    _id: mongoose.Types.ObjectId;
     id: string; // e.g., 'hero', 'stats', 'featured', 'grid'
     title: string;
     isActive: boolean;

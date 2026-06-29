@@ -6,6 +6,7 @@ export interface ILeagueTierHistory {
 }
 
 export interface ILeagueProgress extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     currentTier: 'iron' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'platinum';
     mockTestsCompleted: number;

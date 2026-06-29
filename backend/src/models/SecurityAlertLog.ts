@@ -22,6 +22,7 @@ export type AlertType =
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 
 export interface ISecurityAlertLog extends Document {
+    _id: mongoose.Types.ObjectId;
     type: AlertType;
     severity: AlertSeverity;
     title: string;

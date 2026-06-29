@@ -19,6 +19,7 @@ export interface IAudienceRules {
 }
 
 export interface IContentBlock extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     subtitle?: string;
     body?: string;

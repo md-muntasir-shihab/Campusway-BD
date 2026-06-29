@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IHomePage extends Document {
+    _id: mongoose.Types.ObjectId;
     heroSection: {
         title: string;
         subtitle: string;

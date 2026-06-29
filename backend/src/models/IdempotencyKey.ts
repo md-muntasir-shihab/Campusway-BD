@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 // ─── Idempotency Key Interface ───────────────────────────────────────────────
 
 export interface IIdempotencyKey extends Document {
+    _id: mongoose.Types.ObjectId;
     key: string;
     result: Record<string, unknown>;
     expiresAt: Date;

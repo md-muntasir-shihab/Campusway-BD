@@ -11,6 +11,7 @@ export interface ISubscriptionSettingsComparisonRow {
 }
 
 export interface ISubscriptionSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     pageTitle: string;
     pageSubtitle: string;
     heroEyebrow: string;

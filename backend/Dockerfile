@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install ALL dependencies (including dev) for build
 COPY package*.json ./
-RUN npm ci --include=dev
+RUN npm install
 
 # Copy source and compile TypeScript (exclude test files)
 COPY tsconfig.json ./
@@ -26,7 +26,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Install production dependencies only
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copy compiled output from builder
 COPY --from=builder /app/dist ./dist

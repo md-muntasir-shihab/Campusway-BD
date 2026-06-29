@@ -13,6 +13,7 @@ export interface IBattleReward {
 }
 
 export interface IBattleSession extends Document {
+    _id: mongoose.Types.ObjectId;
     challenger: mongoose.Types.ObjectId;
     opponent: mongoose.Types.ObjectId;
     topic?: mongoose.Types.ObjectId;

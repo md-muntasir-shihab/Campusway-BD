@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type ViolationType = 'tab_switch' | 'copy_attempt' | 'fullscreen_exit' | 'fingerprint_match' | 'ip_duplicate';
 
 export interface IAntiCheatViolationLog extends Document {
+    _id: mongoose.Types.ObjectId;
     session: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     exam: mongoose.Types.ObjectId;

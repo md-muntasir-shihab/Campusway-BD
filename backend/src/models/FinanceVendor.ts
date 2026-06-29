@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IFinanceVendor extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     contact?: string;
     email?: string;

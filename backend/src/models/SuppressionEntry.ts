@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 // ─── Suppression Entry Interface ─────────────────────────────────────────────
 
 export interface ISuppressionEntry extends Document {
+    _id: mongoose.Types.ObjectId;
     contactIdentifier: string;
     channel: 'sms' | 'email';
     reason: 'hard_bounce' | 'complaint' | 'invalid_contact' | 'manual_blacklist';

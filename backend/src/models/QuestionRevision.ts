@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IQuestionRevision extends Document {
+    _id: mongoose.Types.ObjectId;
     questionId: mongoose.Types.ObjectId;
     revisionNo: number;
     snapshot: Record<string, unknown>;

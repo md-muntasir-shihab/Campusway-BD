@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ILiveAlertAck extends Document {
+    _id: mongoose.Types.ObjectId;
     alertId: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     ackAt: Date;

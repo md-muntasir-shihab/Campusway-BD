@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IHomeAlert extends Document {
+    _id: mongoose.Types.ObjectId;
     title?: string;
     message: string;
     link?: string;

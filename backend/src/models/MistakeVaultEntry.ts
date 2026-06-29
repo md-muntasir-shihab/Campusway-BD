@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IMistakeVaultEntry extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     question: mongoose.Types.ObjectId;
     exam?: mongoose.Types.ObjectId;

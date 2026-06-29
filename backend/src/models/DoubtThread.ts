@@ -16,6 +16,7 @@ export interface IDoubtReply {
 }
 
 export interface IDoubtThread extends Document {
+    _id: mongoose.Types.ObjectId;
     question: mongoose.Types.ObjectId;
     createdBy: mongoose.Types.ObjectId;
     aiExplanation?: string;

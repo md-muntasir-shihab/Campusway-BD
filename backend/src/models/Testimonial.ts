@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ITestimonial extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     role: string;
     university: string;

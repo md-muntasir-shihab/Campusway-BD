@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IExamEvent extends Document {
+    _id: mongoose.Types.ObjectId;
     attempt: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     exam: mongoose.Types.ObjectId;

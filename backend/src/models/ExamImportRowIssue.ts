@@ -8,6 +8,7 @@ export type ExamImportIssueType =
     | 'save_failed';
 
 export interface IExamImportRowIssue extends Document {
+    _id: mongoose.Types.ObjectId;
     jobId: mongoose.Types.ObjectId;
     examId: mongoose.Types.ObjectId;
     rowNumber: number;

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ICoinLog extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     amount: number;
     event: string;

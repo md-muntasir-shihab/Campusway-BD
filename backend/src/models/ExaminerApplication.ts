@@ -8,6 +8,7 @@ export interface IApplicationData {
 }
 
 export interface IExaminerApplication extends Document {
+    _id: mongoose.Types.ObjectId;
     user: mongoose.Types.ObjectId;
     status: 'pending' | 'approved' | 'rejected';
     applicationData: IApplicationData;

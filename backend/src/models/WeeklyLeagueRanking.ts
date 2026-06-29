@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IWeeklyLeagueRanking extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     weekKey: string; // e.g. "2026-W25"
     xpEarned: number;

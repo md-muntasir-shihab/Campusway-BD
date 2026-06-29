@@ -9,6 +9,7 @@ export type ExpenseCategory =
     | 'misc';
 
 export interface IExpenseEntry extends Document {
+    _id: mongoose.Types.ObjectId;
     category: ExpenseCategory;
     amount: number;
     date: Date;

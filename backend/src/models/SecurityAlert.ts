@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISecurityAlert extends Document {
+    _id: mongoose.Types.ObjectId;
     alertType: 'auth_failure_spike' | 'otp_abuse' | 'suspicious_admin_activity' | 'anti_cheat_spike';
     severity: 'info' | 'warning' | 'critical';
     details: Record<string, unknown>;

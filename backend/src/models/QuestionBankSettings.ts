@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IQuestionBankSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     versioningOnEditIfUsed: boolean;
     duplicateDetectionSensitivity: number;
     defaultMarks: number;

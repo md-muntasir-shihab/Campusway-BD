@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ICalculatorSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     isSSCEnabled: boolean;
     isHSCEnabled: boolean;
     isOLevelEnabled: boolean;

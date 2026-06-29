@@ -20,6 +20,7 @@ export type ManualTimelineType = (typeof MANUAL_TIMELINE_TYPES)[number];
 export type TimelineSourceType = 'manual' | 'system';
 
 export interface IStudentContactTimeline extends Document {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     type: StudentContactTimelineType;
     content: string;

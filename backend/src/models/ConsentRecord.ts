@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 // ─── Consent Record Interface ────────────────────────────────────────────────
 
 export interface IConsentRecord extends Document {
+    _id: mongoose.Types.ObjectId;
     userId: mongoose.Types.ObjectId;
     channel: 'sms' | 'email';
     purpose: 'transactional' | 'promotional';

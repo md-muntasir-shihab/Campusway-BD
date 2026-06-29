@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type CoaType = 'income' | 'expense' | 'asset' | 'liability';
 
 export interface IChartOfAccounts extends Document {
+    _id: mongoose.Types.ObjectId;
     code: string;
     name: string;
     type: CoaType;

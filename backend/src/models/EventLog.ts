@@ -3,6 +3,7 @@
 export type EventLogSource = 'public' | 'student' | 'admin';
 
 export interface IEventLog extends Document {
+    _id: mongoose.Types.ObjectId;
     userId?: mongoose.Types.ObjectId | null;
     sessionId: string;
     eventName: string;

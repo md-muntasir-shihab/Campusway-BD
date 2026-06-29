@@ -22,6 +22,7 @@ export interface IPopupConfig {
 }
 
 export interface IBanner extends Document {
+    _id: mongoose.Types.ObjectId;
     title?: string;
     subtitle?: string;
     imageUrl: string;

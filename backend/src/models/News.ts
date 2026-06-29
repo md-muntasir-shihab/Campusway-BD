@@ -17,6 +17,7 @@ import mongoose, { Schema, Document } from 'mongoose';
  * @collection news
  */
 export interface INews extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     slug: string;
     displayType?: 'news' | 'update';

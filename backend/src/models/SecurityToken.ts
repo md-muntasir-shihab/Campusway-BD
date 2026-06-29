@@ -10,6 +10,7 @@ export type SecurityTokenPurpose =
     | 'recovery';
 
 export interface ISecurityToken extends Document {
+    _id: mongoose.Types.ObjectId;
     userId: mongoose.Types.ObjectId;
     purpose: SecurityTokenPurpose;
     tokenHash: string;

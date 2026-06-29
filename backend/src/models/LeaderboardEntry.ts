@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ILeaderboardEntry extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     exam?: mongoose.Types.ObjectId;
     group?: mongoose.Types.ObjectId;

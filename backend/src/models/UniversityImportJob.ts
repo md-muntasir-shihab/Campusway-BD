@@ -22,6 +22,7 @@ export interface IUniversityImportCommitSummary {
 }
 
 export interface IUniversityImportJob extends Document {
+    _id: mongoose.Types.ObjectId;
     status: 'initialized' | 'validated' | 'committed' | 'failed';
     sourceFileName: string;
     mimeType: string;

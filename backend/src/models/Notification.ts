@@ -28,6 +28,7 @@ export type NotificationType =
 export type NotificationPriority = 'normal' | 'high' | 'urgent';
 
 export interface INotification extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     message: string;
     type?: NotificationType;

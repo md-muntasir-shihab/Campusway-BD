@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IQuestionBankUsage extends Document {
+    _id: mongoose.Types.ObjectId;
     bankQuestionId: mongoose.Types.ObjectId;
     examId: string;
     usedAtUTC: Date;

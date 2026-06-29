@@ -5,6 +5,7 @@ export type BackupStorage = 'local' | 's3' | 'both';
 export type BackupStatus = 'queued' | 'running' | 'completed' | 'failed';
 
 export interface IBackupJob extends Document {
+    _id: mongoose.Types.ObjectId;
     type: BackupType;
     storage: BackupStorage;
     status: BackupStatus;

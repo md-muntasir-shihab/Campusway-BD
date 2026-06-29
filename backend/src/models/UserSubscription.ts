@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type UserSubscriptionStatus = 'active' | 'expired' | 'pending' | 'suspended';
 
 export interface IUserSubscription extends Document {
+    _id: mongoose.Types.ObjectId;
     userId: mongoose.Types.ObjectId;
     planId: mongoose.Types.ObjectId;
     status: UserSubscriptionStatus;

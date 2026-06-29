@@ -7,6 +7,7 @@ export interface IDashboardSectionConfig {
 }
 
 export interface IStudentDashboardConfig extends Document {
+    _id: mongoose.Types.ObjectId;
     welcomeMessageTemplate: string;
     profileCompletionThreshold: number;
     enableRealtime: boolean;

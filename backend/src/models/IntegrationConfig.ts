@@ -41,6 +41,7 @@ export type IntegrationCategory =
 export type IntegrationTestStatus = 'unknown' | 'success' | 'failed' | 'skipped';
 
 export interface IIntegrationConfig extends Document {
+    _id: mongoose.Types.ObjectId;
     key: IntegrationKey;
     displayName: string;
     category: IntegrationCategory;

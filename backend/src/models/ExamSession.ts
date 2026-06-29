@@ -16,6 +16,7 @@ import mongoose, { Schema, Document } from 'mongoose';
  * @collection exam_attempts
  */
 export interface IExamSession extends Document {
+    _id: mongoose.Types.ObjectId;
     exam: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     attemptNo: number;

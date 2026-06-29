@@ -16,6 +16,7 @@ interface IUnit {
 }
 
 export interface IUniversity extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     shortForm: string;
     category: string;

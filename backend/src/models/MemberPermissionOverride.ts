@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IMemberPermissionOverride extends Document {
+    _id: mongoose.Types.ObjectId;
     memberId: mongoose.Types.ObjectId;
     allow: Record<string, Record<string, boolean>>;
     deny: Record<string, Record<string, boolean>>;

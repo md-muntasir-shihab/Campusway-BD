@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type SupportTicketMessageSenderType = 'student' | 'admin' | 'system';
 
 export interface ISupportTicketMessage extends Document {
+    _id: mongoose.Types.ObjectId;
     ticketId: mongoose.Types.ObjectId;
     senderType: SupportTicketMessageSenderType;
     senderId?: mongoose.Types.ObjectId | null;

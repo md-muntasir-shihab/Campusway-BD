@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IExternalExamJoinLog extends Document {
+    _id: mongoose.Types.ObjectId;
     examId: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     joinedAt: Date;

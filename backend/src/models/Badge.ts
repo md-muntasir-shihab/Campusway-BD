@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IBadge extends Document {
+    _id: mongoose.Types.ObjectId;
     code: string;
     title: string;
     title_bn?: string;

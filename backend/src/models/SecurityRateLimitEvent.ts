@@ -10,6 +10,7 @@ export type SecurityRateLimitBucket =
     | 'contact_form';
 
 export interface ISecurityRateLimitEvent extends Document {
+    _id: mongoose.Types.ObjectId;
     bucket: SecurityRateLimitBucket;
     scopeKey: string;
     count: number;

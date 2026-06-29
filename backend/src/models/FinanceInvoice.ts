@@ -4,6 +4,7 @@ export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled' | 'overd
 export type InvoicePurpose = 'subscription' | 'exam' | 'service' | 'custom';
 
 export interface IFinanceInvoice extends Document {
+    _id: mongoose.Types.ObjectId;
     invoiceNo: string;
     studentId?: mongoose.Types.ObjectId;
     purpose: InvoicePurpose;

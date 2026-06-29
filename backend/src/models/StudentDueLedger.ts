@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IStudentDueLedger extends Document {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     computedDue: number;
     manualAdjustment: number;

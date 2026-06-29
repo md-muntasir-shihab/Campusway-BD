@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type AnnouncementTarget = 'all' | 'groups' | 'students';
 
 export interface IAnnouncementNotice extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     message: string;
     target: AnnouncementTarget;

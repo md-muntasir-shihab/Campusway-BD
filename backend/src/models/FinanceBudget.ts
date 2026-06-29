@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IFinanceBudget extends Document {
+    _id: mongoose.Types.ObjectId;
     month: string; // YYYY-MM
     accountCode: string;
     categoryLabel: string;

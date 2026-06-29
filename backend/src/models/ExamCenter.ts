@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
 export interface IExamCenter extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     address: string;
     code?: string;

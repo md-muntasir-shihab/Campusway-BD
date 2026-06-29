@@ -5,6 +5,7 @@ export type ManualPaymentEntryType = 'subscription' | 'due_settlement' | 'exam_f
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'rejected';
 
 export interface IManualPayment extends Document {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     subscriptionPlanId?: mongoose.Types.ObjectId | null;
     examId?: mongoose.Types.ObjectId | null;

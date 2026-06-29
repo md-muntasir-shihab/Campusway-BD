@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface INewsMedia extends Document {
+    _id: mongoose.Types.ObjectId;
     url: string;
     storageKey?: string;
     mimeType?: string;

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IHelpArticle extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     slug: string;
     categoryId: mongoose.Types.ObjectId;

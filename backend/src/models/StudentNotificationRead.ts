@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IStudentNotificationRead extends Document {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     notificationId: mongoose.Types.ObjectId;
     readAt: Date;

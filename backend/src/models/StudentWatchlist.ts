@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IStudentWatchlist extends Document {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     itemType: 'university' | 'resource' | 'exam' | 'news';
     itemId: mongoose.Types.ObjectId;

@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type MembershipStatus = 'active' | 'removed' | 'archived';
 
 export interface IGroupMembership extends Document {
+    _id: mongoose.Types.ObjectId;
     groupId: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     addedByAdminId?: mongoose.Types.ObjectId;

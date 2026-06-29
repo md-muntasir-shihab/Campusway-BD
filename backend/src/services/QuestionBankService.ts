@@ -823,7 +823,7 @@ export async function detectDuplicates(questionText: string): Promise<IQuestionB
 
     // Step 3: Combine results, deduplicating by ID
     const matchedIds = new Set<string>(
-        exactMatches.map((q) => q._id.toString()),
+        exactMatches.map((q) => String(q._id)),
     );
 
     for (const match of similarityMatches) {

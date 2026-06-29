@@ -8,6 +8,7 @@ export interface IEngagement {
 }
 
 export interface IExperimentAssignment extends Document {
+    _id: mongoose.Types.ObjectId;
     experimentId: mongoose.Types.ObjectId;
     recipientId: mongoose.Types.ObjectId;
     variantId: string | null;

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPaymentWebhookEvent extends Document {
+    _id: mongoose.Types.ObjectId;
     provider: string;
     eventType: string;
     providerEventId: string;

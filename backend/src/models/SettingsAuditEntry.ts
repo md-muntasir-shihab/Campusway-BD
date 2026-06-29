@@ -11,6 +11,7 @@ export interface IDiffItem {
 // ─── Settings Audit Entry Interface ──────────────────────────────────────────
 
 export interface ISettingsAuditEntry extends Document {
+    _id: mongoose.Types.ObjectId;
     actorId: mongoose.Types.ObjectId;
     actorRole: string;
     timestamp: Date;

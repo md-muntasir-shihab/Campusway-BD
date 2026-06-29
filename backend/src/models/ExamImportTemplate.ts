@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IExamImportTemplate extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     description?: string;
     expectedColumns: string[];

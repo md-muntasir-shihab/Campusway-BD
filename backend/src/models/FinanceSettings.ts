@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IFinanceSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     key: 'default'; // singleton
     defaultCurrency: string;
     invoicePrefix: string;

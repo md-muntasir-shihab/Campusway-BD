@@ -14,6 +14,7 @@ export interface IRecentScore {
 }
 
 export interface IStudentAnalyticsAggregate extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     totalExamsTaken: number;
     averageScore: number;

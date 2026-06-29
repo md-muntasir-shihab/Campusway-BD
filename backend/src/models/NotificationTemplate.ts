@@ -7,6 +7,7 @@ export type NotificationTemplateCategory =
     | 'campaign' | 'guardian' | 'other';
 
 export interface INotificationTemplate extends Document {
+    _id: mongoose.Types.ObjectId;
     key: string;
     channel: NotificationChannel;
     category: NotificationTemplateCategory;

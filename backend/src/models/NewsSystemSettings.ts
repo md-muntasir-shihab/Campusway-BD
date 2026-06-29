@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface INewsSystemSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     key: string;
     config: Record<string, unknown>;
     updatedBy?: mongoose.Types.ObjectId;

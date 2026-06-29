@@ -44,6 +44,7 @@ export type ResourceSettingsSort = 'latest' | 'downloads' | 'views';
 export type ResourceSettingsDefaultType = 'all' | (typeof RESOURCE_ALLOWED_TYPES)[number];
 
 export interface IResourceSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     pageTitle: string;
     pageSubtitle: string;
     heroBadgeLabel: string;

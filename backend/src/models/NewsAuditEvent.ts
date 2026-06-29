@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface INewsAuditEvent extends Document {
+    _id: mongoose.Types.ObjectId;
     actorId?: mongoose.Types.ObjectId;
     action: string;
     entityType: 'news' | 'source' | 'settings' | 'media' | 'export' | 'workflow';

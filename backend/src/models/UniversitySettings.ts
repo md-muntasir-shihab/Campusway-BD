@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUniversitySettings extends Document {
+    _id: mongoose.Types.ObjectId;
     categoryOrder: string[];
     highlightedCategories: string[];
     defaultCategory: string;

@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ITopicDifficulty extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     topic: mongoose.Types.ObjectId;
     /** Elo-like rating — starts at 1200, adjusts per answer */

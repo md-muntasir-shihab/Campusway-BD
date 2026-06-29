@@ -1,6 +1,7 @@
 ﻿import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISiteSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     siteName: string;
     tagline: string;
     metaTitle: string;

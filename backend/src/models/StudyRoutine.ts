@@ -18,6 +18,7 @@ export interface IExamCountdown {
 }
 
 export interface IStudyRoutine extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     weeklySchedule: IWeeklyScheduleEntry[];
     examCountdowns: IExamCountdown[];

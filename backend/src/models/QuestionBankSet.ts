@@ -12,6 +12,7 @@ export interface ISetRules {
 }
 
 export interface IQuestionBankSet extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     description?: string;
     mode: 'manual' | 'rule_based';

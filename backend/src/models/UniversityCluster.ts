@@ -12,6 +12,7 @@ export interface IUniversityClusterDateConfig {
 }
 
 export interface IUniversityCluster extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     slug: string;
     description?: string;

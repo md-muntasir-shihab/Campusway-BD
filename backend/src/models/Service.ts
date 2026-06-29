@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IService extends Document {
+    _id: mongoose.Types.ObjectId;
     title_bn: string;
     title_en: string;
     description_bn?: string;

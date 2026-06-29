@@ -6,6 +6,7 @@ export interface IStreakCalendarEntry {
 }
 
 export interface IStreakRecord extends Document {
+    _id: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     currentStreak: number;
     longestStreak: number;

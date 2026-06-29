@@ -33,6 +33,7 @@ export interface IAttachment {
 }
 
 export interface IFinanceTransaction extends Document {
+    _id: mongoose.Types.ObjectId;
     txnCode: string;
     direction: TxnDirection;
     amount: number;

@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IServiceCategory extends Document {
+    _id: mongoose.Types.ObjectId;
     name_bn: string;
     name_en: string;
     status: 'active' | 'inactive';

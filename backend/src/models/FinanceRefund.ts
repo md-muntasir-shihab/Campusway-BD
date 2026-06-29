@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IFinanceRefund extends Document {
+    _id: mongoose.Types.ObjectId;
     refundCode: string;
     originalPaymentId?: mongoose.Types.ObjectId;
     financeTxnId?: mongoose.Types.ObjectId;

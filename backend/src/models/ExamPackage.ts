@@ -9,6 +9,7 @@ export interface ICouponCode {
 }
 
 export interface IExamPackage extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     title_bn?: string;
     description?: string;

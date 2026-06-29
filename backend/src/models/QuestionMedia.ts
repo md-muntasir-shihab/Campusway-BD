@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IQuestionMedia extends Document {
+    _id: mongoose.Types.ObjectId;
     sourceType: 'upload' | 'external_link';
     url: string;
     mimeType?: string;

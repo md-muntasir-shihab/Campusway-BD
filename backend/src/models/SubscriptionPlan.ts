@@ -12,6 +12,7 @@ export interface ISubscriptionFaqItem {
 }
 
 export interface ISubscriptionPlan extends Document {
+    _id: mongoose.Types.ObjectId;
     code: string;
     slug: string;
     name: string;

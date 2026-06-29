@@ -11,6 +11,7 @@ export interface ChannelPreferences {
 export type PreferenceScope = NotificationType | 'global';
 
 export interface INotificationPreference extends Document {
+    _id: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;
     notificationType: PreferenceScope;
     channels: ChannelPreferences;

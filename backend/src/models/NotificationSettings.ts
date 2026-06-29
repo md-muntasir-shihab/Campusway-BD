@@ -32,6 +32,7 @@ export interface ITriggerToggle {
 }
 
 export interface INotificationSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     /* ---- global send limits ---- */
     dailySmsLimit: number;
     dailyEmailLimit: number;

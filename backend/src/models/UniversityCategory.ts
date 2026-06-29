@@ -18,6 +18,7 @@ export interface IUniversityCategorySyncMeta {
 }
 
 export interface IUniversityCategory extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     slug: string;
     labelBn?: string;

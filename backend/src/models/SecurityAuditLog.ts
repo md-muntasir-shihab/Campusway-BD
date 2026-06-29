@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISecurityAuditLog extends Document {
+    _id: mongoose.Types.ObjectId;
     correlationId: string;
     eventCategory: 'auth' | 'anti_cheat' | 'admin' | 'security';
     eventType: string;

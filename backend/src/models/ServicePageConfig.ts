@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IServicePageConfig extends Document {
+    _id: mongoose.Types.ObjectId;
     heroTitle: string;
     heroSubtitle: string;
     heroBannerImage: string;

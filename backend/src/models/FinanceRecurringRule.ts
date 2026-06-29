@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type RuleFrequency = 'monthly' | 'weekly' | 'yearly' | 'custom';
 
 export interface IFinanceRecurringRule extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     direction: 'income' | 'expense';
     amount: number;

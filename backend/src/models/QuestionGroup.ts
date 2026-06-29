@@ -6,6 +6,7 @@ export interface ILocalizedText {
 }
 
 export interface IQuestionGroup extends Document {
+    _id: mongoose.Types.ObjectId;
     code: string;
     title: ILocalizedText;
     description?: ILocalizedText;

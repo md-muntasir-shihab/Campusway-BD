@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type TeamInviteStatus = 'draft' | 'pending' | 'sent' | 'accepted' | 'expired' | 'cancelled';
 
 export interface ITeamInvite extends Document {
+    _id: mongoose.Types.ObjectId;
     memberId?: mongoose.Types.ObjectId;
     fullName: string;
     email: string;

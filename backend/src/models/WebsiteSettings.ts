@@ -490,6 +490,7 @@ export function normalizeWebsiteStaticPages(value: unknown, current?: Partial<We
 }
 
 export interface IWebsiteSettings extends Document {
+    _id: mongoose.Types.ObjectId;
     websiteName: string;
     logo: string;
     favicon: string;

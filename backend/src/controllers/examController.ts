@@ -1551,7 +1551,7 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
                     .lean();
                 const sourcePanel = String((req.body as Record<string, unknown> | undefined)?.sourcePanel || req.query?.source || 'exam_start').trim() || 'exam_start';
                 const externalAttempt = await createExternalExamAttempt({
-                    examId: exam._id,
+                    examId: exam._id as any,
                     studentId,
                     attemptNo: eligibility.attemptsUsed + 1,
                     sourcePanel,

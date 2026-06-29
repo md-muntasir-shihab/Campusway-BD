@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IExamResult extends Document {
+    _id: mongoose.Types.ObjectId;
     exam: mongoose.Types.ObjectId;
     student: mongoose.Types.ObjectId;
     attemptNo: number;

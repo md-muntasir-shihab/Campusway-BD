@@ -16,6 +16,7 @@ export type ImportExportCategory =
 export type ImportExportFormat = 'xlsx' | 'csv' | 'txt' | 'json' | 'vcf' | 'clipboard';
 
 export interface IImportExportLog extends Document {
+    _id: mongoose.Types.ObjectId;
     direction: ImportExportDirection;
     category: ImportExportCategory;
     format: ImportExportFormat;

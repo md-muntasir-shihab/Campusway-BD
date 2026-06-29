@@ -4,6 +4,7 @@ export type ExamImportJobStatus = 'previewed' | 'committed' | 'partial' | 'faile
 export type ExamImportSyncMode = 'none' | 'fill_missing_only' | 'overwrite_mapped_fields';
 
 export interface IExamImportJob extends Document {
+    _id: mongoose.Types.ObjectId;
     examId: mongoose.Types.ObjectId;
     templateId?: mongoose.Types.ObjectId | null;
     mappingProfileId?: mongoose.Types.ObjectId | null;

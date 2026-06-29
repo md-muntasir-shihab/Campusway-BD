@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type DeliveryLogStatus = 'sent' | 'failed' | 'queued';
 
 export interface INotificationDeliveryLog extends Document {
+    _id: mongoose.Types.ObjectId;
     jobId: mongoose.Types.ObjectId;
     campaignId?: mongoose.Types.ObjectId;
     studentId: mongoose.Types.ObjectId;

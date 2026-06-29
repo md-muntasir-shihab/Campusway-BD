@@ -4,6 +4,7 @@ export type NotificationProviderType = 'sms' | 'email';
 export type NotificationProviderName = 'twilio' | 'local_bd_rest' | 'custom' | 'sendgrid' | 'smtp';
 
 export interface INotificationProvider extends Document {
+    _id: mongoose.Types.ObjectId;
     type: NotificationProviderType;
     provider: NotificationProviderName;
     displayName: string;
