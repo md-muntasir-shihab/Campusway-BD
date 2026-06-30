@@ -37,7 +37,7 @@
         "firebase": "^12.10.0",
         "framer-motion": "^12.34.3",
         "fuse.js": "^7.3.0",
-        "katex": "^0.16.33",
+        "katex": "^0.17.0",
         "lucide-react": "^0.469.0",
         "qrcode.react": "^4.2.0",
         "react": "^19.2.7",
