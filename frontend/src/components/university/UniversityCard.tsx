@@ -27,6 +27,8 @@ export const DEFAULT_UNIVERSITY_CARD_CONFIG: HomeUniversityCardConfig = {
     showEmail: true,
     showApplicationProgress: true,
     showExamDates: true,
+    showProgressBar: true,
+    showCategoryBadge: true,
     defaultSort: 'alphabetical',
 };
 
@@ -385,7 +387,7 @@ const UniversityCard = memo(function UniversityCard({
                                 </span>
 
                                 {/* Cluster badge */}
-                                {clusterGroup && clusterGroup !== 'N/A' ? (
+                                {mergedConfig.showClusterBadge && clusterGroup && clusterGroup !== 'N/A' ? (
                                     clusterUrl ? (
                                         <Link
                                             to={clusterUrl}
@@ -697,7 +699,7 @@ const UniversityCard = memo(function UniversityCard({
                                 </span>
 
                                 {/* Cluster badge */}
-                                {clusterGroup && clusterGroup !== 'N/A' ? (
+                                {mergedConfig.showClusterBadge && clusterGroup && clusterGroup !== 'N/A' ? (
                                     clusterUrl ? (
                                         <Link
                                             to={clusterUrl}
@@ -740,6 +742,7 @@ const UniversityCard = memo(function UniversityCard({
             </div>
 
             <div className="space-y-3 px-4 pb-4">
+                {mergedConfig.showApplicationProgress && (
                 <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700/80 dark:bg-slate-950/55">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="space-y-1">
@@ -755,12 +758,15 @@ const UniversityCard = memo(function UniversityCard({
                         </span>
                     </div>
                 </div>
+                )}
 
+                {mergedConfig.showExamDates && (
                 <div className="grid grid-cols-3 gap-2">
                     <UnitDateChip label="Science" value={university.scienceExamDate || university.examDateScience} />
                     <UnitDateChip label="Humanities" value={university.artsExamDate || university.examDateArts} />
                     <UnitDateChip label="Business" value={university.businessExamDate || university.examDateBusiness} />
                 </div>
+                )}
                 {mergedConfig.showExamCentersPreview && examCenterPreview.length > 0 && (
                     <p className="line-clamp-1 text-xs text-slate-500 dark:text-slate-400">
                         Centers: {examCenterPreview.join(', ')}

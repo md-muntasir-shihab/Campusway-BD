@@ -467,7 +467,7 @@ export default function WrittenGradingInterface() {
     const { gradedCount, totalCount } = useMemo(() => {
         let graded = 0;
         let total = 0;
-        for (const r of results) {
+        for (const r of (Array.isArray(results) ? results : [])) {
             const written = r.answers.filter((a) => a.questionType === 'written');
             total += written.length;
             const grades = gradeState[r._id];

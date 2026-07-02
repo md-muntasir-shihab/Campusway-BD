@@ -44,7 +44,7 @@ describe('BulkImportModal Component Tests', () => {
 
     it('should invoke onClose callback when close button is clicked', () => {
         renderModal();
-        const closeBtn = screen.getByRole('button', { name: /close/i });
+        const closeBtn = screen.getAllByRole('button', { name: /close/i })[0];
         fireEvent.click(closeBtn);
         expect(mockOnClose).toHaveBeenCalledTimes(1);
     });

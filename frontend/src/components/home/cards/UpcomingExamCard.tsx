@@ -70,7 +70,7 @@ export default function UpcomingExamCard({ university: uni }: UpcomingExamCardPr
                         <h3 className="truncate text-sm font-bold leading-snug text-slate-900 transition-colors group-hover:text-indigo-600 dark:text-white dark:group-hover:text-cyan-300" title={uni.name}>{uni.name}</h3>
                     </Link>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="rounded-lg border border-sky-200/60 bg-sky-50/80 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200">{uni.category}</span>
+                        <span className="max-w-[20ch] truncate rounded-lg border border-sky-200/60 bg-sky-50/80 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200" title={uni.category}>{uni.category}</span>
                         {uni.clusterGroup && <span className="rounded-lg border border-purple-200/60 bg-purple-50/80 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-200">{uni.clusterGroup}</span>}
                     </div>
                 </div>

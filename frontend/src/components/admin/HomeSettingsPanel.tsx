@@ -1532,8 +1532,28 @@ export default function HomeSettingsPanel() {
                                     label="Show Exam Dates"
                                     value={draft.universityCardConfig.showExamDates}
                                     onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamDates: value } }))}
-
                                 />
+                                <Toggle
+                                    label="Show Progress Bar"
+                                    value={draft.universityCardConfig.showProgressBar}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showProgressBar: value } }))}
+                                />
+                                <Toggle
+                                    label="Show Category Badge"
+                                    value={draft.universityCardConfig.showCategoryBadge}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showCategoryBadge: value } }))}
+                                />
+                                <Toggle
+                                    label="Show Cluster Badge"
+                                    value={draft.universityCardConfig.showClusterBadge}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showClusterBadge: value } }))}
+                                />
+                                <Toggle
+                                    label="Show Exam Centers on Home Cards"
+                                    value={draft.universityCardConfig.showExamCentersOnHomeCards}
+                                    onChange={(value) => updateDraft((prev) => ({ ...prev, universityCardConfig: { ...prev.universityCardConfig, showExamCentersOnHomeCards: value } }))}
+                                />
+
                             </div>
                             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>

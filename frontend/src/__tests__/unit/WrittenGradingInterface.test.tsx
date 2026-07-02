@@ -73,7 +73,7 @@ describe('WrittenGradingInterface Security Tests', () => {
         ];
 
         // Ensure we hit the API properly
-        vi.mocked(api.default.get).mockResolvedValue({ data: { data: mockPendingResults } });
+        vi.mocked(api.default.get).mockResolvedValue({ data: mockPendingResults });
 
         render(
             <HelmetProvider>
