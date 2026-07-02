@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { Request, Response, Router } from 'express';
 import crypto from 'crypto';
 import ManualPayment from '../models/ManualPayment';

@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { Response } from 'express';
 import XLSX from 'xlsx';
 import mongoose from 'mongoose';

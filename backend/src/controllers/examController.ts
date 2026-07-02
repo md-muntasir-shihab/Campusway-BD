@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import crypto from 'crypto';

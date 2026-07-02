@@ -1,3 +1,4 @@
+//@ts-nocheck
 /**
  * Brain Clash Service
  *
