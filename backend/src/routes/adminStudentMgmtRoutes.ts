@@ -55,6 +55,7 @@ import { resolveSubscriptionContactUserIds } from '../services/subscriptionConta
 import { computeStudentProfileScore } from '../services/studentProfileScoreService';
 import { validateRules, evaluateRules, refreshDynamicGroup, DynamicRuleSet } from '../services/dynamicRuleEngine';
 import * as deleteSafetyService from '../services/deleteSafetyService';
+import { escapeRegex } from '../utils/escapeRegex';
 import {
   generateExportFilename,
   buildCategoryColumnDef,
@@ -369,7 +370,8 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
     const userQuery: Record<string, unknown> = { role: 'student' };
     if (status) userQuery['status'] = status;
     if (q) {
-      const re = new RegExp(String(q), 'i');
+      // eslint-disable-next-line security/detect-non-literal-regexp
+      const re = new RegExp(escapeRegex(String(q)), 'i');
       userQuery['$or'] = [{ full_name: re }, { email: re }, { username: re }, { phone_number: re }];
     }
 
@@ -896,7 +898,8 @@ router.get('/student-groups', ...adminAuth, requirePermission('students_groups',
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const query: Record<string, unknown> = {};
     if (isActive !== undefined) query['isActive'] = isActive === 'true';
-    if (q) query['name'] = new RegExp(String(q), 'i');
+    // eslint-disable-next-line security/detect-non-literal-regexp
+    if (q) query['name'] = new RegExp(escapeRegex(String(q)), 'i');
     const [groups, total] = await Promise.all([
       StudentGroup.find(query).sort({ createdAt: -1 }).skip((pageNum - 1) * limitNum).limit(limitNum).lean(),
       StudentGroup.countDocuments(query),
@@ -914,7 +917,8 @@ router.get('/student-groups/export', ...adminAuth, requirePermission('students_g
     const query: Record<string, unknown> = {};
     if (isActive !== undefined) query['isActive'] = isActive === 'true';
     if (q) {
-      const matcher = new RegExp(String(q), 'i');
+      // eslint-disable-next-line security/detect-non-literal-regexp
+      const matcher = new RegExp(escapeRegex(String(q)), 'i');
       query['$or'] = [{ name: matcher }, { slug: matcher }, { batchTag: matcher }, { description: matcher }];
     }
 
@@ -1581,9 +1585,12 @@ router.get('/student-groups/:id/members', ...adminAuth, requirePermission('stude
       profileQuery = {
         ...profileQuery,
         $or: [
-          { full_name: new RegExp(String(q), 'i') },
-          { email: new RegExp(String(q), 'i') },
-          { phone_number: new RegExp(String(q), 'i') },
+          // eslint-disable-next-line security/detect-non-literal-regexp
+          { full_name: new RegExp(escapeRegex(String(q)), 'i') },
+          // eslint-disable-next-line security/detect-non-literal-regexp
+          { email: new RegExp(escapeRegex(String(q)), 'i') },
+          // eslint-disable-next-line security/detect-non-literal-regexp
+          { phone_number: new RegExp(escapeRegex(String(q)), 'i') },
         ],
       };
     }
@@ -1807,9 +1814,12 @@ router.get('/subscriptions-v2', ...adminAuth, async (req: Request, res: Response
     if (q) {
       const users = await User.find({
         $or: [
-          { full_name: new RegExp(q, 'i') },
-          { email: new RegExp(q, 'i') },
-          { phone_number: new RegExp(q, 'i') },
+          // eslint-disable-next-line security/detect-non-literal-regexp
+          { full_name: new RegExp(escapeRegex(q), 'i') },
+          // eslint-disable-next-line security/detect-non-literal-regexp
+          { email: new RegExp(escapeRegex(q), 'i') },
+          // eslint-disable-next-line security/detect-non-literal-regexp
+          { phone_number: new RegExp(escapeRegex(q), 'i') },
         ],
       }).select('_id').lean();
       query['userId'] = { $in: users.map((u) => u._id) };
@@ -2239,7 +2249,8 @@ router.get('/audience-segments', ...adminAuth, async (req: Request, res: Respons
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const query: Record<string, unknown> = { type: 'dynamic' };
-    if (q) query['name'] = new RegExp(String(q), 'i');
+    // eslint-disable-next-line security/detect-non-literal-regexp
+    if (q) query['name'] = new RegExp(escapeRegex(String(q)), 'i');
     const [segments, total] = await Promise.all([
       StudentGroup.find(query).sort({ createdAt: -1 }).skip((pageNum - 1) * limitNum).limit(limitNum).lean(),
       StudentGroup.countDocuments(query),
