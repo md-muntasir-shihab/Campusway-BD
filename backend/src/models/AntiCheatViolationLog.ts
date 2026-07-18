@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export type ViolationType = 'tab_switch' | 'copy_attempt' | 'fullscreen_exit' | 'fingerprint_match' | 'ip_duplicate';
+export type ViolationType = 'tab_switch' | 'copy_attempt' | 'fullscreen_exit' | 'fingerprint_match' | 'ip_duplicate' | 'face_not_visible' | 'multiple_faces' | 'gaze_away';
 
 export interface IAntiCheatViolationLog extends Document {
     _id: mongoose.Types.ObjectId;
@@ -33,7 +33,7 @@ const AntiCheatViolationLogSchema = new Schema<IAntiCheatViolationLog>(
         },
         violationType: {
             type: String,
-            enum: ['tab_switch', 'copy_attempt', 'fullscreen_exit', 'fingerprint_match', 'ip_duplicate'],
+            enum: ['tab_switch', 'copy_attempt', 'fullscreen_exit', 'fingerprint_match', 'ip_duplicate', 'face_not_visible', 'multiple_faces', 'gaze_away'],
             required: true,
         },
         details: { type: String, default: null },

@@ -37,7 +37,10 @@ export type AntiCheatSignalType =
     | 'resume'
     | 'client_error'
     | 'blur'
-    | 'context_menu_blocked';
+    | 'context_menu_blocked'
+    | 'face_not_visible'
+    | 'multiple_faces'
+    | 'gaze_away';
 
 /**
  * Decision actions returned by the AntiCheat Engine.

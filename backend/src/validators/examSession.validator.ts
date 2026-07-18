@@ -17,6 +17,9 @@ const violationTypeEnum = z.enum([
     'fullscreen_exit',
     'fingerprint_match',
     'ip_duplicate',
+    'face_not_visible',
+    'multiple_faces',
+    'gaze_away',
 ]);
 
 // ── Start Exam ──────────────────────────────────────────

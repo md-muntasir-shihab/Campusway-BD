@@ -7,7 +7,7 @@ services:
     region: singapore
     plan: starter
     autoDeploy: true
-    branch: production
+    branch: main
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV

@@ -15,7 +15,10 @@ export type AntiCheatSignalType =
     | 'resume'
     | 'client_error'
     | 'blur'
-    | 'context_menu_blocked';
+    | 'context_menu_blocked'
+    | 'face_not_visible'
+    | 'multiple_faces'
+    | 'gaze_away';
 
 export interface AntiCheatDecision {
     action: 'logged' | 'warn' | 'lock' | 'force_submit';
@@ -53,6 +56,7 @@ export interface UseExamAntiCheatReturn {
     isOnline: boolean;
     queuedSignals: number;
     antiCheatMode: AntiCheatMode;
+    sendSignal: (eventType: AntiCheatSignalType, metadata?: Record<string, unknown>) => Promise<void>;
 }
 
 const MAX_QUEUE_SIZE = 50;
@@ -348,5 +352,5 @@ export function useExamAntiCheat(options: UseExamAntiCheatOptions): UseExamAntiC
         };
     }, [sendSignal]);
 
-    return { isOnline, queuedSignals, antiCheatMode };
+    return { isOnline, queuedSignals, antiCheatMode, sendSignal };
 }

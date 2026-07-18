@@ -30,6 +30,9 @@ const antiCheatSignalTypes = [
     'client_error',
     'blur',
     'context_menu_blocked',
+    'face_not_visible',
+    'multiple_faces',
+    'gaze_away',
 ] as const;
 
 /**
