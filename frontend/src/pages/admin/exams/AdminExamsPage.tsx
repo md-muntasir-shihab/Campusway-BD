@@ -35,7 +35,7 @@ import {
     X,
     Database,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
     listAdminExams,
     getAdminExam,
@@ -421,15 +421,37 @@ const getExamCenterLabel = _getExamCenterLabel;
 
 async function extractImportPreview(file: File): Promise<{ columns: string[]; rows: Array<Record<string, unknown>> }> {
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) return { columns: [], rows: [] };
-    const sheet = workbook.Sheets[sheetName];
-    const headerRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: '' });
-    const columns = (Array.isArray(headerRows[0]) ? headerRows[0] : [])
-        .map((value) => String(value || '').trim())
-        .filter(Boolean);
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '', raw: false }).slice(0, 3);
+    const wb = new ExcelJS.Workbook();
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.csv')) {
+        await wb.csv.read(new Blob([buffer]).stream() as any);
+    } else {
+        await wb.xlsx.load(buffer);
+    }
+    const ws = wb.worksheets[0];
+    if (!ws || ws.rowCount === 0) return { columns: [], rows: [] };
+    const columns: string[] = [];
+    ws.getRow(1).eachCell({ includeEmpty: false }, (cell) => {
+        const val = cell.value ? String(cell.value).trim() : '';
+        if (val) columns.push(val);
+    });
+    const rows: Record<string, unknown>[] = [];
+    ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        if (rows.length >= 3) return;
+        const rowData: Record<string, unknown> = {};
+        columns.forEach((h) => { rowData[h] = ''; });
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const header = columns[colNumber - 1];
+            if (!header) return;
+            let val = cell.value;
+            if (val && typeof val === 'object' && 'formula' in (val as any)) {
+                val = (val as any).result;
+            }
+            rowData[header] = val != null ? String(val) : '';
+        });
+        rows.push(rowData);
+    });
     return { columns, rows };
 }
 

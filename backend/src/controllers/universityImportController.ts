@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { excelSerialToDate } from '../utils/excelDateHelper';
 import slugify from 'slugify';
 import fs from 'fs';
 import path from 'path';
@@ -175,18 +176,8 @@ function parseDate(raw: unknown): Date | null {
         return Number.isNaN(raw.getTime()) ? null : raw;
     }
     const numericValue = typeof raw === 'number' ? raw : Number(String(raw));
-    if (Number.isFinite(numericValue)) {
-        const excelDate = XLSX.SSF.parse_date_code(numericValue);
-        if (excelDate) {
-            return new Date(
-                excelDate.y,
-                Math.max(0, excelDate.m - 1),
-                excelDate.d,
-                excelDate.H || 0,
-                excelDate.M || 0,
-                Math.floor(excelDate.S || 0),
-            );
-        }
+    if (Number.isFinite(numericValue) && numericValue > 1 && numericValue < 200000) {
+        return excelSerialToDate(numericValue);
     }
     const date = new Date(String(raw));
     if (Number.isNaN(date.getTime())) return null;
@@ -227,27 +218,52 @@ async function downloadAndCacheImage(url: string): Promise<string> {
     return `/uploads/logos/${filename}`;
 }
 
-function readImportRows(fileBuffer: Buffer, filename: string): Record<string, unknown>[] {
+async function readImportRows(fileBuffer: Buffer, filename: string): Promise<Record<string, unknown>[]> {
     const lowerFileName = String(filename || '').toLowerCase();
-    const textPayload = fileBuffer.toString('utf8').replace(/^\uFEFF/, '');
-    let workbook: XLSX.WorkBook;
 
-    if (lowerFileName.endsWith('.csv')) {
-        workbook = XLSX.read(textPayload, { type: 'string', FS: ',' });
-    } else if (lowerFileName.endsWith('.tsv')) {
-        workbook = XLSX.read(textPayload, { type: 'string', FS: '\t' });
-    } else if (lowerFileName.endsWith('.txt')) {
-        const detectedDelimiter = textPayload.includes('\t') ? '\t' : ',';
-        workbook = XLSX.read(textPayload, { type: 'string', FS: detectedDelimiter });
-    } else {
-        workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    if (lowerFileName.endsWith('.csv') || lowerFileName.endsWith('.tsv') || lowerFileName.endsWith('.txt')) {
+        const textPayload = fileBuffer.toString('utf8').replace(/^\uFEFF/, '');
+        const delimiter = lowerFileName.endsWith('.tsv') ? '\t'
+            : lowerFileName.endsWith('.txt') ? (textPayload.includes('\t') ? '\t' : ',')
+            : ',';
+        const lines = textPayload.split(/\r?\n/).filter(Boolean);
+        if (lines.length === 0) return [];
+        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+        const rows: Record<string, unknown>[] = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+            const rowData: Record<string, unknown> = {};
+            headers.forEach((h, idx) => { rowData[h] = values[idx] ?? ''; });
+            rows.push(rowData);
+        }
+        return rows;
     }
 
-    const firstSheetName = workbook.SheetNames[0];
-    if (!firstSheetName) return [];
-    const sheet = workbook.Sheets[firstSheetName];
-    if (!sheet) return [];
-    return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(fileBuffer);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) return [];
+    const rows: Record<string, unknown>[] = [];
+    const headers: string[] = [];
+    worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        headers[colNumber] = cell.value ? cell.value.toString().trim() : '';
+    });
+    worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const rowData: Record<string, unknown> = {};
+        headers.forEach(h => { if (h) rowData[h] = ''; });
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const header = headers[colNumber];
+            if (!header) return;
+            let val: unknown = cell.value;
+            if (val && typeof val === 'object' && 'formula' in (val as Record<string, unknown>)) {
+                val = (val as { result?: unknown }).result;
+            }
+            rowData[header] = val ?? '';
+        });
+        rows.push(rowData);
+    });
+    return rows;
 }
 
 function resolveActiveTargetFields(mapping: Record<string, string>, defaults: Record<string, unknown>): Set<TargetField> {
@@ -391,7 +407,7 @@ export async function adminInitUniversityImport(req: Request, res: Response): Pr
             ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Only CSV/XLSX/XLS/TSV/TXT files are supported.'));
             return;
         }
-        const rows = readImportRows(req.file.buffer, filename);
+        const rows = await readImportRows(req.file.buffer, filename);
         if (rows.length === 0) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Import file is empty.')); return; }
 
         const headers = Object.keys(rows[0] || {});
@@ -938,23 +954,32 @@ export async function adminDownloadUniversityImportTemplate(req: Request, res: R
             return;
         }
 
-        const worksheet = XLSX.utils.json_to_sheet([sampleRow, formatHintsRow, blankRow], { header: TEMPLATE_HEADERS });
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Template');
+        worksheet.columns = TEMPLATE_HEADERS.map(h => ({ header: h, key: h, width: 20 }));
+        worksheet.addRow(sampleRow);
+        worksheet.addRow(formatHintsRow);
+        worksheet.addRow(blankRow);
 
         // Bug 1.6 fix: Add README sheet with field descriptions for XLSX
-        const readmeData = TEMPLATE_HEADERS.map((field) => ({
-            Field: field,
-            Description: formatHintsRow[field] || 'text',
-            Required: ['name', 'category'].includes(field) ? 'Yes' : 'No',
-        }));
-        const readmeSheet = XLSX.utils.json_to_sheet(readmeData);
-        XLSX.utils.book_append_sheet(workbook, readmeSheet, 'README');
+        const readmeSheet = workbook.addWorksheet('README');
+        readmeSheet.columns = [
+            { header: 'Field', key: 'Field', width: 25 },
+            { header: 'Description', key: 'Description', width: 40 },
+            { header: 'Required', key: 'Required', width: 10 },
+        ];
+        TEMPLATE_HEADERS.forEach((field) => {
+            readmeSheet.addRow({
+                Field: field,
+                Description: formatHintsRow[field] || 'text',
+                Required: ['name', 'category'].includes(field) ? 'Yes' : 'No',
+            });
+        });
 
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const buffer = await workbook.xlsx.writeBuffer();
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=template.xlsx');
-        res.send(buffer);
+        res.send(Buffer.from(buffer));
     } catch (err) {
         console.error('adminDownloadUniversityImportTemplate error:', err);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to download template.'));

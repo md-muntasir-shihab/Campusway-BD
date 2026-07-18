@@ -166,6 +166,7 @@ export const ADMIN_PATHS = {
     examCenterNotifications: adminUi('exam-center/notifications'),
     examCenterAnalytics: adminUi('exam-center/analytics'),
     userManagement: adminUi('users'),
+    analysisHub: adminUi('analysis-hub'),
 } as const;
 
 export type AdminMenuItem = {
@@ -185,6 +186,9 @@ export type AdminMenuItem = {
 export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
     // 1. Dashboard
     { key: 'dashboard', label: 'Dashboard', path: ADMIN_PATHS.dashboard, icon: LayoutDashboard, module: 'dashboard' },
+
+    // 1b. Analysis Hub
+    { key: 'analysisHub', label: 'Analysis Hub', path: ADMIN_PATHS.analysisHub, icon: BarChart3, module: 'dashboard' },
 
     // 2. Website Control
     {

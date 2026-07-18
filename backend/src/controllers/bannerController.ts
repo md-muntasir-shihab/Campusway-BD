@@ -188,3 +188,30 @@ export async function adminSignBannerUpload(req: Request, res: Response): Promis
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
     }
 }
+
+export async function trackAdEvent(req: Request, res: Response): Promise<void> {
+    try {
+        const { eventType } = req.body;
+        if (!['impression', 'click'].includes(eventType)) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid event type'));
+            return;
+        }
+
+        const updateField = eventType === 'impression' ? 'impressionsCount' : 'clicksCount';
+        const banner = await Banner.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { [updateField]: 1 } },
+            { new: true }
+        );
+
+        if (!banner) {
+            ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Banner not found'));
+            return;
+        }
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ banner }));
+    } catch (err) {
+        console.error('trackAdEvent error:', err);
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
+    }
+}

@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
     importPreview,
     importCommit,
@@ -37,11 +37,14 @@ afterEach(async () => {
 
 // ─── Helper: build a valid xlsx buffer ──────────────────────────────────────
 
-function buildXlsx(rows: Record<string, unknown>[]): Buffer {
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+async function buildXlsx(rows: Record<string, unknown>[]): Promise<Buffer> {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Sheet1');
+    if (rows.length > 0) {
+        ws.columns = Object.keys(rows[0]).map(k => ({ header: k, key: k }));
+        rows.forEach(r => ws.addRow(r));
+    }
+    return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 const VALID_ROW = {
@@ -80,7 +83,7 @@ const DEFAULT_MAPPING: Record<string, string> = {
 
 describe('importPreview', () => {
     it('returns totalRows, headers, mapping, preview, availableColumns for valid xlsx', async () => {
-        const buf = buildXlsx([VALID_ROW]);
+        const buf = await buildXlsx([VALID_ROW]);
         const result = await importPreview(buf, 'test.xlsx');
 
         expect(result.totalRows).toBe(1);
@@ -94,7 +97,7 @@ describe('importPreview', () => {
     });
 
     it('auto-maps known column names', async () => {
-        const buf = buildXlsx([VALID_ROW]);
+        const buf = await buildXlsx([VALID_ROW]);
         const result = await importPreview(buf, 'test.xlsx');
 
         expect(result.mapping['subject']).toBe('subject');
@@ -103,7 +106,7 @@ describe('importPreview', () => {
     });
 
     it('returns no errors for a fully valid row', async () => {
-        const buf = buildXlsx([VALID_ROW]);
+        const buf = await buildXlsx([VALID_ROW]);
         const result = await importPreview(buf, 'test.xlsx');
 
         expect(result.preview[0].errors).toHaveLength(0);
@@ -111,7 +114,7 @@ describe('importPreview', () => {
 
     it('returns validation errors for missing required fields', async () => {
         const invalidRow = { ...VALID_ROW, subject: '', question_en: '', question_bn: '' };
-        const buf = buildXlsx([invalidRow]);
+        const buf = await buildXlsx([invalidRow]);
         const result = await importPreview(buf, 'test.xlsx');
 
         const errors = result.preview[0].errors;
@@ -123,7 +126,7 @@ describe('importPreview', () => {
 
     it('returns validation error for invalid correctKey', async () => {
         const badRow = { ...VALID_ROW, correctKey: 'E' };
-        const buf = buildXlsx([badRow]);
+        const buf = await buildXlsx([badRow]);
         const result = await importPreview(buf, 'test.xlsx');
 
         const fields = result.preview[0].errors.map((e) => e.field);
@@ -131,7 +134,7 @@ describe('importPreview', () => {
     });
 
     it('detects duplicate rows already in DB', async () => {
-        const buf = buildXlsx([VALID_ROW]);
+        const buf = await buildXlsx([VALID_ROW]);
         // First commit the row so it exists in DB
         await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
 
@@ -152,7 +155,7 @@ describe('importPreview', () => {
             'Opt3': 'Neutral',
             'Opt4': 'None',
         };
-        const buf = buildXlsx([customRow]);
+        const buf = await buildXlsx([customRow]);
         const customMapping: Record<string, string> = {
             'Question Text': 'question_en',
             'Subject Name': 'subject',
@@ -175,7 +178,7 @@ describe('importPreview', () => {
             ...VALID_ROW,
             question_en: `Question ${i + 1}`,
         }));
-        const buf = buildXlsx(rows);
+        const buf = await buildXlsx(rows);
         const result = await importPreview(buf, 'test.xlsx');
 
         expect(result.totalRows).toBe(30);
@@ -187,7 +190,7 @@ describe('importPreview', () => {
 
 describe('importCommit', () => {
     it('creates questions from valid rows in create mode', async () => {
-        const buf = buildXlsx([VALID_ROW]);
+        const buf = await buildXlsx([VALID_ROW]);
         const result = await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
 
         expect(result.imported).toBe(1);
@@ -200,7 +203,7 @@ describe('importCommit', () => {
     });
 
     it('skips duplicate rows in create mode', async () => {
-        const buf = buildXlsx([VALID_ROW]);
+        const buf = await buildXlsx([VALID_ROW]);
         await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
         const result = await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
 
@@ -212,11 +215,11 @@ describe('importCommit', () => {
     });
 
     it('upserts duplicate rows in upsert mode', async () => {
-        const buf = buildXlsx([VALID_ROW]);
+        const buf = await buildXlsx([VALID_ROW]);
         await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
 
         const updatedRow = { ...VALID_ROW, topic: 'Updated Topic' };
-        const buf2 = buildXlsx([updatedRow]);
+        const buf2 = await buildXlsx([updatedRow]);
         const result = await importCommit(buf2, 'test.xlsx', DEFAULT_MAPPING, 'upsert', adminId);
 
         expect(result.imported).toBe(1);
@@ -225,7 +228,7 @@ describe('importCommit', () => {
 
     it('records failed rows with reasons', async () => {
         const badRow = { ...VALID_ROW, subject: '', question_en: '' };
-        const buf = buildXlsx([badRow]);
+        const buf = await buildXlsx([badRow]);
         const result = await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
 
         expect(result.failed).toBe(1);
@@ -241,7 +244,7 @@ describe('importCommit', () => {
             { ...VALID_ROW, question_en: 'Second valid question?' },
             { ...VALID_ROW, subject: '', question_en: '' },
         ];
-        const buf = buildXlsx(rows);
+        const buf = await buildXlsx(rows);
         const result = await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
 
         expect(result.imported).toBe(2);
@@ -254,7 +257,7 @@ describe('importCommit', () => {
             ...VALID_ROW,
             question_en: `Question number ${i + 1}`,
         }));
-        const buf = buildXlsx(rows);
+        const buf = await buildXlsx(rows);
         const result = await importCommit(buf, 'test.xlsx', DEFAULT_MAPPING, 'create', adminId);
 
         expect(result.imported).toBe(5);
@@ -267,19 +270,29 @@ describe('importCommit', () => {
 // ─── generateImportTemplate ──────────────────────────────────────────────────
 
 describe('generateImportTemplate', () => {
-    it('returns a non-empty buffer', () => {
-        const buf = generateImportTemplate();
+    it('returns a non-empty buffer', async () => {
+        const buf = await generateImportTemplate();
         expect(buf).toBeInstanceOf(Buffer);
         expect(buf.length).toBeGreaterThan(0);
     });
 
-    it('returns a valid xlsx file with expected headers', () => {
-        const buf = generateImportTemplate();
-        const wb = XLSX.read(buf, { type: 'buffer' });
-        expect(wb.SheetNames.length).toBeGreaterThan(0);
+    it('returns a valid xlsx file with expected headers', async () => {
+        const buf = await generateImportTemplate();
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf);
+        expect(wb.worksheets.length).toBeGreaterThan(0);
 
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const ws = wb.worksheets[0];
+        const rows: Record<string, unknown>[] = [];
+        const keys = ws.getRow(1).values as string[];
+        ws.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return;
+            const obj: Record<string, unknown> = {};
+            (row.values as any[]).forEach((val, idx) => {
+                if (keys[idx]) obj[keys[idx]] = val;
+            });
+            rows.push(obj);
+        });
         expect(rows.length).toBeGreaterThan(0);
 
         const headers = Object.keys(rows[0]);

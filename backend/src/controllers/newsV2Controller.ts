@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { Request, Response } from 'express';
-import XLSX from 'xlsx';
+import { rowsToExcelBuffer, rowsToCsvBuffer } from '../utils/excelHelper';
 import slugify from 'slugify';
 import Parser from 'rss-parser';
 import { Readability } from '@mozilla/readability';
@@ -4111,21 +4111,18 @@ export async function adminNewsV2DeleteMedia(req: AuthRequest, res: Response): P
     }
 }
 
-function sendWorkbook(res: Response, sheetName: string, rows: Array<Record<string, unknown>>, filenameBase: string, format: string): void {
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+async function sendWorkbook(res: Response, sheetName: string, rows: Array<Record<string, unknown>>, filenameBase: string, format: string): Promise<void> {
     if (format === 'csv') {
-        const csv = XLSX.utils.sheet_to_csv(ws);
+        const buffer = await rowsToCsvBuffer(rows, sheetName);
         res.setHeader('Content-Disposition', `attachment; filename=${filenameBase}.csv`);
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.send(csv);
+        res.send(Buffer.from(buffer));
         return;
     }
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await rowsToExcelBuffer(rows, sheetName);
     res.setHeader('Content-Disposition', `attachment; filename=${filenameBase}.xlsx`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
 }
 
 function queryParamToString(value: unknown, fallback: string): string {
@@ -4189,7 +4186,7 @@ export async function adminNewsV2ExportNews(req: AuthRequest, res: Response): Pr
             updatedAt: item.updatedAt,
         }));
         await writeNewsAuditEvent(req, { action: 'export.news', entityType: 'export', meta: { count: rows.length, format } });
-        sendWorkbook(res, 'news', rows, 'news_v2_export', format);
+        await sendWorkbook(res, 'news', rows, 'news_v2_export', format);
     } catch (error) {
         console.error('adminNewsV2ExportNews error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
@@ -4230,7 +4227,7 @@ export async function adminNewsV2ExportSources(req: AuthRequest, res: Response):
             lastError: item.lastError || '',
         }));
         await writeNewsAuditEvent(req, { action: 'export.sources', entityType: 'export', meta: { count: rows.length, format } });
-        sendWorkbook(res, 'sources', rows, 'news_sources_export', format);
+        await sendWorkbook(res, 'sources', rows, 'news_sources_export', format);
     } catch (error) {
         console.error('adminNewsV2ExportSources error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
@@ -4243,7 +4240,7 @@ export async function adminNewsV2ExportLogs(req: AuthRequest, res: Response): Pr
         const items = await NewsAuditEvent.find().sort({ createdAt: -1 }).limit(5000).lean();
         const rows = items.map((item) => ({ id: String(item._id), action: item.action, entityType: item.entityType, entityId: item.entityId || '', actorId: item.actorId ? String(item.actorId) : '', createdAt: item.createdAt, ip: item.ip || '', userAgent: item.userAgent || '' }));
         await writeNewsAuditEvent(req, { action: 'export.logs', entityType: 'export', meta: { count: rows.length, format } });
-        sendWorkbook(res, 'audit_logs', rows, 'news_audit_logs_export', format);
+        await sendWorkbook(res, 'audit_logs', rows, 'news_audit_logs_export', format);
     } catch (error) {
         console.error('adminNewsV2ExportLogs error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));

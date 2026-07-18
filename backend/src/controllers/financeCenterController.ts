@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
-import XLSX from 'xlsx';
+import { parseExcelBuffer } from '../utils/excelHelper';
 import FinanceTransaction from '../models/FinanceTransaction';
 import FinanceInvoice from '../models/FinanceInvoice';
 import FinanceBudget from '../models/FinanceBudget';
@@ -1142,12 +1142,7 @@ export async function fcImportPreview(req: AuthRequest, res: Response): Promise<
     try {
         if (!req.file) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'File required')); return; }
 
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer', raw: false });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = sheetName ? workbook.Sheets[sheetName] : null;
-        if (!worksheet) { ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No worksheet found')); return; }
-
-        const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+        const rawRows = await parseExcelBuffer(req.file.buffer);
         const headers = rawRows[0] ? Object.keys(rawRows[0]) : [];
         const errors: Array<{ row: number; message: string }> = [];
         const rows = rawRows.map((row, index) => {

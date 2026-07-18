@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import * as XLSX from 'xlsx';
+import { rowsToExcelBuffer, rowsToCsvBuffer } from '../utils/excelHelper';
 import User from '../models/User';
 import SubscriptionPlan from '../models/SubscriptionPlan';
 import UserSubscription from '../models/UserSubscription';
@@ -690,26 +690,19 @@ function getExportType(raw: unknown): ExportType {
     return String(raw || '').trim().toLowerCase() === 'csv' ? 'csv' : 'xlsx';
 }
 
-function sendExport(res: Response, type: ExportType, filenameBase: string, rows: Record<string, unknown>[]) {
+async function sendExport(res: Response, type: ExportType, filenameBase: string, rows: Record<string, unknown>[]) {
     if (type === 'csv') {
-        const headers = rows.length ? Object.keys(rows[0]) : [];
-        const lines = [headers.join(',')];
-        for (const row of rows) {
-            lines.push(headers.map((header) => `"${String(row[header] ?? '').replace(/"/g, '""')}"`).join(','));
-        }
+        const buffer = await rowsToCsvBuffer(rows, 'Export');
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${filenameBase}.csv"`);
-        res.send(lines.join('\n'));
+        res.send(Buffer.from(buffer));
         return;
     }
 
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Export');
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await rowsToExcelBuffer(rows, 'Export');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filenameBase}.xlsx"`);
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
 }
 
 async function ensureSubscriptionSettings() {
@@ -1432,7 +1425,7 @@ export async function adminExportSubscriptions(req: AuthRequest, res: Response):
             updatedAt: item.updatedAt ? new Date(item.updatedAt).toISOString() : '',
         }));
 
-        sendExport(res, type, 'subscriptions_export', exportRows);
+        await sendExport(res, type, 'subscriptions_export', exportRows);
     } catch (error) {
         console.error('adminExportSubscriptions error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
@@ -1472,7 +1465,7 @@ export async function adminExportSubscriptionPlans(req: AuthRequest, res: Respon
                 tags: plan.tags.join(' | '),
             };
         });
-        sendExport(res, type, 'subscription_plans_export', exportRows);
+        await sendExport(res, type, 'subscription_plans_export', exportRows);
     } catch (error) {
         console.error('adminExportSubscriptionPlans error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));

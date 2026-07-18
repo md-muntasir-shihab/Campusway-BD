@@ -12,7 +12,7 @@ import {
     Settings,
     Table,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import toast from 'react-hot-toast';
 import * as questionBankApi from '../../../api/questionBankApi';
 import type { ImportResult } from '../../../types/exam-system';
@@ -95,16 +95,40 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
                 autoMap(detectedHeaders);
                 setStep(2);
             } else {
-                // Excel/CSV using xlsx reader
+                // Excel/CSV using exceljs reader
                 const buffer = await selectedFile.arrayBuffer();
-                const wb = XLSX.read(buffer, { type: 'array' });
-                const sheetName = wb.SheetNames[0];
-                if (!sheetName) {
-                    toast.error('No sheets found in the uploaded workbook');
+                const wb = new ExcelJS.Workbook();
+                if (name.endsWith('.csv')) {
+                    await wb.csv.read(new Blob([buffer]).stream() as any);
+                } else {
+                    await wb.xlsx.load(buffer);
+                }
+                const ws = wb.worksheets[0];
+                if (!ws || ws.rowCount === 0) {
+                    toast.error('No sheets or data found in the uploaded workbook');
                     return;
                 }
-                const ws = wb.Sheets[sheetName];
-                const parsedRows = XLSX.utils.sheet_to_json(ws, { defval: '' }) as Record<string, unknown>[];
+                const headerRow = ws.getRow(1);
+                const colHeaders: string[] = [];
+                headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                    colHeaders[colNumber] = cell.value ? String(cell.value).trim() : '';
+                });
+                const parsedRows: Record<string, unknown>[] = [];
+                ws.eachRow((row, rowNumber) => {
+                    if (rowNumber === 1) return;
+                    const rowData: Record<string, unknown> = {};
+                    colHeaders.forEach((h) => { if (h) rowData[h] = ''; });
+                    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                        const header = colHeaders[colNumber];
+                        if (!header) return;
+                        let val = cell.value;
+                        if (val && typeof val === 'object' && 'formula' in (val as any)) {
+                            val = (val as any).result;
+                        }
+                        rowData[header] = val ?? '';
+                    });
+                    parsedRows.push(rowData);
+                });
                 if (parsedRows.length === 0) {
                     toast.error('No data rows found in the sheet');
                     return;
@@ -244,8 +268,9 @@ export default function BulkImportModal({ onClose, onSuccess }: BulkImportModalP
         });
 
         // Convert failed payloads to CSV
-        const worksheet = XLSX.utils.json_to_sheet(failedPayloads);
-        const csv = XLSX.utils.sheet_to_csv(worksheet);
+        const csvHeaders = Object.keys(failedPayloads[0] || {});
+        const escapeCsvCell = (v: unknown) => { const s = String(v ?? ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
+        const csv = [csvHeaders.join(','), ...failedPayloads.map(row => csvHeaders.map(h => escapeCsvCell((row as Record<string, unknown>)[h])).join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

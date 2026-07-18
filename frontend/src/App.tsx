@@ -9,6 +9,7 @@ import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import ForceLogoutModal from './components/auth/ForceLogoutModal';
 import AnalyticsTracker from './components/AnalyticsTracker';
+import { TelemetryProvider } from './providers/TelemetryProvider';
 
 // Route-based code splitting — page-level components loaded on demand
 const HomePage = lazy(() => import('./pages/HomeModern'));
@@ -101,6 +102,7 @@ import {
     AntiCheatReportPage,
     NotificationManagementPage,
     AdminAnalyticsDashboardV2Page,
+    AdminAnalysisHubPage,
     AdminUserManagementPage,
 } from './adminRouteComponents';
 import CalculatorSettingsPage from './pages/admin/settings/CalculatorSettings';
@@ -391,9 +393,10 @@ export default function App() {
             <ThemeProvider>
                 <AuthProvider>
                     <I18nProvider>
-                        <BrowserRouter>
-                            <AnalyticsTracker />
-                            <AppLayout>
+                        <TelemetryProvider>
+                            <BrowserRouter>
+                                <AnalyticsTracker />
+                                <AppLayout>
                                 <Suspense fallback={<RouteLoadingFallback />}>
                                     <Routes>
                                         <Route path="/" element={<HomePage />} />
@@ -471,6 +474,7 @@ export default function App() {
                                         <Route path={adminUi('exam-center/anti-cheat/:examId?')} element={<AntiCheatReportPage />} />
                                         <Route path={ADMIN_PATHS.examCenterNotifications} element={<NotificationManagementPage />} />
                                         <Route path={ADMIN_PATHS.examCenterAnalytics} element={<AdminAnalyticsDashboardV2Page />} />
+                                        <Route path={adminUi('analysis-hub')} element={<AdminAnalysisHubPage />} />
                                         <Route path={ADMIN_PATHS.students} element={<Navigate to={adminUi('student-management/list')} replace />} />
                                         <Route path={ADMIN_PATHS.studentGroups} element={<Navigate to={adminUi('student-management/groups')} replace />} />
                                         <Route path={adminUi('subscription-plans')} element={<Navigate to={adminUi('subscriptions/plans')} replace />} />
@@ -631,6 +635,7 @@ export default function App() {
                                 </Suspense>
                             </AppLayout>
                         </BrowserRouter>
+                        </TelemetryProvider>
                         <Toaster
                             toastOptions={{
                                 style: {

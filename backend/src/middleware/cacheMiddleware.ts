@@ -222,3 +222,38 @@ export const publicSettingsCache = cacheMiddleware({
     ],
     skipRoutes: AUTH_SENSITIVE_ROUTES,
 });
+
+/** Admin Dashboard Cache (Req 2.7) */
+export const adminDashboardCache = cacheMiddleware({
+    ttl: 300,
+    routes: [
+        '/dashboard/summary',
+        '/finance/summary',
+        '/finance/revenue-series',
+        '/finance/student-growth',
+        '/finance/plan-distribution',
+        '/finance/expense-breakdown',
+        '/finance/cashflow',
+        '/finance/test-board',
+        '/fc/dashboard',
+        '/fc/transactions',
+        '/fc/invoices',
+        '/fc/budgets',
+        '/fc/recurring-rules',
+        '/fc/chart-of-accounts',
+        '/fc/vendors',
+        '/fc/settings',
+        '/fc/audit-logs'
+    ],
+});
+
+/** Admin Analytics Cache (Req 2.7) */
+export const adminAnalyticsCache = cacheMiddleware({
+    ttl: 600,
+    routes: [
+        '/analytics/overview',
+        '/analytics/dashboard',
+        '/reports/summary',
+        '/reports/analytics'
+    ]
+});

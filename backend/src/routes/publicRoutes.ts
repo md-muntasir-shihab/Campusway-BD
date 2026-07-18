@@ -37,7 +37,7 @@ import {
     getPublicResourceBySlug,
     getPublicResourceSettings,
 } from '../controllers/resourceController';
-import { getActiveBanners } from '../controllers/bannerController';
+import { getActiveBanners, trackAdEvent } from '../controllers/bannerController';
 import { getHomeConfig } from '../controllers/homeConfigController';
 import { getSiteSettings } from '../controllers/cmsController';
 import { getPublicServiceConfig } from '../controllers/cmsController';
@@ -152,6 +152,7 @@ import { getPublicFounder } from '../controllers/founderController';
 import { requireAppCheck } from '../middleware/appCheck';
 import { csrfProtection } from '../middleware/csrfGuard';
 import { ResponseBuilder } from '../utils/responseBuilder';
+import { publicContentCache } from '../middleware/cacheMiddleware';
 
 const router = Router();
 const examAccessMiddlewares = [authenticate, requireAuthStudent] as const;
@@ -187,16 +188,17 @@ router.get('/auth/oauth/:provider/callback', oauthCallback);
 router.get('/search', globalSearch);
 
 /* ── Public — Universities ── */
-router.get('/universities', getUniversities);
-router.get('/university-categories', getUniversityCategories);
-router.get('/universities/categories', getUniversityCategories);
-router.get('/university-categories/with-clusters', getUniversityCategoriesWithClusters);
+router.get('/universities', publicContentCache, getUniversities);
+router.get('/university-categories', publicContentCache, getUniversityCategories);
+router.get('/universities/categories', publicContentCache, getUniversityCategories);
+router.get('/university-categories/with-clusters', publicContentCache, getUniversityCategoriesWithClusters);
 router.get('/home/clusters/featured', getFeaturedUniversityClusters);
 router.get('/home/clusters/:slug/members', getPublicUniversityClusterMembers);
 
 /* ── Public — Banners & Config ── */
 router.get('/banners', getActiveBanners);
 router.get('/banners/active', getActiveBanners);
+router.post('/banners/:id/track', trackAdEvent);
 router.get('/home-config', getHomeConfig);
 /* ── Public — Resources ── */
 router.get('/resources/settings/public', getPublicResourceSettings);

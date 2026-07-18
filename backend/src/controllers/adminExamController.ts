@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import * as XLSX from 'xlsx';
+import { parseExcelBuffer, rowsToExcelBuffer, rowsToCsvBuffer } from '../utils/excelHelper';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import mongoose from 'mongoose';
@@ -303,19 +303,13 @@ function detectFileFormat(filename: string): 'xlsx' | 'csv' {
     return 'xlsx';
 }
 
-function readImportRowsFromBuffer(buffer: Buffer, filename: string): Array<Record<string, unknown>> {
+async function readImportRowsFromBuffer(buffer: Buffer, filename: string): Promise<Array<Record<string, unknown>>> {
     const format = detectFileFormat(filename);
     if (format === 'csv') {
-        const wb = XLSX.read(buffer, { type: 'buffer', codepage: 65001 });
-        const firstSheet = wb.SheetNames[0];
-        if (!firstSheet) return [];
-        return XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[firstSheet], { defval: '' });
+        return await parseExcelBuffer(buffer);
     }
 
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const firstSheet = wb.SheetNames[0];
-    if (!firstSheet) return [];
-    return XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[firstSheet], { defval: '' });
+    return await parseExcelBuffer(buffer);
 }
 
 function hasAnyIntersection(left: string[], right: string[]): boolean {
@@ -2085,10 +2079,7 @@ export async function adminDownloadExamResultsImportTemplate(req: AuthRequest, r
             return;
         }
 
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'template');
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const buffer = await rowsToExcelBuffer(rows, 'template');
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="exam_results_import_template_${mode}.xlsx"`);
         res.send(buffer);
@@ -2116,7 +2107,7 @@ export async function adminImportExamResults(req: AuthRequest, res: Response): P
             return;
         }
 
-        const rawRows = readImportRowsFromBuffer(req.file.buffer, req.file.originalname);
+        const rawRows = await readImportRowsFromBuffer(req.file.buffer, req.file.originalname);
         if (!rawRows.length) {
             ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No data rows found in the uploaded file.'));
             return;
@@ -2274,7 +2265,7 @@ export async function adminImportExternalExamResults(req: AuthRequest, res: Resp
             return;
         }
 
-        const rawRows = readImportRowsFromBuffer(req.file.buffer, req.file.originalname);
+        const rawRows = await readImportRowsFromBuffer(req.file.buffer, req.file.originalname);
         if (!rawRows.length) {
             ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No data rows found in the uploaded file.'));
             return;

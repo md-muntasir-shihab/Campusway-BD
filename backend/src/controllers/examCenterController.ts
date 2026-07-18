@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import * as XLSX from 'xlsx';
+import { parseExcelBuffer } from '../utils/excelHelper';
 import { AuthRequest } from '../middleware/auth';
 import Exam from '../models/Exam';
 import ExamCenter from '../models/ExamCenter';
@@ -232,12 +232,9 @@ async function isStudentEligibleForExamImport(
     return { allowed: true };
 }
 
-function readImportRowsFromBuffer(buffer: Buffer): { headers: string[]; rows: Array<Record<string, unknown>> } {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const headerRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: '' });
-    const headers = (Array.isArray(headerRows[0]) ? headerRows[0] : []).map((value) => asString(value)).filter(Boolean);
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '', raw: false });
+async function readImportRowsFromBuffer(buffer: Buffer): Promise<{ headers: string[]; rows: Array<Record<string, unknown>> }> {
+    const rows = await parseExcelBuffer(buffer);
+    const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
     return { headers, rows };
 }
 
@@ -700,7 +697,7 @@ async function previewImportInternal(req: AuthRequest): Promise<Record<string, u
         throw new ExamImportError(400, 'VALIDATION_ERROR', 'External exam imports are disabled in settings.');
     }
 
-    const { headers, rows } = readImportRowsFromBuffer(req.file.buffer);
+    const { headers, rows } = await readImportRowsFromBuffer(req.file.buffer);
     if (!rows.length) {
         throw new ExamImportError(400, 'VALIDATION_ERROR', 'No data rows found in the uploaded file.');
     }

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import mongoose from 'mongoose';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import QuestionBankQuestion, { IQuestionBankQuestion, IBankQuestionOption } from '../models/QuestionBankQuestion';
 import QuestionBankSet, { IQuestionBankSet, ISetRules } from '../models/QuestionBankSet';
 import QuestionBankUsage from '../models/QuestionBankUsage';
@@ -436,9 +436,26 @@ export async function importPreview(
     filename: string,
     mapping?: Record<string, string>,
 ) {
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const ws = wb.worksheets[0];
+    if (!ws) return { totalRows: 0, headers: [], mapping: {}, preview: [], availableColumns: Object.values(IMPORT_COLUMN_MAP) };
+    const headerRow = ws.getRow(1);
+    const colHeaders: string[] = [];
+    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => { colHeaders[colNumber] = cell.value ? cell.value.toString().trim() : ''; });
+    const rawRows: Record<string, unknown>[] = [];
+    ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const rowData: Record<string, unknown> = {};
+        colHeaders.forEach(h => { if (h) rowData[h] = ''; });
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const h = colHeaders[colNumber]; if (!h) return;
+            let val: unknown = cell.value;
+            if (val && typeof val === 'object' && 'formula' in (val as Record<string, unknown>)) val = (val as { result?: unknown }).result;
+            rowData[h] = val ?? '';
+        });
+        rawRows.push(rowData);
+    });
 
     const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
     const autoMapping = mapping || autoMapColumns(headers);
@@ -481,9 +498,25 @@ export async function importCommit(
     mode: 'create' | 'upsert',
     adminId: string,
 ) {
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const ws = wb.worksheets[0];
+    if (!ws) return { totalRows: 0, imported: 0, skipped: 0, failed: 0, errorRows: [] };
+    const colHeaders: string[] = [];
+    ws.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => { colHeaders[colNumber] = cell.value ? cell.value.toString().trim() : ''; });
+    const rawRows: Record<string, unknown>[] = [];
+    ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const rowData: Record<string, unknown> = {};
+        colHeaders.forEach(h => { if (h) rowData[h] = ''; });
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const h = colHeaders[colNumber]; if (!h) return;
+            let val: unknown = cell.value;
+            if (val && typeof val === 'object' && 'formula' in (val as Record<string, unknown>)) val = (val as { result?: unknown }).result;
+            rowData[h] = val ?? '';
+        });
+        rawRows.push(rowData);
+    });
 
     const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
     const resolvedMapping = mapping || autoMapColumns(headers);
@@ -580,17 +613,22 @@ export async function exportQuestions(
         isArchived: q.isArchived,
     }));
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Questions');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Questions');
+    if (rows.length > 0) {
+        ws.columns = Object.keys(rows[0]).map(k => ({ header: k, key: k, width: 18 }));
+        rows.forEach((r: any) => ws.addRow(r));
+    }
 
     if (format === 'csv') {
-        return XLSX.write(wb, { type: 'buffer', bookType: 'csv' });
+        const csvBuf = await wb.csv.writeBuffer();
+        return Buffer.from(csvBuf);
     }
-    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const xlsxBuf = await wb.xlsx.writeBuffer();
+    return Buffer.from(xlsxBuf);
 }
 
-export function generateImportTemplate(): Buffer {
+export async function generateImportTemplate(): Promise<Buffer> {
     const headers = [
         'subject', 'moduleCategory', 'topic', 'subtopic', 'difficulty', 'languageMode',
         'question_en', 'question_bn', 'questionImageUrl',
@@ -607,10 +645,12 @@ export function generateImportTemplate(): Buffer {
         'A', 'An object remains in its state unless acted upon by an external force.', '', '',
         '1', '0', 'newton,mechanics', '', 'Chapter 3', '', '2023',
     ];
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');
-    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Template');
+    ws.addRow(headers);
+    ws.addRow(exampleRow);
+    const buf = await wb.xlsx.writeBuffer();
+    return Buffer.from(buf);
 }
 
 // ─── Sets / Templates ────────────────────────────────────

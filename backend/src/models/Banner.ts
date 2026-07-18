@@ -42,6 +42,11 @@ export interface IBanner extends Document {
     updatedAt: Date;
     /* ── Popup-specific settings (only relevant when slot === 'popup') ── */
     popupConfig?: IPopupConfig;
+    impressionsCount?: number;
+    clicksCount?: number;
+    adBudget?: mongoose.Types.ObjectId;
+    targetCategories?: string[];
+    maxImpressionsPerUser?: number;
 }
 
 const PopupConfigSchema = new Schema<IPopupConfig>({
@@ -72,6 +77,11 @@ const BannerSchema = new Schema<IBanner>({
     endDate: Date,
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     popupConfig: { type: PopupConfigSchema, default: undefined },
+    impressionsCount: { type: Number, default: 0 },
+    clicksCount: { type: Number, default: 0 },
+    adBudget: { type: Schema.Types.ObjectId, ref: 'FinanceBudget' },
+    targetCategories: [{ type: String }],
+    maxImpressionsPerUser: { type: Number, default: 0 }
 }, { timestamps: true });
 
 BannerSchema.index({ isActive: 1, order: 1 });

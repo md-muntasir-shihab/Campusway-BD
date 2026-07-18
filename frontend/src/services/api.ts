@@ -3635,6 +3635,9 @@ export const getActiveStudentAlerts = () => api.get('/alerts/active');
 export const ackStudentAlert = (alertId: string) => api.post(`/alerts/${alertId}/ack`);
 export const getActiveBannersBySlot = (slot?: 'top' | 'middle' | 'footer') =>
     api.get('/banners/active', { params: slot ? { slot } : {} });
+export const trackBannerEvent = (id: string, eventType: 'impression' | 'click') =>
+    api.post(`/banners/${id}/track`, { eventType });
+
 
 /* â”€â”€ Admin â€” Universities â”€â”€ */
 export const adminGetUniversities = (params: Record<string, string | number> = {}) =>
@@ -6128,6 +6131,66 @@ export const adminGetAnalyticsSettings = () =>
 
 export const adminUpdateAnalyticsSettings = (data: Partial<AnalyticsSettings>) =>
     api.put<{ message: string; settings: AnalyticsSettings }>(`/${ADMIN_PATH}/settings/analytics`, data);
+
+export interface AdminAnalyticsDashboardData {
+    platform: {
+        totalQuestions: number;
+        totalExams: number;
+        totalAttempts: number;
+        activeStudents: number;
+        totalGroups: number;
+        totalRevenue: number;
+    };
+    today: {
+        activeExamsToday: number;
+        liveExamCount: number;
+        recentSignups: number;
+        popularExams: Array<{
+            attempts: number;
+            title: string;
+        }>;
+    };
+    dailyAttempts: Array<{
+        date: string;
+        attempts: number;
+    }>;
+    userGrowth: Array<{
+        date: string;
+        users: number;
+    }>;
+    difficultyDistribution: Array<{
+        level: string;
+        count: number;
+        wrongPercentage?: number;
+    }>;
+    examStats: Array<{
+        examId: string;
+        title: string;
+        participants: number;
+        avgScore: number;
+        highestScore: number;
+        lowestScore: number;
+        completionRate: number;
+    }>;
+    subjectHeatmap: Array<{
+        subject: string;
+        attempts: number;
+        avgScore: number;
+    }>;
+    revenue: {
+        totalPaidExams: number;
+        totalPackageSales: number;
+        totalRevenue: number;
+        recentTransactions: Array<{
+            date: string;
+            amount: number;
+            type: string;
+        }>;
+    };
+}
+
+export const adminGetAnalyticsDashboard = (params?: { range?: 'daily' | 'weekly' | 'monthly' }) =>
+    api.get<AdminAnalyticsDashboardData>(`/${ADMIN_PATH}/analytics/dashboard`, { params });
 
 export const adminGetReportsSummary = (params?: { from?: string; to?: string }) =>
     api.get<AdminReportsSummary>(`/${ADMIN_PATH}/reports/summary`, { params });

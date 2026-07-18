@@ -15,6 +15,7 @@ import { examImportCommitLimit, examImportPreviewLimit } from '../middleware/exa
 import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
 import { requireTwoPersonApproval } from '../middleware/twoPersonApproval';
 import { csrfProtection } from '../middleware/csrfGuard';
+import { adminDashboardCache, adminAnalyticsCache, invalidateCache } from '../middleware/cacheMiddleware';
 import {
     adminGetExams,
     adminGetExamById,
@@ -869,10 +870,10 @@ router.get('/security/dashboard', requirePermission('security_logs', 'view'), ge
 router.get('/audit-logs', requirePermission('security_logs', 'view'), getAuditLogsList);
 
 /* ── Reports & Analytics ── */
-router.get('/analytics/dashboard', requirePermission('reports_analytics', 'view'), adminGetAnalyticsDashboard);
-router.get('/reports/summary', requirePermission('reports_analytics', 'view'), adminGetReportsSummary);
+router.get('/analytics/dashboard', requirePermission('reports_analytics', 'view'), adminAnalyticsCache, adminGetAnalyticsDashboard);
+router.get('/reports/summary', requirePermission('reports_analytics', 'view'), adminAnalyticsCache, adminGetReportsSummary);
 router.get('/reports/export', requirePermission('reports_analytics', 'export'), requireSensitiveExport('reports', 'summary_export'), trackSensitiveExport({ moduleName: 'reports', actionName: 'summary_export' }), adminExportReportsSummary);
-router.get('/reports/analytics', requirePermission('reports_analytics', 'view'), adminGetAnalyticsOverview);
+router.get('/reports/analytics', requirePermission('reports_analytics', 'view'), adminAnalyticsCache, adminGetAnalyticsOverview);
 router.get('/reports/events/export', requirePermission('reports_analytics', 'export'), requireSensitiveExport('reports', 'event_logs_export'), trackSensitiveExport({ moduleName: 'reports', actionName: 'event_logs_export' }), adminExportEventLogs);
 router.get('/reports/exams/:examId/insights', requirePermission('reports_analytics', 'view'), adminGetExamInsights);
 router.get('/reports/exams/:examId/insights/export', requirePermission('reports_analytics', 'export'), requireSensitiveExport('reports', 'exam_insights_export'), trackSensitiveExport({ moduleName: 'reports', actionName: 'exam_insights_export', targetType: 'exam', targetParam: 'examId' }), adminExportExamInsights);
@@ -1273,13 +1274,13 @@ router.get('/staff-payouts', requirePermission('finance_center', 'view'), adminG
 router.post('/staff-payouts', requirePermission('finance_center', 'create'), adminCreateStaffPayout);
 
 /* ── Finance Analytics ── */
-router.get('/finance/summary', requirePermission('finance_center', 'view'), adminGetFinanceSummary);
-router.get('/finance/revenue-series', requirePermission('finance_center', 'view'), adminGetFinanceRevenueSeries);
-router.get('/finance/student-growth', requirePermission('finance_center', 'view'), adminGetFinanceStudentGrowth);
-router.get('/finance/plan-distribution', requirePermission('finance_center', 'view'), adminGetFinancePlanDistribution);
-router.get('/finance/expense-breakdown', requirePermission('finance_center', 'view'), adminGetFinanceExpenseBreakdown);
-router.get('/finance/cashflow', requirePermission('finance_center', 'view'), adminGetFinanceCashflow);
-router.get('/finance/test-board', requirePermission('finance_center', 'view'), adminGetFinanceTestBoard);
+router.get('/finance/summary', requirePermission('finance_center', 'view'), adminDashboardCache, adminGetFinanceSummary);
+router.get('/finance/revenue-series', requirePermission('finance_center', 'view'), adminDashboardCache, adminGetFinanceRevenueSeries);
+router.get('/finance/student-growth', requirePermission('finance_center', 'view'), adminDashboardCache, adminGetFinanceStudentGrowth);
+router.get('/finance/plan-distribution', requirePermission('finance_center', 'view'), adminDashboardCache, adminGetFinancePlanDistribution);
+router.get('/finance/expense-breakdown', requirePermission('finance_center', 'view'), adminDashboardCache, adminGetFinanceExpenseBreakdown);
+router.get('/finance/cashflow', requirePermission('finance_center', 'view'), adminDashboardCache, adminGetFinanceCashflow);
+router.get('/finance/test-board', requirePermission('finance_center', 'view'), adminDashboardCache, adminGetFinanceTestBoard);
 router.get('/finance/stream', requirePermission('finance_center', 'view'), adminFinanceStream);
 
 /* ── Dues & Reminders ── */
@@ -1351,7 +1352,7 @@ router.get('/export-students', requirePermission('students_groups', 'export'), r
 /* ═══════════════════════════════════════════════════════════
    FINANCE CENTER (unified ledger)
    ═══════════════════════════════════════════════════════════ */
-router.get('/fc/dashboard', requirePermission('finance_center', 'view'), fcGetDashboard);
+router.get('/fc/dashboard', requirePermission('finance_center', 'view'), adminDashboardCache, fcGetDashboard);
 
 // Transactions
 router.get('/fc/transactions', requirePermission('finance_center', 'view'), fcGetTransactions);
@@ -1365,25 +1366,25 @@ router.get(
     fcGetTransactions,
 );
 router.get('/fc/transactions/:id', requirePermission('finance_center', 'view'), fcGetTransaction);
-router.post('/fc/transactions', requirePermission('finance_center', 'create'), validate(createTransactionSchema), fcCreateTransaction);
-router.put('/fc/transactions/:id', requirePermission('finance_center', 'edit'), validate(updateTransactionSchema), fcUpdateTransaction);
-router.delete('/fc/transactions/:id', requirePermission('finance_center', 'delete'), requireDestructiveStepUp('finance_center', 'transaction_delete'), fcDeleteTransaction);
-router.post('/fc/transactions/:id/restore', requirePermission('finance_center', 'edit'), requireDestructiveStepUp('finance_center', 'transaction_restore'), fcRestoreTransaction);
-router.post('/fc/transactions/bulk-approve', requirePermission('finance_center', 'bulk'), validate(bulkIdsSchema), fcBulkApproveTransactions);
-router.post('/fc/transactions/bulk-mark-paid', requirePermission('finance_center', 'bulk'), validate(bulkIdsSchema), fcBulkMarkPaid);
+router.post('/fc/transactions', requirePermission('finance_center', 'create'), invalidateCache('finance_center'), validate(createTransactionSchema), fcCreateTransaction);
+router.put('/fc/transactions/:id', requirePermission('finance_center', 'edit'), invalidateCache('finance_center'), validate(updateTransactionSchema), fcUpdateTransaction);
+router.delete('/fc/transactions/:id', requirePermission('finance_center', 'delete'), invalidateCache('finance_center'), requireDestructiveStepUp('finance_center', 'transaction_delete'), fcDeleteTransaction);
+router.post('/fc/transactions/:id/restore', requirePermission('finance_center', 'edit'), invalidateCache('finance_center'), requireDestructiveStepUp('finance_center', 'transaction_restore'), fcRestoreTransaction);
+router.post('/fc/transactions/bulk-approve', requirePermission('finance_center', 'bulk'), invalidateCache('finance_center'), validate(bulkIdsSchema), fcBulkApproveTransactions);
+router.post('/fc/transactions/bulk-mark-paid', requirePermission('finance_center', 'bulk'), invalidateCache('finance_center'), validate(bulkIdsSchema), fcBulkMarkPaid);
 
 // Invoices
 router.get('/fc/invoices', requirePermission('finance_center', 'view'), fcGetInvoices);
 router.get('/fc/invoices/:id', requirePermission('finance_center', 'view'), fcGetInvoice);
-router.post('/fc/invoices', requirePermission('finance_center', 'create'), validate(createInvoiceSchema), fcCreateInvoice);
-router.put('/fc/invoices/:id', requirePermission('finance_center', 'edit'), validate(updateInvoiceSchema), fcUpdateInvoice);
-router.post('/fc/invoices/:id/mark-paid', requirePermission('finance_center', 'edit'), validate(markInvoicePaidSchema), fcMarkInvoicePaid);
+router.post('/fc/invoices', requirePermission('finance_center', 'create'), invalidateCache('finance_center'), validate(createInvoiceSchema), fcCreateInvoice);
+router.put('/fc/invoices/:id', requirePermission('finance_center', 'edit'), invalidateCache('finance_center'), validate(updateInvoiceSchema), fcUpdateInvoice);
+router.post('/fc/invoices/:id/mark-paid', requirePermission('finance_center', 'edit'), invalidateCache('finance_center'), validate(markInvoicePaidSchema), fcMarkInvoicePaid);
 
 // Budgets
 router.get('/fc/budgets', requirePermission('finance_center', 'view'), fcGetBudgets);
-router.post('/fc/budgets', requirePermission('finance_center', 'create'), validate(createBudgetSchema), fcCreateBudget);
-router.put('/fc/budgets/:id', requirePermission('finance_center', 'edit'), validate(updateBudgetSchema), fcUpdateBudget);
-router.delete('/fc/budgets/:id', requirePermission('finance_center', 'delete'), requireDestructiveStepUp('finance_center', 'budget_delete'), fcDeleteBudget);
+router.post('/fc/budgets', requirePermission('finance_center', 'create'), invalidateCache('finance_center'), validate(createBudgetSchema), fcCreateBudget);
+router.put('/fc/budgets/:id', requirePermission('finance_center', 'edit'), invalidateCache('finance_center'), validate(updateBudgetSchema), fcUpdateBudget);
+router.delete('/fc/budgets/:id', requirePermission('finance_center', 'delete'), invalidateCache('finance_center'), requireDestructiveStepUp('finance_center', 'budget_delete'), fcDeleteBudget);
 
 // Recurring Rules
 router.get('/fc/recurring-rules', requirePermission('finance_center', 'view'), fcGetRecurringRules);

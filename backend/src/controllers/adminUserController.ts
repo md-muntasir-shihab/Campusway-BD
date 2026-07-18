@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import { Readable } from 'stream';
 import csvParser from 'csv-parser';
-import * as XLSX from 'xlsx';
+import { parseExcelBuffer as parseExcelBufferCore, rowsToExcelBuffer, rowsToCsvBuffer } from '../utils/excelHelper';
 import mongoose from 'mongoose';
 import User, { IUserPermissions, UserRole, UserStatus } from '../models/User';
 import AuditLog from '../models/AuditLog';
@@ -288,11 +288,7 @@ async function parseCsvBuffer(buffer: Buffer): Promise<Record<string, string>[]>
 }
 
 async function parseExcelBuffer(buffer: Buffer): Promise<Record<string, string>[]> {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const firstSheetName = workbook.SheetNames[0];
-    if (!firstSheetName) return [];
-    const sheet = workbook.Sheets[firstSheetName];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+    const rows = await parseExcelBufferCore(buffer);
     return rows.map((row) => normalizeRow(row));
 }
 
@@ -1832,21 +1828,21 @@ export async function adminExportStudents(req: AuthRequest, res: Response): Prom
         }));
 
         if (format === 'csv') {
-            const sheet = XLSX.utils.json_to_sheet(exportData);
-            const csv = XLSX.utils.sheet_to_csv(sheet);
+            const buffer = await rowsToCsvBuffer(exportData, 'Students');
+            
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename="students_export.csv"');
-            res.send(csv);
+            res.send(Buffer.from(buffer));
             return;
         }
 
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Students');
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const buffer2 = await rowsToExcelBuffer(exportData, 'Students');
+        
+        
+        
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename="students_export.xlsx"');
-        res.send(buffer);
+        res.send(Buffer.from(buffer2));
     } catch (error) {
         console.error('adminExportStudents error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during export'));
@@ -2947,21 +2943,21 @@ export async function adminExportStudentGroups(_req: AuthRequest, res: Response)
         });
 
         if (format === 'csv') {
-            const sheet = XLSX.utils.json_to_sheet(rows);
-            const csv = XLSX.utils.sheet_to_csv(sheet);
+            const buffer = await rowsToCsvBuffer(rows, 'Student Groups');
+            
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename="student_groups_export.csv"');
-            res.send(csv);
+            res.send(Buffer.from(buffer));
             return;
         }
 
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Groups');
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const buffer2 = await rowsToExcelBuffer(rows, 'Student Groups');
+        
+        
+        
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename="student_groups_export.xlsx"');
-        res.send(buffer);
+        res.send(Buffer.from(buffer2));
     } catch (error) {
         console.error('adminExportStudentGroups error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error during group export'));

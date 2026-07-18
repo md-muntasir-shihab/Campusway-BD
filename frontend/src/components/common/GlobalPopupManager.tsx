@@ -12,6 +12,7 @@ import { useLocation } from 'react-router-dom';
 import { X, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import FocusTrap from './FocusTrap';
+import { trackBannerEvent } from '../../services/api';
 
 /* ── Types ── */
 interface PopupBanner {
@@ -172,6 +173,7 @@ export default function GlobalPopupManager() {
                 const updated = recordView(eligible._id, log);
                 saveLog(updated);
                 setPopup(eligible);
+                trackBannerEvent(eligible._id, 'impression').catch((err) => console.error('Error tracking banner impression:', err));
                 requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
             } catch { /* silent */ }
         };
@@ -185,6 +187,12 @@ export default function GlobalPopupManager() {
     const cfg = popup.popupConfig;
     const autoCloseSec = cfg?.autoCloseAfterSeconds ?? 0;
     const ctaText = cfg?.ctaText?.trim() || 'Learn More';
+
+    const handleBannerClick = () => {
+        if (popup) {
+            trackBannerEvent(popup._id, 'click').catch((err) => console.error('Error tracking banner click:', err));
+        }
+    };
 
     return (
         <div
@@ -242,7 +250,7 @@ export default function GlobalPopupManager() {
 
                     {/* Banner image */}
                     {popup.linkUrl ? (
-                        <a href={popup.linkUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <a href={popup.linkUrl} target="_blank" rel="noopener noreferrer" className="block" onClick={handleBannerClick}>
                             <img
                                 src={popup.imageUrl}
                                 alt={popup.altText || popup.title || 'Promotional offer'}
@@ -273,6 +281,7 @@ export default function GlobalPopupManager() {
                                     href={popup.linkUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={handleBannerClick}
                                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
                                     style={{
                                         background: 'linear-gradient(135deg, var(--primary), var(--accent))',

@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
+import { trackBannerEvent } from '../../../services/api';
 
 interface CampaignBannerCardProps {
   banner: {
@@ -13,10 +15,23 @@ interface CampaignBannerCardProps {
 }
 
 export default function CampaignBannerCard({ banner }: CampaignBannerCardProps) {
+  useEffect(() => {
+    trackBannerEvent(banner._id, 'impression').catch(err =>
+      console.error('Error tracking campaign banner impression:', err)
+    );
+  }, [banner._id]);
+
+  const handleBannerClick = () => {
+    trackBannerEvent(banner._id, 'click').catch(err =>
+      console.error('Error tracking campaign banner click:', err)
+    );
+  };
+
   const Wrapper = banner.linkUrl ? 'a' : 'div';
   const linkProps = banner.linkUrl
     ? { href: banner.linkUrl, target: '_blank' as const, rel: 'noopener noreferrer' }
     : {};
+
 
   return (
     <motion.div
@@ -26,6 +41,7 @@ export default function CampaignBannerCard({ banner }: CampaignBannerCardProps) 
     >
       <Wrapper
         {...linkProps}
+        onClick={handleBannerClick}
         className="block relative rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 shadow-card hover:shadow-card-hover transition-shadow group h-44 sm:h-48 md:h-52"
       >
         {/* Banner image */}

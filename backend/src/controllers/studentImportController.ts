@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import XLSX from 'xlsx';
+import { parseExcelBuffer, rowsToExcelBuffer } from '../utils/excelHelper';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import User from '../models/User';
@@ -128,9 +128,7 @@ export const adminInitStudentImport = async (req: Request, res: Response) => {
             return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'No file uploaded.', { status: 'error' }));
         }
 
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' });
+        const rows = await parseExcelBuffer(req.file.buffer);
 
         if (rows.length === 0) {
             return ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'The uploaded file is empty.', { status: 'error' }));
@@ -338,11 +336,8 @@ export const adminCommitStudentImport = async (req: Request, res: Response) => {
 
 export const adminDownloadStudentTemplate = async (req: Request, res: Response) => {
     try {
-        const worksheet = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS]);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Students');
-
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const emptyRow = TEMPLATE_HEADERS.reduce((acc, h) => { acc[h] = ''; return acc; }, {} as Record<string, unknown>);
+        const buffer = await rowsToExcelBuffer([emptyRow], 'Students');
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=student_import_template.xlsx');

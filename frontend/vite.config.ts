@@ -95,6 +95,7 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: {
                 '@shared': path.resolve(__dirname, '../backend/src/types/shared'),
+                'lodash': 'lodash-es',
             },
         },
         server: {

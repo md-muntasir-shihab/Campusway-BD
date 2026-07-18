@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Upload, FileText, RefreshCw, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
     adminBulkImportGlobalQuestions,
     adminGetGlobalQuestionImportJob,
@@ -96,14 +96,38 @@ export default function QuestionImporter({ onClose, onImported, onImport }: Impo
         setReport(null);
         try {
             const buffer = await file.arrayBuffer();
-            const workbook = XLSX.read(buffer, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            if (!sheetName) {
-                toast.error('ফাইলে কোন শিট পাওয়া যায়নি');
+            const workbook = new ExcelJS.Workbook();
+            const lowerName = file.name.toLowerCase();
+            if (lowerName.endsWith('.csv')) {
+                await workbook.csv.read(new Blob([buffer]).stream() as any);
+            } else {
+                await workbook.xlsx.load(buffer);
+            }
+            const ws = workbook.worksheets[0];
+            if (!ws || ws.rowCount === 0) {
+                toast.error('ফাইলে কোন শিট পাওয়া যায়নি');
                 return;
             }
-            const sheet = workbook.Sheets[sheetName];
-            const parsedRows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as Array<Record<string, unknown>>;
+            const colHeaders: string[] = [];
+            ws.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                colHeaders[colNumber] = cell.value ? String(cell.value).trim() : '';
+            });
+            const parsedRows: Array<Record<string, unknown>> = [];
+            ws.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return;
+                const rowData: Record<string, unknown> = {};
+                colHeaders.forEach((h) => { if (h) rowData[h] = ''; });
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    const header = colHeaders[colNumber];
+                    if (!header) return;
+                    let val = cell.value;
+                    if (val && typeof val === 'object' && 'formula' in (val as any)) {
+                        val = (val as any).result;
+                    }
+                    rowData[header] = val ?? '';
+                });
+                parsedRows.push(rowData);
+            });
             if (!parsedRows.length) {
                 toast.error('ফাইল খালি আছে');
                 return;

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 import { authenticate, requireRole, requirePermission } from '../middleware/auth';
 import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
@@ -943,21 +943,29 @@ router.get('/student-groups/export', ...adminAuth, requirePermission('students_g
     }));
 
     if (format === 'csv') {
-      const sheet = XLSX.utils.json_to_sheet(rows);
-      const csv = XLSX.utils.sheet_to_csv(sheet);
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Student Groups');
+      if (rows.length > 0) {
+        ws.columns = Object.keys(rows[0]).map(k => ({ header: k, key: k, width: 18 }));
+        rows.forEach(r => ws.addRow(r));
+      }
+      const csvBuf = await wb.csv.writeBuffer();
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="student_groups_export.csv"');
-      res.send(csv);
+      res.send(Buffer.from(csvBuf));
       return;
     }
 
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Groups');
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Student Groups');
+    if (rows.length > 0) {
+      worksheet.columns = Object.keys(rows[0]).map(k => ({ header: k, key: k, width: 18 }));
+      rows.forEach(r => worksheet.addRow(r));
+    }
+    const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="student_groups_export.xlsx"');
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }

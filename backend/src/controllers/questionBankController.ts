@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import XLSX from 'xlsx';
+import { parseExcelBuffer, rowsToExcelBuffer, rowsToCsvBuffer } from '../utils/excelHelper';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import Question from '../models/Question';
@@ -337,10 +337,7 @@ async function parseImportRows(req: AuthRequest): Promise<{ rows: Array<Record<s
         throw new Error('No import rows found');
     }
 
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const firstSheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[firstSheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as Array<Record<string, unknown>>;
+    const rows = await parseExcelBuffer(req.file.buffer);
     return {
         rows: rows.slice(0, MAX_IMPORT_PREVIEW_ROWS),
         sourceFileName: req.file.originalname || 'upload.xlsx',
@@ -1129,21 +1126,17 @@ export async function exportQuestions(req: AuthRequest, res: Response): Promise<
         const format = String(req.body?.format || req.query?.format || 'xlsx').toLowerCase();
 
         if (format === 'csv') {
-            const sheet = XLSX.utils.json_to_sheet(exportRows);
-            const csv = XLSX.utils.sheet_to_csv(sheet);
+            const buffer = await rowsToCsvBuffer(exportRows, 'QBank');
             res.setHeader('content-type', 'text/csv; charset=utf-8');
             res.setHeader('content-disposition', `attachment; filename=\"qbank-export-${Date.now()}.csv\"`);
-            res.send(csv);
+            res.send(Buffer.from(buffer));
             return;
         }
 
-        const workbook = XLSX.utils.book_new();
-        const sheet = XLSX.utils.json_to_sheet(exportRows);
-        XLSX.utils.book_append_sheet(workbook, sheet, 'QBank');
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const buffer = await rowsToExcelBuffer(exportRows, 'QBank');
         res.setHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('content-disposition', `attachment; filename=\"qbank-export-${Date.now()}.xlsx\"`);
-        res.send(buffer);
+        res.send(Buffer.from(buffer));
 
         await createAudit(req, 'qbank_export', undefined, { count: exportRows.length, format });
     } catch (err) {

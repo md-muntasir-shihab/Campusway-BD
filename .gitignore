@@ -1,6 +1,7 @@
 # ─── Dependencies ─────────────────────────────────────────────
 node_modules/
 **/node_modules/
+backend/node_modules_old/
 
 # ─── Environment files ────────────────────────────────────────
 .env
@@ -147,3 +148,4 @@ backend/nul
 nul
 # Vite transient config timestamp files
 **/vite.config.ts.timestamp-*.mjs
+backend/firebase-service-account.json
