@@ -333,7 +333,7 @@ export default function AntiCheatReport() {
             <AdminGuardShell title="Anti-Cheat Report" requiredModule="exam_center">
                 <ExamSelectorPanel
                     apiUrl="/v1/exams?status=completed"
-                    onSelect={(id) => navigate(`/exam-center/anti-cheat/${id}`)}
+                    onSelect={(id) => navigate(adminUi(`exam-center/anti-cheat/${id}`))}
                     title="Select an Exam"
                     description="Choose a completed exam to view its anti-cheat report"
                     emptyMessage="No completed exams found"

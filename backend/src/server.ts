@@ -40,6 +40,7 @@ import adminNotificationRoutes from './routes/adminNotificationRoutes';
 import adminStudentSecurityRoutes from './routes/adminStudentSecurityRoutes';
 import adminIntegrationsRoutes from './routes/adminIntegrationsRoutes';
 import publicIntegrationsRoutes from './routes/publicIntegrationsRoutes';
+import seoRoutes from './routes/seoRoutes';
 
 // Exam Management System v1 routes
 import questionHierarchyRoutes from './routes/questionHierarchy.routes';
@@ -394,6 +395,10 @@ app.use('/api/v1/', examSystemLimiter);
 
 // CSRF token endpoint
 app.get('/api/auth/csrf-token', csrfTokenEndpoint);
+
+// SEO routes (sitemap.xml & robots.txt)
+app.use('/', seoRoutes);
+app.use('/api', seoRoutes);
 
 // Public API
 app.use('/api', publicRoutes);

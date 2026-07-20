@@ -15,7 +15,9 @@ import Exam, { IExam } from '../models/Exam';
 import ExamSession, { IExamSession } from '../models/ExamSession';
 import GroupMembership from '../models/GroupMembership';
 import QuestionBankQuestion from '../models/QuestionBankQuestion';
+import { ExamQuestionModel } from '../models/examQuestion.model';
 import AntiCheatViolationLog, { ViolationType } from '../models/AntiCheatViolationLog';
+import { logger } from '../utils/logger';
 
 // ─── DTO Types ──────────────────────────────────────────────
 
@@ -328,63 +330,108 @@ async function validateGroupAccess(exam: IExam, studentId: string): Promise<void
 
 /**
  * Build the ExamSessionStart response with questions and timer info.
+ *
+ * PRIMARY: Fetches from ExamQuestionModel (frozen snapshot created when exam was built).
+ * FALLBACK: For legacy exams without snapshots, falls back to QuestionBankQuestion
+ *           with a logger.warn so migration needs can be tracked.
  */
 async function buildSessionStartResponse(
     session: IExamSession,
     exam: IExam,
 ): Promise<ExamSessionStart> {
-    // Determine question IDs — use questionOrder if available
-    let questionIds: mongoose.Types.ObjectId[] = [];
-    if (exam.questionOrder && exam.questionOrder.length > 0) {
-        questionIds = exam.questionOrder;
+    const examIdStr = (exam._id as any).toString();
+
+    // PRIMARY: Fetch from frozen snapshot (ExamQuestionModel)
+    const snapshotQuestions = await ExamQuestionModel.find({ examId: examIdStr }).lean();
+
+    let sanitizedQuestions: ExamSessionStart['questions'];
+
+    if (snapshotQuestions.length > 0) {
+        // ── Snapshot path: use frozen ExamQuestion records ──
+        let ordered = snapshotQuestions.sort(
+            (a, b) => ((a.orderIndex as number) ?? 0) - ((b.orderIndex as number) ?? 0),
+        );
+
+        // Shuffle if exam settings require it
+        if (exam.randomizeQuestions) {
+            ordered = shuffleArray([...ordered]);
+        }
+
+        // Strip correctKey from options (students should not see correct answers)
+        sanitizedQuestions = ordered.map((q) => ({
+            _id: q._id.toString(),
+            question_en: q.question_en as string | undefined,
+            question_bn: q.question_bn as string | undefined,
+            questionImageUrl: q.questionImageUrl as string | undefined,
+            questionFormulaLatex: undefined,
+            question_type: 'mcq',
+            options: (q.options || []).map((opt: any) => ({
+                key: opt.key,
+                text_en: opt.text_en,
+                text_bn: opt.text_bn,
+                imageUrl: opt.imageUrl,
+            })),
+            images: undefined,
+            marks: (q.marks as number) || exam.defaultMarksPerQuestion || 1,
+        }));
+    } else {
+        // ── Legacy fallback: no snapshot exists, use live QuestionBankQuestion ──
+        logger.warn(
+            `[ExamRunner] Legacy fallback for examId=${examIdStr}: no ExamQuestion snapshot found, using QuestionBankQuestion. Consider running a migration.`,
+        );
+
+        // Determine question IDs — use questionOrder if available
+        let questionIds: mongoose.Types.ObjectId[] = [];
+        if (exam.questionOrder && exam.questionOrder.length > 0) {
+            questionIds = exam.questionOrder;
+        }
+
+        // Fetch questions (strip correct answers for student view)
+        const questions = await QuestionBankQuestion.find(
+            { _id: { $in: questionIds } },
+            {
+                _id: 1,
+                question_en: 1,
+                question_bn: 1,
+                questionImageUrl: 1,
+                questionFormulaLatex: 1,
+                question_type: 1,
+                options: 1,
+                images: 1,
+                marks: 1,
+            },
+        ).lean();
+
+        // Build a map for ordering
+        const questionMap = new Map(questions.map((q) => [q._id.toString(), q]));
+
+        // Order questions according to questionOrder
+        let orderedQuestions = questionIds
+            .map((id) => questionMap.get(id.toString()))
+            .filter(Boolean) as typeof questions;
+
+        // Shuffle if exam settings require it
+        if (exam.randomizeQuestions) {
+            orderedQuestions = shuffleArray([...orderedQuestions]);
+        }
+
+        sanitizedQuestions = orderedQuestions.map((q) => ({
+            _id: q._id.toString(),
+            question_en: q.question_en,
+            question_bn: q.question_bn,
+            questionImageUrl: q.questionImageUrl,
+            questionFormulaLatex: q.questionFormulaLatex,
+            question_type: q.question_type || 'mcq',
+            options: (q.options || []).map((opt: any) => ({
+                key: opt.key,
+                text_en: opt.text_en,
+                text_bn: opt.text_bn,
+                imageUrl: opt.imageUrl,
+            })),
+            images: q.images,
+            marks: q.marks || exam.defaultMarksPerQuestion || 1,
+        }));
     }
-
-    // Fetch questions (strip correct answers for student view)
-    const questions = await QuestionBankQuestion.find(
-        { _id: { $in: questionIds } },
-        {
-            _id: 1,
-            question_en: 1,
-            question_bn: 1,
-            questionImageUrl: 1,
-            questionFormulaLatex: 1,
-            question_type: 1,
-            options: 1,
-            images: 1,
-            marks: 1,
-        },
-    ).lean();
-
-    // Build a map for ordering
-    const questionMap = new Map(questions.map((q) => [q._id.toString(), q]));
-
-    // Order questions according to questionOrder
-    let orderedQuestions = questionIds
-        .map((id) => questionMap.get(id.toString()))
-        .filter(Boolean) as typeof questions;
-
-    // Shuffle if exam settings require it
-    if (exam.randomizeQuestions) {
-        orderedQuestions = shuffleArray([...orderedQuestions]);
-    }
-
-    // Strip isCorrect from options (students should not see correct answers)
-    const sanitizedQuestions = orderedQuestions.map((q) => ({
-        _id: q._id.toString(),
-        question_en: q.question_en,
-        question_bn: q.question_bn,
-        questionImageUrl: q.questionImageUrl,
-        questionFormulaLatex: q.questionFormulaLatex,
-        question_type: q.question_type || 'mcq',
-        options: (q.options || []).map((opt: any) => ({
-            key: opt.key,
-            text_en: opt.text_en,
-            text_bn: opt.text_bn,
-            imageUrl: opt.imageUrl,
-        })),
-        images: q.images,
-        marks: q.marks || exam.defaultMarksPerQuestion || 1,
-    }));
 
     // Calculate timer info
     const now = new Date();

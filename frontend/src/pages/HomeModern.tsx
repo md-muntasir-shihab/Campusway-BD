@@ -33,6 +33,7 @@ import type { UrgencyState } from '../lib/apiClient';
 import { daysUntilUniversityDate, parseUniversityDate } from '../lib/universityPresentation';
 import PageHeroBanner from '../components/common/PageHeroBanner';
 import { usePageHeroSettings } from '../hooks/usePageHeroSettings';
+import SEO from '../components/common/SEO';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -1690,6 +1691,22 @@ export default function HomeModern() {
 
     return (
         <div className="bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+            <SEO
+                title="Bangladesh University Admission Gateway, Exam Preparation & Circulars"
+                description="Comprehensive portal for Bangladesh university admission test news, circulars, seat plans, merit lists, and online mock exam preparation."
+                schema={{
+                    "@context": "https://schema.org",
+                    "@type": "WebSite",
+                    "url": "https://campusway.net",
+                    "name": "CampusWay",
+                    "description": "The ultimate platform for university admissions and career guidance in Bangladesh.",
+                    "publisher": {
+                        "@type": "EducationalOrganization",
+                        "name": "CampusWay",
+                        "logo": "https://campusway.net/cw-banner.png"
+                    }
+                }}
+            />
             {hero.enabled && (
                 <PageHeroBanner
                     title={hero.title}

@@ -4,6 +4,7 @@
  * Feature: integration-panel-audit
  * Validates: Requirements 3.5
  */
+import { describe, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
@@ -11,7 +12,7 @@ import request from 'supertest';
 // in the route file, so we import the router and mount it on a test app.
 // We mock the auth middleware and the service layer to isolate the rate limiter.
 
-jest.mock('../src/middlewares/auth', () => ({
+vi.mock('../src/middlewares/auth', () => ({
     authenticate: (_req: unknown, _res: unknown, next: () => void) => {
         ((_req as Record<string, unknown>).user as Record<string, unknown>) = {
             _id: 'test-admin-id',
@@ -22,10 +23,10 @@ jest.mock('../src/middlewares/auth', () => ({
     authorize: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
-jest.mock('../src/services/integrations/integrationsService', () => ({
-    listAll: jest.fn().mockResolvedValue([]),
-    getOne: jest.fn().mockResolvedValue(null),
-    updateConfig: jest.fn().mockResolvedValue({
+vi.mock('../src/services/integrations/integrationsService', () => ({
+    listAll: vi.fn().mockResolvedValue([]),
+    getOne: vi.fn().mockResolvedValue(null),
+    updateConfig: vi.fn().mockResolvedValue({
         key: 'meilisearch',
         enabled: false,
         config: {},
@@ -34,11 +35,11 @@ jest.mock('../src/services/integrations/integrationsService', () => ({
         lastTestStatus: 'unknown',
         lastTestMessage: '',
     }),
-    testIntegration: jest.fn().mockResolvedValue({ status: 'success', message: 'OK' }),
+    testIntegration: vi.fn().mockResolvedValue({ status: 'success', message: 'OK' }),
 }));
 
-jest.mock('../src/models/AuditLog', () => ({
-    create: jest.fn().mockResolvedValue({}),
+vi.mock('../src/models/AuditLog', () => ({
+    create: vi.fn().mockResolvedValue({}),
 }));
 
 import adminIntegrationsRouter from '../src/routes/adminIntegrationsRoutes';

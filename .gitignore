@@ -149,3 +149,9 @@ nul
 # Vite transient config timestamp files
 **/vite.config.ts.timestamp-*.mjs
 backend/firebase-service-account.json
+backend/.mongodb-binaries/
+backend/mongod-local.exe
+backend/src/seeds/check-db.ts
+backend/src/seeds/test-endpoint.ts
+check-db.js
+

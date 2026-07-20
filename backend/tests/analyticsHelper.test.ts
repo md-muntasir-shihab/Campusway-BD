@@ -4,33 +4,35 @@
  * Feature: integration-panel-audit
  * Validates: Requirements 11.4, 12.4, 12.5
  */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { getPublicAnalyticsConfig } from '../src/services/integrations/analyticsHelper';
+import publicRouter from '../src/routes/publicIntegrationsRoutes';
 
 // Mock the featureGate module
-jest.mock('../src/services/integrations/featureGate', () => ({
-    isIntegrationReady: jest.fn(),
-    getIntegrationConfig: jest.fn(),
+vi.mock('../src/services/integrations/featureGate', () => ({
+    isIntegrationReady: vi.fn(),
+    getIntegrationConfig: vi.fn(),
 }));
 
 import { isIntegrationReady, getIntegrationConfig } from '../src/services/integrations/featureGate';
 
-const mockIsReady = isIntegrationReady as jest.MockedFunction<typeof isIntegrationReady>;
-const mockGetConfig = getIntegrationConfig as jest.MockedFunction<typeof getIntegrationConfig>;
+const mockIsReady = isIntegrationReady as any;
+const mockGetConfig = getIntegrationConfig as any;
 
 describe('Analytics Helper — getPublicAnalyticsConfig', () => {
     beforeEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     it('prefers Umami over Plausible when both are enabled', async () => {
-        mockIsReady.mockImplementation(async (key) => {
+        mockIsReady.mockImplementation(async (key: string) => {
             if (key === 'umami') return true;
             if (key === 'plausible') return true;
             return false;
         });
-        mockGetConfig.mockImplementation(async (key) => {
+        mockGetConfig.mockImplementation(async (key: string) => {
             if (key === 'umami') return { baseUrl: 'https://umami.example.com', websiteId: 'site-123' };
             if (key === 'plausible') return { baseUrl: 'https://plausible.io', domain: 'example.com' };
             return null;
@@ -44,12 +46,12 @@ describe('Analytics Helper — getPublicAnalyticsConfig', () => {
     });
 
     it('falls back to Plausible when Umami is not ready', async () => {
-        mockIsReady.mockImplementation(async (key) => {
+        mockIsReady.mockImplementation(async (key: string) => {
             if (key === 'umami') return false;
             if (key === 'plausible') return true;
             return false;
         });
-        mockGetConfig.mockImplementation(async (key) => {
+        mockGetConfig.mockImplementation(async (key: string) => {
             if (key === 'plausible') return { baseUrl: 'https://plausible.io', domain: 'example.com' };
             return null;
         });
@@ -76,11 +78,11 @@ describe('Analytics Helper — getPublicAnalyticsConfig', () => {
     });
 
     it('returns null config when Umami is ready but has no websiteId', async () => {
-        mockIsReady.mockImplementation(async (key) => {
+        mockIsReady.mockImplementation(async (key: string) => {
             if (key === 'umami') return true;
             return false;
         });
-        mockGetConfig.mockImplementation(async (key) => {
+        mockGetConfig.mockImplementation(async (key: string) => {
             if (key === 'umami') return { baseUrl: 'https://umami.example.com' };
             return null;
         });
@@ -94,14 +96,9 @@ describe('Analytics Helper — getPublicAnalyticsConfig', () => {
 
 describe('Public Analytics Config Endpoint — Cache-Control header', () => {
     it('sets Cache-Control: public, max-age=60', async () => {
-        // Import the public routes and mount on a test app
-        jest.resetModules();
-        jest.mock('../src/services/integrations/featureGate', () => ({
-            isIntegrationReady: jest.fn().mockResolvedValue(false),
-            getIntegrationConfig: jest.fn().mockResolvedValue(null),
-        }));
+        mockIsReady.mockResolvedValue(false);
+        mockGetConfig.mockResolvedValue(null);
 
-        const publicRouter = require('../src/routes/publicIntegrationsRoutes').default;
         const app = express();
         app.use('/api/integrations', publicRouter);
 

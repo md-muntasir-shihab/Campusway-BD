@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 import { trackBannerEvent } from '../../../services/api';
+import { trackOpenPanelEvent } from '../../../lib/openPanel';
 
 interface CampaignBannerCardProps {
   banner: {
@@ -19,12 +20,14 @@ export default function CampaignBannerCard({ banner }: CampaignBannerCardProps) 
     trackBannerEvent(banner._id, 'impression').catch(err =>
       console.error('Error tracking campaign banner impression:', err)
     );
-  }, [banner._id]);
+    trackOpenPanelEvent('ad_impression', { bannerId: banner._id, title: banner.title });
+  }, [banner._id, banner.title]);
 
   const handleBannerClick = () => {
     trackBannerEvent(banner._id, 'click').catch(err =>
       console.error('Error tracking campaign banner click:', err)
     );
+    trackOpenPanelEvent('ad_click', { bannerId: banner._id, title: banner.title, linkUrl: banner.linkUrl });
   };
 
   const Wrapper = banner.linkUrl ? 'a' : 'div';

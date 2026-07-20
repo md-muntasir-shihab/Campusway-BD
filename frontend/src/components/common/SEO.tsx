@@ -10,6 +10,7 @@ interface SEOProps {
     url?: string;
     type?: string;
     siteName?: string;
+    schema?: Record<string, any>;
 }
 
 export function SEO({
@@ -20,6 +21,7 @@ export function SEO({
     url = typeof window !== 'undefined' ? window.location.href : 'https://campusway.net',
     type,
     siteName,
+    schema,
 }: SEOProps) {
     const { data: siteSettings } = useQuery({
         queryKey: ['public-settings'],
@@ -60,6 +62,13 @@ export function SEO({
             <meta name="twitter:description" content={resolvedDescription} />
             <meta name="twitter:image" content={resolvedImage} />
             {resolvedTwitterSite && <meta name="twitter:site" content={resolvedTwitterSite} />}
+
+            {/* JSON-LD Structured Data */}
+            {schema && (
+                <script type="application/ld+json">
+                    {JSON.stringify(schema)}
+                </script>
+            )}
         </Helmet>
     );
 }

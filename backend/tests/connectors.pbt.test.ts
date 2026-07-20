@@ -10,13 +10,14 @@
  * object with status being one of 'success', 'failed', or 'skipped', and
  * should never throw an unhandled exception.
  */
+import { describe, beforeEach, it, expect, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { runConnectionTest } from '../src/services/integrations/connectors/index';
 import { INTEGRATION_KEYS } from '../src/services/integrations/integrationsRegistry';
 import type { IntegrationKey } from '../src/models/IntegrationConfig';
 
 // Mock globalThis.fetch to avoid real network calls during property tests
-const mockFetch = jest.fn();
+const mockFetch = vi.fn();
 (globalThis as unknown as { fetch: typeof fetch }).fetch = mockFetch;
 
 beforeEach(() => {

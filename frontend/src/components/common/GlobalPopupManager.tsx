@@ -13,6 +13,7 @@ import { X, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import FocusTrap from './FocusTrap';
 import { trackBannerEvent } from '../../services/api';
+import { trackOpenPanelEvent } from '../../lib/openPanel';
 
 /* ── Types ── */
 interface PopupBanner {
@@ -174,6 +175,7 @@ export default function GlobalPopupManager() {
                 saveLog(updated);
                 setPopup(eligible);
                 trackBannerEvent(eligible._id, 'impression').catch((err) => console.error('Error tracking banner impression:', err));
+                trackOpenPanelEvent('ad_impression', { bannerId: eligible._id, title: eligible.title, slot: 'popup' });
                 requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
             } catch { /* silent */ }
         };
@@ -191,6 +193,7 @@ export default function GlobalPopupManager() {
     const handleBannerClick = () => {
         if (popup) {
             trackBannerEvent(popup._id, 'click').catch((err) => console.error('Error tracking banner click:', err));
+            trackOpenPanelEvent('ad_click', { bannerId: popup._id, title: popup.title, slot: 'popup', linkUrl: popup.linkUrl });
         }
     };
 

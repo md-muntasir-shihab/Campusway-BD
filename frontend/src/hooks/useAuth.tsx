@@ -11,6 +11,7 @@ import api, {
     setRefreshToken,
 } from '../services/api';
 import { preserveExamProgress } from '../utils/examProgressPreservation';
+import { identifyOpenPanelUser, resetOpenPanelUser } from '../lib/openPanel';
 
 interface User {
     _id: string;
@@ -135,9 +136,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPending2FA(null);
         clearAccessToken();
         clearAuthSessionHint();
+        resetOpenPanelUser();
         queryClient.invalidateQueries({ queryKey: ['home'] }).catch(() => undefined);
         queryClient.invalidateQueries({ queryKey: ['home-settings'] }).catch(() => undefined);
     }, [queryClient]);
+
+    useEffect(() => {
+        if (user?._id) {
+            identifyOpenPanelUser(user._id, {
+                email: user.email,
+                name: user.fullName,
+                role: user.role,
+                username: user.username,
+            });
+        }
+    }, [user?._id, user?.email, user?.fullName, user?.role, user?.username]);
 
     const triggerForcedLogout = useCallback((_reason?: string) => {
         const reason = String(_reason || 'SESSION_INVALIDATED');

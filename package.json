@@ -17,7 +17,7 @@
     "typecheck:backend": "cd backend && npx tsc --noEmit",
     "typecheck:frontend": "cd frontend && npx tsc --noEmit",
     "test": "npm run test:be && npm run test:fe",
-    "test:be": "cd backend && npx jest",
+    "test:be": "cd backend && npx vitest run",
     "test:fe": "cd frontend && npx vitest run",
     "seed": "cd backend && npx tsx src/seeds/index.ts",
     "seed:exam": "cd backend && npx tsx src/seeds/examSystemSeed.ts",

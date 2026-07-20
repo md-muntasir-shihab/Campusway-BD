@@ -24,6 +24,7 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@hookform/resolvers": "^5.2.2",
+        "@openpanel/web": "^1.4.1",
         "@openreplay/tracker": "^18.1.0",
         "@sentry/react": "^10.66.0",
         "@tanstack/react-query": "^5.101.0",

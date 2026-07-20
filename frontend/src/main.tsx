@@ -29,10 +29,13 @@ import * as THREE from 'three';
     }
 })();
 
+import { initOpenPanel } from './lib/openPanel';
+
 initFirebaseClient();
 void initFirebaseAnalytics();
 void initFirebaseAppCheck();
 registerAllMocks();
+initOpenPanel();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

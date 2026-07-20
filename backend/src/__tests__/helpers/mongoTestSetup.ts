@@ -21,15 +21,23 @@ let mongoServer: MongoMemoryServer | null = null;
  * Safe to call multiple times — reuses existing server if already running.
  */
 export async function setupTestDb(): Promise<void> {
-    if (!mongoServer) {
-        mongoServer = await MongoMemoryServer.create();
-    }
-    const uri = mongoServer.getUri();
-
     if (mongoose.connection.readyState !== 0) {
         await mongoose.disconnect();
     }
 
+    if (process.env.MONGODB_URI) {
+        await mongoose.connect(process.env.MONGODB_URI);
+        return;
+    }
+
+    if (!mongoServer) {
+        mongoServer = await MongoMemoryServer.create({
+            binary: {
+                version: '4.0.25'
+            }
+        });
+    }
+    const uri = mongoServer.getUri();
     await mongoose.connect(uri);
 }
 
@@ -59,6 +67,9 @@ export async function teardownTestDb(): Promise<void> {
  * Get the URI of the running in-memory MongoDB instance.
  */
 export function getTestDbUri(): string {
+    if (process.env.MONGODB_URI) {
+        return process.env.MONGODB_URI;
+    }
     if (!mongoServer) throw new Error('Test DB not started. Call setupTestDb() first.');
     return mongoServer.getUri();
 }

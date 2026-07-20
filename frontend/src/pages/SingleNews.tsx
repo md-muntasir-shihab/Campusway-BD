@@ -337,6 +337,29 @@ export default function SingleNewsPage() {
                 <meta property="og:url" content={`${window.location.origin}/news/${newsItem.slug || newsItem._id}`} />
                 <meta property="og:type" content="article" />
                 <meta name="description" content={newsItem.seoDescription || newsItem.shortSummary || newsItem.shortDescription || ''} />
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "NewsArticle",
+                        "headline": newsItem.title,
+                        "image": [image],
+                        "datePublished": newsItem.publishedAt || newsItem.publishDate || newsItem.createdAt,
+                        "dateModified": newsItem.updatedAt || newsItem.publishedAt || newsItem.createdAt,
+                        "author": {
+                            "@type": "Organization",
+                            "name": sourceName,
+                        },
+                        "publisher": {
+                            "@type": "Organization",
+                            "name": "CampusWay",
+                            "logo": {
+                                "@type": "ImageObject",
+                                "url": `${window.location.origin}/cw-banner.png`,
+                            },
+                        },
+                        "description": newsItem.seoDescription || newsItem.shortSummary || newsItem.shortDescription || '',
+                    })}
+                </script>
             </Helmet>
             <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
                 <div className="mb-4 flex items-center justify-between">
