@@ -104,6 +104,7 @@ import {
     AdminAnalyticsDashboardV2Page,
     AdminAnalysisHubPage,
     AdminUserManagementPage,
+    AdManagementConsolePage,
 } from './adminRouteComponents';
 import CalculatorSettingsPage from './pages/admin/settings/CalculatorSettings';
 import {
@@ -513,6 +514,7 @@ export default function App() {
                                         <Route path={adminUi('settings/site-settings')} element={<AdminSettingsSitePage />} />
                                         <Route path={adminUi('settings/banner-manager')} element={<AdminSettingsBannersPage />} />
                                         <Route path={adminUi('campaign-banners')} element={<AdminCampaignBannersPage />} />
+                                        <Route path={ADMIN_PATHS.adManagementConsole} element={<AdManagementConsolePage />} />
                                         <Route path={adminUi('settings/security-center')} element={<AdminSettingsSecurityPage />} />
                                         <Route path={adminUi('settings/system-logs')} element={<AdminSettingsLogsPage />} />
                                         <Route path={adminUi('settings/reports')} element={<AdminSettingsReportsPage />} />

@@ -45,6 +45,51 @@ export async function getPublicPartners(_req: Request, res: Response): Promise<v
     } catch { ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed')); }
 }
 
+export async function submitPublicTestimonial(req: Request, res: Response): Promise<void> {
+    try {
+        const body = req.body || {};
+        const name = str(body.name, 100);
+        const fullQuote = str(body.fullQuote || body.quote, 2000);
+        if (!name || !fullQuote) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Name and feedback quote are required'));
+            return;
+        }
+
+        const userId = (req as any).user?._id || (req as any).user?.id;
+        const slugBase = name || 'student';
+        const uniqueSlug = `${slugify(slugBase, { lower: true, strict: true })}-${Date.now().toString(36)}`;
+
+        const item = await Testimonial.create({
+            name,
+            role: str(body.role, 80) || 'Student',
+            university: str(body.university, 200),
+            department: str(body.department, 100),
+            batch: str(body.batch, 20),
+            location: str(body.location, 100),
+            avatarUrl: str(body.avatarUrl, 500),
+            shortQuote: str(body.shortQuote, 200) || (fullQuote.length > 150 ? fullQuote.slice(0, 147) + '...' : fullQuote),
+            fullQuote,
+            rating: num(body.rating, 1, 5, 5),
+            category: enumVal(body.category, [...CATEGORIES], 'student'),
+            status: 'pending',
+            featured: false,
+            displayOrder: 999,
+            sourceType: 'user_submitted',
+            examReference: str(body.examReference, 100),
+            slug: uniqueSlug,
+            ...(userId ? { linkedUserId: userId } : {}),
+        });
+
+        ResponseBuilder.send(res, 201, ResponseBuilder.created({
+            id: item._id,
+            message: 'আপনার মতামত সফলভাবে জমা হয়েছে। এডমিন অনুমোদনের পর তা ওয়েবসাইটে প্রকাশিত হবে।',
+        }));
+    } catch (err) {
+        console.error('submitPublicTestimonial error:', err);
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Failed to submit testimonial'));
+    }
+}
+
 
 // ═══════════════════════════════════════════════════════════
 //  ADMIN TESTIMONIALS

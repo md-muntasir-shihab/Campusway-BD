@@ -89,7 +89,7 @@ function Start-DevWindow($title, $dir) {
     $safeTitle = Escape-PowerShellSingleQuote $title
     $safeDir = Escape-PowerShellSingleQuote $dir
     $command = @"
-`$host.UI.RawUI.WindowTitle = '$safeTitle'
+try { `$host.UI.RawUI.WindowTitle = '$safeTitle' } catch {}
 Set-Location -LiteralPath '$safeDir'
 Write-Host 'Starting $safeTitle...' -ForegroundColor Cyan
 & npm.cmd run dev
@@ -207,12 +207,12 @@ Write-Host "  Choose how to proceed:" -ForegroundColor White
 Write-Host ""
 Write-Host "   [1] Fresh install  - Delete node_modules & reinstall (fixes broken installs)"
 Write-Host "   [2] Update         - Run npm install to sync missing/changed packages"
-Write-Host "   [3] Skip           - Use existing node_modules as-is (fastest)"
+Write-Host "   [3] Skip           - Use existing node_modules as-is (fastest, default)"
 Write-Host ""
 
-$choice = ''
-while ($choice -notin @('1','2','3')) {
-    $choice = Read-Host "  Your choice [1/2/3]"
+$choice = Read-Host "  Your choice [1/2/3] (Press Enter for 3)"
+if ([string]::IsNullOrWhiteSpace($choice) -or $choice -notin @('1','2','3')) {
+    $choice = '3'
 }
 Write-Host ""
 

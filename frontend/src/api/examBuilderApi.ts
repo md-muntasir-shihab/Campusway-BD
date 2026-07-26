@@ -48,6 +48,10 @@ function toSchedulingPayload(payload: ExamSchedulingDto) {
 export const createDraft = (payload: ExamInfoDto) =>
     api.post<ApiResponse<Record<string, unknown>>>(`${BASE}`, payload).then((r) => r.data);
 
+/** PUT /:id — Update basic exam info (Step 1 edit). */
+export const updateDraftInfo = (examId: string, payload: ExamInfoDto) =>
+    api.put<ApiResponse<Record<string, unknown>>>(`${BASE}/${examId}`, payload).then((r) => r.data);
+
 /** PUT /:id/questions — Set selected questions (Step 2 manual). */
 export const updateQuestions = (examId: string, payload: QuestionSelectionDto) =>
     api.put<ApiResponse<Record<string, unknown>>>(`${BASE}/${examId}/questions`, payload).then((r) => r.data);

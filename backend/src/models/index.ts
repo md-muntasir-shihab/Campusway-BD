@@ -23,6 +23,10 @@ export {
     type IActionApprovalTargetSummary,
 } from './ActionApproval';
 export { default as ActiveSession, type IActiveSession } from './ActiveSession';
+export { default as AdCampaign, type IAdCampaign } from './AdCampaign';
+export { default as AdCreative, type IAdCreative } from './AdCreative';
+export { default as AdEvent, type IAdEvent } from './AdEvent';
+export { default as AdPlacement, type IAdPlacement } from './AdPlacement';
 export { default as AdminNotificationRead } from './AdminNotificationRead';
 export { default as AdminProfile } from './AdminProfile';
 export { default as AnnouncementNotice } from './AnnouncementNotice';

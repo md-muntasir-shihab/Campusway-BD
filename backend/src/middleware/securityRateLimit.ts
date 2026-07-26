@@ -187,6 +187,24 @@ export async function contactRateLimiter(req: Request, res: Response, next: Next
     }
 }
 
+export async function testimonialSubmitRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        if (shouldBypassRateLimit(req)) {
+            next();
+            return;
+        }
+        const key = `testimonial_submit:${getClientIp(req)}`;
+        const result = consume(key, 5, 60 * 60 * 1000); // 5 submissions per hour per IP
+        if (!result.allowed) {
+            limiterResponse(res, 'Too many testimonial submissions. Please try again after an hour.', result.retryAfterSec);
+            return;
+        }
+        next();
+    } catch {
+        next();
+    }
+}
+
 export async function subscriptionActionRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         if (shouldBypassRateLimit(req)) {

@@ -12,7 +12,7 @@ import request from 'supertest';
 // in the route file, so we import the router and mount it on a test app.
 // We mock the auth middleware and the service layer to isolate the rate limiter.
 
-vi.mock('../src/middlewares/auth', () => ({
+vi.mock('../src/middleware/auth', () => ({
     authenticate: (_req: unknown, _res: unknown, next: () => void) => {
         ((_req as Record<string, unknown>).user as Record<string, unknown>) = {
             _id: 'test-admin-id',

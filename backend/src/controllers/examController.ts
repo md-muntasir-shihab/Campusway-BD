@@ -33,6 +33,7 @@ import {
     getExternalExamAttemptCountsForStudent,
 } from '../services/externalExamAttemptService';
 import { ResponseBuilder } from '../utils/responseBuilder';
+import { getStudentGroupIds } from '../services/groupMembershipService';
 
 /** Verify user subscription — returns true if user has ANY subscription plan (active or demo) */
 type SubscriptionGateResult = {
@@ -87,13 +88,33 @@ async function verifySubscription(userId: string): Promise<SubscriptionGateResul
 }
 
 /** Verify the student can access this specific exam */
-async function canAccessExam(exam: typeof Exam.prototype, userId: string): Promise<boolean> {
+async function canAccessExam(exam: typeof Exam.prototype | Record<string, any>, userId: string, studentGroupIds?: string[]): Promise<boolean> {
     if (!exam.isPublished) return false;
+
     if (exam.accessMode === 'specific') {
-        return Array.isArray(exam.allowedUsers)
-            && exam.allowedUsers.some((id: mongoose.Types.ObjectId) => id.toString() === userId);
+        const allowed = Array.isArray(exam.allowedUsers)
+            && exam.allowedUsers.some((id: mongoose.Types.ObjectId | string) => id.toString() === userId);
+        if (!allowed) return false;
     }
-    return true; // 'all' mode — any subscribed user
+
+    const isGroupMode = exam.accessMode === 'group' || exam.visibilityMode === 'group_only';
+    if (isGroupMode) {
+        const targetGroups = [
+            ...(Array.isArray(exam.targetGroupIds) ? exam.targetGroupIds.map((id: any) => id.toString()) : []),
+            ...(Array.isArray(exam.accessControl?.allowedGroupIds) ? exam.accessControl.allowedGroupIds.map((id: any) => id.toString()) : []),
+        ];
+        if (targetGroups.length > 0) {
+            let userGroups = studentGroupIds;
+            if (!userGroups) {
+                const groupObjectIds = await getStudentGroupIds(userId);
+                userGroups = groupObjectIds.map(g => g.toString());
+            }
+            const hasGroup = targetGroups.some(gId => userGroups!.includes(gId));
+            if (!hasGroup) return false;
+        }
+    }
+
+    return true;
 }
 
 async function broadcastExamMetricsUpdate(examId: string, source: string): Promise<void> {
@@ -797,13 +818,27 @@ export async function getExamLanding(req: AuthRequest, res: Response): Promise<v
     }
 }
 
-function canAccessExamSync(exam: Record<string, unknown>, userId: string): boolean {
+function canAccessExamSync(exam: Record<string, unknown>, userId: string, studentGroupIds?: string[]): boolean {
     if (exam.accessMode === 'specific') {
         const allowedUsers = Array.isArray(exam.allowedUsers)
-            ? (exam.allowedUsers as mongoose.Types.ObjectId[])
+            ? (exam.allowedUsers as (mongoose.Types.ObjectId | string)[])
             : [];
-        return allowedUsers.some(id => id.toString() === userId);
+        if (!allowedUsers.some(id => id.toString() === userId)) {
+            return false;
+        }
     }
+
+    const isGroupMode = exam.accessMode === 'group' || exam.visibilityMode === 'group_only';
+    if (isGroupMode && Array.isArray(studentGroupIds)) {
+        const targetGroups = [
+            ...(Array.isArray(exam['targetGroupIds']) ? (exam['targetGroupIds'] as any[]).map(id => id.toString()) : []),
+            ...(Array.isArray((exam['accessControl'] as any)?.allowedGroupIds) ? ((exam['accessControl'] as any).allowedGroupIds as any[]).map(id => id.toString()) : []),
+        ];
+        if (targetGroups.length > 0) {
+            return targetGroups.some(gId => studentGroupIds.includes(gId));
+        }
+    }
+
     return true;
 }
 

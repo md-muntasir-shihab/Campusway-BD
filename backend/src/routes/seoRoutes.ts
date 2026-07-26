@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { University, UniversityCategory, UniversityCluster, News } from '../models';
+import { University, UniversityCategory, UniversityCluster, News, Resource } from '../models';
 
 const router = Router();
 
@@ -16,6 +16,7 @@ router.get('/sitemap.xml', async (req: Request, res: Response) => {
             '',
             '/universities',
             '/news',
+            '/resources',
             '/exams',
             '/pricing',
             '/about',
@@ -24,11 +25,12 @@ router.get('/sitemap.xml', async (req: Request, res: Response) => {
         ];
 
         // Fetch dynamic items in parallel
-        const [universities, categories, clusters, newsArticles] = await Promise.all([
+        const [universities, categories, clusters, newsArticles, resources] = await Promise.all([
             University.find({ isPublished: { $ne: false } }, 'slug updatedAt').lean(),
             UniversityCategory.find({}, 'slug updatedAt').lean(),
             UniversityCluster.find({}, 'slug updatedAt').lean(),
             News.find({ status: 'published' }, 'slug updatedAt createdAt publishedAt').lean(),
+            Resource.find({ isPublished: { $ne: false } }, 'slug updatedAt').lean(),
         ]);
 
         const urls: { loc: string; lastmod?: string; changefreq: string; priority: string }[] = [];
@@ -86,6 +88,18 @@ router.get('/sitemap.xml', async (req: Request, res: Response) => {
                     loc: `${baseUrl}/news/${article.slug}`,
                     lastmod: (dateVal ? new Date(dateVal) : new Date()).toISOString(),
                     changefreq: 'daily',
+                    priority: '0.7',
+                });
+            }
+        }
+
+        // Add Resource URLs
+        for (const resItem of resources) {
+            if (resItem.slug) {
+                urls.push({
+                    loc: `${baseUrl}/resources/${resItem.slug}`,
+                    lastmod: (resItem.updatedAt ? new Date(resItem.updatedAt) : new Date()).toISOString(),
+                    changefreq: 'weekly',
                     priority: '0.7',
                 });
             }

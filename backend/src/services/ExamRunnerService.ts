@@ -335,7 +335,7 @@ async function validateGroupAccess(exam: IExam, studentId: string): Promise<void
  * FALLBACK: For legacy exams without snapshots, falls back to QuestionBankQuestion
  *           with a logger.warn so migration needs can be tracked.
  */
-async function buildSessionStartResponse(
+export async function buildSessionStartResponse(
     session: IExamSession,
     exam: IExam,
 ): Promise<ExamSessionStart> {

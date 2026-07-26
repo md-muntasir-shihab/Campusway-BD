@@ -4,8 +4,11 @@ import PDFDocument from "pdfkit";
 import Exam from "../models/Exam";
 import Question from "../models/Question";
 import ExamSession from "../models/ExamSession";
+import ExamResult from "../models/ExamResult";
 import { ExamQuestionModel } from "../models/examQuestion.model";
 import { AnswerModel } from "../models/answer.model";
+import QuestionBankQuestion from "../models/QuestionBankQuestion";
+import User from "../models/User";
 import { getEligibilitySummary } from "./examController";
 import { ResponseBuilder } from '../utils/responseBuilder';
 
@@ -90,6 +93,65 @@ function addQuestionBlock(
     doc.fillColor("#000");
   }
   doc.moveDown(0.6);
+}
+
+/**
+ * Render a single question inside a result-review PDF.
+ * Colour-codes: green = correct selection, red = wrong selection,
+ * green-italic = correct answer when student selected wrong/nothing.
+ */
+function addResultQuestionBlock(
+  doc: PDFKit.PDFDocument,
+  question: PdfQuestionRow,
+  index: number,
+  selectedKey: string | null,
+  isCorrect: boolean,
+): void {
+  if (doc.y > 670) doc.addPage();
+
+  const indicator = selectedKey === null ? '—' : isCorrect ? '✓' : '✗';
+  const indicatorColor = selectedKey === null ? '#888888' : isCorrect ? '#1a7a4a' : '#b22222';
+
+  doc.fontSize(11).font('Helvetica-Bold').fillColor(indicatorColor)
+    .text(`${indicator}  Q${index + 1}. `, { continued: true });
+  doc.fillColor('#000000')
+    .text(safeText(question.questionText) || 'Question');
+  doc.font('Helvetica');
+
+  if (question.questionImageUrl) {
+    doc.fontSize(8).fillColor('#888888').text(`[Image: ${question.questionImageUrl}]`);
+    doc.fillColor('#000000');
+  }
+  doc.moveDown(0.25);
+
+  for (const option of question.options) {
+    const isSelected = option.key === selectedKey;
+    const isCorrectOption = option.key === question.correctKey;
+    let prefix = '  ';
+    let suffix = '';
+    let color = '#333333';
+    if (isSelected && isCorrectOption) {
+      prefix = '► '; suffix = '  ✓ correct'; color = '#1a7a4a';
+    } else if (isSelected && !isCorrectOption) {
+      prefix = '► '; suffix = '  ✗ wrong'; color = '#b22222';
+    } else if (!isSelected && isCorrectOption) {
+      suffix = '  ← correct answer'; color = '#1a7a4a';
+    }
+    doc.fontSize(10).fillColor(color)
+      .text(`${prefix}${option.key}) ${safeText(option.text)}${suffix}`);
+  }
+
+  if (!selectedKey && question.correctKey) {
+    doc.fontSize(9).fillColor('#555555')
+      .text(`  [Not answered — correct: ${question.correctKey}]`);
+  }
+
+  if (question.explanationText) {
+    doc.moveDown(0.15);
+    doc.fontSize(9).fillColor('#555555')
+      .text(`Explanation: ${question.explanationText}`);
+  }
+  doc.fillColor('#000000').moveDown(0.6);
 }
 
 function toDate(value: unknown): Date | null {
@@ -470,5 +532,191 @@ export async function generateAnswersPdf(req: Request, res: Response): Promise<v
   } catch (err) {
     console.error("[PDF] Answers error:", err);
     if (!res.headersSent) ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'PDF generation failed'));
+  }
+}
+
+/**
+ * GET /exams/:examId/pdf/result-review
+ *
+ * Generate a per-question result review PDF for the authenticated student.
+ *
+ * Score summary + each MCQ question with the student's selection highlighted
+ * (green = correct, red = wrong, green arrow = correct answer when missed).
+ *
+ * Obeys the same result-publish gate as getDetailedResult:
+ *   immediate → always visible
+ *   manual    → only when status === 'evaluated'
+ *   scheduled → only once resultPublishDate has passed
+ *
+ * Requirements: 17.5, 17.6
+ */
+export async function generateResultReviewPdf(req: Request, res: Response): Promise<void> {
+  try {
+    const authReq = req as AuthRequest;
+    const studentId = String(authReq.user?._id || authReq.user?.id || '').trim();
+    if (!studentId) {
+      ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Authentication required'));
+      return;
+    }
+
+    const examId = String(req.params.examId || '').trim();
+    if (!examId || !/^[a-fA-F0-9]{24}$/.test(examId)) {
+      ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Invalid exam ID'));
+      return;
+    }
+
+    const context = await resolveExamContext(examId);
+    if (!context) {
+      ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Exam not found'));
+      return;
+    }
+
+    // Fetch most recent result for this student
+    const result = await ExamResult.findOne({ exam: examId, student: studentId })
+      .sort({ attemptNo: -1, submittedAt: -1 })
+      .lean();
+    if (!result) {
+      ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'No exam result found for this student'));
+      return;
+    }
+
+    // Enforce result-publish policy (mirrors getDetailedResult)
+    const rawExam = context.rawExam as any;
+    const modeRaw = String(rawExam.resultPublishMode || 'scheduled');
+    const mode = ['immediate', 'manual', 'scheduled'].includes(modeRaw) ? modeRaw : 'scheduled';
+    const now = new Date();
+    let resultPublished = false;
+    if (mode === 'immediate') {
+      resultPublished = true;
+    } else if (mode === 'manual') {
+      resultPublished = result.status === 'evaluated';
+    } else {
+      const pd = rawExam.resultPublishDate ? toDate(rawExam.resultPublishDate) : null;
+      resultPublished = Boolean(pd && !Number.isNaN(pd.getTime()) && now >= pd);
+    }
+
+    if (!resultPublished) {
+      ResponseBuilder.send(res, 403, ResponseBuilder.error('AUTHORIZATION_ERROR', 'Results have not been published yet'));
+      return;
+    }
+
+    // Student display name
+    const userDoc = await User.findById(studentId).select('full_name username').lean();
+    const studentName = safeText((userDoc as any)?.full_name) || safeText((userDoc as any)?.username) || 'Student';
+
+    // Resolve question details — snapshot first, then QuestionBankQuestion
+    const answers = Array.isArray(result.answers) ? result.answers : [];
+    const mcqAnswers = answers.filter(a => a.questionType !== 'written');
+    const questionIds = mcqAnswers.map(a => a.question).filter(Boolean);
+
+    const snapshotDocs = questionIds.length
+      ? await ExamQuestionModel.find({ _id: { $in: questionIds } }).lean()
+      : [];
+    const snapshotMap = new Map(snapshotDocs.map(q => [String(q._id), q]));
+
+    const missingIds = questionIds.filter(id => !snapshotMap.has(String(id)));
+    const bankDocs = missingIds.length
+      ? await QuestionBankQuestion.find({ _id: { $in: missingIds } }).lean()
+      : [];
+    const bankMap = new Map(bankDocs.map(q => [String(q._id), q]));
+
+    // Score summary values
+    const totalMarks = Number(result.totalMarks || 0);
+    const obtainedMarks = Number(result.obtainedMarks || 0);
+    const pct = Number(result.percentage || (totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0));
+    const passThreshold = Number(rawExam.passPercentage || 40);
+    const passed = result.passFail
+      ? /pass/i.test(String(result.passFail))
+      : pct >= passThreshold;
+
+    // Build PDF
+    const doc = createPdf();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${sanitizeFilename(context.title)}_result_review.pdf"`,
+    );
+    doc.pipe(res);
+
+    // ── Page header ──────────────────────────────────────────────
+    addHeader(doc, `${context.title} — Result Review`);
+
+    doc.fontSize(10).fillColor('#444444')
+      .text(
+        `Student: ${studentName}   |   Attempt #${result.attemptNo || 1}   |   Submitted: ${result.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A'}`,
+      );
+    doc.moveDown(0.5);
+
+    // ── Score summary box ────────────────────────────────────────
+    const margins = doc.page.margins;
+    const boxLeft = margins.left;
+    const boxWidth = doc.page.width - margins.left - margins.right;
+    const boxTop = doc.y;
+    const BOX_H = 72;
+
+    doc.save()
+      .rect(boxLeft, boxTop, boxWidth, BOX_H)
+      .fillAndStroke('#f0f4f8', '#c0ccd8')
+      .restore();
+
+    doc.fontSize(14).font('Helvetica-Bold')
+      .fillColor(passed ? '#1a7a4a' : '#b22222')
+      .text(passed ? 'PASS' : 'FAIL', boxLeft + 14, boxTop + 10);
+
+    doc.fontSize(12).fillColor('#111111')
+      .text(
+        `Score: ${obtainedMarks} / ${totalMarks}  (${pct.toFixed(1)}%)`,
+        boxLeft + 14, boxTop + 30,
+      );
+
+    doc.fontSize(9).font('Helvetica').fillColor('#444444')
+      .text(
+        `Correct: ${result.correctCount ?? 0}    Wrong: ${result.wrongCount ?? 0}    Unanswered: ${result.unansweredCount ?? 0}    Time: ${Math.round((result.timeTaken || 0) / 60)} min`,
+        boxLeft + 14, boxTop + 52,
+      );
+
+    doc.y = boxTop + BOX_H + 10;
+    doc.fillColor('#000000').font('Helvetica');
+
+    // ── Per-question review ──────────────────────────────────────
+    mcqAnswers.forEach((answer, idx) => {
+      const qId = String(answer.question);
+      const rawQ = (snapshotMap.get(qId) || bankMap.get(qId)) as any;
+
+      let row: PdfQuestionRow;
+      if (!rawQ) {
+        row = { id: qId, orderIndex: idx, questionText: '[Question data unavailable]', questionImageUrl: '', options: [], correctKey: '', explanationText: '', explanationImageUrl: '' };
+      } else if (snapshotMap.has(qId)) {
+        row = mapModernQuestion(rawQ, idx);
+      } else {
+        // QuestionBankQuestion schema
+        const opts = Array.isArray(rawQ.options)
+          ? rawQ.options.map((o: any) => ({
+              key: String(o.key || '').toUpperCase(),
+              text: safeText(o.text_en) || safeText(o.text_bn) || safeText(o.text),
+            }))
+          : [];
+        row = {
+          id: qId,
+          orderIndex: idx,
+          questionText: safeText(rawQ.question_en) || safeText(rawQ.question_bn),
+          questionImageUrl: safeText(rawQ.questionImageUrl),
+          options: opts,
+          correctKey: safeText(rawQ.correctKey || rawQ.correctAnswer || '').toUpperCase(),
+          explanationText: safeText(rawQ.explanation_en) || safeText(rawQ.explanation_bn),
+          explanationImageUrl: safeText(rawQ.explanationImageUrl),
+        };
+      }
+
+      const selected = safeText(answer.selectedAnswer).toUpperCase() || null;
+      addResultQuestionBlock(doc, row, idx, selected, Boolean(answer.isCorrect));
+    });
+
+    doc.end();
+  } catch (err) {
+    console.error('[PDF] ResultReview error:', err);
+    if (!res.headersSent) {
+      ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'PDF generation failed'));
+    }
   }
 }

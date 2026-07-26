@@ -34,6 +34,7 @@ import { daysUntilUniversityDate, parseUniversityDate } from '../lib/universityP
 import PageHeroBanner from '../components/common/PageHeroBanner';
 import { usePageHeroSettings } from '../hooks/usePageHeroSettings';
 import SEO from '../components/common/SEO';
+import { AdSlot } from '../components/ads/AdSlot';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -1657,6 +1658,13 @@ export default function HomeModern() {
         home_features: renderHomeFeatures,
         home_testimonials: renderHomeTestimonials,
         home_cta: renderHomeCta,
+        native_ad: () => (
+            <SectionWrap>
+                <div className="px-4 md:px-0">
+                    <AdSlot placementSlug="home-feed" className="my-2" />
+                </div>
+            </SectionWrap>
+        ),
     };
 
     /* ================================================================ */

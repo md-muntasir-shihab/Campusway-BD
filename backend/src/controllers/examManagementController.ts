@@ -43,6 +43,22 @@ export async function createDraft(req: AuthRequest, res: Response): Promise<void
     }
 }
 
+/**
+ * PUT /:id — Update basic info of an existing draft exam.
+ */
+export async function updateDraft(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const exam = await ExamBuilderService.updateExamDraft(String(req.params.id), req.body);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success(exam, 'Exam draft updated'));
+    } catch (err: unknown) {
+        console.error('[examManagement.updateDraft] failed:', err);
+        const message = err instanceof Error ? err.message : 'Server error';
+        const status = message.includes('not found') ? 404 : message.includes('draft') ? 400 : 500;
+        const code = status === 404 ? 'NOT_FOUND' : status === 400 ? 'VALIDATION_ERROR' : 'SERVER_ERROR';
+        ResponseBuilder.send(res, status, ResponseBuilder.error(code, message));
+    }
+}
+
 // ─── Admin: Update Question Selection (Step 2) ──────────────
 
 /**

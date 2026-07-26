@@ -21,14 +21,16 @@ const examScheduleTypeEnum = z.enum(['live', 'practice', 'scheduled', 'upcoming'
 
 // ── Step 1: Exam Info ───────────────────────────────────
 
+const objectIdOrEmpty = z.union([objectId, z.literal(''), z.null()]).optional();
+
 export const examInfoSchema = z.object({
     title: z.string().trim().min(1, 'Title is required'),
     title_bn: z.string().trim().optional(),
     description: z.string().trim().optional(),
     exam_type: examTypeEnum.optional(),
-    group_id: objectId.optional(),
-    sub_group_id: objectId.optional(),
-    subject_id: objectId.optional(),
+    group_id: objectIdOrEmpty,
+    sub_group_id: objectIdOrEmpty,
+    subject_id: objectIdOrEmpty,
     duration: z.number().int().positive('Duration must be a positive integer (minutes)').optional(),
     durationMinutes: z.number().int().positive('Duration must be a positive integer (minutes)').optional(),
 });

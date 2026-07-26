@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Quote, GraduationCap, Award, Sparkles, Handshake, ExternalLink, Users, MessageCircle, X } from 'lucide-react';
+import { Star, Quote, GraduationCap, Award, Sparkles, Handshake, ExternalLink, Users, MessageCircle, X, Plus } from 'lucide-react';
 import PageHeroBanner from '../components/common/PageHeroBanner';
 import { getPublicTestimonials, getPublicPartners } from '../services/api';
+import TestimonialSubmitForm from '../components/testimonials/TestimonialSubmitForm';
 
 interface Testimonial { _id: string; name: string; role: string; university?: string; avatarUrl?: string; shortQuote?: string; fullQuote: string; rating: number; featured?: boolean; socialProofLabel?: string; slug?: string; }
 interface PartnerItem { _id: string; name: string; logoUrl: string; websiteUrl?: string; tier: string; }
@@ -20,6 +21,7 @@ export default function TestimonialsPage() {
     const featured = testimonials.filter(t => t.featured);
     const regular = testimonials.filter(t => !t.featured);
     const [selected, setSelected] = useState<Testimonial | null>(null);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
 
     return (
         <>
@@ -67,7 +69,24 @@ export default function TestimonialsPage() {
 
                 {/* All Reviews */}
                 <div className="section-container pb-12">
-                    <div className="flex items-center gap-3 mb-8"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-600 shadow-lg shadow-indigo-500/25"><Quote className="h-5 w-5 text-white" /></div><div><h2 className="text-2xl font-black text-text dark:text-dark-text">All Student Reviews</h2><p className="text-sm text-text-muted dark:text-dark-text/50">{testimonials.length} reviews from real students</p></div></div>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-600 shadow-lg shadow-indigo-500/25">
+                                <Quote className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-black text-text dark:text-dark-text">All Student Reviews</h2>
+                                <p className="text-sm text-text-muted dark:text-dark-text/50">{testimonials.length} reviews from real students</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowSubmitModal(true)}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-amber-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>আপনার রিভিউ দিন</span>
+                        </button>
+                    </div>
                     <motion.div initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {(regular.length > 0 ? regular : testimonials).map((t, i) => (
                             <motion.div key={t._id} variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
@@ -105,6 +124,22 @@ export default function TestimonialsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Testimonial Submission Modal */}
+            <AnimatePresence>
+                {showSubmitModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-2xl my-8"
+                        >
+                            <TestimonialSubmitForm onClose={() => setShowSubmitModal(false)} />
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </>
     );
 }

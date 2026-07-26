@@ -167,6 +167,7 @@ export const ADMIN_PATHS = {
     examCenterAnalytics: adminUi('exam-center/analytics'),
     userManagement: adminUi('users'),
     analysisHub: adminUi('analysis-hub'),
+    adManagementConsole: adminUi('ads-console'),
 } as const;
 
 export type AdminMenuItem = {
@@ -187,10 +188,22 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
     // 1. Dashboard
     { key: 'dashboard', label: 'Dashboard', path: ADMIN_PATHS.dashboard, icon: LayoutDashboard, module: 'dashboard' },
 
-    // 1b. Analysis Hub
-    { key: 'analysisHub', label: 'Analysis Hub', path: ADMIN_PATHS.analysisHub, icon: BarChart3, module: 'dashboard' },
+    // 1b. Analytics & Hub
+    {
+        key: 'analysisHub',
+        label: 'Analytics',
+        path: ADMIN_PATHS.analysisHub,
+        icon: BarChart3,
+        module: 'dashboard',
+        matchPrefixes: [adminUi('analysis-hub'), adminUi('settings/analytics')],
+        children: [
+            { key: 'ahMain', label: 'Analysis Hub', path: ADMIN_PATHS.analysisHub, icon: BarChart3 },
+            { key: 'ahSettings', label: 'Analytics Settings', path: adminUi('settings/analytics'), icon: BarChart2 },
+            { key: 'ahExams', label: 'Exam Analytics', path: ADMIN_PATHS.examCenterAnalytics, icon: TrendingDown },
+        ],
+    },
 
-    // 2. Website Control
+    // 2. Website Control (Main Banners & Ad Management included)
     {
         key: 'websiteControl',
         label: 'Website Control',
@@ -202,6 +215,13 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
             adminUi('settings/banner-manager'),
             adminUi('campaign-banners'),
             adminUi('settings/site-settings'),
+            adminUi('ads-console'),
+        ],
+        children: [
+            { key: 'wcHome', label: 'Home Settings', path: ADMIN_PATHS.homeControl, icon: Home },
+            { key: 'wcBanners', label: 'Main Banners', path: ADMIN_PATHS.bannerManager, icon: Image },
+            { key: 'wcNativeAds', label: 'Native Ad Console', path: ADMIN_PATHS.adManagementConsole, icon: Megaphone },
+            { key: 'wcSite', label: 'Site Settings', path: ADMIN_PATHS.siteSettings, icon: Settings },
         ],
     },
 

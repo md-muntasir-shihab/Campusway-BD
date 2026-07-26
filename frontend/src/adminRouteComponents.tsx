@@ -79,4 +79,6 @@ export const NotificationManagementPage = lazy(() => import('./pages/admin/exam-
 export const AdminAnalyticsDashboardV2Page = lazy(() => import('./pages/admin/analytics/AdminAnalyticsDashboard'));
 export const AdminAnalysisHubPage = lazy(() => import('./pages/admin/analytics/AnalysisHubPage'));
 export const AdminUserManagementPage = lazy(() => import('./pages/admin/users/AdminUserManagementPage'));
+export const AdManagementConsolePage = lazy(() => import('./pages/admin/ads/AdManagementConsole').then(m => ({ default: m.AdManagementConsole })));
+
 

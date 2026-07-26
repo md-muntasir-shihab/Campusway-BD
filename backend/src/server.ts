@@ -41,6 +41,7 @@ import adminStudentSecurityRoutes from './routes/adminStudentSecurityRoutes';
 import adminIntegrationsRoutes from './routes/adminIntegrationsRoutes';
 import publicIntegrationsRoutes from './routes/publicIntegrationsRoutes';
 import seoRoutes from './routes/seoRoutes';
+import prerenderMiddleware from './middleware/prerenderMiddleware';
 
 // Exam Management System v1 routes
 import questionHierarchyRoutes from './routes/questionHierarchy.routes';
@@ -393,8 +394,16 @@ app.use('/api/v1/', examSystemLimiter);
 // Routes
 // =============
 
+// Health check endpoints
+app.get(['/health', '/api/health'], (_req: express.Request, res: express.Response) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // CSRF token endpoint
 app.get('/api/auth/csrf-token', csrfTokenEndpoint);
+
+// Prerender middleware for bot crawler rendering
+app.use(prerenderMiddleware);
 
 // SEO routes (sitemap.xml & robots.txt)
 app.use('/', seoRoutes);

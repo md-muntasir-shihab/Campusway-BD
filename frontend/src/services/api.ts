@@ -3347,6 +3347,7 @@ export const getPublicSocialLinks = () =>
 
 /* ── Public — Testimonials & Partners ── */
 export const getPublicTestimonials = () => api.get('/testimonials');
+export const submitPublicTestimonial = (data: Record<string, unknown>) => api.post('/testimonials', data);
 export const getPublicPartners = () => api.get('/partners');
 
 /* ── Admin — Testimonials ── */

@@ -25,17 +25,13 @@ export async function setupTestDb(): Promise<void> {
         await mongoose.disconnect();
     }
 
-    if (process.env.MONGODB_URI) {
+    if (process.env.USE_REAL_MONGO === 'true' && process.env.MONGODB_URI) {
         await mongoose.connect(process.env.MONGODB_URI);
         return;
     }
 
     if (!mongoServer) {
-        mongoServer = await MongoMemoryServer.create({
-            binary: {
-                version: '4.0.25'
-            }
-        });
+        mongoServer = await MongoMemoryServer.create();
     }
     const uri = mongoServer.getUri();
     await mongoose.connect(uri);
@@ -67,7 +63,7 @@ export async function teardownTestDb(): Promise<void> {
  * Get the URI of the running in-memory MongoDB instance.
  */
 export function getTestDbUri(): string {
-    if (process.env.MONGODB_URI) {
+    if (process.env.USE_REAL_MONGO === 'true' && process.env.MONGODB_URI) {
         return process.env.MONGODB_URI;
     }
     if (!mongoServer) throw new Error('Test DB not started. Call setupTestDb() first.');

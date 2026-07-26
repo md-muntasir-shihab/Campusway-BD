@@ -114,7 +114,7 @@ export interface IExam extends Document {
     defaultMarksPerQuestion: number;
 
     /* ── Access control (flat, legacy) ── */
-    accessMode: 'all' | 'specific';
+    accessMode: 'all' | 'specific' | 'group';
     access_type?: 'restricted' | 'public_link';
     allowedUsers: mongoose.Types.ObjectId[];
     allowed_user_ids?: mongoose.Types.ObjectId[];
@@ -293,7 +293,7 @@ const ExamSchema = new Schema<IExam>({
 
     defaultMarksPerQuestion: { type: Number, default: 1 },
 
-    accessMode: { type: String, enum: ['all', 'specific'], default: 'all' },
+    accessMode: { type: String, enum: ['all', 'specific', 'group'], default: 'all' },
     access_type: { type: String, enum: ['restricted', 'public_link'], default: 'restricted' },
 
     allowedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],

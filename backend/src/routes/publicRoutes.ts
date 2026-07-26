@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { globalSearch } from '../controllers/globalSearchController';
-import { getPublicTestimonials, getPublicPartners, getPublicFeaturedTestimonials, getPublicTestimonialBySlug } from '../controllers/testimonialPartnerController';
+import { getPublicTestimonials, getPublicPartners, getPublicFeaturedTestimonials, getPublicTestimonialBySlug, submitPublicTestimonial } from '../controllers/testimonialPartnerController';
 import {
     beginTotpSetup,
     confirmTotpSetup,
@@ -38,6 +38,7 @@ import {
     getPublicResourceSettings,
 } from '../controllers/resourceController';
 import { getActiveBanners, trackAdEvent } from '../controllers/bannerController';
+import { getAdForPlacement, recordAdClick } from '../controllers/adManagementController';
 import { getHomeConfig } from '../controllers/homeConfigController';
 import { getSiteSettings } from '../controllers/cmsController';
 import { getPublicServiceConfig } from '../controllers/cmsController';
@@ -120,7 +121,7 @@ import {
     getStudentMeResults,
     markStudentNotificationsRead,
 } from '../controllers/studentHubController';
-import { contactRateLimiter, otpVerificationLimit } from '../middleware/securityRateLimit';
+import { contactRateLimiter, otpVerificationLimit, testimonialSubmitRateLimiter } from '../middleware/securityRateLimit';
 import { uploadMedia, uploadMiddleware } from '../controllers/mediaController';
 import { validateBody } from '../validators/validateBody';
 import { getStudentPoints, getStudentBadges } from '../controllers/gamificationController';
@@ -199,6 +200,8 @@ router.get('/home/clusters/:slug/members', getPublicUniversityClusterMembers);
 router.get('/banners', getActiveBanners);
 router.get('/banners/active', getActiveBanners);
 router.post('/banners/:id/track', trackAdEvent);
+router.get('/ads/serve', getAdForPlacement);
+router.post('/ads/click/:creativeId', recordAdClick);
 router.get('/home-config', getHomeConfig);
 /* ── Public — Resources ── */
 router.get('/resources/settings/public', getPublicResourceSettings);
@@ -275,6 +278,7 @@ router.get('/services/:id', getServiceDetails);
 router.get('/testimonials', getPublicTestimonials);
 router.get('/testimonials/featured', getPublicFeaturedTestimonials);
 router.get('/testimonials/:slug', getPublicTestimonialBySlug);
+router.post('/testimonials', requireAppCheck, testimonialSubmitRateLimiter, optionalAuthenticate, submitPublicTestimonial);
 router.get('/partners', getPublicPartners);
 
 /* ── Public — Contact Submit ── */

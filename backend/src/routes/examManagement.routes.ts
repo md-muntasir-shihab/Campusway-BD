@@ -15,6 +15,7 @@ import {
 } from '../validators/examSession.validator';
 import {
     createDraft,
+    updateDraft,
     updateQuestions,
     autoPick,
     updateSettings,
@@ -90,6 +91,14 @@ router.post(
     requirePermission('exams', 'create'),
     validateBody(examInfoSchema),
     createDraft,
+);
+
+// PUT /:id — Update basic info of an existing draft exam (Step 1 edit)
+router.put(
+    '/:id',
+    requirePermission('exams', 'edit'),
+    validateBody(examInfoSchema.partial()),
+    updateDraft,
 );
 
 // PUT /:id/questions — Set selected questions (Step 2 manual)

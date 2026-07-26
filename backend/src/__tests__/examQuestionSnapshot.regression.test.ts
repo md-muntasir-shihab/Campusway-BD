@@ -11,22 +11,9 @@ import { logger } from '../utils/logger';
 let mongoServer: MongoMemoryServer;
 
 beforeAll(async () => {
-    if (process.env.MONGODB_URI) {
-        await mongoose.connect(process.env.MONGODB_URI);
-    } else {
-        try {
-            mongoServer = await MongoMemoryServer.create({
-                binary: {
-                    version: '4.0.25'
-                }
-            });
-            await mongoose.connect(mongoServer.getUri());
-        } catch (err) {
-            console.warn('Failed to start MongoMemoryServer, falling back to localhost default...');
-            await mongoose.connect('mongodb://127.0.0.1:27017/campusway_test');
-        }
-    }
-}, 300000);
+    mongoServer = await MongoMemoryServer.create();
+    await mongoose.connect(mongoServer.getUri());
+}, 60000);
 
 afterAll(async () => {
     await mongoose.disconnect();

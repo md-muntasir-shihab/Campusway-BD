@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ArrowLeft, ExternalLink, Loader2, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -14,6 +14,7 @@ import {
     resolveSubscriptionPlanTarget,
     shouldOpenSubscriptionPlanTargetInNewTab,
 } from '../components/subscription/subscriptionAction';
+import { trackOpenPanelEvent } from '../lib/openPanel';
 
 function resolveTarget(plan: SubscriptionPlanPublic): string {
     return resolveSubscriptionPlanTarget(plan);
@@ -29,6 +30,17 @@ export default function SubscriptionPlanCheckoutPage() {
 
     const plan = planQuery.data;
     const ctaTarget = useMemo(() => (plan ? resolveTarget(plan) : '/contact'), [plan]);
+
+    useEffect(() => {
+        if (plan) {
+            trackOpenPanelEvent('subscription_checkout_started', {
+                planId: plan.id || plan._id,
+                planName: plan.name,
+                priceBDT: plan.priceBDT,
+                billingCycle: plan.billingCycle,
+            });
+        }
+    }, [plan]);
 
     const handlePrimaryAction = async () => {
         if (!plan) return;

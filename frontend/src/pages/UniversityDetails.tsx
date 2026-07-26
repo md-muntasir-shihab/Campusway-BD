@@ -10,6 +10,9 @@ import {
 import { useUniversityDetail } from '../hooks/useUniversityQueries';
 import { normalizeExternalUrl } from '../utils/url';
 import UniversityLogo from '../components/university/UniversityLogo';
+import { trackOpenPanelEvent } from '../lib/openPanel';
+import { AdSlot } from '../components/ads/AdSlot';
+import SEO from '../components/common/SEO';
 
 /* ── Helpers ── */
 function fmtDate(d: string | undefined | null): string {
@@ -196,6 +199,17 @@ export default function UniversityDetailsPage() {
         uni?.description || uni?.shortDescription || ''
     );
 
+    useEffect(() => {
+        if (uni) {
+            trackOpenPanelEvent('university_viewed', {
+                universityId: uni._id,
+                slug: uni.slug,
+                name: uni.name,
+                category: uni.category,
+            });
+        }
+    }, [uni]);
+
     const handleShare = useCallback(() => {
         if (navigator.share && uni) {
             navigator.share({ title: uni.name, url: window.location.href }).catch(() => { });
@@ -271,6 +285,19 @@ export default function UniversityDetailsPage() {
 
     return (
         <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,rgba(241,245,249,0.8),rgba(248,250,252,1)_50%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(15,23,42,0.9),rgba(2,6,23,1)_50%)]">
+            <SEO
+                title={`${uni.name} Admission Circular & Seat Details`}
+                description={descriptionIntro || `${uni.name} admission test details, GPA requirements, seat capacity, and exam schedule.`}
+                image={uni.logoUrl}
+                schema={{
+                    "@context": "https://schema.org",
+                    "@type": "EducationalOrganization",
+                    "name": uni.name,
+                    "url": window.location.href,
+                    "logo": uni.logoUrl || undefined,
+                    "description": descriptionIntro || `${uni.name} admission details and requirements.`
+                }}
+            />
             <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10 space-y-6">
 
                 {/* Back link */}
@@ -622,6 +649,11 @@ export default function UniversityDetailsPage() {
                         </div>
                     </Section>
                 )}
+
+                {/* Native Ad Placement */}
+                <div className="my-6">
+                    <AdSlot placementSlug="university-details" />
+                </div>
 
                 {/* ═══ 15. RELATED UNIVERSITIES ═══ */}
                 {relatedUniversities.length > 0 && (

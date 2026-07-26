@@ -13,7 +13,7 @@ import {
   getDetailedExamResult,
 } from "../../controllers/examController";
 import { processSignalController } from "../../controllers/antiCheatController";
-import { generateAnswersPdf, generateQuestionsPdf, generateSolutionsPdf } from "../../controllers/examPdfController";
+import { generateAnswersPdf, generateQuestionsPdf, generateSolutionsPdf, generateResultReviewPdf } from "../../controllers/examPdfController";
 import { validateBody } from "../../validators/validateBody";
 import { examSubmitSchema, antiCheatSignalSchema } from "../../validators/examSchemas";
 
@@ -62,6 +62,7 @@ studentExamRoutes.get("/exams/:examId/detailed-result", requireAuth, requireAuth
 studentExamRoutes.get("/exams/:examId/pdf/questions", requireAuth, requireAuthStudent, generateQuestionsPdf);
 studentExamRoutes.get("/exams/:examId/pdf/solutions", requireAuth, requireAuthStudent, generateSolutionsPdf);
 studentExamRoutes.get("/exams/:examId/sessions/:sessionId/pdf/answers", requireAuth, requireAuthStudent, generateAnswersPdf);
+studentExamRoutes.get("/exams/:examId/pdf/result-review", requireAuth, requireAuthStudent, generateResultReviewPdf);
 
 // Anti-cheat signal processing (Req 7.1, 7.2, 7.6, 7.8)
 studentExamRoutes.post(

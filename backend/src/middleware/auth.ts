@@ -7,6 +7,7 @@ import User, { UserRole } from '../models/User';
 import UserSubscription from '../models/UserSubscription';
 import { IUserPermissions } from '../models/User';
 import { getSecurityConfig } from '../services/securityConfigService';
+import { cacheService } from '../services/cacheService';
 import {
     hasLegacyPermissionBridge,
     hasPermissionsV2Override,
@@ -62,6 +63,63 @@ function hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+export type AccountStatusCheckResult = {
+    isBlocked: boolean;
+    status: string;
+    reason?: string;
+};
+
+const USER_STATUS_CACHE_TTL = 300; // 5 minutes
+
+export async function checkUserAccountStatus(userId: string): Promise<AccountStatusCheckResult> {
+    const cacheKey = `user:status:${userId}`;
+    try {
+        const cached = await cacheService.get<{ status: string; lockUntil?: string | Date | null }>(cacheKey);
+        if (cached) {
+            const isLocked = cached.lockUntil ? new Date(cached.lockUntil).getTime() > Date.now() : false;
+            const isBlocked = cached.status === 'suspended' || cached.status === 'blocked' || isLocked;
+            return {
+                isBlocked,
+                status: cached.status || 'active',
+                reason: cached.status === 'suspended' ? 'ACCOUNT_SUSPENDED' : isLocked ? 'ACCOUNT_LOCKED' : undefined,
+            };
+        }
+    } catch {
+        // Cache miss or Redis error — fallback to DB lookup
+    }
+
+    try {
+        const dbUser = await User.findById(userId).select('status lockUntil').lean();
+        if (!dbUser) {
+            return { isBlocked: true, status: 'not_found', reason: 'USER_NOT_FOUND' };
+        }
+
+        const status = dbUser.status || 'active';
+        const lockUntil = dbUser.lockUntil || null;
+        await cacheService.set(cacheKey, { status, lockUntil }, USER_STATUS_CACHE_TTL).catch(() => { /* no-op */ });
+
+        const isLocked = lockUntil ? new Date(lockUntil).getTime() > Date.now() : false;
+        const isBlocked = status === 'suspended' || status === 'blocked' || isLocked;
+        return {
+            isBlocked,
+            status,
+            reason: status === 'suspended' ? 'ACCOUNT_SUSPENDED' : isLocked ? 'ACCOUNT_LOCKED' : undefined,
+        };
+    } catch (err) {
+        console.error(`[Auth] Failed DB account status lookup for user ${userId}:`, err);
+        return { isBlocked: false, status: 'active' };
+    }
+}
+
+export async function invalidateUserStatusCache(userId: string): Promise<void> {
+    const cacheKey = `user:status:${userId}`;
+    try {
+        await cacheService.del(cacheKey);
+    } catch (err) {
+        console.error(`[Auth] Failed to invalidate user status cache for ${userId}:`, err);
+    }
+}
+
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
     const token = extractToken(req);
     if (!token) {
@@ -72,12 +130,30 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     try {
         decodeAndAttach(req, token);
 
+        const userId = req.user?._id;
         const sessionId = req.user?.sessionId;
-        if (sessionId) {
-            Promise.all([
-                ActiveSession.findOne({ session_id: sessionId, status: 'active' }).lean(),
-                getSecurityConfig(true).catch(() => null),
-            ])
+
+        const statusPromise: Promise<AccountStatusCheckResult> = userId
+            ? checkUserAccountStatus(userId)
+            : Promise.resolve({ isBlocked: false, status: 'active' });
+
+        statusPromise
+            .then((accountCheck) => {
+                if (accountCheck.isBlocked) {
+                    res.status(403).json({
+                        message: accountCheck.status === 'suspended'
+                            ? 'Your account has been suspended.'
+                            : 'Your account has been locked or blocked.',
+                        code: accountCheck.reason || 'ACCOUNT_SUSPENDED',
+                    });
+                    return;
+                }
+
+                if (sessionId) {
+                    Promise.all([
+                        ActiveSession.findOne({ session_id: sessionId, status: 'active' }).lean(),
+                        getSecurityConfig(true).catch(() => null),
+                    ])
                 .then(([session, security]) => {
                     if (!session) {
                         res.status(401).json({
@@ -162,6 +238,11 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
             })
             .catch(() => {
                 // Graceful degradation on settings lookup failure.
+                next();
+            });
+            })
+            .catch(() => {
+                // Graceful degradation on status check failure.
                 next();
             });
     } catch {

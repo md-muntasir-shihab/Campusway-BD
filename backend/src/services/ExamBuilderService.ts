@@ -158,6 +158,41 @@ export async function createExamDraft(data: ExamInfoDto): Promise<IExam> {
     return exam.save();
 }
 
+/**
+ * Update basic info (Step 1) of an existing draft exam.
+ */
+export async function updateExamDraft(
+    examId: string,
+    data: Partial<ExamInfoDto>,
+): Promise<IExam> {
+    const exam = await Exam.findById(examId);
+    if (!exam) {
+        throw new Error(`Exam "${examId}" not found`);
+    }
+    if (exam.status !== 'draft') {
+        throw new Error('Can only update draft exams');
+    }
+
+    if (data.title !== undefined && data.title.trim().length > 0) {
+        exam.title = data.title;
+        exam.subject = data.title; // legacy placeholder
+    }
+    if (data.title_bn !== undefined) exam.title_bn = data.title_bn;
+    if (data.description !== undefined) exam.description = data.description;
+    if (data.duration !== undefined || data.durationMinutes !== undefined) {
+        exam.duration = data.duration || data.durationMinutes || exam.duration;
+    }
+
+    const optionalId = (id?: string) =>
+        id && mongoose.Types.ObjectId.isValid(id) ? toObjectId(id) : undefined;
+
+    if (data.group_id !== undefined) exam.group_id = optionalId(data.group_id);
+    if (data.sub_group_id !== undefined) exam.sub_group_id = optionalId(data.sub_group_id);
+    if (data.subject_id !== undefined) exam.subject_id = optionalId(data.subject_id);
+
+    return exam.save();
+}
+
 // ─── Step 2: Update Question Selection ──────────────────────
 
 /**
@@ -250,6 +285,27 @@ export async function autoPick(
     const easyTarget = Math.round((difficultyDistribution.easy / 100) * count);
     const hardTarget = Math.round((difficultyDistribution.hard / 100) * count);
     const mediumTarget = count - easyTarget - hardTarget; // remainder goes to medium
+
+    // Pre-check: verify pool has enough questions for each difficulty level
+    // before running $sample (which silently returns fewer than requested).
+    const targets = [
+        { level: 'easy' as const, count: easyTarget },
+        { level: 'medium' as const, count: mediumTarget },
+        { level: 'hard' as const, count: hardTarget },
+    ];
+
+    for (const { level, count: targetCount } of targets) {
+        if (targetCount <= 0) continue;
+        const available = await QuestionBankQuestion.countDocuments({
+            ...baseFilter,
+            difficulty: level,
+        });
+        if (available < targetCount) {
+            throw new Error(
+                `Insufficient ${level} questions: requested ${targetCount}, available ${available}`,
+            );
+        }
+    }
 
     // Helper: randomly sample N documents from a difficulty pool
     async function sampleByDifficulty(
@@ -400,6 +456,13 @@ export async function updateScheduling(
         exam.endDate = scheduling.endTime;
     }
 
+    // Validate endDate > startDate when both are present
+    const effectiveStart = exam.startDate ? new Date(exam.startDate).getTime() : 0;
+    const effectiveEnd = exam.endDate ? new Date(exam.endDate).getTime() : 0;
+    if (effectiveStart > 0 && effectiveEnd > 0 && effectiveEnd <= effectiveStart) {
+        throw new Error('End date must be after start date');
+    }
+
     // Result publish time
     if (scheduling.resultPublishTime) {
         exam.resultPublishDate = scheduling.resultPublishTime;
@@ -457,6 +520,13 @@ export async function publishExam(examId: string): Promise<IExam> {
     }
     if (!exam.endDate) {
         errors.push('End date is required');
+    }
+    if (exam.startDate && exam.endDate) {
+        const startMs = new Date(exam.startDate).getTime();
+        const endMs = new Date(exam.endDate).getTime();
+        if (endMs <= startMs) {
+            errors.push('End date must be after start date');
+        }
     }
 
     if (errors.length > 0) {

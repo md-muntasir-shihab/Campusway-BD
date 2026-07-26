@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import ExcelJS from 'exceljs';
 
-import { authenticate, requireRole, requirePermission } from '../middleware/auth';
+import { authenticate, requireRole, requirePermission, invalidateUserStatusCache } from '../middleware/auth';
 import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
 import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
@@ -587,6 +587,9 @@ router.post('/students-v2/bulk-update', ...adminAuth, async (req: Request, res: 
     if (update['hsc_batch'] !== undefined) allowedProfileFields['hsc_batch'] = String(update['hsc_batch'] || '').trim();
     if (Object.keys(allowedUserFields).length > 0) {
       await User.updateMany({ _id: { $in: validIds } }, { $set: allowedUserFields });
+      if (allowedUserFields['status']) {
+        validIds.forEach((id) => invalidateUserStatusCache(id));
+      }
     }
     if (Object.keys(allowedProfileFields).length > 0) {
       await StudentProfile.updateMany({ user_id: { $in: validIds } }, { $set: allowedProfileFields });
@@ -785,6 +788,7 @@ router.put('/students-v2/:id', ...adminAuth, async (req: Request, res: Response)
     }
     if (status && ['active', 'suspended', 'blocked', 'pending'].includes(status)) {
       userUpdate['status'] = status;
+      invalidateUserStatusCache(String(req.params.id));
     }
     const user = await User.findByIdAndUpdate(req.params.id, { $set: userUpdate }, { new: true })
       .select('-password -twoFactorSecret').lean();
@@ -2621,7 +2625,34 @@ router.post('/students-v2/:id/reset-verification', ...adminAuth, async (req: Req
       { new: true },
     ).select('-password -twoFactorSecret').lean();
     if (!user) return res.status(404).json({ message: 'Student not found.' });
+    invalidateUserStatusCache(String(req.params.id));
     res.json({ message: `${type} verification reset successfully.`, user });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+router.post('/students-v2/:id/suspend', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id, { $set: { status: 'suspended' } }, { new: true },
+    ).select('-password').lean();
+    if (!user) return res.status(404).json({ message: 'Student not found' });
+    invalidateUserStatusCache(String(req.params.id));
+    res.json({ message: 'Student suspended', user });
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+  }
+});
+
+router.post('/students-v2/:id/activate', ...adminAuth, async (req: Request, res: Response) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id, { $set: { status: 'active' } }, { new: true },
+    ).select('-password').lean();
+    if (!user) return res.status(404).json({ message: 'Student not found' });
+    invalidateUserStatusCache(String(req.params.id));
+    res.json({ message: 'Student activated', user });
   } catch (err) {
     res.status(500).json({ message: String(err) });
   }

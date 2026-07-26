@@ -21,6 +21,7 @@ import { useExamAntiCheat } from "../../hooks/useExamAntiCheat";
 import { useProactiveTokenRefresh } from "../../hooks/useProactiveTokenRefresh";
 import MathText from "../../components/exam/MathText";
 import type { BlockReason, ExamAnswer, PendingAnswerRow, RunnerCache, SelectedOptionKey } from "../../types/exam";
+import { trackOpenPanelEvent } from "../../lib/openPanel";
 
 type SubmitMode = "manual" | "timeout";
 
@@ -453,6 +454,7 @@ export const ExamRunnerPage = () => {
 
             try {
                 const response = await submitMutation.mutateAsync();
+                trackOpenPanelEvent("exam_submitted", { examId, sessionId, mode });
                 clearSessionPointer(examId);
                 clearRunnerCache(examId, sessionId);
                 navigate(`/exam/${examId}/result?sessionId=${sessionId}`, { replace: true });
@@ -505,6 +507,7 @@ export const ExamRunnerPage = () => {
                 return;
             }
             setSessionId(started.sessionId);
+            trackOpenPanelEvent("exam_started", { examId, sessionId: started.sessionId, title: detail?.title });
             writeSessionPointer(examId, started.sessionId);
             const offset = new Date(started.serverNowUTC).getTime() - Date.now();
             setServerOffsetMs(Number.isFinite(offset) ? offset : 0);

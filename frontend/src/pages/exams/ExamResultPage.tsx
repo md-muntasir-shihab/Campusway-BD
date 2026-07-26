@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Award, BarChart3, CheckCircle2, Clock3, Download, SkipForward, Trophy, XCircle } from "lucide-react";
 import { downloadPdfEndpoint, examPdfUrls } from "../../api/examApi";
 import { useExamResult, useExamSolutions, usePdfAvailability } from "../../hooks/useExamQueries";
+import { AdSlot } from "../../components/ads/AdSlot";
 
 const lastSessionKey = (examId: string) => `cw_exam_last_session_${examId}`;
 
@@ -405,6 +406,11 @@ export const ExamResultPage = () => {
             {result.performanceSummary ? (
                 <PerformanceSummary summary={result.performanceSummary} />
             ) : null}
+
+            {/* Native Ad Placement */}
+            <div className="mt-4">
+                <AdSlot placementSlug="exam-results" />
+            </div>
 
             {/* Question Breakdown */}
             {result.detailedAnswers && result.detailedAnswers.length > 0 ? (

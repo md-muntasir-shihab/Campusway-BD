@@ -458,6 +458,19 @@ export const useCreateDraft = () => {
     });
 };
 
+/** Update basic info of an existing draft exam (Step 1 edit). */
+export const useUpdateDraftInfo = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ examId, payload }: { examId: string; payload: ExamInfoDto }) =>
+            examBuilderApi.updateDraftInfo(examId, payload),
+        onSuccess: (_data, { examId }) => {
+            qc.invalidateQueries({ queryKey: examSystemKeys.examPreview(examId) });
+            qc.invalidateQueries({ queryKey: examSystemKeys.exams });
+        },
+    });
+};
+
 /** Set selected questions on an exam (Step 2 manual). */
 export const useUpdateQuestions = () => {
     const qc = useQueryClient();

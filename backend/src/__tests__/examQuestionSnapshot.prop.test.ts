@@ -21,13 +21,24 @@ import Exam from '../models/Exam';
 let mongoServer: MongoMemoryServer;
 
 beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    await mongoose.connect(mongoServer.getUri());
-});
+    if (process.env.MONGODB_URI) {
+        await mongoose.connect(process.env.MONGODB_URI);
+    } else {
+        try {
+            mongoServer = await MongoMemoryServer.create();
+            await mongoose.connect(mongoServer.getUri());
+        } catch (err) {
+            console.warn('Failed to start MongoMemoryServer, falling back to localhost default...');
+            await mongoose.connect('mongodb://127.0.0.1:27017/campusway_test');
+        }
+    }
+}, 300000);
 
 afterAll(async () => {
     await mongoose.disconnect();
-    await mongoServer.stop();
+    if (mongoServer) {
+        await mongoServer.stop();
+    }
 });
 
 beforeEach(async () => {

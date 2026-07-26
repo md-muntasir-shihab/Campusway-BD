@@ -105,6 +105,17 @@ import {
     adminPublishBanner,
     adminSignBannerUpload,
 } from '../controllers/bannerController';
+import {
+    adminGetAdCampaigns,
+    adminCreateAdCampaign,
+    adminUpdateAdCampaign,
+    adminDeleteAdCampaign,
+    adminGetAdCreatives,
+    adminCreateAdCreative,
+    adminUpdateAdCreative,
+    adminDeleteAdCreative,
+    adminGetAdRevenueStats,
+} from '../controllers/adManagementController';
 import { getHomeConfig, updateHomeConfig } from '../controllers/homeConfigController';
 import {
     listLegalPages,
@@ -447,6 +458,7 @@ import {
     createRefundSchema, processRefundSchema,
     importCommitSchema,
 } from '../validators/financeSchemas';
+import { createUniversitySchema, updateUniversitySchema } from '../validators/university.validator';
 import {
     adminCreateNotice,
     adminGetNotices,
@@ -1004,8 +1016,8 @@ router.post('/universities/import/:jobId/commit', authorize('superadmin', 'admin
 router.get('/universities/import/:jobId/errors.csv', authorize('superadmin', 'admin', 'moderator'), adminDownloadUniversityImportErrors);
 router.get('/universities/import/:jobId', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityImportJob);
 router.get('/universities/:id', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityById);
-router.post('/universities', authorize('superadmin', 'admin', 'moderator'), adminCreateUniversity);
-router.put('/universities/:id', authorize('superadmin', 'admin', 'moderator'), adminUpdateUniversity);
+router.post('/universities', authorize('superadmin', 'admin', 'moderator'), validateBody(createUniversitySchema), adminCreateUniversity);
+router.put('/universities/:id', authorize('superadmin', 'admin', 'moderator'), validateBody(updateUniversitySchema), adminUpdateUniversity);
 router.delete('/universities/:id', authorize('superadmin', 'admin'), canDeleteData, requireDestructiveStepUp('universities', 'university_delete'), adminDeleteUniversity);
 router.patch('/universities/:id/toggle-status', authorize('superadmin', 'admin'), adminToggleUniversityStatus);
 router.post('/universities/import-excel', authorize('superadmin', 'admin'), upload.single('file'), adminBulkImportUniversities);
@@ -1127,6 +1139,19 @@ router.post('/banners', requirePermission('banner_manager', 'create'), adminCrea
 router.put('/banners/:id', requirePermission('banner_manager', 'edit'), adminUpdateBanner);
 router.delete('/banners/:id', requirePermission('banner_manager', 'delete'), requireDestructiveStepUp('site_settings', 'banner_delete'), adminDeleteBanner);
 router.put('/banners/:id/publish', requirePermission('banner_manager', 'publish'), adminPublishBanner);
+
+/* ── Native Ad System & Revenue Engine ── */
+router.get('/ads/campaigns', requirePermission('banner_manager', 'view'), adminGetAdCampaigns);
+router.post('/ads/campaigns', requirePermission('banner_manager', 'create'), adminCreateAdCampaign);
+router.put('/ads/campaigns/:id', requirePermission('banner_manager', 'edit'), adminUpdateAdCampaign);
+router.delete('/ads/campaigns/:id', requirePermission('banner_manager', 'delete'), adminDeleteAdCampaign);
+
+router.get('/ads/creatives', requirePermission('banner_manager', 'view'), adminGetAdCreatives);
+router.post('/ads/creatives', requirePermission('banner_manager', 'create'), adminCreateAdCreative);
+router.put('/ads/creatives/:id', requirePermission('banner_manager', 'edit'), adminUpdateAdCreative);
+router.delete('/ads/creatives/:id', requirePermission('banner_manager', 'delete'), adminDeleteAdCreative);
+
+router.get('/ads/revenue-stats', requirePermission('banner_manager', 'view'), adminGetAdRevenueStats);
 
 /* ── Home Alerts (Live Ticker) ── */
 router.get('/home-alerts', requirePermission('home_control', 'view'), adminGetAlerts);

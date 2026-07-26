@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { adminGetAnalyticsDashboard } from '../../../services/api';
+import api, { adminGetAnalyticsDashboard } from '../../../services/api';
 import AdminGuardShell from '../../../components/admin/AdminGuardShell';
 import { motion } from 'framer-motion';
 import {
     ResponsiveContainer,
     AreaChart,
     Area,
+    BarChart,
+    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -32,7 +34,11 @@ import {
     BookMarked,
     Users2,
     TrendingDown,
-    Flame
+    Flame,
+    Megaphone,
+    Eye,
+    MousePointer,
+    BarChart3,
 } from 'lucide-react';
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -139,6 +145,7 @@ function DashboardSkeleton() {
 
 export default function AnalysisHubPage() {
     const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+    const [activeTab, setActiveTab] = useState<'overview' | 'ads'>('overview');
 
     const { data, isLoading, error, refetch, isFetching } = useQuery({
         queryKey: ['admin-analytics-dashboard', timeRange],
@@ -146,6 +153,15 @@ export default function AnalysisHubPage() {
             const res = await adminGetAnalyticsDashboard({ range: timeRange });
             return res.data;
         },
+    });
+
+    const { data: adStatsData, isLoading: adStatsLoading, refetch: refetchAdStats } = useQuery({
+        queryKey: ['adminAdRevenueStats'],
+        queryFn: async () => {
+            const res = await api.get('/admin/ads/revenue-stats');
+            return res.data?.data;
+        },
+        enabled: activeTab === 'ads',
     });
 
     if (isLoading) {
@@ -189,13 +205,149 @@ export default function AnalysisHubPage() {
         revenue,
     } = data;
 
-    // Build unique charts config
-    const hasDailyAttempts = dailyAttempts && dailyAttempts.length > 0;
-    const hasUserGrowth = userGrowth && userGrowth.length > 0;
+    const hasUserGrowth = Boolean(userGrowth && userGrowth.length > 0);
+    const hasDailyAttempts = Boolean(dailyAttempts && dailyAttempts.length > 0);
 
     return (
         <AdminGuardShell title="Analysis Hub" description="Centralized intelligence and platform-wide performance telemetry" requiredLegacyPermission="canViewReports">
             <div className="space-y-6">
+                {/* ── Sub Navigation Tabs ── */}
+                <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 backdrop-blur-md w-fit">
+                    <button
+                        onClick={() => setActiveTab('overview')}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            activeTab === 'overview'
+                                ? 'bg-indigo-600 text-white shadow-md'
+                                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                    >
+                        <BarChart3 size={15} /> Platform Overview
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('ads')}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            activeTab === 'ads'
+                                ? 'bg-indigo-600 text-white shadow-md'
+                                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                    >
+                        <Megaphone size={15} /> Ad Performance & Revenue
+                    </button>
+                </div>
+
+                {activeTab === 'ads' ? (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <StatCard
+                                icon={<DollarSign size={22} />}
+                                label="Total Ad Revenue"
+                                value={fmtCurrency(adStatsData?.totalRevenue ?? 0)}
+                                sub="Native ad earnings"
+                                gradient="bg-gradient-to-tr from-emerald-500 to-teal-500"
+                                borderGlow="hover:border-emerald-500/30"
+                            />
+                            <StatCard
+                                icon={<Eye size={22} />}
+                                label="Total Impressions"
+                                value={fmt(adStatsData?.totalImpressions ?? 0)}
+                                sub="Ad views tracked"
+                                gradient="bg-gradient-to-tr from-indigo-500 to-purple-500"
+                                borderGlow="hover:border-indigo-500/30"
+                            />
+                            <StatCard
+                                icon={<MousePointer size={22} />}
+                                label="Total Clicks"
+                                value={fmt(adStatsData?.totalClicks ?? 0)}
+                                sub="User engagements"
+                                gradient="bg-gradient-to-tr from-amber-500 to-orange-500"
+                                borderGlow="hover:border-amber-500/30"
+                            />
+                            <StatCard
+                                icon={<TrendingUp size={22} />}
+                                label="Average CTR"
+                                value={`${(adStatsData?.overallCTR ?? 0).toFixed(2)}%`}
+                                sub="Click-through rate"
+                                gradient="bg-gradient-to-tr from-pink-500 to-rose-500"
+                                borderGlow="hover:border-pink-500/30"
+                            />
+                        </div>
+
+                        {/* Recharts Charts for Ads */}
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            {/* Revenue & Impression Trend */}
+                            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/60 backdrop-blur-md">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                                            <TrendingUp size={16} className="text-emerald-500" />
+                                            Daily Ad Revenue Trend
+                                        </h3>
+                                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                                            Recorded earnings per day across active campaigns.
+                                        </p>
+                                    </div>
+                                    <button onClick={() => refetchAdStats()} className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+                                        <RefreshCw size={14} className={adStatsLoading ? 'animate-spin' : ''} />
+                                    </button>
+                                </div>
+                                <div className="h-64 w-full">
+                                    {adStatsData?.dailyBreakdown && adStatsData.dailyBreakdown.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={adStatsData.dailyBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                <defs>
+                                                    <linearGradient id="adRevGrad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.3)" />
+                                                <XAxis dataKey="date" tickLine={false} axisLine={false} style={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <YAxis tickLine={false} axisLine={false} style={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <Tooltip contentStyle={{ background: 'rgba(15, 23, 42, 0.9)', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '11px' }} />
+                                                <Area type="monotone" dataKey="revenue" name="Revenue (৳)" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#adRevGrad)" />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="flex h-full items-center justify-center text-slate-400 text-xs">
+                                            No ad revenue data recorded yet.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Placement Performance Chart */}
+                            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/60 backdrop-blur-md">
+                                <div className="mb-4">
+                                    <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                                        <BarChart3 size={16} className="text-indigo-500" />
+                                        Placement Performance (CTR %)
+                                    </h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                                        Click-through rates categorized by placement position.
+                                    </p>
+                                </div>
+                                <div className="h-64 w-full">
+                                    {adStatsData?.topPlacements && adStatsData.topPlacements.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={adStatsData.topPlacements} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.3)" />
+                                                <XAxis dataKey="placement" tickLine={false} axisLine={false} style={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <YAxis tickLine={false} axisLine={false} style={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <Tooltip contentStyle={{ background: 'rgba(15, 23, 42, 0.9)', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '11px' }} />
+                                                <Bar dataKey="ctr" name="CTR (%)" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="flex h-full items-center justify-center text-slate-400 text-xs">
+                                            No placement analytics data available.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
                 {/* ── Header Controls ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900/60 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 backdrop-blur-md">
                     <div>
@@ -235,6 +387,18 @@ export default function AnalysisHubPage() {
                         >
                             <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
                         </button>
+
+                        {import.meta.env.VITE_OPENPANEL_CLIENT_ID && (
+                            <a
+                                href="https://openpanel.dev"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 text-xs font-bold transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                                title="Open OpenPanel Web Analytics Dashboard"
+                            >
+                                <ArrowUpRight size={14} /> OpenPanel
+                            </a>
+                        )}
                     </div>
                 </div>
 
@@ -591,6 +755,8 @@ export default function AnalysisHubPage() {
                     </div>
                 </div>
             </div>
+            )}
+        </div>
         </AdminGuardShell>
     );
 }
