@@ -87,7 +87,7 @@ vi.mock('lucide-react', () => {
         Zap: i('Zap'), HelpCircle: i('HelpCircle'), CheckCircle: i('CheckCircle'),
         ChevronLeft: i('ChevronLeft'), ChevronRight: i('ChevronRight'), AlertTriangle: i('AlertTriangle'),
         CalendarDays: i('CalendarDays'), Clock3: i('Clock3'), Lock: i('Lock'), RefreshCw: i('RefreshCw'),
-        Loader2: i('Loader2'), ExternalLink: i('ExternalLink')
+        Loader2: i('Loader2'), ExternalLink: i('ExternalLink'), Globe2: i('Globe2')
     };
 });
 

@@ -72,8 +72,10 @@ describe('WrittenGradingInterface Security Tests', () => {
             }
         ];
 
-        // Ensure we hit the API properly
-        vi.mocked(api.default.get).mockResolvedValue({ data: { data: mockPendingResults } });
+        // Ensure we hit the API properly.
+        // NOTE: services/api's response interceptor unwraps the { success, data }
+        // envelope, so the component receives `res.data` as the array itself.
+        vi.mocked(api.default.get).mockResolvedValue({ data: mockPendingResults });
 
         render(
             <HelmetProvider>

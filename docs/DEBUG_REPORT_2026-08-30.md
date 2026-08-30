@@ -13,7 +13,7 @@ Full-stack diagnostic pass over the monorepo (typecheck, lint, build, unit tests
 | Backend tests | 718 pass / 84 files fail — **all** `ECONNREFUSED 127.0.0.1:27017` (no MongoDB available; documented below) | unchanged (environmental) |
 | Frontend build | ✅ | ✅ |
 | Frontend lint / typecheck | ✅ (0 errors) | ✅ (0 errors) |
-| Frontend unit tests | ❌ **hangs forever** — CI job ran 6h0m and was killed (see CI run 30189048049); never prints a summary | ✅ completes in ~5 min: **795 passed / 33 failed** across 82 files |
+| Frontend unit tests | ❌ **hangs forever** — CI job ran 6h0m and was killed (see CI run 30189048049); never prints a summary | ✅ completes in **~2 min**: **808 passed / 20 failed** across 82 files |
 
 ---
 
@@ -59,9 +59,23 @@ After both fixes the file completes in ~11 s and the whole suite runs to complet
 
 The 33 remaining test failures fall into clear groups; CI runs tests with `continue-on-error: true`, so these were already red before this pass:
 
-- **Bug-condition suites that intentionally fail on unfixed product behavior** — `uiAccessBugCondition.prop.test.tsx` (3 of 5 tests: navbar login button while loading, admin-guard timeout, public `/exams` access) and its companion `uiAccessPreservation.prop.test.tsx`. These assert *product changes* (public exam browsing, login affordance during bootstrap) that haven't been implemented yet.
-- **UI drift** — `UniversityCard.*` (3 files), `DeadlineCard.property`, `CategoryBadgeTruncation.property`, `HomeSettingsPanel.toggles`, `BulkImportModal`, `QuestionFormModal.property` (missing `useCheckDuplicate` mock export), `vanta-hero-banners`, `tokenRefresh` (interceptor call-shape mismatch), `WrittenGradingInterface` (XSS-sanitization assertion).
-- Each needs a product decision (fix component vs update test) — listed here so they can be triaged.
+- **Bug-condition suites that intentionally fail on unfixed product behavior** — `uiAccessBugCondition.prop.test.tsx` (3 of 5 tests: navbar login button while loading, admin-guard timeout, public `/exams` access). These assert *product changes* (public exam browsing, login affordance during bootstrap) that haven't been implemented yet.
+- **Unimplemented "home-card-cleanup-redesign" feature (Requirements 8.5/8.6)** — one coherent cluster: `UniversityCard.*` (3 files), `DeadlineCard.property`, `CategoryBadgeTruncation.property`, `HomeSettingsPanel.toggles`. The tests encode a spec (home cards hide detail sections; admin panel gains `universityCardConfig.*` toggles) that the components don't implement (`DEFAULT_UNIVERSITY_CARD_CONFIG` lacks the flags, panel lacks the labels). Building it is a feature, not a debug fix — needs a product decision.
+- **UI drift** — `vanta-hero-banners` (assertion mismatch on hero-banner behavior).
+- The 20 remaining failing tests are exactly these clusters; everything else in the 828-test suite is green.
+
+## Round 2 — mechanical test-bug fixes (same session)
+
+After the hang fix, the remaining reds were re-triaged; the ones that were plain *test bugs* were fixed (all verified green individually):
+
+1. **`QuestionFormModal.property.test.tsx`** (was 0/7): mock of `useExamSystemQueries` lacked `useCheckDuplicate` entirely (component reads `.mutate`, so the mock now provides `mutate` + `mutateAsync`); plus one over-strict assertion — preview mode was expected to remove **all** textareas, but the component intentionally keeps note fields editable (verified 4 → 2 → 4 across two toggles: the idempotency property itself holds). Relaxed to "strictly fewer textareas in preview". Now 7/7.
+2. **`WrittenGradingInterface.test.tsx`**: mock still used the old `{ data: { data: [...] } }` envelope; the component's contract (interceptor pre-unwraps) is `res.data` **is** the array. Updated — also the trigger of the original `results is not iterable` crash this file exposed.
+3. **`tokenRefresh.test.ts`**: expected body `{}` is stale — `api.ts` now posts `{ refreshToken }` with `X-Refresh-Token`/`X-Browser-Fingerprint` headers. Expectation updated.
+4. **`BulkImportModal.test.tsx`**: modal has two close affordances (header X + footer Close button); `getByRole` threw on ambiguity → `getAllByRole(...)[0]`.
+5. **`uiAccessBugCondition` / `uiAccessPreservation`**: lucide-react mocks lacked `Globe2` (used by `NewsPage`) → News-page tests in both files crashed on the mock.
+6. **`vitest.config.ts`**: `testTimeout`/`hookTimeout` raised 5 s → 15 s — property tests rendering dozens of components per case exceeded 5 s under parallel workers on 2-core machines (the isolated `footerLegalLinksRendering.prop.test.tsx` timeout). Also `fileParallelism: false`: parallel workers nondeterministically wedge between files on 2-core machines (a worker spins at ~100% CPU mid-suite; reproduced locally, matching the CI 6 h symptom) — sequential is both deterministic **and** faster here (~2 min vs ~5 min).
+
+7. **`News.tsx` — real production bug found & fixed**: `const items = listQuery.data?.items || []` created a fresh `[]` reference on every render while the news list was loading/errored; it feeds `useEffect([items, …])` which calls `setInfiniteItems(items)` → new reference → re-render → **infinite setState render loop** ("Maximum update depth exceeded", CPU pegged). Any user on the News page with a slow/failed news API would hit this. Fixed with `useMemo(() => listQuery.data?.items ?? [], [listQuery.data])`. Both News-page test suites now pass (previously crashed or hung).
 
 ## Backend tests need a MongoDB (environmental)
 
@@ -74,5 +88,5 @@ backend    npm ci                ✅
 backend    tsc --noEmit + build  ✅
 frontend   tsc -b + vite build   ✅
 frontend   eslint .              ✅ 0 errors (8 pre-existing warnings)
-frontend   vitest run            ✅ completes: 795 passed / 33 failed (14 files), ~5 min
+frontend   vitest run            ✅ completes: 808 passed / 20 failed (8 files), ~2 min
 ```
