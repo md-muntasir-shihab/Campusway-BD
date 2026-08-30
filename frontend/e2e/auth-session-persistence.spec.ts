@@ -14,12 +14,12 @@
  * - A published exam available for the test student
  *
  * Running:
- *   npx playwright test src/__tests__/e2e/authSessionPersistence.test.ts
+ *   npx playwright test e2e/auth-session-persistence.spec.ts
  *
  * Note: The project's primary Playwright config (playwright.config.ts) uses `./e2e`
  * as the testDir. To run this file, either:
- *   1. Use `npx playwright test --config=playwright.config.ts src/__tests__/e2e/`
- *   2. Or move this file to `CampusWay/frontend/e2e/auth-session-persistence.spec.ts`
+ *   1. Use `npx playwright test e2e/auth-session-persistence.spec.ts`
+ *   2. Or this file now lives at `frontend/e2e/auth-session-persistence.spec.ts`
  *
  * @see .kiro/specs/auth-session-persistence/requirements.md
  * @see .kiro/specs/auth-session-persistence/design.md
