@@ -1005,22 +1005,22 @@ router.patch('/university-categories/:id/toggle', authorize('superadmin', 'admin
 router.delete('/university-categories/:id', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'category_delete'), adminDeleteUniversityCategory);
 router.get('/universities/export', authorize('superadmin', 'admin', 'moderator', 'editor'), requireSensitiveExport('universities', 'export'), trackSensitiveExport({ moduleName: 'universities', actionName: 'export' }), adminExportUniversities);
 router.get('/universities/template.xlsx', authorize('superadmin', 'admin', 'moderator', 'editor'), adminDownloadUniversityImportTemplate);
-router.put('/universities/reorder-featured', authorize('superadmin', 'admin', 'moderator'), adminReorderFeaturedUniversities);
-router.post('/universities/bulk-delete', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'bulk_delete'), requireTwoPersonForUniversitiesBulkDelete, adminBulkDeleteUniversities);
-router.patch('/universities/bulk-update', authorize('superadmin', 'admin', 'moderator'), adminBulkUpdateUniversities);
+router.put('/universities/reorder-featured', authorize('superadmin', 'admin', 'moderator'), invalidateCache('universities'), adminReorderFeaturedUniversities);
+router.post('/universities/bulk-delete', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'bulk_delete'), requireTwoPersonForUniversitiesBulkDelete, invalidateCache('universities'), adminBulkDeleteUniversities);
+router.patch('/universities/bulk-update', authorize('superadmin', 'admin', 'moderator'), invalidateCache('universities'), adminBulkUpdateUniversities);
 router.get('/universities/import/template', authorize('superadmin', 'admin', 'moderator', 'editor'), adminDownloadUniversityImportTemplate);
 router.post('/universities/import', authorize('superadmin', 'admin'), upload.single('file'), adminInitUniversityImport);
 router.post('/universities/import/init', authorize('superadmin', 'admin'), upload.single('file'), adminInitUniversityImport);
 router.post('/universities/import/:jobId/validate', authorize('superadmin', 'admin', 'moderator'), adminValidateUniversityImport);
-router.post('/universities/import/:jobId/commit', authorize('superadmin', 'admin'), adminCommitUniversityImport);
+router.post('/universities/import/:jobId/commit', authorize('superadmin', 'admin'), invalidateCache('universities'), adminCommitUniversityImport);
 router.get('/universities/import/:jobId/errors.csv', authorize('superadmin', 'admin', 'moderator'), adminDownloadUniversityImportErrors);
 router.get('/universities/import/:jobId', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityImportJob);
 router.get('/universities/:id', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityById);
-router.post('/universities', authorize('superadmin', 'admin', 'moderator'), validateBody(createUniversitySchema), adminCreateUniversity);
-router.put('/universities/:id', authorize('superadmin', 'admin', 'moderator'), validateBody(updateUniversitySchema), adminUpdateUniversity);
-router.delete('/universities/:id', authorize('superadmin', 'admin'), canDeleteData, requireDestructiveStepUp('universities', 'university_delete'), adminDeleteUniversity);
-router.patch('/universities/:id/toggle-status', authorize('superadmin', 'admin'), adminToggleUniversityStatus);
-router.post('/universities/import-excel', authorize('superadmin', 'admin'), upload.single('file'), adminBulkImportUniversities);
+router.post('/universities', authorize('superadmin', 'admin', 'moderator'), validateBody(createUniversitySchema), invalidateCache('universities'), adminCreateUniversity);
+router.put('/universities/:id', authorize('superadmin', 'admin', 'moderator'), validateBody(updateUniversitySchema), invalidateCache('universities'), adminUpdateUniversity);
+router.delete('/universities/:id', authorize('superadmin', 'admin'), canDeleteData, requireDestructiveStepUp('universities', 'university_delete'), invalidateCache('universities'), adminDeleteUniversity);
+router.patch('/universities/:id/toggle-status', authorize('superadmin', 'admin'), invalidateCache('universities'), adminToggleUniversityStatus);
+router.post('/universities/import-excel', authorize('superadmin', 'admin'), upload.single('file'), invalidateCache('universities'), adminBulkImportUniversities);
 
 /* â”€â”€ University Clusters â”€â”€ */
 router.get('/university-clusters', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityClusters);

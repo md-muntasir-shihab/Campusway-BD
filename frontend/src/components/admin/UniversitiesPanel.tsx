@@ -522,6 +522,7 @@ export default function UniversitiesPanel() {
   const invalidateUniversityQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['universities'] }),
+      queryClient.invalidateQueries({ queryKey: ['universityDetail'] }),
       queryClient.invalidateQueries({ queryKey: ['home'] }),
       queryClient.invalidateQueries({ queryKey: ['home-settings'] }),
       queryClient.invalidateQueries({ queryKey: ['home_settings'] }),

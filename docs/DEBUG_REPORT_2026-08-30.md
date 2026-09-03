@@ -77,6 +77,19 @@ After the hang fix, the remaining reds were re-triaged; the ones that were plain
 
 7. **`News.tsx` — real production bug found & fixed**: `const items = listQuery.data?.items || []` created a fresh `[]` reference on every render while the news list was loading/errored; it feeds `useEffect([items, …])` which calls `setInfiniteItems(items)` → new reference → re-render → **infinite setState render loop** ("Maximum update depth exceeded", CPU pegged). Any user on the News page with a slow/failed news API would hit this. Fixed with `useMemo(() => listQuery.data?.items ?? [], [listQuery.data])`. Both News-page test suites now pass (previously crashed or hung).
 
+## Round 3 — university details page not updating (user-reported)
+
+**Symptom:** edits made in the admin university panel (description, established year, address, phone, email, …) never appeared on the public `/universities/:slug` details page.
+
+**Root cause (three stacked issues):**
+
+1. **Zod schema silently dropped fields (the main bug).** `validateBody()` replaces `req.body` with the parsed output, and Zod **strips undeclared keys**. `create/updateUniversitySchema` never declared `description` (nor `establishedYear`, `isActive`, `featuredOrder`, `examCenters`, `clusterDateOverrides`, `categorySyncLocked`, `clusterSyncLocked`, `unitLayout`) — so the admin form sent them, the validator discarded them, and the controller wrote everything *except* those fields. The public page kept showing stale content.
+   **Fix:** declared all missing admin-editable fields in both schemas (with `examCenterInput` accepting strings or `{city,address}` objects, matching `normalizeExamCenters()`), pinned by a new property test (`universityUpdateSchemaFields.prop.test.ts`, 4 tests) that asserts arbitrary payloads for every mutable field survive parsing — including the Bengali description from the report screenshot.
+2. **Server-side cache never invalidated on writes.** `publicContentCache` (120 s TTL) covers `/universities/*`, but no university admin write route called `invalidateCache('universities')` (only finance routes did).
+   **Fix:** added `invalidateCache('universities')` to all 9 university write routes (create/update/delete/toggle/bulk-update/bulk-delete/reorder/import-commit/import-excel), matching the existing finance-route pattern.
+3. **Admin's own React Query cache.** `invalidateUniversityQueries()` in `UniversitiesPanel` missed the `['universityDetail', slug]` key, so even the admin's own view of the details page stayed stale until reload.
+   **Fix:** invalidate `universityDetail` after save.
+
 ## Backend tests need a MongoDB (environmental)
 
 `backend/vitest.setup.ts` deliberately replaces `mongodb-memory-server` with a stub that requires either `MONGODB_URI` or a local `mongod` on `127.0.0.1:27017`. This sandbox has neither (MongoDB's CDN is unreachable, no apt package), so the 84 DB-backed files fail with `ECONNREFUSED` — expected, not a code defect. With a database present (`MONGODB_URI=… npx vitest run`) they run normally; non-DB tests pass either way (718 passing here).
