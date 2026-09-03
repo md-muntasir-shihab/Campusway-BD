@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import { Readable } from 'stream';
 import csvParser from 'csv-parser';
+import slugifyPackage from 'slugify';
 import { parseExcelBuffer as parseExcelBufferCore, rowsToExcelBuffer, rowsToCsvBuffer } from '../utils/excelHelper';
 import mongoose from 'mongoose';
 import User, { IUserPermissions, UserRole, UserStatus } from '../models/User';
@@ -186,11 +187,7 @@ function buildPermissions(role: UserRole, input?: Partial<IUserPermissions>): IU
 }
 
 function slugify(value: unknown): string {
-    return String(value || '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+    return slugifyPackage(String(value || ''), { lower: true, strict: true });
 }
 
 function daysLeft(expiryDate?: Date | null): number {

@@ -10,6 +10,7 @@ import { ExamQuestionModel } from '../models/examQuestion.model';
 import Exam from '../models/Exam';
 import { AnswerModel } from '../models/answer.model';
 import AuditLog from '../models/AuditLog';
+import { escapeRegex } from '../utils/escapeRegex';
 
 // ─── Content Hash ────────────────────────────────────────
 export function computeContentHash(q: {
@@ -215,12 +216,19 @@ export interface ListBankQuestionsParams {
 
 export async function listBankQuestions(params: ListBankQuestionsParams): Promise<any> {
     const filter: Record<string, unknown> = {};
+    const toSafeQueryString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
-    if (params.subject) filter.subject = params.subject;
-    if (params.moduleCategory) filter.moduleCategory = params.moduleCategory;
-    if (params.topic) filter.topic = { $regex: params.topic, $options: 'i' };
-    if (params.difficulty) filter.difficulty = params.difficulty;
-    if (params.tag) filter.tags = { $in: params.tag.split(',').map((t) => t.trim()).filter(Boolean) };
+    const subject = toSafeQueryString(params.subject);
+    const moduleCategory = toSafeQueryString(params.moduleCategory);
+    const topic = toSafeQueryString(params.topic);
+    const difficulty = toSafeQueryString(params.difficulty);
+    const tag = toSafeQueryString(params.tag);
+
+    if (subject) filter.subject = subject;
+    if (moduleCategory) filter.moduleCategory = moduleCategory;
+    if (topic) filter.topic = { $regex: escapeRegex(topic), $options: 'i' };
+    if (difficulty) filter.difficulty = difficulty;
+    if (tag) filter.tags = { $in: tag.split(',').map((t) => t.trim()).filter(Boolean) };
 
     if (params.status === 'archived') {
         filter.isArchived = true;
@@ -230,13 +238,15 @@ export async function listBankQuestions(params: ListBankQuestionsParams): Promis
         filter.isArchived = false;
     }
 
-    if (params.q) {
+    const q = toSafeQueryString(params.q);
+    if (q) {
+        const safeQ = escapeRegex(q);
         filter.$or = [
-            { question_en: { $regex: params.q, $options: 'i' } },
-            { question_bn: { $regex: params.q, $options: 'i' } },
-            { subject: { $regex: params.q, $options: 'i' } },
-            { topic: { $regex: params.q, $options: 'i' } },
-            { tags: { $elemMatch: { $regex: params.q, $options: 'i' } } },
+            { question_en: { $regex: safeQ, $options: 'i' } },
+            { question_bn: { $regex: safeQ, $options: 'i' } },
+            { subject: { $regex: safeQ, $options: 'i' } },
+            { topic: { $regex: safeQ, $options: 'i' } },
+            { tags: { $elemMatch: { $regex: safeQ, $options: 'i' } } },
         ];
     }
 
@@ -244,7 +254,7 @@ export async function listBankQuestions(params: ListBankQuestionsParams): Promis
     const limit = Math.min(200, Math.max(1, params.limit || 25));
     const skip = (page - 1) * limit;
 
-    const sortField = params.sort || '-createdAt';
+    const sortField = toSafeQueryString(params.sort) || '-createdAt';
     const sortObj: Record<string, 1 | -1> = {};
     if (sortField.startsWith('-')) {
         sortObj[sortField.slice(1)] = -1;

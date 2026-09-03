@@ -99,9 +99,26 @@ function normalizeBoolean(value: unknown, fallback = true): boolean {
 
 function splitDelimitedValues(raw: string): string[] {
     return raw
-        .split(/\r?\n|\|/g)
-        .map((item) => item.trim())
+        .split('\r\n')
+        .join('\n')
+        .split('\r')
+        .join('\n')
+        .split('\n')
+        .reduce<string[]>((acc, line) => acc.concat(line.split('|')), [])
+        .map((item: string) => item.trim())
         .filter(Boolean);
+}
+
+function splitCenterParts(part: string): [string, string] {
+    const normalized = pickString(part);
+    const separators = [' - ', ' : ', '-', ':'];
+    for (const separator of separators) {
+        const index = normalized.indexOf(separator);
+        if (index > -1) {
+            return [normalized.slice(0, index), normalized.slice(index + separator.length)];
+        }
+    }
+    return [normalized, ''];
 }
 
 export function normalizeExamCenters(value: unknown): IExamCenter[] {
@@ -122,7 +139,7 @@ export function normalizeExamCenters(value: unknown): IExamCenter[] {
         value.forEach((item) => {
             if (typeof item === 'string') {
                 splitDelimitedValues(item).forEach((part) => {
-                    const pieces = part.split(/\s+-\s+|\s+:\s+/);
+                    const pieces = splitCenterParts(part);
                     push(pieces[0], pieces.slice(1).join(' - '));
                 });
                 return;
@@ -140,7 +157,7 @@ export function normalizeExamCenters(value: unknown): IExamCenter[] {
     const raw = pickString(value);
     if (!raw) return output;
     splitDelimitedValues(raw).forEach((part) => {
-        const pieces = part.split(/\s+-\s+|\s+:\s+/);
+        const pieces = splitCenterParts(part);
         push(pieces[0], pieces.slice(1).join(' - '));
     });
     return output;

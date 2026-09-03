@@ -263,14 +263,13 @@ function buildContactListFilter(input: ContactMessageListInput): Record<string, 
 
     const search = String(input.search || '').trim();
     if (search) {
-        // eslint-disable-next-line security/detect-non-literal-regexp
-        const regex = new RegExp(escapeRegex(search), 'i');
+        const escapedSearch = escapeRegex(search);
         filter.$or = [
-            { name: regex },
-            { email: regex },
-            { phone: regex },
-            { subject: regex },
-            { message: regex },
+            { name: { $regex: escapedSearch, $options: 'i' } },
+            { email: { $regex: escapedSearch, $options: 'i' } },
+            { phone: { $regex: escapedSearch, $options: 'i' } },
+            { subject: { $regex: escapedSearch, $options: 'i' } },
+            { message: { $regex: escapedSearch, $options: 'i' } },
         ];
     }
 

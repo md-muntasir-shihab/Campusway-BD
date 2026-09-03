@@ -15,7 +15,14 @@ import { getClientIp, getDeviceInfo } from '../utils/requestMeta';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
 function isValidEmail(value: string): boolean {
-    return /^\S+@\S+\.\S+$/.test(value);
+    const email = String(value || '').trim();
+    if (!email || email.length > 254 || email.includes(' ')) return false;
+    const atIndex = email.indexOf('@');
+    if (atIndex <= 0 || atIndex !== email.lastIndexOf('@')) return false;
+    const local = email.slice(0, atIndex);
+    const domain = email.slice(atIndex + 1);
+    if (!local || !domain || domain.startsWith('.') || domain.endsWith('.') || !domain.includes('.')) return false;
+    return true;
 }
 
 export async function submitContactMessage(req: AuthRequest, res: Response): Promise<void> {

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { Response } from 'express';
 import mongoose from 'mongoose';
+import slugify from 'slugify';
 import { parseExcelBuffer } from '../utils/excelHelper';
 import { AuthRequest } from '../middleware/auth';
 import Exam from '../models/Exam';
@@ -144,12 +145,21 @@ function asNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function trimEdgeChar(value: string, char: string): string {
+    let start = 0;
+    let end = value.length;
+    while (start < end && value[start] === char) start++;
+    while (end > start && value[end - 1] === char) end--;
+    return value.slice(start, end);
+}
+
 function normalizeImportKey(value: unknown): string {
-    return String(value || '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '');
+    const normalized = slugify(String(value || ''), {
+        lower: true,
+        strict: true,
+        replacement: '_',
+    });
+    return trimEdgeChar(normalized, '_');
 }
 
 function normalizeIdentityValue(value: unknown): string {

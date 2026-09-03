@@ -3,6 +3,7 @@ import multer from 'multer';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import ExcelJS from 'exceljs';
+import slugify from 'slugify';
 
 import { authenticate, requireRole, requirePermission, invalidateUserStatusCache } from '../middleware/auth';
 import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
@@ -61,9 +62,14 @@ import {
   VALID_EXPORT_CATEGORIES,
   type ExportCategory,
 } from '../utils/groupExportHelpers';
+import { escapeRegex } from '../utils/escapeRegex';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+const buildSearchPattern = (value: unknown) => escapeRegex(String(value ?? ''));
+const buildSlugWithTimestamp = (value: unknown, fallbackPrefix = 'group') =>
+  `${slugify(String(value ?? ''), { lower: true, strict: true }) || fallbackPrefix}-${Date.now()}`;
 
 // All routes require admin auth
 const adminAuth = [authenticate, requireRole('superadmin', 'admin', 'moderator')];
@@ -369,8 +375,13 @@ router.get('/students-v2', ...adminAuth, async (req: Request, res: Response) => 
     const userQuery: Record<string, unknown> = { role: 'student' };
     if (status) userQuery['status'] = status;
     if (q) {
-      const re = new RegExp(String(q), 'i');
-      userQuery['$or'] = [{ full_name: re }, { email: re }, { username: re }, { phone_number: re }];
+      const pattern = buildSearchPattern(q);
+      userQuery['$or'] = [
+        { full_name: { $regex: pattern, $options: 'i' } },
+        { email: { $regex: pattern, $options: 'i' } },
+        { username: { $regex: pattern, $options: 'i' } },
+        { phone_number: { $regex: pattern, $options: 'i' } },
+      ];
     }
 
     if (group && mongoose.Types.ObjectId.isValid(group)) {
@@ -900,7 +911,7 @@ router.get('/student-groups', ...adminAuth, requirePermission('students_groups',
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const query: Record<string, unknown> = {};
     if (isActive !== undefined) query['isActive'] = isActive === 'true';
-    if (q) query['name'] = new RegExp(String(q), 'i');
+    if (q) query['name'] = { $regex: buildSearchPattern(q), $options: 'i' };
     const [groups, total] = await Promise.all([
       StudentGroup.find(query).sort({ createdAt: -1 }).skip((pageNum - 1) * limitNum).limit(limitNum).lean(),
       StudentGroup.countDocuments(query),
@@ -918,8 +929,13 @@ router.get('/student-groups/export', ...adminAuth, requirePermission('students_g
     const query: Record<string, unknown> = {};
     if (isActive !== undefined) query['isActive'] = isActive === 'true';
     if (q) {
-      const matcher = new RegExp(String(q), 'i');
-      query['$or'] = [{ name: matcher }, { slug: matcher }, { batchTag: matcher }, { description: matcher }];
+      const matcher = buildSearchPattern(q);
+      query['$or'] = [
+        { name: { $regex: matcher, $options: 'i' } },
+        { slug: { $regex: matcher, $options: 'i' } },
+        { batchTag: { $regex: matcher, $options: 'i' } },
+        { description: { $regex: matcher, $options: 'i' } },
+      ];
     }
 
     const [groups, counts] = await Promise.all([
@@ -1061,7 +1077,7 @@ router.post('/student-groups', ...adminAuth, requirePermission('students_groups'
       }
     }
 
-    const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + Date.now();
+    const slug = buildSlugWithTimestamp(name, 'group');
     const adminUser = (req as unknown as Record<string, unknown>)['user'] as Record<string, unknown> | undefined;
     const group = await StudentGroup.create({
       name, slug, description, batchTag,
@@ -1590,12 +1606,13 @@ router.get('/student-groups/:id/members', ...adminAuth, requirePermission('stude
 
     let profileQuery: Record<string, unknown> = { user_id: { $in: studentIds } };
     if (q) {
+      const pattern = buildSearchPattern(q);
       profileQuery = {
         ...profileQuery,
         $or: [
-          { full_name: new RegExp(String(q), 'i') },
-          { email: new RegExp(String(q), 'i') },
-          { phone_number: new RegExp(String(q), 'i') },
+          { full_name: { $regex: pattern, $options: 'i' } },
+          { email: { $regex: pattern, $options: 'i' } },
+          { phone_number: { $regex: pattern, $options: 'i' } },
         ],
       };
     }
@@ -1817,11 +1834,12 @@ router.get('/subscriptions-v2', ...adminAuth, async (req: Request, res: Response
     if (status) query['status'] = status;
 
     if (q) {
+      const pattern = buildSearchPattern(q);
       const users = await User.find({
         $or: [
-          { full_name: new RegExp(q, 'i') },
-          { email: new RegExp(q, 'i') },
-          { phone_number: new RegExp(q, 'i') },
+          { full_name: { $regex: pattern, $options: 'i' } },
+          { email: { $regex: pattern, $options: 'i' } },
+          { phone_number: { $regex: pattern, $options: 'i' } },
         ],
       }).select('_id').lean();
       query['userId'] = { $in: users.map((u) => u._id) };
@@ -2251,7 +2269,7 @@ router.get('/audience-segments', ...adminAuth, async (req: Request, res: Respons
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const query: Record<string, unknown> = { type: 'dynamic' };
-    if (q) query['name'] = new RegExp(String(q), 'i');
+    if (q) query['name'] = { $regex: buildSearchPattern(q), $options: 'i' };
     const [segments, total] = await Promise.all([
       StudentGroup.find(query).sort({ createdAt: -1 }).skip((pageNum - 1) * limitNum).limit(limitNum).lean(),
       StudentGroup.countDocuments(query),
@@ -2271,7 +2289,7 @@ router.post('/audience-segments', ...adminAuth, async (req: Request, res: Respon
   try {
     const { name, description, rules } = req.body;
     if (!name) return res.status(400).json({ message: 'name is required' });
-    const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + Date.now();
+    const slug = buildSlugWithTimestamp(name, 'segment');
     const adminUser = (req as unknown as Record<string, unknown>)['user'] as Record<string, unknown> | undefined;
     const count = await resolveAudienceCount(rules);
     const segment = await StudentGroup.create({
@@ -2686,7 +2704,5 @@ async function resolveAudienceCount(rules?: Record<string, unknown>): Promise<nu
 }
 
 export default router;
-
-
 
 
