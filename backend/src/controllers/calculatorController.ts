@@ -45,6 +45,22 @@ export const updateSettings = async (req: Request, res: Response) => {
         if (isCGPAEnabled !== undefined) settings.isCGPAEnabled = isCGPAEnabled;
         if (isNUEnabled !== undefined) settings.isNUEnabled = isNUEnabled;
         if (maintenanceMode !== undefined) settings.maintenanceMode = maintenanceMode;
+
+        // Branding + SEO strings (trimmed, length capped — model also enforces)
+        const stringFields: [string, number][] = [
+            ['hubTitle', 120],
+            ['hubSubtitle', 400],
+            ['metaTitle', 200],
+            ['metaDescription', 500],
+            ['metaKeywords', 500],
+            ['ogImageUrl', 1000],
+        ];
+        for (const [field, maxLen] of stringFields) {
+            const value = req.body?.[field];
+            if (value !== undefined) {
+                (settings as unknown as Record<string, unknown>)[field] = String(value ?? '').trim().slice(0, maxLen);
+            }
+        }
         
         await settings.save();
         
@@ -68,8 +84,14 @@ export const trackUsage = async (req: Request, res: Response) => {
             return;
         }
         
-        // Get today's date in YYYY-MM-DD
-        const today = new Date().toISOString().split('T')[0];
+        // Today's date in YYYY-MM-DD using Bangladesh time (Asia/Dhaka), so
+        // daily usage buckets match the audience's calendar day.
+        const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Dhaka',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).format(new Date());
         
         // Upsert to increment the usage count for today
         await CalculatorAnalytics.findOneAndUpdate(
@@ -92,10 +114,11 @@ export const trackUsage = async (req: Request, res: Response) => {
 export const getAnalytics = async (req: Request, res: Response) => {
     try {
         const { days = 7 } = req.query;
+        const daysNum = Math.min(365, Math.max(1, Number(days) || 7));
         
         // Calculate the start date
         const startDate = new Date();
-        startDate.setDate(startDate.getDate() - Number(days));
+        startDate.setDate(startDate.getDate() - daysNum);
         const startDateString = startDate.toISOString().split('T')[0];
         
         const analytics = await CalculatorAnalytics.find({

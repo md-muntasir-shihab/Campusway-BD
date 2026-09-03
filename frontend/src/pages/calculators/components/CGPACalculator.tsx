@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, type ChangeEvent, type MouseEvent } from 'react';
 import { Course, Semester, calculateSGPA, calculateCGPA, getDegreeClass, gradeToPointUniversity, universityGradeLetters, GradeRow } from '../../../lib/calculators/cgpa';
 import { CalculatorService } from '../../../services/calculatorApi';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, Check, Copy, RotateCcw } from 'lucide-react';
 
 type UniType = 'public' | 'private';
 
@@ -9,6 +9,8 @@ interface CGPACalculatorProps {
     /** Admin-managed grading tables from the DB. When absent, hardcoded defaults are used. */
     publicTable?: GradeRow[];
     privateTable?: GradeRow[];
+    /** 'uni' = Public/Private university tabs. 'nu' = National University Honours (4.00 scale, no variant tabs). */
+    variant?: 'uni' | 'nu';
 }
 
 let idCounter = 0;
@@ -24,28 +26,30 @@ function createCourse(isPrivate: boolean, table?: GradeRow[]): Course {
     };
 }
 
-function createSemester(isPrivate: boolean, table?: GradeRow[]): Semester {
+function createSemester(isPrivate: boolean, table?: GradeRow[], index: number = 1): Semester {
     return {
         id: uid(),
-        name: `Semester ${Math.floor(Math.random() * 8) + 1}`,
+        name: `Semester ${index}`,
         courses: [createCourse(isPrivate, table)],
         sgpa: 0,
         totalCredits: 3,
     };
 }
 
-export default function CGPACalculator({ publicTable, privateTable }: CGPACalculatorProps) {
+export default function CGPACalculator({ publicTable, privateTable, variant = 'uni' }: CGPACalculatorProps) {
+    const isNU = variant === 'nu';
     const [uniType, setUniType] = useState<UniType>('public');
     const isPrivate = uniType === 'private';
     const activeTable = isPrivate ? privateTable : publicTable;
     const grades = useMemo(() => universityGradeLetters(isPrivate, activeTable), [isPrivate, activeTable]);
 
-    const [semesters, setSemesters] = useState<Semester[]>([createSemester(false, publicTable)]);
+    const [semesters, setSemesters] = useState<Semester[]>([createSemester(false, publicTable, 1)]);
     const [expandedSem, setExpandedSem] = useState<string>(semesters[0].id);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
-        CalculatorService.trackUsage('cgpa').catch(console.error);
-    }, []);
+        CalculatorService.trackUsage(isNU ? 'nu' : 'cgpa').catch(console.error);
+    }, [isNU]);
 
     const recalc = useCallback((updatedSems: Semester[]) => {
         return updatedSems.map(sem => {
@@ -66,7 +70,7 @@ export default function CGPACalculator({ publicTable, privateTable }: CGPACalcul
                             return { ...c, grade: value as string, gradePoint: gradeToPointUniversity(value as string, isPrivate, activeTable) };
                         }
                         if (field === 'credits') {
-                            return { ...c, credits: Math.max(1, Math.min(4, Number(value) || 0)) };
+                            return { ...c, credits: Math.max(0.5, Math.min(12, Number(value) || 0)) };
                         }
                         return { ...c, [field]: value };
                     });
@@ -77,6 +81,33 @@ export default function CGPACalculator({ publicTable, privateTable }: CGPACalcul
         },
         [isPrivate, activeTable, recalc]
     );
+
+    /** Switch university variant WITHOUT wiping user data: grade letters stay,
+     *  points are re-derived from the new variant's table. */
+    const switchUniType = useCallback((next: UniType, nextTable?: GradeRow[]) => {
+        setUniType(next);
+        const nextPrivate = next === 'private';
+        setSemesters(prev => recalc(prev.map(sem => ({
+            ...sem,
+            courses: sem.courses.map(c => ({ ...c, gradePoint: gradeToPointUniversity(c.grade, nextPrivate, nextTable) })),
+        }))));
+    }, [recalc]);
+
+    const resetAll = useCallback(() => {
+        const table = uniType === 'private' ? privateTable : publicTable;
+        const fresh = [createSemester(uniType === 'private', table, 1)];
+        setSemesters(fresh);
+        setExpandedSem(fresh[0].id);
+    }, [uniType, publicTable, privateTable]);
+
+    const copyResult = useCallback(() => {
+        const cgpa = calculateCGPA(semesters);
+        const text = 'CGPA: ' + cgpa.toFixed(2) + ' / 4.00 (' + getDegreeClass(cgpa).en + ') - Total Credits: ' + semesters.reduce((s, sem) => s + sem.totalCredits, 0) + ' across ' + semesters.length + ' semester' + (semesters.length > 1 ? 's' : '');
+        void navigator.clipboard?.writeText(text).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+        }).catch(() => undefined);
+    }, [semesters]);
 
     const addCourse = useCallback((semId: string) => {
         setSemesters(prev => recalc(prev.map(sem => sem.id === semId ? { ...sem, courses: [...sem.courses, createCourse(isPrivate, activeTable)] } : sem)));
@@ -91,10 +122,10 @@ export default function CGPACalculator({ publicTable, privateTable }: CGPACalcul
     }, [recalc]);
 
     const addSemester = useCallback(() => {
-        const newSem = createSemester(isPrivate, activeTable);
-        setSemesters(prev => recalc([...prev, newSem]));
+        const newSem = createSemester(isPrivate, activeTable, semesters.length + 1);
+        setSemesters(recalc([...semesters, newSem]));
         setExpandedSem(newSem.id);
-    }, [isPrivate, activeTable, recalc]);
+    }, [isPrivate, activeTable, recalc, semesters]);
 
     const removeSemester = useCallback((semId: string) => {
         setSemesters(prev => prev.length <= 1 ? prev : recalc(prev.filter(s => s.id !== semId)));
@@ -114,21 +145,34 @@ export default function CGPACalculator({ publicTable, privateTable }: CGPACalcul
 
     return (
         <div className="space-y-8 animate-slide-up">
-            {/* University Type Tabs */}
+            {/* Top action row: reset */}
+            <div className="flex justify-end">
+                <button
+                    onClick={resetAll}
+                    title="Clear everything and start over"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/70 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:border-rose-300 dark:hover:text-rose-400 transition-colors"
+                >
+                    <RotateCcw className="h-3.5 w-3.5" /> Reset
+                </button>
+            </div>
+
+            {/* University Type Tabs (hidden for the NU variant) */}
+            {!isNU && (
             <div className="flex gap-2 p-1.5 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md rounded-xl shadow-inner border border-slate-200/50 dark:border-slate-700/50">
                 <button
                     className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 ${!isPrivate ? 'bg-white dark:bg-slate-700 shadow-md text-primary ring-1 ring-primary/20 scale-[1.02]' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
-                    onClick={() => { setUniType('public'); setSemesters([createSemester(false)]); }}
+                    onClick={() => switchUniType('public', publicTable)}
                 >
                     Public University
                 </button>
                 <button
                     className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 ${isPrivate ? 'bg-white dark:bg-slate-700 shadow-md text-primary ring-1 ring-primary/20 scale-[1.02]' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
-                    onClick={() => { setUniType('private'); setSemesters([createSemester(true)]); }}
+                    onClick={() => switchUniType('private', privateTable)}
                 >
                     Private University
                 </button>
             </div>
+            )}
 
             {/* Premium CGPA Result Card */}
             <div className="relative group rounded-3xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50 bg-white dark:bg-slate-800/80 shadow-2xl transition-all duration-500 hover:shadow-primary/20 dark:hover:shadow-primary/10">
@@ -140,7 +184,7 @@ export default function CGPACalculator({ publicTable, privateTable }: CGPACalcul
                             <div className={`text-6xl font-black tracking-tight drop-shadow-sm transition-colors duration-500 ${getDegreeColorClass().split(' ')[0]}`}>
                                 {cgpa.toFixed(2)}
                             </div>
-                            <div className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold tracking-widest uppercase">CGPA / 4.00</div>
+                            <div className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold tracking-widest uppercase">{isNU ? 'NU CGPA / 4.00' : 'CGPA / 4.00'}</div>
                         </div>
                         <div className="text-center sm:text-right flex flex-col items-center sm:items-end gap-2">
                             <div className={`px-4 py-1.5 rounded-full border text-xs font-black uppercase tracking-wider shadow-sm transition-colors duration-500 ${getDegreeColorClass()}`}>
@@ -149,6 +193,14 @@ export default function CGPACalculator({ publicTable, privateTable }: CGPACalcul
                             <div className="text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-3 py-1 rounded-lg">
                                 <span className="text-primary dark:text-blue-400">{totalCredits}</span> Total Credits
                             </div>
+                            <button
+                                onClick={copyResult}
+                                title="Copy result summary"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/70 dark:border-slate-600/50 px-3 py-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-primary hover:border-primary/40 transition-colors"
+                            >
+                                {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                {copied ? 'Copied!' : 'Copy Result'}
+                            </button>
                         </div>
                     </div>
                     {/* Progress Bar */}
@@ -221,7 +273,7 @@ export default function CGPACalculator({ publicTable, privateTable }: CGPACalcul
                                             />
                                             <input
                                                 type="number"
-                                                min={1} max={4}
+                                                min={0.5} max={12} step={0.25}
                                                 value={course.credits}
                                                 onChange={(e: ChangeEvent<HTMLInputElement>) => updateCourse(sem.id, course.id, 'credits', e.target.value)}
                                                 placeholder="Cr"

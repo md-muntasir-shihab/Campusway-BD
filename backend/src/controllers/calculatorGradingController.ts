@@ -11,17 +11,23 @@ type TableKey = (typeof TABLE_KEYS)[number];
  */
 function isValidRow(row: Partial<IGradeRow>): row is IGradeRow {
     const { minMark, maxMark, grade, point } = row;
-    return (
-        typeof minMark === 'number' &&
-        typeof maxMark === 'number' &&
-        typeof grade === 'string' &&
-        grade.trim().length > 0 &&
-        typeof point === 'number' &&
-        minMark >= 0 &&
-        maxMark <= 100 &&
-        minMark < maxMark &&
-        point >= 0
-    );
+    if (
+        typeof minMark !== 'number' ||
+        typeof maxMark !== 'number' ||
+        typeof grade !== 'string' ||
+        grade.trim().length === 0 ||
+        typeof point !== 'number' ||
+        minMark < 0 ||
+        maxMark > 100 ||
+        point < 0
+    ) {
+        return false;
+    }
+    // A 0/0 row means "marks are not used" (grade -> point only, e.g. the
+    // O/A-Level conversion table) and is valid. Otherwise the range must be
+    // ordered: min < max.
+    const marksUnused = minMark === 0 && maxMark === 0;
+    return marksUnused || minMark < maxMark;
 }
 
 /**
@@ -32,7 +38,10 @@ function isValidRow(row: Partial<IGradeRow>): row is IGradeRow {
 function isValidTable(rows: unknown): rows is IGradeRow[] {
     if (!Array.isArray(rows) || rows.length === 0) return false;
     if (!rows.every(isValidRow)) return false;
-    const sorted = [...(rows as IGradeRow[])].sort((a, b) => a.minMark - b.minMark);
+    // Overlap check only applies to rows that actually use marks — 0/0
+    // "marks unused" rows (O/A-Level style) never overlap anything.
+    const markRows = (rows as IGradeRow[]).filter((r) => !(r.minMark === 0 && r.maxMark === 0));
+    const sorted = [...markRows].sort((a, b) => a.minMark - b.minMark);
     for (let i = 1; i < sorted.length; i++) {
         // Overlap check: this row must start strictly after the previous ends.
         if (sorted[i].minMark <= sorted[i - 1].maxMark) return false;

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CalculatorService, CalculatorSettings, GradingConfig } from '../../services/calculatorApi';
-import { Loader2, Calculator as CalcIcon, GraduationCap, School, BookOpen, RefreshCw, AlertTriangle, Wrench, ArrowLeft } from 'lucide-react';
+import { Loader2, Calculator as CalcIcon, GraduationCap, School, BookOpen, Landmark, RefreshCw, AlertTriangle, Wrench, ArrowLeft } from 'lucide-react';
+import { buildMediaUrl } from '../../utils/mediaUrl';
 import CGPACalculator from './components/CGPACalculator';
 import SSCHSCCalculator from './components/SSCHSCCalculator';
 import OLevelCalculator from './components/OLevelCalculator';
@@ -16,6 +17,22 @@ export default function CalculatorHub() {
     const [loadError, setLoadError] = useState(false);
 
     const activeTab = searchParams.get('tab') || 'cgpa';
+
+    /** Admin-editable branding with safe fallbacks. */
+    const hubTitle = settings?.hubTitle?.trim() || 'Academic Calculators';
+    const hubSubtitle = settings?.hubSubtitle?.trim()
+        || 'Calculate your GPA and CGPA instantly. Pick a calculator below — SSC, HSC, O/A Level, National University or University CGPA.';
+    const seoTitle = settings?.metaTitle?.trim() || 'GPA & CGPA Calculators — SSC, HSC, O/A Level, University';
+    const seoDescription = settings?.metaDescription?.trim()
+        || 'Free academic calculators for Bangladeshi students: SSC & HSC GPA (Bangladesh Board), O/A Level conversion, National University Honours CGPA and University semester CGPA.';
+
+    const TAB_DESCRIPTIONS: Record<string, string> = {
+        cgpa: 'Semester-wise university CGPA — Public and Private university grading variants on the 4.00 scale.',
+        ssc: 'Bangladesh Board SSC GPA with group-wise subjects and 4th-subject bonus.',
+        hsc: 'Bangladesh Board HSC GPA with group-wise subjects and 4th-subject bonus.',
+        olevel: 'O/A-Level conversion — best 5 O-Level and best 2 A-Level subjects, the way BD universities evaluate.',
+        nu: 'National University (NU) Honours CGPA on the 4.00 scale.',
+    };
 
     // Settings are required; grading is best-effort — calculators fall back to
     // hardcoded defaults when grading is missing, so a grading fetch failure
@@ -88,6 +105,7 @@ export default function CalculatorHub() {
         { id: 'ssc', label: 'SSC GPA', icon: School, enabled: settings.isSSCEnabled },
         { id: 'hsc', label: 'HSC GPA', icon: School, enabled: settings.isHSCEnabled },
         { id: 'olevel', label: 'O/A Level', icon: BookOpen, enabled: settings.isOLevelEnabled },
+        { id: 'nu', label: 'NU Honours', icon: Landmark, enabled: settings.isNUEnabled },
     ].filter(t => t.enabled);
 
     // If active tab is disabled, default to the first available one
@@ -103,7 +121,23 @@ export default function CalculatorHub() {
             <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-500/10 dark:bg-blue-600/20 rounded-full blur-[100px] pointer-events-none -z-10 animate-pulse" style={{ animationDuration: '4s' }} />
             <div className="absolute top-48 -left-24 w-80 h-80 bg-indigo-500/10 dark:bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none -z-10 animate-pulse" style={{ animationDuration: '6s', animationDelay: '1s' }} />
 
-            <SEO title="Academic Calculators" description="Calculate your SSC, HSC, O/A Level GPA and University CGPA accurately." />
+            <SEO
+                title={seoTitle}
+                description={seoDescription}
+                keywords={settings.metaKeywords?.trim() || undefined}
+                image={settings.ogImageUrl?.trim() ? buildMediaUrl(settings.ogImageUrl.trim()) : undefined}
+                url={`${window.location.origin}/calculators`}
+                schema={{
+                    '@context': 'https://schema.org',
+                    '@type': 'WebApplication',
+                    name: hubTitle,
+                    description: seoDescription,
+                    url: `${window.location.origin}/calculators`,
+                    applicationCategory: 'EducationalApplication',
+                    operatingSystem: 'Web',
+                    offers: { '@type': 'Offer', price: '0', priceCurrency: 'BDT' },
+                }}
+            />
             <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
                 {/* Back button — keeps the user oriented inside the public layout */}
                 <button
@@ -119,10 +153,10 @@ export default function CalculatorHub() {
                         <CalcIcon className="w-8 h-8 text-primary" />
                     </div>
                     <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-5xl bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
-                        Academic Calculators
+                        {hubTitle}
                     </h1>
                     <p className="mt-4 max-w-2xl mx-auto text-lg text-slate-500 dark:text-slate-400">
-                        Calculate your GPA and CGPA instantly. Select a calculator below.
+                        {hubSubtitle}
                     </p>
                 </div>
 
@@ -149,6 +183,10 @@ export default function CalculatorHub() {
                     })}
                 </div>
 
+                <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-6 -mt-4">
+                    {TAB_DESCRIPTIONS[activeTab]}
+                </p>
+
                 <div className="bg-white/70 dark:bg-[#131B2F]/80 backdrop-blur-xl rounded-2xl sm:rounded-[2rem] shadow-2xl shadow-slate-200/50 dark:shadow-black/40 p-4 sm:p-8 border border-slate-200/50 dark:border-slate-700/50 transition-all duration-500">
                     {/* key forces a re-mount + fade/slide animation on tab switch */}
                     <div key={activeTab} className="animate-slide-up">
@@ -156,6 +194,7 @@ export default function CalculatorHub() {
                         {activeTab === 'ssc' && <SSCHSCCalculator mode="ssc" table={grading?.bdBoardTable} />}
                         {activeTab === 'hsc' && <SSCHSCCalculator mode="hsc" table={grading?.bdBoardTable} />}
                         {activeTab === 'olevel' && <OLevelCalculator table={grading?.oaTable} />}
+                        {activeTab === 'nu' && <CGPACalculator variant="nu" publicTable={grading?.publicUniTable} privateTable={grading?.privateUniTable} />}
                     </div>
                 </div>
             </div>

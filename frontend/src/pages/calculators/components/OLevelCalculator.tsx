@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, type ChangeEvent } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
+import { Plus, Trash2, RotateCcw } from 'lucide-react';
 import { CalculatorService } from '../../../services/calculatorApi';
 import { calculateOLevel, calculateALevel, calculateCombinedOA, gradeToPointOA, oaGradeLetters, OLevelSubject, GradeRow } from '../../../lib/calculators/olevel';
 
@@ -13,18 +13,28 @@ const uid = () => `${Date.now()}-${idCounter++}`;
 
 export default function OLevelCalculator({ table }: OLevelCalculatorProps) {
     const gradeLetters = useMemo(() => oaGradeLetters(table), [table]);
-    const [oSubjects, setOSubjects] = useState<OLevelSubject[]>([
-        { id: uid(), name: 'Subject 1', grade: 'A', point: 5.0 },
-        { id: uid(), name: 'Subject 2', grade: 'A', point: 5.0 },
-        { id: uid(), name: 'Subject 3', grade: 'B', point: 4.0 },
-        { id: uid(), name: 'Subject 4', grade: 'B', point: 4.0 },
-        { id: uid(), name: 'Subject 5', grade: 'C', point: 3.0 },
-    ]);
 
-    const [aSubjects, setASubjects] = useState<OLevelSubject[]>([
-        { id: uid(), name: 'Subject 1', grade: 'A', point: 5.0 },
-        { id: uid(), name: 'Subject 2', grade: 'B', point: 4.0 },
-    ]);
+    /** Default starter lists — points come from the admin-managed table so the
+     *  dropdown values and points always agree. */
+    const makeOSubjects = useCallback(() => [
+        { id: uid(), name: 'Subject 1', grade: 'A', point: gradeToPointOA('A', table) },
+        { id: uid(), name: 'Subject 2', grade: 'A', point: gradeToPointOA('A', table) },
+        { id: uid(), name: 'Subject 3', grade: 'B', point: gradeToPointOA('B', table) },
+        { id: uid(), name: 'Subject 4', grade: 'B', point: gradeToPointOA('B', table) },
+        { id: uid(), name: 'Subject 5', grade: 'C', point: gradeToPointOA('C', table) },
+    ], [table]);
+    const makeASubjects = useCallback(() => [
+        { id: uid(), name: 'Subject 1', grade: 'A', point: gradeToPointOA('A', table) },
+        { id: uid(), name: 'Subject 2', grade: 'B', point: gradeToPointOA('B', table) },
+    ], [table]);
+
+    const [oSubjects, setOSubjects] = useState<OLevelSubject[]>(makeOSubjects);
+    const [aSubjects, setASubjects] = useState<OLevelSubject[]>(makeASubjects);
+
+    const resetAll = () => {
+        setOSubjects(makeOSubjects());
+        setASubjects(makeASubjects());
+    };
 
     useEffect(() => {
         CalculatorService.trackUsage('olevel').catch(console.error);
@@ -43,7 +53,7 @@ export default function OLevelCalculator({ table }: OLevelCalculatorProps) {
 
     const addSubject = (list: 'O' | 'A') => {
         const updater = list === 'O' ? setOSubjects : setASubjects;
-        updater(prev => [...prev, { id: uid(), name: `Subject ${prev.length + 1}`, grade: 'B', point: 4.0 }]);
+        updater(prev => [...prev, { id: uid(), name: `Subject ${prev.length + 1}`, grade: 'B', point: gradeToPointOA('B', table) }]);
     };
 
     const removeSubject = (list: 'O' | 'A', id: string) => {
@@ -128,6 +138,15 @@ export default function OLevelCalculator({ table }: OLevelCalculatorProps) {
 
     return (
         <div className="space-y-8 animate-slide-up">
+            <div className="flex justify-end">
+                <button
+                    onClick={resetAll}
+                    title="Reset to the default subject list"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/70 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:border-rose-300 dark:hover:text-rose-400 transition-colors"
+                >
+                    <RotateCcw className="h-3.5 w-3.5" /> Reset
+                </button>
+            </div>
             {/* Premium Combined GPA Card */}
             <div className="relative group rounded-3xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50 bg-white dark:bg-slate-800/80 shadow-2xl transition-all duration-500 hover:shadow-primary/20 dark:hover:shadow-primary/10">
                 <div className={`absolute -inset-1 bg-gradient-to-r from-primary to-indigo-500 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000`} />
