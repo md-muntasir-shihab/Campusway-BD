@@ -124,5 +124,13 @@ ExamSessionSchema.index({ exam: 1, student: 1 });
 ExamSessionSchema.index({ exam: 1, student: 1, isActive: 1 });
 ExamSessionSchema.index({ exam: 1, student: 1, isActive: 1, status: 1, attemptNo: -1 });
 ExamSessionSchema.index({ expiresAt: 1, isActive: 1 });
+// Fix B-4: prevent two concurrent startExam calls from creating two active
+// sessions for the same (exam, student, attemptNo). Unused attempt numbers
+// simply never get a document, so the index stays small. Backward compatible:
+// existing data may have at most one active session per attempt by design.
+ExamSessionSchema.index(
+    { exam: 1, student: 1, attemptNo: 1 },
+    { unique: true, name: 'exam_student_attempt_unique' },
+);
 
 export default mongoose.model<IExamSession>('ExamSession', ExamSessionSchema);

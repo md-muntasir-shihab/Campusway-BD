@@ -1731,22 +1731,49 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
             changeCount: 0
         }));
 
-        session = await ExamSession.create({
-            exam: examId,
-            student: studentId,
-            attemptNo,
-            attemptRevision: 0,
-            startedAt: now,
-            expiresAt,
-            ipAddress,
-            userAgent,
-            deviceInfo: detectDevice(userAgent),
-            browserInfo: detectBrowser(userAgent),
-            deviceFingerprint,
-            sessionLocked: false,
-            isActive: true,
-            answers: initialAnswers
-        });
+        try {
+            session = await ExamSession.create({
+                exam: examId,
+                student: studentId,
+                attemptNo,
+                attemptRevision: 0,
+                startedAt: now,
+                expiresAt,
+                ipAddress,
+                userAgent,
+                deviceInfo: detectDevice(userAgent),
+                browserInfo: detectBrowser(userAgent),
+                deviceFingerprint,
+                sessionLocked: false,
+                isActive: true,
+                answers: initialAnswers
+            });
+        } catch (createErr: any) {
+            // Fix B-4: a concurrent startExam may have already created the
+            // active session for this attempt (the unique {exam,student,attemptNo}
+            // index rejects our duplicate). Treat that as "resume the existing
+            // session" instead of failing the student.
+            if (!session && createErr?.code === 11000) {
+                const existing = await ExamSession.findOne({ exam: examId, student: studentId, attemptNo: attemptNo as number, isActive: true }).sort({ attemptNo: -1 });
+                if (existing) {
+                    session = existing as any;
+                    const assignedQuestionIds = (session as any).answers.map((a: any) => a.questionId);
+                    const questions = await getQuestionsByIdsAndFormat(assignedQuestionIds, exam);
+                    ResponseBuilder.send(res, 200, ResponseBuilder.success({
+                        session: mapExamSessionForClient(session, examId, studentId),
+                        exam: sanitizeExamForStudent(exam),
+                        questions,
+                        serverNow: new Date().toISOString(),
+                        serverOffsetMs: 0,
+                        resultPublishMode: getResultPublishMode(exam.toObject() as unknown as Record<string, unknown>),
+                        autosaveIntervalSec: Number((exam as any).autosave_interval_sec || 5),
+                    }));
+                    void broadcastExamMetricsUpdate(examId, 'resume_attempt');
+                    return;
+                }
+            }
+            throw createErr;
+        }
 
         // Audit: Start event
         await ExamEvent.create({
