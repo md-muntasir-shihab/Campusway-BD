@@ -22,6 +22,8 @@ import webhookRoutes from './routes/webhookRoutes';
 import { studentExamRoutes } from './routes/exams/studentExamRoutes';
 import { runDefaultSetup } from './setup/defaultSetup';
 import { startExamCronJobs } from './cron/examJobs';
+// NOTE: startModernExamCronJobs drives the legacy "modern" exam engine and is
+// intentionally NOT started by default (see startup block below + audit A-1).
 import { startModernExamCronJobs } from './cron/modernExamJobs';
 import { startStudentDashboardCronJobs } from './cron/dashboardJobs';
 import { startFinanceRecurringCronJobs } from './cron/financeRecurringJobs';
@@ -578,7 +580,15 @@ async function start() {
 
         // Start background cron jobs (e.g. auto-submitting expired exams)
         startExamCronJobs();
-        startModernExamCronJobs();
+        // NOTE: startModernExamCronJobs() is intentionally NOT started by default.
+        // It drives the legacy "modern" exam engine which uses a different schema
+        // than the active engine and performs an unindexed full-collection scan
+        // every minute (audit finding A-1). Re-enable only via the
+        // `legacyExamEngineCronEnabled` runtime feature flag once the legacy
+        // engine has been reconciled.
+        if (String(process.env.ENABLE_LEGACY_EXAM_CRON).toLowerCase() === 'true') {
+            startModernExamCronJobs();
+        }
         startStudentDashboardCronJobs();
         startNewsV2CronJobs();
         startNotificationJobCron();
