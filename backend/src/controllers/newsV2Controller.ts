@@ -17,6 +17,8 @@ import Notification from '../models/Notification';
 import StudentProfile from '../models/StudentProfile';
 import { AuthRequest } from '../middleware/auth';
 import { sanitizeRichHtml } from '../utils/questionBank';
+import { applyNewsFormatCommands, applyNewsFormatCommandsDetailed } from '../utils/newsFormatCommands';
+import { cacheService } from '../services/cacheService';
 import { broadcastHomeStreamEvent } from '../realtime/homeStream';
 import { broadcastStudentDashboardEvent } from '../realtime/studentDashboardStream';
 import { executeCampaign } from '../services/notificationOrchestrationService';
@@ -60,6 +62,8 @@ interface NewsV2SettingsConfig {
         maxItemsPerFetch: number;
         duplicateThreshold: number;
         autoCreateAs: 'pending_review' | 'draft';
+        /** System-wide fallback article format commands (see utils/newsFormatCommands.ts). */
+        defaultFormatCommand: string;
     };
     ai: {
         enabled: boolean;
@@ -201,7 +205,7 @@ const DEFAULT_NEWS_V2_SETTINGS: NewsV2SettingsConfig = {
     defaultSourceIconUrl: '',
     fetchFullArticleEnabled: true,
     fullArticleFetchMode: 'both',
-    rss: { enabled: true, defaultFetchIntervalMin: 30, maxItemsPerFetch: 20, duplicateThreshold: 0.86, autoCreateAs: 'pending_review' },
+    rss: { enabled: true, defaultFetchIntervalMin: 30, maxItemsPerFetch: 20, duplicateThreshold: 0.86, autoCreateAs: 'pending_review', defaultFormatCommand: '' },
     ai: {
         enabled: true,
         fallbackMode: 'manual_only',
@@ -444,6 +448,10 @@ function normalizeSettingsCompatibility(settings: NewsV2SettingsConfig): NewsV2S
     normalized.fetchFullArticleEnabled = normalized.fetchFullArticleEnabled !== false;
     if (!['rss_content', 'readability_scrape', 'both'].includes(String(normalized.fullArticleFetchMode || ''))) {
         normalized.fullArticleFetchMode = 'both';
+    }
+    normalized.rss = normalized.rss || structuredClone(DEFAULT_NEWS_V2_SETTINGS.rss);
+    if (typeof normalized.rss.defaultFormatCommand !== 'string') {
+        normalized.rss.defaultFormatCommand = '';
     }
 
     normalized.shareTemplates = normalized.shareTemplates || {
@@ -1592,11 +1600,24 @@ async function resolveFullArticleContent(params: {
     }
 
     const rssEnough = stripHtmlToText(rssContent).length >= 140;
-    if (rssEnough) {
+    // An RSS <description> is usually just a teaser. Only treat it as the full
+    // article when it is long enough to plausibly be one; otherwise always
+    // scrape the original page and keep whichever version is longer.
+    const FULL_ARTICLE_TEXT_THRESHOLD = 1200;
+    const rssTextLength = stripHtmlToText(rssContent).length;
+    if (rssTextLength >= FULL_ARTICLE_TEXT_THRESHOLD) {
         return { fullContent: rssContent, fetchedFullText: true, fetchedFullTextAt: new Date(), extractionMode: 'rss_content' };
     }
-    if (readableEnough) {
+    if (readableEnough && readableText.length >= rssTextLength) {
         return { fullContent: readableContent, fetchedFullText: true, fetchedFullTextAt: new Date(), extractionMode: 'readability_scrape' };
+    }
+    if (readableEnough) {
+        // Scrape succeeded but is shorter than the RSS payload (e.g. paywalled
+        // page) — prefer the richer of the two, which is RSS here.
+        return { fullContent: rssContent, fetchedFullText: true, fetchedFullTextAt: new Date(), extractionMode: 'rss_content' };
+    }
+    if (rssEnough) {
+        return { fullContent: rssContent, fetchedFullText: true, fetchedFullTextAt: new Date(), extractionMode: 'rss_content' };
     }
     return { fullContent: fallback, fetchedFullText: false, extractionMode: 'excerpt' };
 }
@@ -1673,16 +1694,22 @@ async function ingestFromSources(sourceIds: string[], trigger: 'manual' | 'sched
                 });
                 lastExtractionMode = fullContentResolution.extractionMode;
                 const baseContent = sanitizeRichHtml(fullContentResolution.fullContent || baseContentRaw || baseSummary);
+                // Custom per-source (or system default) format commands let admins
+                // auto-arrange/clean the extracted article at ingestion time.
+                const formatCommand = String(source.formatCommand || settings.rss.defaultFormatCommand || '').trim();
+                const finalContent = formatCommand
+                    ? applyNewsFormatCommands(baseContent || baseSummary, formatCommand, canonicalLink)
+                    : (baseContent || baseSummary);
                 const category = source.categoryDefault || source.categoryTags?.[0] || 'General';
                 const initialStatus: NewsStatus = isDuplicate ? 'duplicate_review' : 'pending_review';
                 const rssImage = extractRssImage(item as unknown as Record<string, unknown>);
                 const newsData: Record<string, unknown> = {
                     title,
                     slug: buildUniqueSlug(title),
-                    shortSummary: baseSummary || baseContent.replace(/<[^>]*>/g, '').slice(0, 220),
-                    shortDescription: baseSummary || baseContent.replace(/<[^>]*>/g, '').slice(0, 220),
-                    fullContent: baseContent || baseSummary,
-                    content: baseContent || baseSummary,
+                    shortSummary: baseSummary || finalContent.replace(/<[^>]*>/g, '').slice(0, 220),
+                    shortDescription: baseSummary || finalContent.replace(/<[^>]*>/g, '').slice(0, 220),
+                    fullContent: finalContent || baseSummary,
+                    content: finalContent || baseSummary,
                     featuredImage: rssImage || '',
                     coverImage: rssImage || '',
                     coverImageUrl: rssImage || '',
@@ -1945,6 +1972,10 @@ export async function runScheduledNewsPublish(): Promise<number> {
         { _id: { $in: docs.map((item) => item._id) } },
         { $set: { status: 'published', isPublished: true, publishedAt: now, publishDate: now, scheduleAt: null, scheduledAt: null } }
     );
+    // Cron runs outside Express, so the invalidateNewsCache route middleware
+    // never fires — purge the public news/home caches explicitly so scheduled
+    // articles actually appear for visitors.
+    await cacheService.invalidateNewsAndHomeCaches().catch(() => undefined);
     broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'scheduled_publish', count: docs.length } });
     return docs.length;
 }
@@ -1960,6 +1991,114 @@ export async function purgeExpiredTrashNews(): Promise<number> {
     await News.deleteMany({ _id: { $in: expired.map((item) => item._id) } });
     broadcastHomeStreamEvent({ type: 'news-updated', meta: { action: 'trash_purged', count: expired.length } });
     return expired.length;
+}
+
+/**
+ * POST /news/format-preview — dry-run custom format commands against an article.
+ * Body: { html?: string, url?: string, command: string }
+ * Prefers `url` (fetches + Readability-extracts like real ingestion) when given.
+ */
+export async function adminNewsV2FormatPreview(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const command = String(req.body?.command || '').trim();
+        const url = String(req.body?.url || '').trim();
+        let html = String(req.body?.html || '').trim();
+
+        if (!html && url) {
+            const settings = await getOrCreateNewsSettings();
+            const resolution = await resolveFullArticleContent({
+                settings,
+                rssRawContent: '',
+                rssRawDescription: '',
+                originalArticleUrl: url,
+            });
+            html = resolution.fullContent;
+        }
+        if (!html) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Provide `url` or `html` to preview'));
+            return;
+        }
+
+        const result = applyNewsFormatCommandsDetailed(html, command, url || undefined);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            before: html,
+            after: result.html,
+            applied: result.applied,
+            ignored: result.ignored,
+        }));
+    } catch (err) {
+        console.error('adminNewsV2FormatPreview error:', err);
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
+    }
+}
+
+/**
+ * POST /news/:id/refetch-full — re-extract the full article body from the
+ * original source URL and re-apply format commands. Useful for items ingested
+ * before full-article fetching was enabled/fixed.
+ */
+export async function adminNewsV2RefetchFullArticle(req: AuthRequest, res: Response): Promise<void> {
+    try {
+        const item = await News.findById(req.params.id).lean();
+        if (!item) { ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'News item not found')); return; }
+        const articleUrl = String(item.originalArticleUrl || item.originalLink || '').trim();
+        if (!articleUrl) {
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Item has no original article URL'));
+            return;
+        }
+
+        const settings = await getOrCreateNewsSettings();
+        const resolution = await resolveFullArticleContent({
+            settings,
+            rssRawContent: String(item.rssRawContent || ''),
+            rssRawDescription: String(item.rssRawDescription || item.shortSummary || ''),
+            originalArticleUrl: articleUrl,
+        });
+
+        let source: Record<string, unknown> | null = null;
+        if (item.sourceId) {
+            source = await NewsSource.findById(item.sourceId).lean() as unknown as Record<string, unknown> | null;
+        }
+        const formatCommand = String(
+            (source?.formatCommand as string) || settings.rss.defaultFormatCommand || '',
+        ).trim();
+        const content = formatCommand
+            ? applyNewsFormatCommands(resolution.fullContent, formatCommand, articleUrl)
+            : resolution.fullContent;
+
+        const updated = await News.findByIdAndUpdate(
+            req.params.id,
+            {
+                $set: {
+                    fullContent: content,
+                    content,
+                    fetchedFullText: resolution.fetchedFullText,
+                    fetchedFullTextAt: resolution.fetchedFullTextAt || new Date(),
+                },
+            },
+            { new: true },
+        ).lean();
+
+        await writeNewsAuditEvent(req, {
+            action: 'news.refetch_full',
+            entityType: 'workflow',
+            entityId: String(req.params.id),
+            before: { fetchedFullText: Boolean(item.fetchedFullText) },
+            after: { fetchedFullText: resolution.fetchedFullText, extractionMode: resolution.extractionMode },
+            meta: { extractionMode: resolution.extractionMode, formatApplied: formatCommand.length > 0 },
+        });
+
+        const fallbackBanner = resolveDefaultNewsBanner(settings);
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            item: updated ? buildNewsOutput(updated as unknown as Record<string, unknown>, fallbackBanner) : null,
+            extractionMode: resolution.extractionMode,
+            fetchedFullText: resolution.fetchedFullText,
+            message: resolution.fetchedFullText ? 'Full article re-fetched' : 'Could not extract full text — kept existing content',
+        }));
+    } catch (err) {
+        console.error('adminNewsV2RefetchFullArticle error:', err);
+        ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
+    }
 }
 
 export async function adminNewsV2Dashboard(_req: AuthRequest, res: Response): Promise<void> {
@@ -3117,20 +3256,21 @@ export async function adminNewsV2ConvertToEditable(req: AuthRequest, res: Respon
 }
 
 export async function adminNewsV2Approve(req: AuthRequest, res: Response): Promise<void> {
+    // Approve is a moderation step, NOT a publish: the item moves to the
+    // non-public 'approved' queue and can be published (or scheduled) after.
     await workflowUpdate(
         req,
         res,
-        'published',
+        'approved',
         {
-            isPublished: true,
-            publishedAt: new Date(),
-            publishDate: new Date(),
+            isPublished: false,
             scheduleAt: null,
             scheduledAt: null,
             approvedByAdminId: req.user?._id,
             reviewMeta: { reviewerId: req.user?._id, reviewedAt: new Date(), rejectReason: '' },
         },
-        'news.approve_publish'
+        'news.approve',
+        'Approved — ready to publish'
     );
 }
 
@@ -4529,12 +4669,14 @@ export async function getPublicNewsV2List(req: Request, res: Response): Promise<
             });
         }
         if (source) {
-            andFilters.push({
-                $or: [
-                    { sourceId: source },
-                    { sourceName: { $regex: source, $options: 'i' } },
-                ],
-            });
+            const sourceFilter: Record<string, unknown>[] = [
+                { sourceName: { $regex: source, $options: 'i' } },
+            ];
+            // sourceId is an ObjectId — a non-id value (e.g. a source name) would cast-error.
+            if (mongoose.isValidObjectId(source)) {
+                sourceFilter.unshift({ sourceId: source });
+            }
+            andFilters.push({ $or: sourceFilter });
         }
         if (tag) andFilters.push({ tags: tag });
         if (q) {
@@ -4732,7 +4874,27 @@ export async function getPublicNewsV2Sources(_req: Request, res: Response): Prom
                 priority: source.priority ?? source.order ?? 0,
             };
         });
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: normalizedSources }));
+        // Merge duplicate-named sources (e.g. the same outlet registered twice)
+        // so the public sidebar never shows the same source twice.
+        const mergedByName = new Map<string, { _id: string; name: string; rssUrl?: string; siteUrl: string; iconUrl: string; count: number; categoryTags: string[]; priority: number }>();
+        for (const item of normalizedSources) {
+            const dedupeKey = String(item.name || '').trim().toLowerCase();
+            if (!dedupeKey) {
+                mergedByName.set(`__id_${item._id}`, item);
+                continue;
+            }
+            const existing = mergedByName.get(dedupeKey);
+            if (!existing) {
+                mergedByName.set(dedupeKey, { ...item });
+                continue;
+            }
+            existing.count += item.count;
+            if (!existing.iconUrl && item.iconUrl) existing.iconUrl = item.iconUrl;
+            if (item.priority < existing.priority) existing.priority = item.priority;
+            if (item.count > 0 && !existing._id) existing._id = item._id;
+        }
+        const dedupedSources = Array.from(mergedByName.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({ items: dedupedSources }));
     } catch (error) {
         console.error('getPublicNewsV2Sources error:', error);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));

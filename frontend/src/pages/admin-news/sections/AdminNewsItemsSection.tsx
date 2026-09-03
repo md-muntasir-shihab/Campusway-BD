@@ -9,6 +9,7 @@ import { getStudentGroups } from '../../../api/adminStudentApi';
 import { listProviders, listTemplates, type NotificationProvider, type NotificationTemplate } from '../../../api/adminNotificationCampaignApi';
 import {
     ApiNews,
+    adminNewsV2Approve,
     adminNewsV2ApprovePublish,
     adminNewsV2Archive,
     adminNewsV2BulkApprove,
@@ -26,6 +27,7 @@ import {
     adminNewsV2Reject,
     adminNewsV2Schedule,
     adminNewsV2AiCheckItem,
+    adminNewsV2RefetchFullArticle,
     adminNewsV2SubmitReview,
     adminNewsV2UpdateItem,
     adminNewsV2GetSources,
@@ -98,6 +100,7 @@ const EMPTY_ARTICLE: Partial<ApiNews> = {
 
 const LIST_STATUS_OPTIONS: Array<{ status: ApiNews['status'] | 'all'; label: string }> = [
     { status: 'pending_review', label: 'Items to Review' },
+    { status: 'approved', label: 'Approved (ready to publish)' },
     { status: 'duplicate_review', label: 'Possible Duplicates' },
     { status: 'draft', label: 'Saved Drafts' },
     { status: 'published', label: 'Published News' },
@@ -246,7 +249,8 @@ export default function AdminNewsItemsSection({
             guardianTargeted?: boolean;
             recipientMode?: 'student' | 'guardian' | 'both';
         }) => {
-            if (payload.type === 'approve' && payload.id) return (await adminNewsV2ApprovePublish(payload.id)).data;
+            if (payload.type === 'approve' && payload.id) return (await adminNewsV2Approve(payload.id)).data;
+            if (payload.type === 'approve-publish' && payload.id) return (await adminNewsV2ApprovePublish(payload.id)).data;
             if (payload.type === 'reject' && payload.id) return (await adminNewsV2Reject(payload.id, payload.reason || '')).data;
             if (payload.type === 'publish' && payload.id) return (await adminNewsV2PublishNow(payload.id)).data;
             if (payload.type === 'publish-send' && payload.id) {
@@ -292,6 +296,9 @@ export default function AdminNewsItemsSection({
                     applyToDraft: payload.applyToDraft !== false,
                     checkOnly: payload.checkOnly === true,
                 })).data;
+            }
+            if (payload.type === 'refetch-full' && payload.id) {
+                return (await adminNewsV2RefetchFullArticle(payload.id)).data;
             }
             if (payload.type === 'submit-review' && payload.id) return (await adminNewsV2SubmitReview(payload.id)).data;
             if (payload.type === 'schedule' && payload.id && payload.scheduleAt) return (await adminNewsV2Schedule(payload.id, payload.scheduleAt)).data;
@@ -566,7 +573,7 @@ export default function AdminNewsItemsSection({
         }
 
         if (actionDialog.mode === 'approve') {
-            actionMutation.mutate({ type: 'approve', id: actionDialog.item._id });
+            actionMutation.mutate({ type: 'approve-publish', id: actionDialog.item._id });
             closeActionDialog();
             return;
         }
@@ -757,6 +764,8 @@ export default function AdminNewsItemsSection({
         ];
         const secondaryActions: Array<ReturnType<typeof renderActionButton>> = [];
 
+        const isApprovedQueue = item.status === 'approved';
+
         if (isPendingQueue) {
             primaryActions.push(
                 renderActionButton(
@@ -771,6 +780,11 @@ export default function AdminNewsItemsSection({
                 ),
             );
             secondaryActions.push(
+                renderActionButton(
+                    'Approve only',
+                    'rounded-xl border border-teal-600/60 px-3 py-1.5 text-xs font-medium text-teal-200 transition hover:bg-teal-500/10',
+                    () => actionMutation.mutate({ type: 'approve', id: item._id }),
+                ),
                 renderActionButton(
                     'Reject',
                     'rounded-xl border border-rose-600/60 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10',
@@ -800,6 +814,32 @@ export default function AdminNewsItemsSection({
                     'Keep Draft',
                     'rounded-xl border border-indigo-600/60 px-3 py-1.5 text-xs font-medium text-indigo-200 transition hover:bg-indigo-500/10',
                     () => actionMutation.mutate({ type: 'move-draft', id: item._id }),
+                ),
+            );
+        } else if (isApprovedQueue) {
+            // Reviewed and cleared — still not public until Published/Scheduled.
+            primaryActions.push(
+                renderActionButton(
+                    'Publish',
+                    'rounded-xl border border-cyan-600/60 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/10',
+                    () => openActionDialog('publish', item),
+                ),
+                renderActionButton(
+                    'Schedule',
+                    'rounded-xl border border-amber-600/60 px-3 py-1.5 text-xs font-medium text-amber-200 transition hover:bg-amber-500/10',
+                    () => openActionDialog('schedule', item),
+                ),
+            );
+            secondaryActions.push(
+                renderActionButton(
+                    'Move to Draft',
+                    'rounded-xl border border-indigo-600/60 px-3 py-1.5 text-xs font-medium text-indigo-200 transition hover:bg-indigo-500/10',
+                    () => actionMutation.mutate({ type: 'move-draft', id: item._id }),
+                ),
+                renderActionButton(
+                    'Reject',
+                    'rounded-xl border border-rose-600/60 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10',
+                    () => openActionDialog('reject', item),
                 ),
             );
         } else if (item.status === 'draft') {
@@ -848,6 +888,16 @@ export default function AdminNewsItemsSection({
                     'AI Check',
                     'rounded-xl border border-fuchsia-600/60 px-3 py-1.5 text-xs font-medium text-fuchsia-200 transition hover:bg-fuchsia-500/10',
                     () => actionMutation.mutate({ type: 'ai-check', id: item._id, applyToDraft: true }),
+                ),
+            );
+        }
+
+        if (item.sourceType === 'rss' && (item.originalArticleUrl || item.originalLink)) {
+            secondaryActions.push(
+                renderActionButton(
+                    'Re-fetch Full Article',
+                    'rounded-xl border border-emerald-600/60 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/10',
+                    () => actionMutation.mutate({ type: 'refetch-full', id: item._id }),
                 ),
             );
         }
@@ -998,7 +1048,7 @@ export default function AdminNewsItemsSection({
 
                     {selectedCount > 0 && allowBulkModeration ? (
                         <div className="flex flex-wrap gap-2">
-                            <button className="btn-outline" onClick={() => actionMutation.mutate({ type: 'bulk-approve', ids: selected })}>Bulk Approve</button>
+                            <button className="btn-outline" onClick={() => actionMutation.mutate({ type: 'bulk-approve', ids: selected })}>Bulk Approve & Publish</button>
                             <button className="btn-outline" onClick={() => actionMutation.mutate({ type: 'bulk-reject', ids: selected, reason: 'Bulk rejected from queue' })}>Bulk Reject</button>
                         </div>
                     ) : null}
@@ -1225,6 +1275,7 @@ export default function AdminNewsItemsSection({
                                     {/* Status Badge */}
                                     <div className="absolute right-3 top-3 z-10 flex flex-col gap-2">
                                         <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider shadow-sm backdrop-blur-md ${item.status === 'published' ? 'bg-emerald-500/90 text-white' :
+                                            item.status === 'approved' ? 'bg-teal-500/90 text-white' :
                                             item.status === 'rejected' ? 'bg-rose-500/90 text-white' :
                                                 item.status === 'draft' ? 'bg-slate-800/90 text-white dark:bg-slate-200/90 dark:text-slate-900' :
                                                     'bg-amber-500/90 text-white'
@@ -1892,6 +1943,7 @@ function dialogFooterNote(mode: DialogMode): string {
 }
 
 function statusToListPath(status: ApiNews['status'] | 'all'): string {
+    if (status === 'approved') return '/__cw_admin__/news/approved';
     if (status === 'published') return '/__cw_admin__/news/published';
     if (status === 'scheduled') return '/__cw_admin__/news/scheduled';
     if (status === 'rejected') return '/__cw_admin__/news/rejected';
