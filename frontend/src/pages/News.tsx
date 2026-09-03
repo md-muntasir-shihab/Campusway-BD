@@ -174,7 +174,10 @@ export default function NewsPage() {
     const pageTitle = settings.pageTitle || settings.newsPageTitle || DEFAULT_SETTINGS.pageTitle;
     const pageSubtitle = settings.pageSubtitle || settings.newsPageSubtitle || DEFAULT_SETTINGS.pageSubtitle;
     const shareButtons = settings.shareButtons || DEFAULT_SETTINGS.shareButtons;
-    const items = listQuery.data?.items || [];
+    // useMemo keeps the empty-array reference stable while loading/errored —
+    // a fresh `[]` here fed an effect below ([items, ...]) and caused an
+    // infinite setState render loop ("Maximum update depth exceeded").
+    const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data]);
     const pages = Math.max(1, listQuery.data?.pages || 1);
     const paginationMode = settings.appearance.paginationMode || 'pages';
     const layoutMode = settings.appearance.layoutMode || 'rss_reader';

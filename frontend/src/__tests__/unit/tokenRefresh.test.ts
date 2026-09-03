@@ -116,7 +116,8 @@ describe('Token Refresh Flow', () => {
             expect(mockAxiosPost).toHaveBeenCalledTimes(1);
             expect(mockAxiosPost).toHaveBeenCalledWith(
                 expect.stringContaining('/auth/refresh'),
-                {},
+                // api.ts posts the in-memory refresh token alongside the request
+                expect.objectContaining({ refreshToken: expect.any(String) }),
                 expect.objectContaining({
                     headers: expect.objectContaining({
                         'X-CSRF-Token': 'csrf-token-from-test',

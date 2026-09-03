@@ -346,13 +346,15 @@ export default function WrittenGradingInterface() {
         setError(null);
         try {
             const data = await fetchPendingResults(examId);
-            setResults(data);
+            // Guard against non-array payloads (e.g. unexpected API envelopes)
+            const list: PendingResult[] = Array.isArray(data) ? data : [];
+            setResults(list);
 
             // Initialize grade inputs from existing writtenGrades or defaults
             const initial: Record<string, Record<string, GradeInput>> = {};
-            for (const r of data) {
+            for (const r of list) {
                 const map: Record<string, GradeInput> = {};
-                const writtenAnswers = r.answers.filter((a) => a.questionType === 'written');
+                const writtenAnswers = (r.answers ?? []).filter((a) => a.questionType === 'written');
                 for (const ans of writtenAnswers) {
                     const existing = r.writtenGrades?.find((g) => g.questionId === ans.question);
                     map[ans.question] = {
@@ -468,7 +470,7 @@ export default function WrittenGradingInterface() {
         let graded = 0;
         let total = 0;
         for (const r of results) {
-            const written = r.answers.filter((a) => a.questionType === 'written');
+            const written = (r.answers ?? []).filter((a) => a.questionType === 'written');
             total += written.length;
             const grades = gradeState[r._id];
             if (grades) {

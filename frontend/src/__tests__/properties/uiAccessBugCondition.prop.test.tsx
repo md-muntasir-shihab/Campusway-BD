@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor, cleanup } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -87,7 +87,7 @@ vi.mock('lucide-react', () => {
         Zap: i('Zap'), HelpCircle: i('HelpCircle'), CheckCircle: i('CheckCircle'),
         ChevronLeft: i('ChevronLeft'), ChevronRight: i('ChevronRight'), AlertTriangle: i('AlertTriangle'),
         CalendarDays: i('CalendarDays'), Clock3: i('Clock3'), Lock: i('Lock'), RefreshCw: i('RefreshCw'),
-        Loader2: i('Loader2'), ExternalLink: i('ExternalLink')
+        Loader2: i('Loader2'), ExternalLink: i('ExternalLink'), Globe2: i('Globe2')
     };
 });
 
@@ -125,28 +125,27 @@ describe('Bug Condition Exploration — UI Inaccessible When Backend Unreachable
     // never resolves, isLoading stays true forever. This test uses the REAL
     // AuthProvider to confirm the defect.
     it('auth bootstrap resolves isLoading to false within 12s when refreshAccessToken never resolves', async () => {
-        vi.useFakeTimers({ shouldAdvanceTime: true });
-        try {
-            const real = await vi.importActual<typeof import('../../hooks/useAuth')>('../../hooks/useAuth');
-            vi.mocked(shouldAttemptAuthBootstrap).mockReturnValue(true);
-            vi.mocked(refreshAccessToken).mockReturnValue(new Promise(() => { }));
+        const real = await vi.importActual<typeof import('../../hooks/useAuth')>('../../hooks/useAuth');
+        vi.mocked(shouldAttemptAuthBootstrap).mockReturnValue(true);
+        vi.mocked(refreshAccessToken).mockReturnValue(new Promise(() => { }));
 
-            function Probe() { const a = real.useAuth(); return <div data-testid="al">{String(a.isLoading)}</div>; }
+        function Probe() { const a = real.useAuth(); return <div data-testid="al">{String(a.isLoading)}</div>; }
 
-            render(
-                <QueryClientProvider client={newQC()}>
-                    <MemoryRouter><real.AuthProvider><Probe /></real.AuthProvider></MemoryRouter>
-                </QueryClientProvider>,
-            );
-            expect(screen.getByTestId('al').textContent).toBe('true');
-            await act(async () => { vi.advanceTimersByTime(12_000); });
-            // UNFIXED: still 'true' → FAIL confirms no bootstrap deadline
+        render(
+            <QueryClientProvider client={newQC()}>
+                <MemoryRouter><real.AuthProvider><Probe /></real.AuthProvider></MemoryRouter>
+            </QueryClientProvider>,
+        );
+        expect(screen.getByTestId('al').textContent).toBe('true');
+        // NOTE: real timers are used here on purpose. Combining vi.useFakeTimers()
+        // with advancing the clock while the real AuthProvider is mounted wedges
+        // the vitest worker (results never reach the reporter and the process
+        // never exits — it hung CI for 6h). The AuthProvider's bootstrap deadline
+        // is 6s of real time, so we simply poll for it.
+        await waitFor(() => {
             expect(screen.getByTestId('al').textContent).toBe('false');
-        } finally {
-            cleanup();
-            vi.useRealTimers();
-        }
-    });
+        }, { timeout: 12_000, interval: 250 });
+    }, 20_000);
 
     // Test 2 — Navbar Login Button During Loading
     // **Validates: Requirements 1.2, 1.5**
@@ -193,7 +192,17 @@ describe('Bug Condition Exploration — UI Inaccessible When Backend Unreachable
             <QueryClientProvider client={newQC()}>
                 <MemoryRouter initialEntries={['/exams']}>
                     <LocSpy cb={(p) => { path = p; }} />
-                    <ProtectedRoute returnTo={true}><div data-testid="exams">Exams</div></ProtectedRoute>
+                    <Routes>
+                        <Route
+                            path="/exams"
+                            element={
+                                <ProtectedRoute returnTo={true}>
+                                    <div data-testid="exams">Exams</div>
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route path="/login" element={<div data-testid="login">Login</div>} />
+                    </Routes>
                 </MemoryRouter>
             </QueryClientProvider>,
         );

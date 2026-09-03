@@ -2,6 +2,40 @@ import { z } from 'zod';
 
 const optionalDateString = z.string().nullable().optional();
 
+// Exam centers accept either compact strings ("Dhaka - BUET Campus") or
+// { city, address } objects; the controller's normalizeExamCenters() does the
+// real normalization, so keep the schema permissive here.
+const examCenterInput = z.union([z.string(), z.record(z.string(), z.unknown())]);
+
+const clusterDateOverridesInput = z
+    .object({
+        applicationStartDate: optionalDateString,
+        applicationEndDate: optionalDateString,
+        scienceExamDate: z.string().optional(),
+        artsExamDate: z.string().optional(),
+        businessExamDate: z.string().optional(),
+    })
+    .partial()
+    .nullable()
+    .optional();
+
+// Fields shared by create/update that the admin university form sends and the
+// controller persists. Every field listed here MUST be declared — validateBody
+// replaces req.body with the parsed output, and Zod strips undeclared keys,
+// so a missing declaration means the field is silently dropped and the public
+// details page never sees the update (this is how `description` got lost).
+const sharedMutableFields = {
+    description: z.string().optional(),
+    establishedYear: z.coerce.number().nullable().optional(),
+    isActive: z.boolean().optional(),
+    featuredOrder: z.coerce.number().optional(),
+    examCenters: z.array(examCenterInput).optional(),
+    clusterDateOverrides: clusterDateOverridesInput,
+    categorySyncLocked: z.boolean().optional(),
+    clusterSyncLocked: z.boolean().optional(),
+    unitLayout: z.enum(['compact', 'stacked', 'carousel']).optional(),
+};
+
 export const createUniversitySchema = z.object({
     name: z.string().trim().min(1, 'University name is required'),
     shortForm: z.string().trim().optional().default(''),
@@ -36,6 +70,7 @@ export const createUniversitySchema = z.object({
     featured: z.boolean().optional().default(false),
     isHistorical: z.boolean().optional().default(false),
     endedAt: optionalDateString,
+    ...sharedMutableFields,
 }).refine(
     (data) => {
         const startStr = data.applicationStartDate || data.applicationStart;
@@ -89,6 +124,7 @@ export const updateUniversitySchema = z.object({
     featured: z.boolean().optional(),
     isHistorical: z.boolean().optional(),
     endedAt: optionalDateString,
+    ...sharedMutableFields,
 }).refine(
     (data) => {
         const startStr = data.applicationStartDate || data.applicationStart;
