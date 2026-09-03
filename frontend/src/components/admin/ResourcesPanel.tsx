@@ -19,7 +19,7 @@ import {
     FileText,
     Settings,
 } from 'lucide-react';
-import { adminGetResources, adminCreateResource, adminUpdateResource, adminDeleteResource, adminToggleResourcePublish, adminToggleResourceFeatured } from '../../services/api';
+import { adminGetResources, adminCreateResource, adminUpdateResource, adminDeleteResource, adminToggleResourcePublish, adminToggleResourceFeatured, adminGetResourceSettings } from '../../services/api';
 import AdminFileUploadField from './AdminFileUploadField';
 import AdminImageUploadField from './AdminImageUploadField';
 import { buildYouTubeEmbedUrl } from '../../utils/youtube';
@@ -105,6 +105,8 @@ export default function ResourcesPanel() {
     const [resources, setResources] = useState<ResourceRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'public' | 'private' | 'featured'>('all');
+    const [categoryOptions, setCategoryOptions] = useState<string[]>(CATEGORIES);
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState<ResourceRecord | null>(null);
     const [form, setForm] = useState<ResourceFormState>(createInitialForm());
@@ -112,8 +114,23 @@ export default function ResourcesPanel() {
     const fetch = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await adminGetResources({});
+            // Fetch a large page — the panel filters/searches client-side and
+            // previously defaulted to only the first 20 records.
+            const [response, settingsRes] = await Promise.all([
+                adminGetResources({ limit: 200, sortBy: 'updatedAt' }),
+                adminGetResourceSettings().catch(() => null),
+            ]);
             setResources((response.data.resources || []) as ResourceRecord[]);
+            const allowed = settingsRes?.data?.settings?.allowedCategories as string[] | undefined;
+            if (Array.isArray(allowed) && allowed.length > 0) {
+                const merged = new Set<string>(allowed.map((item) => String(item).trim()).filter(Boolean));
+                (response.data.resources || []).forEach((item: ResourceRecord) => {
+                    const cat = String(item.category || '').trim();
+                    if (cat) merged.add(cat);
+                });
+                if (!merged.has('Other')) merged.add('Other');
+                setCategoryOptions(Array.from(merged));
+            }
         } catch {
             toast.error('Failed to load resources');
         } finally {
@@ -250,9 +267,15 @@ export default function ResourcesPanel() {
     };
 
     const filtered = useMemo(() => {
+        const statusMatched = resources.filter((resource) => {
+            if (statusFilter === 'public') return resource.isPublic;
+            if (statusFilter === 'private') return !resource.isPublic;
+            if (statusFilter === 'featured') return resource.isFeatured;
+            return true;
+        });
         const needle = search.trim().toLowerCase();
-        if (!needle) return resources;
-        return resources.filter((resource) => {
+        if (!needle) return statusMatched;
+        return statusMatched.filter((resource) => {
             const tags = Array.isArray(resource.tags) ? resource.tags.join(' ') : '';
             return [resource.title, resource.category, resource.description, resource.type, tags]
                 .filter(Boolean)
@@ -260,7 +283,7 @@ export default function ResourcesPanel() {
                 .toLowerCase()
                 .includes(needle);
         });
-    }, [resources, search]);
+    }, [resources, search, statusFilter]);
 
     const youtubeEmbedUrl = useMemo(
         () => (form.type === 'video' ? buildYouTubeEmbedUrl(form.externalUrl) : null),
@@ -286,6 +309,17 @@ export default function ResourcesPanel() {
                             className="w-full sm:w-64 bg-slate-900/65 border border-indigo-500/10 rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none"
                         />
                     </div>
+                    <select
+                        value={statusFilter}
+                        onChange={(event) => setStatusFilter(event.target.value as 'all' | 'public' | 'private' | 'featured')}
+                        className="bg-slate-900/65 border border-indigo-500/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500/30"
+                        aria-label="Filter by status"
+                    >
+                        <option value="all">All ({resources.length})</option>
+                        <option value="public">Public ({resources.filter((r) => r.isPublic).length})</option>
+                        <option value="private">Private ({resources.filter((r) => !r.isPublic).length})</option>
+                        <option value="featured">Featured ({resources.filter((r) => r.isFeatured).length})</option>
+                    </select>
                     <button
                         onClick={openCreate}
                         className="bg-gradient-to-r from-indigo-600 to-cyan-600 text-white text-sm px-4 py-2 rounded-xl flex items-center gap-2 hover:opacity-90 shadow-lg shadow-indigo-500/20 shrink-0"
@@ -371,7 +405,7 @@ export default function ResourcesPanel() {
                                 className="w-full bg-slate-950/65 border border-indigo-500/10 rounded-xl px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all"
                             >
                                 <option value="">Select Category</option>
-                                {CATEGORIES.map((category) => (
+                                {categoryOptions.map((category) => (
                                     <option key={category} value={category}>{category}</option>
                                 ))}
                             </select>

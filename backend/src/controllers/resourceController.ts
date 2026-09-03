@@ -68,6 +68,10 @@ type PublicResourceSettingsResponse = {
     openLinksInNewTab: boolean;
     featuredSectionTitle: string;
     emptyStateMessage: string;
+    metaTitle: string;
+    metaDescription: string;
+    metaKeywords: string;
+    ogImageUrl: string;
 };
 
 function sanitizeResourceSettings(raw?: Partial<IResourceSettings> | null): PublicResourceSettingsResponse {
@@ -108,6 +112,10 @@ function sanitizeResourceSettings(raw?: Partial<IResourceSettings> | null): Publ
         openLinksInNewTab: raw?.openLinksInNewTab !== false,
         featuredSectionTitle: String(raw?.featuredSectionTitle || RESOURCE_SETTINGS_DEFAULTS.featuredSectionTitle).trim() || RESOURCE_SETTINGS_DEFAULTS.featuredSectionTitle,
         emptyStateMessage: String(raw?.emptyStateMessage || RESOURCE_SETTINGS_DEFAULTS.emptyStateMessage).trim() || RESOURCE_SETTINGS_DEFAULTS.emptyStateMessage,
+        metaTitle: String(raw?.metaTitle ?? '').trim(),
+        metaDescription: String(raw?.metaDescription ?? '').trim(),
+        metaKeywords: String(raw?.metaKeywords ?? '').trim(),
+        ogImageUrl: String(raw?.ogImageUrl ?? '').trim(),
     };
 }
 
@@ -138,6 +146,9 @@ export async function getPublicResources(req: Request, res: Response): Promise<v
 
         if (type && !isAllToken(type)) andFilters.push({ type });
         if (category && !isAllToken(category)) andFilters.push({ category });
+        if (['true', '1', 'yes'].includes(String(req.query.featured || '').trim().toLowerCase())) {
+            andFilters.push({ isFeatured: true });
+        }
 
         const queryText = String(q || '').trim();
         if (queryText) {
@@ -157,21 +168,44 @@ export async function getPublicResources(req: Request, res: Response): Promise<v
         const sortObj: Record<string, 1 | -1> =
             sort === 'downloads' ? { downloads: -1 } :
                 sort === 'views' ? { views: -1 } :
-                    { publishDate: -1 };
+                    sort === 'title' ? { title: 1 } :
+                        { publishDate: -1 };
 
-        const pageNum = parseInt(page as string, 10) || 1;
+        const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
         const limitNum = Math.min(parseInt(limit as string, 10) || 50, 100);
 
-        const [resources, total] = await Promise.all([
+        const [resources, total, categories, statsRows] = await Promise.all([
             Resource.find(filter)
                 .sort(sortObj)
                 .skip((pageNum - 1) * limitNum)
                 .limit(limitNum)
                 .lean(),
             Resource.countDocuments(filter),
+            Resource.distinct('category', andFilters[1] ? { isPublic: true, $and: [andFilters[1]] } : { isPublic: true }),
+            Resource.aggregate([
+                { $match: andFilters[1] ? { isPublic: true, $and: [andFilters[1]] } : { isPublic: true } },
+                { $group: { _id: '$_id', type: { $first: '$type' }, isFeatured: { $first: '$isFeatured' } } },
+                { $group: { _id: { type: '$type', featured: '$isFeatured' }, count: { $sum: 1 } } },
+            ]),
         ]);
 
-        ResponseBuilder.send(res, 200, ResponseBuilder.success({ resources: resources.map((item) => withPublicSlug(item as Record<string, any>)), total, page: pageNum, pages: Math.ceil(total / limitNum) }));
+        const stats = { total: 0, pdfs: 0, videos: 0, featured: 0 };
+        statsRows.forEach((row: { _id: { type?: string; featured?: boolean }; count: number }) => {
+            const count = Number(row?.count || 0);
+            stats.total += count;
+            if (row?._id?.featured) stats.featured += count;
+            if (row?._id?.type === 'pdf') stats.pdfs += count;
+            if (row?._id?.type === 'video') stats.videos += count;
+        });
+
+        ResponseBuilder.send(res, 200, ResponseBuilder.success({
+            resources: resources.map((item) => withPublicSlug(item as Record<string, any>)),
+            total,
+            page: pageNum,
+            pages: Math.max(1, Math.ceil(total / limitNum)),
+            categories: categories.map((item: unknown) => String(item || '').trim()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b)),
+            stats,
+        }));
     } catch (err) {
         console.error('getPublicResources error:', err);
         ResponseBuilder.send(res, 500, ResponseBuilder.error('SERVER_ERROR', 'Server error'));
@@ -183,6 +217,10 @@ export async function incrementResourceView(req: Request, res: Response): Promis
         const settings = await loadSanitizedResourceSettings();
         if (!settings.trackingEnabled) {
             ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, trackingEnabled: false }));
+            return;
+        }
+        if (!mongoose.Types.ObjectId.isValid(String(req.params.id || ''))) {
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: false }));
             return;
         }
         await Resource.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
@@ -197,6 +235,10 @@ export async function incrementResourceDownload(req: Request, res: Response): Pr
         const settings = await loadSanitizedResourceSettings();
         if (!settings.trackingEnabled) {
             ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: true, trackingEnabled: false }));
+            return;
+        }
+        if (!mongoose.Types.ObjectId.isValid(String(req.params.id || ''))) {
+            ResponseBuilder.send(res, 200, ResponseBuilder.success({ ok: false }));
             return;
         }
         await Resource.findByIdAndUpdate(req.params.id, { $inc: { downloads: 1 } });
@@ -243,7 +285,8 @@ export async function getPublicResourceBySlug(req: Request, res: Response): Prom
             })
             .catch(() => undefined);
 
-        // Fetch up to 4 related resources from same category
+        // Fetch up to 4 related resources from same category,
+        // backfilled with same-type items when the category is thin.
         const relatedResources = await Resource.find({
             _id: { $ne: resource._id },
             category: resource.category,
@@ -252,6 +295,18 @@ export async function getPublicResourceBySlug(req: Request, res: Response): Prom
             .sort({ publishDate: -1 })
             .limit(4)
             .lean();
+
+        if (relatedResources.length < 4) {
+            const fallbackRows = await Resource.find({
+                _id: { $nin: [resource._id, ...relatedResources.map((item) => item._id)] },
+                type: resource.type,
+                ...activeFilter,
+            })
+                .sort({ publishDate: -1 })
+                .limit(4 - relatedResources.length)
+                .lean();
+            relatedResources.push(...fallbackRows);
+        }
 
         ResponseBuilder.send(res, 200, ResponseBuilder.success({ resource: withPublicSlug(resource as Record<string, any>), relatedResources: relatedResources.map((item) => withPublicSlug(item as Record<string, any>)) }));
     } catch (err) {

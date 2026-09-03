@@ -1096,6 +1096,10 @@ export interface HomeUniversityCardConfig {
     showEmail: boolean;
     showApplicationProgress: boolean;
     showExamDates: boolean;
+    /** Optional extras honored by UniversityCard (default true when omitted). */
+    showClusterBadge?: boolean;
+    showProgressBar?: boolean;
+    showCategoryBadge?: boolean;
     defaultSort: UniversityCardSort;
 }
 
@@ -3327,6 +3331,11 @@ export interface PublicResourceSettings {
     openLinksInNewTab: boolean;
     featuredSectionTitle: string;
     emptyStateMessage: string;
+    /** SEO (admin-controlled; empty = site-wide fallbacks) */
+    metaTitle: string;
+    metaDescription: string;
+    metaKeywords: string;
+    ogImageUrl: string;
 }
 
 export interface AdminResourceSettings extends PublicResourceSettings {
@@ -5097,6 +5106,8 @@ export interface ApiNewsV2Source {
     consecutiveFailureCount?: number;
     lastFetchStatus?: string;
     healthState?: 'healthy' | 'warning' | 'failed' | 'inactive' | 'invalid_config';
+    /** Custom article format commands applied at ingestion (see admin docs). */
+    formatCommand?: string;
     inactiveSource?: boolean;
     placeholderSource?: boolean;
     sourceWarnings?: string[];
@@ -5163,6 +5174,8 @@ export interface ApiNewsV2Settings {
         maxItemsPerFetch: number;
         duplicateThreshold: number;
         autoCreateAs: 'pending_review' | 'draft';
+        /** Fallback format commands for sources without their own. */
+        defaultFormatCommand?: string;
     };
     ai: {
         enabled: boolean;
@@ -5281,6 +5294,12 @@ export const adminNewsV2GetDashboard = () =>
     }>(`/${ADMIN_PATH}/news/dashboard`);
 export const adminNewsV2FetchNow = (sourceIds: string[] = []) =>
     api.post<{ message: string; stats: { fetchedCount: number; createdCount: number; duplicateCount: number; failedCount: number; errors: Array<{ sourceId?: string; message: string }> } }>(`/${ADMIN_PATH}/news/fetch-now`, { sourceIds });
+/** Dry-run custom article format commands against a URL or raw HTML. */
+export const adminNewsV2FormatPreview = (data: { url?: string; html?: string; command: string }) =>
+    api.post<{ before: string; after: string; applied: string[]; ignored: Array<{ command: string; reason: string }> }>(`/${ADMIN_PATH}/news/format-preview`, data);
+/** Re-extract the full article body from the original source URL. */
+export const adminNewsV2RefetchFullArticle = (id: string) =>
+    api.post<{ item: ApiNews; extractionMode: string; fetchedFullText: boolean; message: string }>(`/${ADMIN_PATH}/news/${id}/refetch-full`);
 export const adminNewsV2GetItems = (params: Record<string, string | number | boolean> = {}) =>
     api.get<{ items: ApiNews[]; total: number; page: number; pages: number }>(`/${ADMIN_PATH}/news`, { params });
 export const adminNewsV2GetItemById = (id: string) =>
@@ -5623,6 +5642,14 @@ export const adminUpdateResourceSettings = (data: Partial<AdminResourceSettings>
     api.put<{ settings: AdminResourceSettings; message: string }>(`/${ADMIN_PATH}/resource-settings`, data);
 export const getResourceBySlug = (slug: string) =>
     api.get(`/resources/${encodeURIComponent(slug)}`);
+
+/** Fire-and-forget view counter (server ignores when tracking is disabled). */
+export const trackResourceView = (id: string) =>
+    api.post(`/resources/${encodeURIComponent(id)}/view`).catch(() => undefined);
+
+/** Fire-and-forget download/action counter (server ignores when tracking is disabled). */
+export const trackResourceDownload = (id: string) =>
+    api.post(`/resources/${encodeURIComponent(id)}/download`).catch(() => undefined);
 
 /* â”€â”€ Admin â€” Contact Messages â”€â”€ */
 export const adminGetContactMessages = (params: Record<string, string | number> = {}) =>

@@ -444,12 +444,21 @@ export async function adminBulkImportServices(req: Request, res: Response): Prom
 
 export async function adminGetResources(req: Request, res: Response): Promise<void> {
     try {
-        const { page = '1', limit = '20', type, category } = req.query;
-        const pageNum = parseInt(page as string, 10);
-        const limitNum = parseInt(limit as string, 10);
+        const { page = '1', limit = '20', type, category, q, status } = req.query;
+        const pageNum = parseInt(page as string, 10) || 1;
+        const limitNum = Math.min(500, parseInt(limit as string, 10) || 20);
         const filter: Record<string, unknown> = {};
         if (type) filter.type = type;
         if (category) filter.category = category;
+        if (status === 'public') filter.isPublic = true;
+        else if (status === 'private') filter.isPublic = false;
+        else if (status === 'featured') filter.isFeatured = true;
+        const queryText = String(q || '').trim();
+        if (queryText) {
+            const safe = queryText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(safe, 'i');
+            filter.$or = [{ title: regex }, { description: regex }, { category: regex }, { tags: regex }];
+        }
         const total = await Resource.countDocuments(filter);
         const resources = await Resource.find(filter)
             .sort({ order: 1, createdAt: -1 })
@@ -579,6 +588,10 @@ export async function adminUpdateResourceSettings(req: Request, res: Response): 
             'openLinksInNewTab',
             'featuredSectionTitle',
             'emptyStateMessage',
+            'metaTitle',
+            'metaDescription',
+            'metaKeywords',
+            'ogImageUrl',
         ]);
         const safeUpdate: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(input)) {

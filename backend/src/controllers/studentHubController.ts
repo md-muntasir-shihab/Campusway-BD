@@ -741,14 +741,24 @@ export async function getStudentMeResources(req: AuthRequest, res: Response): Pr
         const category = String(req.query.category || '').trim();
         const q = String(req.query.q || '').trim();
         const subscriptionSnapshot = await getCanonicalSubscriptionSnapshot(studentId);
-        const filter: Record<string, unknown> = {};
+        const now = new Date();
+        const filter: Record<string, unknown> = {
+            $or: [
+                { expiryDate: { $exists: false } },
+                { expiryDate: null },
+                { expiryDate: { $gt: now } },
+            ],
+        };
         if (subscriptionSnapshot.allowsPremiumResources !== true) {
             filter.isPublic = true;
         }
         if (category && category.toLowerCase() !== 'all') filter.category = category;
         if (q) {
-            const regex = new RegExp(q, 'i');
-            filter.$or = [{ title: regex }, { description: regex }, { category: regex }];
+            // Escape user input — a raw RegExp on untrusted text crashes on
+            // characters like '(' and enables ReDoS patterns.
+            const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(safe, 'i');
+            filter.$or = [{ title: regex }, { description: regex }, { category: regex }, { tags: regex }];
         }
 
         const rows = await Resource.find(filter)
