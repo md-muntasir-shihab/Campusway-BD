@@ -29,6 +29,10 @@ export interface RuntimeFeatureFlags {
     /** Disabled by default: routes/exams/adminExamRoutes.ts is dead code that
      *  reads from the wrong collection (results vs student_results). See audit D-2. */
     legacyExamAdminRoutesEnabled: boolean;
+    /** Disabled by default: MongoDB transactions only work on a replica set /
+     *  Atlas. On standalone mongod, startTransaction() throws. The
+     *  withOptionalTransaction helper reads this flag (audit step 2). */
+    dbTransactionsEnabled: boolean;
 }
 
 export interface RuntimeSettingsSnapshot {
@@ -66,7 +70,8 @@ const DEFAULT_FEATURE_FLAGS: RuntimeFeatureFlags = {
     requireDeleteKeywordConfirm: true,
     legacyExamEngineCronEnabled: false,
     legacyExamAdminRoutesEnabled: false,
-};
+    dbTransactionsEnabled: false,
+}
 
 function asBoolean(value: unknown, fallback: boolean): boolean {
     return typeof value === 'boolean' ? value : fallback;
@@ -112,6 +117,10 @@ function normalizeFeatureFlags(
         legacyExamAdminRoutesEnabled: asBoolean(
             raw.legacyExamAdminRoutesEnabled,
             DEFAULT_FEATURE_FLAGS.legacyExamAdminRoutesEnabled,
+        ),
+        dbTransactionsEnabled: asBoolean(
+            raw.dbTransactionsEnabled,
+            DEFAULT_FEATURE_FLAGS.dbTransactionsEnabled,
         ),
     };
 }
