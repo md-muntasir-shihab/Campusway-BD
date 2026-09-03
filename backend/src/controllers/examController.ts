@@ -33,6 +33,7 @@ import {
     getExternalExamAttemptCountsForStudent,
 } from '../services/externalExamAttemptService';
 import { ResponseBuilder } from '../utils/responseBuilder';
+import { safeTokenEqual } from '../utils/tokenCompare';
 import { getStudentGroupIds } from '../services/groupMembershipService';
 
 /** Verify user subscription — returns true if user has ANY subscription plan (active or demo) */
@@ -1639,7 +1640,7 @@ export async function startExam(req: AuthRequest, res: Response): Promise<void> 
         // Check attempt limit
         const attemptCount = eligibility.attemptsUsed;
         if (attemptCount >= exam.attemptLimit) {
-            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', 'Maximum attempt limit (${exam.attemptLimit}) reached.'));
+            ResponseBuilder.send(res, 400, ResponseBuilder.error('VALIDATION_ERROR', `Maximum attempt limit (${exam.attemptLimit}) reached.`));
             return;
         }
         const attemptNo = attemptCount + 1;
@@ -1886,18 +1887,31 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
             session.cheat_flags = [...(session.cheat_flags || []), ...normalizeCheatFlags(cheat_flags)];
         }
 
-        session.lastSavedAt = now;
-        session.autoSaves += 1;
+        // Guard against lost updates (fix A-6): a concurrent autosave could
+        // have already advanced `attemptRevision` since we loaded this session.
+        // We persist with a single atomic findOneAndUpdate that only succeeds
+        // when the revision still matches what this client loaded.
+        const expectedRevForCas = expectedRevision !== null
+            ? expectedRevision
+            : Number((session as any).attemptRevision || 0);
+
+        const setPatch: Record<string, unknown> = {
+            lastSavedAt: now,
+            autoSaves: (Number((session as any).autoSaves) || 0) + 1,
+            cheat_flags: (session as any).cheat_flags || [],
+        };
         if (currentQuestionId !== undefined) {
-            session.currentQuestionId = String(currentQuestionId || '');
+            setPatch.currentQuestionId = String(currentQuestionId || '');
         }
-        session.attemptRevision = Number((session as any).attemptRevision || 0) + 1;
         if (tabSwitchCount !== undefined) {
-            session.tabSwitchCount = tabSwitchCount;
-            session.tabSwitchEvents.push({ timestamp: now, count: tabSwitchCount });
+            setPatch.tabSwitchCount = tabSwitchCount;
+            setPatch.tabSwitchEvents = [
+                ...((session as any).tabSwitchEvents || []),
+                { timestamp: now, count: tabSwitchCount },
+            ];
             if (tabSwitchCount > tabLimit) {
-                session.cheat_flags = [
-                    ...(session.cheat_flags || []),
+                setPatch.cheat_flags = [
+                    ...((session as any).cheat_flags || []),
                     { reason: `tab_switch_excess:${tabSwitchCount}`, timestamp: now },
                 ];
             }
@@ -1908,42 +1922,69 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
             (Array.isArray(req.headers['x-forwarded-for']) ? req.headers['x-forwarded-for'][0] : req.headers['x-forwarded-for'])?.split(',')[0] || req.socket.remoteAddress || ''
         );
         if (session.deviceFingerprint && session.deviceFingerprint !== currentFingerprint) {
-            session.sessionLocked = true;
-            session.lockReason = 'device_mismatch';
-            session.cheat_flags = [
-                ...(session.cheat_flags || []),
-                { reason: 'device_mismatch', timestamp: new Date() },
-            ];
-            await session.save();
+            const locked = await ExamSession.findOneAndUpdate(
+                { _id: session._id, attemptRevision: expectedRevForCas },
+                {
+                    $set: {
+                        sessionLocked: true,
+                        lockReason: 'device_mismatch',
+                        cheat_flags: [
+                            ...((session as any).cheat_flags || []),
+                            { reason: 'device_mismatch', timestamp: new Date() },
+                        ],
+                    },
+                    $inc: { attemptRevision: 1 },
+                },
+                { new: true },
+            );
             broadcastExamAttemptEvent(String(session._id), 'attempt-locked', {
-                reason: session.lockReason,
+                reason: 'device_mismatch',
                 source: 'autosave',
             });
             broadcastAdminLiveEvent('attempt-locked', {
                 attemptId: String(session._id),
                 examId: String(session.exam || examId),
                 studentId: String(session.student || studentId),
-                reason: session.lockReason,
+                reason: 'device_mismatch',
                 source: 'autosave',
             });
             void broadcastExamMetricsUpdate(String(session.exam || examId), 'autosave_locked');
             ResponseBuilder.send(res, 423, ResponseBuilder.error('LOCKED', 'Device mismatch detected. Session locked.'));
             return;
         }
-        await session.save();
+
+        const savedDoc = await ExamSession.findOneAndUpdate(
+            { _id: session._id, attemptRevision: expectedRevForCas },
+            {
+                $set: setPatch,
+                $inc: { attemptRevision: 1 },
+            },
+            { new: true },
+        );
+
+        if (!savedDoc) {
+            // Another autosave/submit advanced the revision concurrently. Return
+            // 409 so the client refreshes and retries — no silent lost update.
+            ResponseBuilder.send(res, 409, ResponseBuilder.error('STALE_STATE', 'Attempt state is stale. Please refresh exam state.', {
+                latestRevision: Number((session as any).attemptRevision || 0),
+            }));
+            return;
+        }
+        const savedRevision = Number((savedDoc as any).attemptRevision || 0);
+        const savedAt = (savedDoc as any).lastSavedAt || now;
 
         broadcastExamAttemptEvent(String(session._id), 'revision-update', {
-            revision: Number((session as any).attemptRevision || 0),
-            savedAt: session.lastSavedAt,
+            revision: savedRevision,
+            savedAt,
         });
         broadcastAdminLiveEvent('autosave', {
             attemptId: String(session._id),
             examId: String(session.exam || examId),
             studentId: String(session.student || studentId),
-            savedAt: session.lastSavedAt,
-            attemptRevision: Number((session as any).attemptRevision || 0),
+            savedAt,
+            attemptRevision: savedRevision,
             currentQuestionId: String((session as any).currentQuestionId || ''),
-            tabSwitchCount: Number(session.tabSwitchCount || 0),
+            tabSwitchCount: Number(tabSwitchCount ?? ((session as any).tabSwitchCount || 0)),
             violationsCount: Number((session as any).violationsCount || 0),
         });
 
@@ -1960,8 +2001,8 @@ export async function autosaveExam(req: AuthRequest, res: Response): Promise<voi
 
         ResponseBuilder.send(res, 200, ResponseBuilder.success({
             saved: true,
-            savedAt: session.lastSavedAt,
-            attemptRevision: Number((session as any).attemptRevision || 0),
+            savedAt,
+            attemptRevision: savedRevision,
         }));
         void broadcastExamMetricsUpdate(String(session.exam || examId), 'autosave');
     } catch (err) {
@@ -3082,21 +3123,39 @@ export async function getExamCertificate(req: AuthRequest, res: Response): Promi
                 exists = await ExamCertificate.findOne({ certificateId }).lean();
             }
 
-            certificate = await ExamCertificate.create({
-                certificateId,
-                verifyToken: crypto.randomBytes(16).toString('hex'),
-                examId: exam._id,
-                studentId,
-                attemptNo,
-                resultId: result._id,
-                issuedAt: new Date(),
-                status: 'active',
-                meta: {
-                    percentage: result.percentage,
-                    obtainedMarks: result.obtainedMarks,
-                    totalMarks: result.totalMarks,
-                },
-            });
+            try {
+                certificate = await ExamCertificate.create({
+                    certificateId,
+                    verifyToken: crypto.randomBytes(16).toString('hex'),
+                    examId: exam._id,
+                    studentId,
+                    attemptNo,
+                    resultId: result._id,
+                    issuedAt: new Date(),
+                    status: 'active',
+                    meta: {
+                        percentage: result.percentage,
+                        obtainedMarks: result.obtainedMarks,
+                        totalMarks: result.totalMarks,
+                    },
+                });
+            } catch (createErr: any) {
+                // Fix B-2: a concurrent request may have created the certificate
+                // between our findOne (above) and this create, violating the
+                // unique {examId, studentId, attemptNo} index. Treat that as a
+                // successful issue (idempotent) instead of returning 500.
+                if (createErr?.code === 11000) {
+                    certificate = await ExamCertificate.findOne({
+                        examId: exam._id,
+                        studentId,
+                        attemptNo,
+                        status: 'active',
+                    });
+                }
+                if (!certificate) {
+                    throw createErr;
+                }
+            }
         }
 
         const verifyToken = encodeURIComponent(certificate.verifyToken);
@@ -3158,8 +3217,12 @@ export async function verifyExamCertificate(req: AuthRequest, res: Response): Pr
             ResponseBuilder.send(res, 404, ResponseBuilder.error('NOT_FOUND', 'Certificate not found.'));
             return;
         }
-        if (token && token !== String(certificate.verifyToken || '')) {
-            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Invalid certificate token.'));
+        // Fix B-3: the previous check skipped token validation entirely when no
+        // token was supplied, leaking PII (student name/email/score) to anyone
+        // who knew the certificateId. We now ALWAYS verify: an absent or
+        // mismatched token is rejected. Comparison is constant-time.
+        if (!safeTokenEqual(token, String(certificate.verifyToken || ''))) {
+            ResponseBuilder.send(res, 401, ResponseBuilder.error('AUTHENTICATION_ERROR', 'Invalid or missing certificate token.'));
             return;
         }
 
