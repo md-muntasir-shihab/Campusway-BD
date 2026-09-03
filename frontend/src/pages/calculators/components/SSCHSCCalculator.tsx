@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, type ChangeEvent } from 'react';
 import { CalculatorService } from '../../../services/calculatorApi';
 import { calculateSSCHSCGPA, SSC_SUBJECTS, HSC_SUBJECTS, GradeRow } from '../../../lib/calculators/ssc-hsc';
+import { RotateCcw, Copy, Check, Star } from 'lucide-react';
 
 interface SSCHSCCalculatorProps {
     mode: 'ssc' | 'hsc';
@@ -12,6 +13,28 @@ export default function SSCHSCCalculator({ mode, table }: SSCHSCCalculatorProps)
     const [group, setGroup] = useState<string>('Science');
     const [marks, setMarks] = useState<Record<string, number>>({});
     const [optionalSubjectName, setOptionalSubjectName] = useState<string>('');
+    const [copied, setCopied] = useState(false);
+
+    /** Marks live in 0-100 — anything outside the range is clamped so a typo
+     *  like 150 can never inflate the GPA. */
+    const setSubjectMark = (name: string, rawValue: string) => {
+        setMarks(m => ({ ...m, [name]: Math.max(0, Math.min(100, Number(rawValue) || 0)) }));
+    };
+
+    const resetAll = () => {
+        setMarks({});
+        setOptionalSubjectName('');
+    };
+
+    const copyResult = () => {
+        const parts = [mode.toUpperCase() + ' GPA: ' + result.gpa.toFixed(2) + ' / 5.00', 'Grade: ' + result.letterGrade];
+        if (result.isGoldenAPlus) parts.push('Golden A+');
+        parts.push('Subjects passed: ' + (result.subjects.length - result.failedSubjects.length) + '/' + result.subjects.length);
+        void navigator.clipboard?.writeText(parts.join(' | ')).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+        }).catch(() => undefined);
+    };
 
     useEffect(() => {
         CalculatorService.trackUsage(mode).catch(console.error);
@@ -46,8 +69,17 @@ export default function SSCHSCCalculator({ mode, table }: SSCHSCCalculatorProps)
         <div className="space-y-8 animate-slide-up">
             {/* Group Selector */}
             <div className="group relative p-5 bg-white/50 dark:bg-slate-800/40 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm transition-all duration-300 hover:shadow-lg">
+                <div className="mb-3 flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Group</label>
+                    <button
+                        onClick={resetAll}
+                        title="Clear all marks and start over"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/70 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:border-rose-300 dark:hover:text-rose-400 transition-colors"
+                    >
+                        <RotateCcw className="h-3.5 w-3.5" /> Reset
+                    </button>
+                </div>
                 <div className="flex-1">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 block">Group</label>
                     <select
                         value={group}
                         onChange={(e: ChangeEvent<HTMLSelectElement>) => setGroup(e.target.value)}
@@ -82,6 +114,19 @@ export default function SSCHSCCalculator({ mode, table }: SSCHSCCalculatorProps)
                             ) : (
                                 <div className="text-sm font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-3 py-1 rounded-lg">Failed ({result.failedSubjects.length} subjects)</div>
                             )}
+                            {result.isGoldenAPlus && (
+                                <div className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/30 px-3 py-1 rounded-lg">
+                                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> Golden A+
+                                </div>
+                            )}
+                            <button
+                                onClick={copyResult}
+                                title="Copy result summary"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/70 dark:border-slate-600/50 px-3 py-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-primary hover:border-primary/40 transition-colors"
+                            >
+                                {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                {copied ? 'Copied!' : 'Copy Result'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -109,7 +154,7 @@ export default function SSCHSCCalculator({ mode, table }: SSCHSCCalculatorProps)
                                     <input
                                         type="number" min={0} max={100}
                                         value={val}
-                                        onChange={(e: ChangeEvent<HTMLInputElement>) => setMarks(m => ({ ...m, [subject.name]: Number(e.target.value) }))}
+                                        onChange={(e: ChangeEvent<HTMLInputElement>) => setSubjectMark(subject.name, e.target.value)}
                                         className="h-9 sm:h-10 w-full rounded-lg border-0 bg-slate-100 dark:bg-slate-900/50 text-center text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-primary/50 transition-all px-1 sm:px-2"
                                         placeholder="0"
                                         title={`Marks for ${subject.name}`}
@@ -153,7 +198,7 @@ export default function SSCHSCCalculator({ mode, table }: SSCHSCCalculatorProps)
                         <input
                             type="number" min={0} max={100}
                             value={marks[optionalSubjectName] || ''}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setMarks(m => ({ ...m, [optionalSubjectName]: Number(e.target.value) }))}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setSubjectMark(optionalSubjectName, e.target.value)}
                             className="h-9 sm:h-10 w-full rounded-lg border-0 bg-slate-100 dark:bg-slate-900/50 text-center text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 px-1 sm:px-2"
                             placeholder="0"
                             title="Optional subject marks"

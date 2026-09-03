@@ -38,6 +38,10 @@ export const RESOURCE_SETTINGS_DEFAULTS = {
     openLinksInNewTab: true,
     featuredSectionTitle: 'Featured Resources',
     emptyStateMessage: 'No resources found. Try adjusting your filters or search query.',
+    metaTitle: 'Student Resources — PDFs, Question Banks, Video Lessons',
+    metaDescription: 'Download free question banks, study materials, admit cards, scholarship circulars and video tutorials for university admission in Bangladesh.',
+    metaKeywords: 'question bank, study materials, admission resources, university admission pdf, admit card, scholarship, video tutorial, CampusWay resources',
+    ogImageUrl: '',
 } as const;
 
 export type ResourceSettingsSort = 'latest' | 'downloads' | 'views';
@@ -72,6 +76,11 @@ export interface IResourceSettings extends Document {
     openLinksInNewTab: boolean;
     featuredSectionTitle: string;
     emptyStateMessage: string;
+    // SEO (admin-controlled; empty = fall back to site-wide defaults)
+    metaTitle: string;
+    metaDescription: string;
+    metaKeywords: string;
+    ogImageUrl: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -112,6 +121,10 @@ const ResourceSettingsSchema = new Schema<IResourceSettings>({
     openLinksInNewTab: { type: Boolean, default: RESOURCE_SETTINGS_DEFAULTS.openLinksInNewTab },
     featuredSectionTitle: { type: String, default: RESOURCE_SETTINGS_DEFAULTS.featuredSectionTitle },
     emptyStateMessage: { type: String, default: RESOURCE_SETTINGS_DEFAULTS.emptyStateMessage },
+    metaTitle: { type: String, default: RESOURCE_SETTINGS_DEFAULTS.metaTitle, trim: true },
+    metaDescription: { type: String, default: RESOURCE_SETTINGS_DEFAULTS.metaDescription, trim: true },
+    metaKeywords: { type: String, default: RESOURCE_SETTINGS_DEFAULTS.metaKeywords, trim: true },
+    ogImageUrl: { type: String, default: RESOURCE_SETTINGS_DEFAULTS.ogImageUrl, trim: true },
 }, { timestamps: true });
 
 export default mongoose.model<IResourceSettings>('ResourceSettings', ResourceSettingsSchema);

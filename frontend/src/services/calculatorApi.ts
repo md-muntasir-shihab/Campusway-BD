@@ -7,6 +7,14 @@ export interface CalculatorSettings {
     isCGPAEnabled: boolean;
     isNUEnabled: boolean;
     maintenanceMode: boolean;
+    /** Hub branding (admin-editable; optional so old cached payloads stay compatible) */
+    hubTitle?: string;
+    hubSubtitle?: string;
+    /** SEO fields for the public hub page (admin-editable) */
+    metaTitle?: string;
+    metaDescription?: string;
+    metaKeywords?: string;
+    ogImageUrl?: string;
 }
 
 export interface CalculatorAnalyticsItem {

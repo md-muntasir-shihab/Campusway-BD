@@ -177,6 +177,19 @@ export default function AdminNewsSourcesSection() {
                     </select>
                     <input className="input-field" type="number" min={1} max={100} placeholder="Max items per fetch" value={form.maxItemsPerFetch || 20} onChange={(e) => setForm((prev) => ({ ...prev, maxItemsPerFetch: Number(e.target.value) }))} />
                     <input className="input-field md:col-span-2" placeholder="Default tags (comma separated)" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
+                    <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Custom format commands (optional)</label>
+                        <textarea
+                            className="input-field font-mono text-xs"
+                            rows={4}
+                            placeholder={'# one command per line, applied to the extracted article\nremove: .promo, .related\nkeep: article .story-content\nstrip-attrs\nabsolutize-links\nprepend: <p>সূত্রের লোগো</p>\nappend: <p>© সৌজন্যে এই সংবাদমাধ্যম</p>\nreplace: বিজ্ঞাপন =>\nlimit-paragraphs: 40'}
+                            value={form.formatCommand || ''}
+                            onChange={(e) => setForm((prev) => ({ ...prev, formatCommand: e.target.value }))}
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Auto-formats every article pulled from this feed. Supported: <code>remove:</code>, <code>keep:</code>, <code>unwrap:</code>, <code>strip-attrs</code>, <code>absolutize-links</code>, <code>prepend:</code>, <code>append:</code>, <code>replace: A =&gt; B</code>, <code>limit-paragraphs: N</code>. Leave empty to use the system default.
+                        </p>
+                    </div>
                     <label className="md:col-span-2 inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-300">
                         <input
                             type="checkbox"

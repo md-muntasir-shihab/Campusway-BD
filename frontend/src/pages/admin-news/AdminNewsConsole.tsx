@@ -22,7 +22,7 @@ type SectionKey =
     | 'exports'
     | 'audit-logs';
 
-type ArticleStatus = Extract<ApiNews['status'], 'pending_review' | 'duplicate_review' | 'draft' | 'published' | 'scheduled' | 'rejected' | 'archived' | 'trash'> | 'all';
+type ArticleStatus = Extract<ApiNews['status'], 'pending_review' | 'duplicate_review' | 'approved' | 'draft' | 'published' | 'scheduled' | 'rejected' | 'archived' | 'trash'> | 'all';
 
 interface RouteState {
     section: SectionKey;
@@ -115,11 +115,12 @@ function normalizePath(pathname: string): string {
 }
 
 const ARTICLE_TABS: Array<{
-    status: Extract<ArticleStatus, 'pending_review' | 'duplicate_review' | 'draft' | 'published' | 'scheduled' | 'rejected' | 'archived' | 'trash'>;
+    status: Extract<ArticleStatus, 'pending_review' | 'duplicate_review' | 'approved' | 'draft' | 'published' | 'scheduled' | 'rejected' | 'archived' | 'trash'>;
     label: string;
     path: string;
 }> = [
     { status: 'pending_review', label: 'Items to Review', path: '/__cw_admin__/news/pending' },
+    { status: 'approved', label: 'Approved', path: '/__cw_admin__/news/approved' },
     { status: 'duplicate_review', label: 'Possible Duplicates', path: '/__cw_admin__/news/duplicates' },
     { status: 'draft', label: 'Saved Drafts', path: '/__cw_admin__/news/drafts' },
     { status: 'published', label: 'Published News', path: '/__cw_admin__/news/published' },
@@ -131,6 +132,7 @@ const ARTICLE_TABS: Array<{
 
 function segmentToArticleStatus(segment: string | undefined): ArticleStatus {
     if (segment === 'pending' || segment === 'pending-review') return 'pending_review';
+    if (segment === 'approved') return 'approved';
     if (segment === 'duplicates' || segment === 'duplicate') return 'duplicate_review';
     if (segment === 'drafts') return 'draft';
     if (segment === 'published') return 'published';

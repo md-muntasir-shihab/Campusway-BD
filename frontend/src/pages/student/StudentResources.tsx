@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BookOpen, ExternalLink, FileText, Search } from 'lucide-react';
-import { getPublicResourceSettings, getStudentMeResources } from '../../services/api';
+import { getPublicResourceSettings, getStudentMeResources, trackResourceDownload } from '../../services/api';
 import { normalizeExternalUrl } from '../../utils/url';
+import { useNavigate } from 'react-router-dom';
 
 const DEFAULT_STUDENT_COPY = {
     pageTitle: 'Resources',
@@ -17,6 +18,7 @@ const DEFAULT_STUDENT_COPY = {
 };
 
 export default function StudentResources() {
+    const navigate = useNavigate();
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState('all');
 
@@ -101,27 +103,38 @@ export default function StudentResources() {
                     (resourcesQuery.data?.items || []).map((item: any) => {
                         const href = normalizeExternalUrl(item.externalUrl || item.fileUrl || '');
                         const external = settings.openLinksInNewTab;
+                        const slug = String(item.slug || '').trim();
                         return (
                             <article key={String(item._id)} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                                 <p className="text-xs uppercase tracking-wide text-slate-500">{String(item.category || 'General')}</p>
-                                <h2 className="mt-1 font-semibold">{String(item.title || '')}</h2>
+                                <h2 className="mt-1 font-semibold">
+                                    {slug ? (
+                                        <button type="button" onClick={() => navigate(`/resources/${slug}`)} className="text-left transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">{String(item.title || '')}</button>
+                                    ) : String(item.title || '')}
+                                </h2>
                                 <p className="mt-2 line-clamp-3 text-sm text-slate-500 dark:text-slate-400">{String(item.description || '')}</p>
-                                <div className="mt-auto pt-4">
+                                <div className="mt-auto flex flex-wrap gap-2 pt-4">
                                     {href ? (
                                         <a
                                             href={href}
                                             target={external ? '_blank' : undefined}
                                             rel={external ? 'noreferrer noopener' : undefined}
+                                            onClick={() => void trackResourceDownload(String(item._id || ''))}
                                             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
                                         >
                                             {String(item.type || '').toLowerCase() === 'pdf' ? <FileText className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                                            Open
+                                            {String(item.type || '').toLowerCase() === 'pdf' ? 'Download' : 'Open'}
                                         </a>
                                     ) : (
                                         <button disabled className="inline-flex items-center gap-1.5 rounded-lg bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-500">
                                             Unavailable
                                         </button>
                                     )}
+                                    {slug ? (
+                                        <button type="button" onClick={() => navigate(`/resources/${slug}`)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-300">
+                                            Details
+                                        </button>
+                                    ) : null}
                                 </div>
                             </article>
                         );

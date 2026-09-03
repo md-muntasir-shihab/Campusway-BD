@@ -38,6 +38,7 @@ interface CoreFormState {
     fetchFullArticleEnabled: boolean;
     fullArticleFetchMode: 'rss_content' | 'readability_scrape' | 'both' | 'ai_extract';
     aiExtractionFallback: boolean;
+    defaultFormatCommand: string;
     // Workflow
     workflowAutoDraftFromRSS: boolean;
     workflowAllowScheduling: boolean;
@@ -79,6 +80,7 @@ const EMPTY_CORE_FORM: CoreFormState = {
     fetchFullArticleEnabled: true,
     fullArticleFetchMode: 'both',
     aiExtractionFallback: false,
+    defaultFormatCommand: '',
     workflowAutoDraftFromRSS: true,
     workflowAllowScheduling: true,
     workflowOpenOriginalWhenExtractionIncomplete: true,
@@ -120,6 +122,7 @@ function mapSettingsToCoreForm(settings: ApiNewsV2Settings | undefined): CoreFor
         fetchFullArticleEnabled: settings.fetchFullArticleEnabled !== false,
         fullArticleFetchMode: (settings as any).fullArticleFetchMode || 'both',
         aiExtractionFallback: settings.aiExtractionFallback ?? false,
+        defaultFormatCommand: settings.rss?.defaultFormatCommand || '',
         workflowAutoDraftFromRSS: settings.workflow?.autoDraftFromRSS !== false,
         workflowAllowScheduling: settings.workflow?.allowScheduling !== false,
         workflowOpenOriginalWhenExtractionIncomplete: settings.workflow?.openOriginalWhenExtractionIncomplete !== false,
@@ -197,6 +200,14 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
                 fetchFullArticleEnabled: coreForm.fetchFullArticleEnabled,
                 fullArticleFetchMode: coreForm.fullArticleFetchMode === 'ai_extract' ? 'both' : coreForm.fullArticleFetchMode,
                 aiExtractionFallback: coreForm.fullArticleFetchMode === 'ai_extract' ? true : coreForm.aiExtractionFallback,
+                rss: {
+                    enabled: current?.rss?.enabled ?? true,
+                    defaultFetchIntervalMin: current?.rss?.defaultFetchIntervalMin ?? 60,
+                    maxItemsPerFetch: current?.rss?.maxItemsPerFetch ?? 20,
+                    duplicateThreshold: current?.rss?.duplicateThreshold ?? 80,
+                    autoCreateAs: current?.rss?.autoCreateAs ?? 'pending_review',
+                    defaultFormatCommand: coreForm.defaultFormatCommand,
+                },
                 workflow: {
                     requireApprovalBeforePublish: current?.workflow?.requireApprovalBeforePublish ?? true,
                     allowAutoPublishFromAi: current?.workflow?.allowAutoPublishFromAi ?? false,
@@ -326,6 +337,17 @@ export default function AdminNewsSettingsHub({ initialPanel = 'appearance' }: Pr
                                             <RadioCard value="both" current={coreForm.fullArticleFetchMode} onChange={(v) => patch({ fullArticleFetchMode: v as CoreFormState['fullArticleFetchMode'] })} label="Both (RSS → Scrape)" desc="Try RSS first, scrape as fallback" />
                                             <RadioCard value="ai_extract" current={coreForm.fullArticleFetchMode} onChange={(v) => patch({ fullArticleFetchMode: v as CoreFormState['fullArticleFetchMode'] })} label="AI-Powered Extraction" desc="Use AI API to extract & structure the full article" />
                                         </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Default Format Commands</span>
+                                        <textarea
+                                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs text-slate-800 outline-none transition focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                            rows={4}
+                                            placeholder={'# applied to every RSS article when the source has no custom commands\nremove: .promo, .related\nstrip-attrs\nabsolutize-links\nlimit-paragraphs: 40'}
+                                            value={coreForm.defaultFormatCommand}
+                                            onChange={(e) => patch({ defaultFormatCommand: e.target.value })}
+                                        />
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Fallback article formatting for all sources. Per-source commands in News → Sources override this.</p>
                                     </div>
                                     {coreForm.fullArticleFetchMode !== 'ai_extract' && (
                                         <ToggleRow label="AI Extraction Fallback" hint="If standard extraction fails or returns incomplete content, use AI API to extract the full article." checked={coreForm.aiExtractionFallback} onChange={(v) => patch({ aiExtractionFallback: v })} />

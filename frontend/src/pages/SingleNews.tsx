@@ -10,6 +10,7 @@ import {
     ExternalLink,
     Globe2,
     Link as LinkIcon,
+    Newspaper,
     Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -81,6 +82,14 @@ function getArticleImage(news: ApiNews, settings: ApiNewsPublicSettings): string
         || news.featuredImage
         || news.fallbackBanner
         || fallback
+    );
+}
+
+/** True when the article has its own real image (not the site-logo fallback). */
+function hasRealArticleImage(news: ApiNews): boolean {
+    if (String(news.coverImageSource || news.coverSource || '').toLowerCase() === 'default') return false;
+    return Boolean(
+        String(news.coverImageUrl || news.coverImage || news.thumbnailImage || news.featuredImage || '').trim()
     );
 }
 
@@ -382,7 +391,13 @@ export default function SingleNewsPage() {
                     className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/60"
                 >
                     <div className="relative">
-                        <img src={image} alt={newsItem.title || 'News article'} className="h-56 w-full object-cover sm:h-72 lg:h-[400px]" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = buildMediaUrl('/logo.svg'); }} />
+                        {hasRealArticleImage(newsItem) ? (
+                            <img src={image} alt={newsItem.title || 'News article'} className="h-56 w-full object-cover sm:h-72 lg:h-[400px]" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                        ) : (
+                            <div className="flex h-56 w-full items-center justify-center bg-gradient-to-br from-cyan-500/25 via-indigo-500/15 to-fuchsia-500/25 sm:h-72 lg:h-[400px]">
+                                <Newspaper className="h-16 w-16 text-white/60" />
+                            </div>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                         <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
                             <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
@@ -494,13 +509,19 @@ export default function SingleNewsPage() {
                                     className="group overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-cyan-500/40 dark:border-white/10 dark:bg-slate-900/60"
                                 >
                                     <div className="relative overflow-hidden">
-                                        <img
-                                            src={getArticleImage(item, settings)}
-                                            alt={item.title || 'Related article'}
-                                            className="h-36 w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                            loading="lazy"
-                                            onError={(e) => { (e.target as HTMLImageElement).src = buildMediaUrl('/logo.svg'); }}
-                                        />
+                                        {hasRealArticleImage(item) ? (
+                                            <img
+                                                src={getArticleImage(item, settings)}
+                                                alt={item.title || 'Related article'}
+                                                className="h-36 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                loading="lazy"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
+                                            />
+                                        ) : (
+                                            <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-cyan-500/20 via-indigo-500/10 to-fuchsia-500/20">
+                                                <Newspaper className="h-8 w-8 text-white/60" />
+                                            </div>
+                                        )}
                                         {item.category && (
                                             <span className="absolute top-2 left-2 rounded-full bg-black/50 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white">
                                                 {item.category}

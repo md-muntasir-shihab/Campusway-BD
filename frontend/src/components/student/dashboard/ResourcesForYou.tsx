@@ -34,7 +34,11 @@ export default function ResourcesForYou({ items }: Props) {
                                 </div>
                             )}
                             <div className="min-w-0 flex-1">
-                                <p className="text-xs font-medium text-slate-900 dark:text-white leading-snug line-clamp-1">{r.title}</p>
+                                {(r as any).slug ? (
+                                    <Link to={`/resources/${(r as any).slug}`} className="block text-xs font-medium text-slate-900 leading-snug line-clamp-1 transition-colors hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400">{r.title}</Link>
+                                ) : (
+                                    <p className="text-xs font-medium text-slate-900 dark:text-white leading-snug line-clamp-1">{r.title}</p>
+                                )}
                                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 capitalize">{r.type} · {r.category}</p>
                             </div>
                             {r.fileUrl && (

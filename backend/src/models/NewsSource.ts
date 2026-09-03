@@ -28,6 +28,8 @@ export interface INewsSource extends Document {
     language?: string;
     tagsDefault: string[];
     categoryDefault?: string;
+    /** Custom per-source article formatting commands (see utils/newsFormatCommands.ts). Empty = use rss.defaultFormatCommand. */
+    formatCommand?: string;
     maxItemsPerFetch: number;
     createdBy?: mongoose.Types.ObjectId;
     createdAt: Date;
@@ -59,10 +61,11 @@ const NewsSourceSchema = new Schema<INewsSource>(
         lastCreatedCount: { type: Number, default: 0, min: 0 },
         lastExtractionMode: { type: String, enum: ['rss_content', 'readability_scrape', 'both'], default: 'both' },
         lastError: { type: String, default: '' },
-        language: { type: String, default: 'en' },
-        tagsDefault: [{ type: String }],
-        categoryDefault: { type: String, default: '' },
-        maxItemsPerFetch: { type: Number, default: 20, min: 1, max: 100 },
+    language: { type: String, default: 'en' },
+    tagsDefault: [{ type: String }],
+    categoryDefault: { type: String, default: '' },
+    formatCommand: { type: String, default: '' },
+    maxItemsPerFetch: { type: Number, default: 20, min: 1, max: 100 },
         createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     },
     {

@@ -9,6 +9,7 @@ import {
     Save,
     Search,
     Shield,
+    TrendingUp,
     Type,
 } from 'lucide-react';
 import AdminGuardShell from '../components/admin/AdminGuardShell';
@@ -50,6 +51,10 @@ const DEFAULT_RESOURCE_SETTINGS: AdminResourceSettings = {
     openLinksInNewTab: true,
     featuredSectionTitle: 'Featured Resources',
     emptyStateMessage: 'No resources found. Try adjusting your filters or search query.',
+    metaTitle: 'Student Resources — PDFs, Question Banks, Video Lessons',
+    metaDescription: 'Download free question banks, study materials, admit cards, scholarship circulars and video tutorials for university admission in Bangladesh.',
+    metaKeywords: 'question bank, study materials, admission resources, university admission pdf, admit card, scholarship, video tutorial, CampusWay resources',
+    ogImageUrl: '',
 };
 
 const SORT_OPTIONS: Array<{ value: ResourceSettingsSort; label: string }> = [
@@ -452,6 +457,60 @@ function ResourceSettingsPanel() {
                     </div>
                 </SectionCard>
             </div>
+
+            <SectionCard
+                icon={TrendingUp}
+                title="SEO (Search Engine Optimization)"
+                description="Control how the Resources page appears on Google and when shared on social media. Leave the image empty to use the site-wide default preview."
+            >
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="md:col-span-2">
+                        <FieldLabel>Meta Title (Google result headline, ~60 chars)</FieldLabel>
+                        <input
+                            value={form.metaTitle}
+                            onChange={(event) => setField('metaTitle', event.target.value)}
+                            className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                            placeholder="Student Resources — PDFs, Question Banks, Video Lessons"
+                        />
+                        <p className="mt-1 text-[11px] text-slate-500">{form.metaTitle.length}/60 characters (recommended)</p>
+                    </div>
+                    <div className="md:col-span-2">
+                        <FieldLabel>Meta Description (Google snippet, ~160 chars)</FieldLabel>
+                        <textarea
+                            value={form.metaDescription}
+                            onChange={(event) => setField('metaDescription', event.target.value)}
+                            rows={3}
+                            className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                            placeholder="Download free question banks, study materials..."
+                        />
+                        <p className="mt-1 text-[11px] text-slate-500">{form.metaDescription.length}/160 characters (recommended)</p>
+                    </div>
+                    <div className="md:col-span-2">
+                        <FieldLabel>Meta Keywords (comma separated)</FieldLabel>
+                        <input
+                            value={form.metaKeywords}
+                            onChange={(event) => setField('metaKeywords', event.target.value)}
+                            className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                            placeholder="question bank, study materials, admission pdf..."
+                        />
+                    </div>
+                    <div>
+                        <FieldLabel>Social Share Image (OG image URL)</FieldLabel>
+                        <input
+                            value={form.ogImageUrl}
+                            onChange={(event) => setField('ogImageUrl', event.target.value)}
+                            className="w-full rounded-2xl border border-slate-700/40 bg-slate-950/65 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60"
+                            placeholder="https://... or /uploads/... (1200×630 recommended)"
+                        />
+                    </div>
+                    <div className="rounded-2xl border border-slate-700/40 bg-slate-950/45 p-4 text-xs leading-6 text-slate-400">
+                        <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Live preview</p>
+                        <p className="mt-2 truncate text-sm text-indigo-300">{form.metaTitle || 'Student Resources — PDFs, Question Banks, Video Lessons'}</p>
+                        <p className="text-[11px] text-emerald-400/80">campusway.net/resources</p>
+                        <p className="line-clamp-2 text-slate-400">{form.metaDescription || 'Download free question banks, study materials...'}</p>
+                    </div>
+                </div>
+            </SectionCard>
 
             <SectionCard
                 icon={FileStack}

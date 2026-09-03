@@ -441,7 +441,8 @@ export default function AdminUniversitySettingsPage() {
                 settings: { ...DEFAULT_SETTINGS, ...(settingsRes.data?.data || {}) },
                 homeSettings: homeSettingsRes.data?.homeSettings,
                 categories: categoriesRes.data?.categories || [],
-                universities: universitiesRes.data?.universities || [],
+                // Interceptor unwraps paginated responses to { items, page, total, pages }
+                universities: universitiesRes.data?.items || universitiesRes.data?.universities || [],
                 clusters: clustersRes.data?.clusters || [],
                 homeConfigSections: homeConfigRes.data?.sections || [],
             };

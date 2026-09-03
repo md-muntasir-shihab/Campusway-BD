@@ -5,9 +5,11 @@ import {
     Download, Eye, ExternalLink, ArrowLeft, Star, Tag,
     BookOpen, Loader2, AlertCircle, Share2, CheckCircle,
 } from 'lucide-react';
-import { getResourceBySlug, trackAnalyticsEvent } from '../services/api';
+import { getPublicResourceSettings, getResourceBySlug, trackAnalyticsEvent, trackResourceDownload } from '../services/api';
 import { isExternalUrl, normalizeInternalOrExternalUrl } from '../utils/url';
 import { buildYouTubeEmbedUrl } from '../utils/youtube';
+import SEO from '../components/common/SEO';
+import { buildMediaUrl } from '../utils/mediaUrl';
 
 type ResourceType = 'pdf' | 'link' | 'video' | 'audio' | 'image' | 'note';
 
@@ -62,6 +64,16 @@ export default function ResourceDetail() {
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [toast, setToast] = useState('');
+    const [seoSettings, setSeoSettings] = useState<{ metaTitle: string; metaDescription: string; metaKeywords: string; ogImageUrl: string }>({ metaTitle: '', metaDescription: '', metaKeywords: '', ogImageUrl: '' });
+
+    useEffect(() => {
+        void getPublicResourceSettings()
+            .then((res) => {
+                const s = res.data?.settings;
+                if (s) setSeoSettings({ metaTitle: s.metaTitle || '', metaDescription: s.metaDescription || '', metaKeywords: s.metaKeywords || '', ogImageUrl: s.ogImageUrl || '' });
+            })
+            .catch(() => undefined);
+    }, []);
 
     useEffect(() => {
         if (!slug) { setNotFound(true); setLoading(false); return; }
@@ -76,6 +88,8 @@ export default function ResourceDetail() {
     }, [slug]);
 
     const handleAction = (r: Resource) => {
+        // Server-side download/visit counter (respects admin tracking toggle)
+        void trackResourceDownload(r._id);
         void trackAnalyticsEvent({
             eventName: 'resource_download',
             module: 'resources',
@@ -129,8 +143,43 @@ export default function ResourceDetail() {
             : '';
     const youtubeEmbedUrl = resource.type === 'video' ? buildYouTubeEmbedUrl(resource.externalUrl) : null;
 
+    const detailDescription = String(resource.description || '').slice(0, 160) || seoSettings.metaDescription || resource.title;
+    const detailKeywords = (Array.isArray(resource.tags) && resource.tags.length > 0 ? resource.tags.join(', ') + ', ' : '') + (seoSettings.metaKeywords || resource.category || '');
     return (
-        <div className="page-container py-8 sm:py-12 max-w-5xl mx-auto">
+        <>
+            <SEO
+                title={resource.title}
+                description={detailDescription}
+                keywords={detailKeywords}
+                image={resource.thumbnailUrl ? buildMediaUrl(resource.thumbnailUrl) : (seoSettings.ogImageUrl ? buildMediaUrl(seoSettings.ogImageUrl) : undefined)}
+                url={window.location.href}
+                type="article"
+                schema={{
+                    '@context': 'https://schema.org',
+                    '@type': 'LearningResource',
+                    name: resource.title,
+                    description: detailDescription,
+                    url: window.location.href,
+                    ...(resource.thumbnailUrl ? { thumbnailUrl: buildMediaUrl(resource.thumbnailUrl) } : {}),
+                    ...(resource.fileUrl || resource.externalUrl ? { url: resource.fileUrl || resource.externalUrl } : {}),
+                    learningResourceType: resource.type.toUpperCase(),
+                    educationalLevel: resource.category,
+                    ...(resource.publishDate ? { datePublished: new Date(resource.publishDate).toISOString() } : {}),
+                    interactionStatistic: [
+                        { '@type': 'InteractionCounter', interactionType: 'https://schema.org/ViewAction', userInteractionCount: resource.views || 0 },
+                        { '@type': 'InteractionCounter', interactionType: 'https://schema.org/DownloadAction', userInteractionCount: resource.downloads || 0 },
+                    ],
+                    breadcrumb: {
+                        '@type': 'BreadcrumbList',
+                        itemListElement: [
+                            { '@type': 'ListItem', position: 1, name: 'Home', item: window.location.origin },
+                            { '@type': 'ListItem', position: 2, name: 'Resources', item: `${window.location.origin}/resources` },
+                            { '@type': 'ListItem', position: 3, name: resource.title, item: window.location.href },
+                        ],
+                    },
+                }}
+            />
+            <div className="page-container py-8 sm:py-12 max-w-5xl mx-auto">
             {/* Back */}
             <button
                 onClick={() => navigate('/resources')}
@@ -285,6 +334,7 @@ export default function ResourceDetail() {
                     <CheckCircle className="w-4 h-4 text-success" /> {toast}
                 </div>
             )}
-        </div>
+            </div>
+        </>
     );
 }

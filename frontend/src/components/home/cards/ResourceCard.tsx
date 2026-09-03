@@ -1,8 +1,12 @@
 import { motion } from 'framer-motion';
+import { buildMediaUrl } from '../../../utils/mediaUrl';
+import { trackResourceDownload } from '../../../services/api';
+import { Link } from 'react-router-dom';
 import { FileText, Globe, BookOpen, Video, Image as ImgIcon, ExternalLink, Download } from 'lucide-react';
 
 interface ResourceItem {
   _id: string;
+  slug?: string;
   title: string;
   description?: string;
   type?: string;
@@ -30,7 +34,8 @@ export default function ResourceCard({ resource: res }: ResourceCardProps) {
   const typeLower = (res.type || 'link').toLowerCase();
   const cfg = typeConfig[typeLower] || typeConfig.link;
   const Icon = cfg.icon;
-  const url = res.fileUrl || res.externalUrl;
+  const rawUrl = res.fileUrl || res.externalUrl;
+  const url = rawUrl && !rawUrl.startsWith('/') ? buildMediaUrl(rawUrl) : rawUrl;
   const isExternal = Boolean(res.externalUrl);
   const isPdf = typeLower === 'pdf';
 
@@ -56,8 +61,10 @@ export default function ResourceCard({ resource: res }: ResourceCardProps) {
         </div>
 
         {/* Title + description */}
-        <h4 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 mb-1.5 leading-snug">
-          {res.title}
+        <h4 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1.5 leading-snug dark:text-white">
+          {res.slug ? (
+            <Link to={`/resources/${res.slug}`} className="transition-colors hover:text-primary-600 dark:hover:text-primary-400">{res.title}</Link>
+          ) : res.title}
         </h4>
         {res.description && (
           <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-4 flex-1">
@@ -71,6 +78,7 @@ export default function ResourceCard({ resource: res }: ResourceCardProps) {
             href={url}
             target={isExternal ? '_blank' : undefined}
             rel={isExternal ? 'noopener noreferrer' : undefined}
+            onClick={() => { void trackResourceDownload(res._id); }}
             className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors group/link"
           >
             {isPdf ? <Download className="w-3.5 h-3.5" aria-hidden="true" /> : <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />}

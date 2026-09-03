@@ -151,6 +151,49 @@ export function invalidateCache(resourceType: string): RequestHandler {
     };
 }
 
+/**
+ * Invalidate the public news cache (and the home aggregation that embeds news
+ * widgets) after any news write succeeds. Attach to news admin write routes —
+ * without this, publishes/edits never reach visitors until the 120s TTL lapses,
+ * which is the reported "backend changes don't reflect" defect.
+ */
+export function invalidateNewsCache(): RequestHandler {
+    return async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+        res.on('finish', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+                cacheService
+                    .invalidateNewsAndHomeCaches()
+                    .then((counts) => {
+                        logger.info('[CacheMiddleware] invalidated news caches', _req, {
+                            newsKeys: counts.news,
+                            homeKeys: counts.home,
+                        });
+                    })
+                    .catch((err) => logger.warn('[CacheMiddleware] news invalidation failed', _req, { error: String(err) }));
+            }
+        });
+        next();
+    };
+}
+
+/**
+ * Invalidate all university-related public caches (list/detail, categories,
+ * clusters, and the home surfaces that embed them) after a university,
+ * category or cluster write succeeds — same rationale as invalidateNewsCache.
+ */
+export function invalidateUniversityCache(): RequestHandler {
+    return async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+        res.on('finish', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+                cacheService
+                    .invalidateUniversityAndHomeCaches()
+                    .catch((err) => logger.warn('[CacheMiddleware] university cache invalidation failed', _req, { error: String(err) }));
+            }
+        });
+        next();
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Pre-configured middleware instances for public routes
 // ---------------------------------------------------------------------------

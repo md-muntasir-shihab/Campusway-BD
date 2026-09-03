@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CalculatorService, CalculatorSettings, CalculatorAnalyticsItem, GradingConfig, GradeRow } from '../../../services/calculatorApi';
 import { toast } from 'react-hot-toast';
-import { Loader2, Calculator, Settings, BarChart, RefreshCw, AlertTriangle, Plus, Trash2, Save, SlidersHorizontal, Table2 } from 'lucide-react';
+import { Loader2, Calculator, Settings, BarChart, RefreshCw, AlertTriangle, Plus, Trash2, Save, SlidersHorizontal, Table2, Globe, TrendingUp, CalendarDays } from 'lucide-react';
 import { ResponsiveContainer, BarChart as RBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 
-type TabKey = 'calculators' | 'grading' | 'analytics';
+type TabKey = 'calculators' | 'grading' | 'analytics' | 'branding';
 
 const CALC_TYPES = ['ssc', 'hsc', 'olevel', 'cgpa', 'nu'] as const;
 const CHART_COLORS: Record<string, string> = {
@@ -35,7 +35,36 @@ const TABS: { key: TabKey; label: string; icon: typeof Calculator }[] = [
     { key: 'calculators', label: 'Calculators', icon: Calculator },
     { key: 'grading', label: 'Grading Tables', icon: Table2 },
     { key: 'analytics', label: 'Analytics', icon: BarChart },
+    { key: 'branding', label: 'Branding & SEO', icon: Globe },
 ];
+
+/** Client-side mirror of the backend grading-table rules. The O/A-Level table
+ *  uses 0/0 "marks unused" rows which are valid; everything else needs
+ *  ordered, non-overlapping 0-100 ranges. Returns an error message or null. */
+function validateGrading(g: GradingConfig): string | null {
+    const check = (rows: GradeRow[], label: string, marksUsed: boolean): string | null => {
+        if (!Array.isArray(rows) || rows.length === 0) return label + ': at least one row is required.';
+        for (const r of rows) {
+            if (!r.grade || !r.grade.trim()) return label + ': every row needs a grade letter.';
+            if (Number.isNaN(r.point) || r.point < 0) return label + ': points must be 0 or more.';
+            if (marksUsed) {
+                if (r.minMark < 0 || r.maxMark > 100) return label + ': marks must stay within 0-100.';
+                if (!(r.minMark === 0 && r.maxMark === 0) && r.minMark >= r.maxMark) return label + ': min mark must be below max mark in every row.';
+            }
+        }
+        if (marksUsed) {
+            const markRows = rows.filter((r) => !(r.minMark === 0 && r.maxMark === 0)).sort((a, b) => a.minMark - b.minMark);
+            for (let i = 1; i < markRows.length; i++) {
+                if (markRows[i].minMark <= markRows[i - 1].maxMark) return label + ': mark ranges must not overlap.';
+            }
+        }
+        return null;
+    };
+    return check(g.bdBoardTable, 'SSC/HSC table', true)
+        ?? check(g.publicUniTable, 'Public university table', true)
+        ?? check(g.privateUniTable, 'Private university table', true)
+        ?? check(g.oaTable, 'O/A-Level table', false);
+}
 
 export default function CalculatorSettingsPage() {
     const [tab, setTab] = useState<TabKey>('calculators');
@@ -50,6 +79,7 @@ export default function CalculatorSettingsPage() {
     const [gradingDirty, setGradingDirty] = useState(false);
 
     const [analytics, setAnalytics] = useState<CalculatorAnalyticsItem[]>([]);
+    const [rangeDays, setRangeDays] = useState<7 | 14 | 30>(7);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
 
@@ -70,13 +100,6 @@ export default function CalculatorSettingsPage() {
                 setGrading(gradingData);
                 setGradingDraft(cloneGrading(gradingData));
             }
-            try {
-                const analyticsData = await CalculatorService.getAnalytics(7);
-                setAnalytics(analyticsData);
-            } catch (err) {
-                console.warn('Analytics unavailable:', err);
-                setAnalytics([]);
-            }
             setSettingsDirty(false);
             setGradingDirty(false);
         } catch (error) {
@@ -91,7 +114,25 @@ export default function CalculatorSettingsPage() {
         fetchData();
     }, [fetchData]);
 
+    // Analytics loads (and reloads) independently — failures never block the page.
+    useEffect(() => {
+        let cancelled = false;
+        CalculatorService.getAnalytics(rangeDays)
+            .then((data) => { if (!cancelled) setAnalytics(data); })
+            .catch((err) => {
+                console.warn('Analytics unavailable:', err);
+                if (!cancelled) setAnalytics([]);
+            });
+        return () => { cancelled = true; };
+    }, [rangeDays]);
+
     // ─── Settings (toggles) ──────────────────────────────────────────────
+    const updateSettingsField = (key: keyof CalculatorSettings, value: string) => {
+        if (!settings) return;
+        setSettings({ ...settings, [key]: value });
+        setSettingsDirty(true);
+    };
+
     const handleToggle = (key: keyof CalculatorSettings) => {
         if (!settings) return;
         setSettings({ ...settings, [key]: !settings[key] });
@@ -105,8 +146,9 @@ export default function CalculatorSettingsPage() {
             await CalculatorService.updateSettings(settings);
             toast.success('Calculator settings saved');
             setSettingsDirty(false);
-        } catch {
-            toast.error('Failed to save settings');
+        } catch (err: unknown) {
+            const serverMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            toast.error(serverMsg || 'Failed to save settings');
         } finally {
             setSavingSettings(false);
         }
@@ -147,6 +189,13 @@ export default function CalculatorSettingsPage() {
 
     const handleSaveGrading = async () => {
         if (!gradingDraft) return;
+        // Block obviously-broken tables before hitting the API, so admins get
+        // an actionable message instead of a generic failure toast.
+        const validationError = validateGrading(gradingDraft);
+        if (validationError) {
+            toast.error(validationError);
+            return;
+        }
         try {
             setSavingGrading(true);
             const saved = await CalculatorService.updateGrading(gradingDraft);
@@ -154,8 +203,9 @@ export default function CalculatorSettingsPage() {
             setGradingDraft(cloneGrading(saved));
             setGradingDirty(false);
             toast.success('Grading tables saved');
-        } catch {
-            toast.error('Failed to save grading tables');
+        } catch (err: unknown) {
+            const serverMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            toast.error(serverMsg || 'Failed to save grading tables');
         } finally {
             setSavingGrading(false);
         }
@@ -185,15 +235,27 @@ export default function CalculatorSettingsPage() {
         );
     }
 
-    const dates = Array.from(new Set(analytics.map((a) => a.date))).sort();
-    const chartData = dates.map(date => {
+    // Continuous date range (oldest -> today) so empty days still appear in
+    // the chart and table instead of silently disappearing.
+    const rangeDates = Array.from({ length: rangeDays }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (rangeDays - 1 - i));
+        return d.toISOString().split('T')[0];
+    });
+    const usageFor = (date: string, type: string) =>
+        analytics.find((a) => a.date === date && a.calculatorType === type)?.usageCount ?? 0;
+
+    const chartData = rangeDates.map(date => {
         const entry: Record<string, number | string> = { date: date.slice(5) };
-        for (const t of CALC_TYPES) {
-            const stat = analytics.find(a => a.date === date && a.calculatorType === t);
-            entry[t] = stat ? stat.usageCount : 0;
-        }
+        for (const t of CALC_TYPES) entry[t] = usageFor(date, t);
         return entry;
     });
+
+    const totalUsage = analytics.reduce((sum, a) => sum + a.usageCount, 0);
+    const perTypeTotals = CALC_TYPES.map(t => ({ type: t, count: analytics.filter(a => a.calculatorType === t).reduce((sum, a) => sum + a.usageCount, 0) }));
+    const topType = perTypeTotals.slice().sort((a, b) => b.count - a.count)[0];
+    const perDayTotals = rangeDates.map(date => ({ date, count: analytics.filter(a => a.date === date).reduce((sum, a) => sum + a.usageCount, 0) }));
+    const topDay = perDayTotals.slice().sort((a, b) => b.count - a.count)[0];
 
     return (
         <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -343,20 +405,53 @@ export default function CalculatorSettingsPage() {
             {/* ─── TAB: Analytics ─── */}
             {tab === 'analytics' && (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
-                    <div className="p-5 border-b border-slate-200 dark:border-slate-700">
-                        <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
-                            <BarChart className="h-5 w-5" />
-                            Usage Analytics (Last 7 Days)
-                        </h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Anonymous usage count by calculator type.</p>
+                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+                                <BarChart className="h-5 w-5" />
+                                Usage Analytics
+                            </h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Anonymous usage count by calculator type.</p>
+                        </div>
+                        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                            {([7, 14, 30] as const).map(d => (
+                                <button
+                                    key={d}
+                                    onClick={() => setRangeDays(d)}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${rangeDays === d ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                                >
+                                    {d}d
+                                </button>
+                            ))}
+                        </div>
                     </div>
                     <div className="p-5">
-                        {analytics.length === 0 ? (
+                        {totalUsage === 0 ? (
                             <div className="text-center py-8 text-slate-500 dark:text-slate-400 border border-dashed border-slate-300 dark:border-slate-600 rounded-md">
                                 No usage data recorded yet
                             </div>
                         ) : (
                             <div className="space-y-6">
+                                {/* Summary cards */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Total uses</p>
+                                        <p className="mt-1 text-2xl font-black text-primary">{totalUsage.toLocaleString()}</p>
+                                        <p className="text-xs text-slate-400">last {rangeDays} days</p>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Most popular</p>
+                                        <p className="mt-1 text-2xl font-black uppercase" style={{ color: CHART_COLORS[topType?.type || 'ssc'] }}>{topType?.type || '-'}</p>
+                                        <p className="text-xs text-slate-400">{topType?.count?.toLocaleString() || 0} uses</p>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> Busiest day</p>
+                                        <p className="mt-1 text-2xl font-black text-slate-800 dark:text-slate-200">{topDay?.count ? topDay.date.slice(5) : '-'}</p>
+                                        <p className="text-xs text-slate-400">{topDay?.count?.toLocaleString() || 0} uses</p>
+                                    </div>
+                                </div>
+
+
                                 {/* Chart */}
                                 <div className="w-full h-72">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -394,22 +489,26 @@ export default function CalculatorSettingsPage() {
                                                         </span>
                                                     </th>
                                                 ))}
+                                                <th className="px-4 py-2 border-b border-slate-200 dark:border-slate-700 text-center">Total</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                                            {dates.map(date => {
-                                                const dayStats = analytics.filter((a) => a.date === date);
+                                            {rangeDates.map(date => {
+                                                const dayTotal = perDayTotals.find((d) => d.date === date)?.count ?? 0;
                                                 return (
                                                     <tr key={date} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                                         <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-300">{date}</td>
                                                         {CALC_TYPES.map(t => {
-                                                            const stat = dayStats.find((s) => s.calculatorType === t);
+                                                            const count = usageFor(date, t);
                                                             return (
                                                                 <td key={t} className="px-4 py-2 text-center">
-                                                                    {stat ? <span className="font-bold text-primary">{stat.usageCount}</span> : <span className="text-slate-400">-</span>}
+                                                                    {count > 0 ? <span className="font-bold text-primary">{count}</span> : <span className="text-slate-400">-</span>}
                                                                 </td>
                                                             );
                                                         })}
+                                                        <td className="px-4 py-2 text-center">
+                                                            {dayTotal > 0 ? <span className="font-black text-slate-700 dark:text-slate-200">{dayTotal}</span> : <span className="text-slate-400">-</span>}
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}
@@ -418,6 +517,106 @@ export default function CalculatorSettingsPage() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* ─── TAB: Branding & SEO ─── */}
+            {tab === 'branding' && settings && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Globe className="h-5 w-5" />
+                                Hub Branding & SEO
+                            </h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                Control the public calculator hub heading, subheading, and how it appears on Google and social shares.
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleSaveSettings}
+                            disabled={savingSettings || !settingsDirty}
+                            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                        >
+                            {savingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            {settingsDirty ? 'Save Changes' : 'Saved'}
+                        </button>
+                    </div>
+                    <div className="p-5 grid gap-4 md:grid-cols-2">
+                        <div className="md:col-span-2">
+                            <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Hub Title</label>
+                            <input
+                                value={settings.hubTitle || ''}
+                                onChange={(e) => updateSettingsField('hubTitle', e.target.value)}
+                                maxLength={120}
+                                placeholder="Academic Calculators"
+                                className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Hub Subtitle</label>
+                            <textarea
+                                value={settings.hubSubtitle || ''}
+                                onChange={(e) => updateSettingsField('hubSubtitle', e.target.value)}
+                                maxLength={400}
+                                rows={2}
+                                placeholder="Calculate your GPA and CGPA instantly..."
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                            />
+                        </div>
+                        <div className="md:col-span-2 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                            <p className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">Search Engine (SEO)</p>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Meta Title (Google headline, ~60 chars)</label>
+                            <input
+                                value={settings.metaTitle || ''}
+                                onChange={(e) => updateSettingsField('metaTitle', e.target.value)}
+                                maxLength={200}
+                                placeholder="GPA & CGPA Calculators — SSC, HSC, O/A Level, University"
+                                className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                            />
+                            <p className="mt-1 text-[11px] text-slate-400">{(settings.metaTitle || '').length}/200 — around 60 characters is ideal for Google</p>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Meta Description (Google snippet, ~160 chars)</label>
+                            <textarea
+                                value={settings.metaDescription || ''}
+                                onChange={(e) => updateSettingsField('metaDescription', e.target.value)}
+                                maxLength={500}
+                                rows={3}
+                                placeholder="Free academic calculators for Bangladeshi students..."
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                            />
+                            <p className="mt-1 text-[11px] text-slate-400">{(settings.metaDescription || '').length}/500 — around 160 characters is ideal for Google</p>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Meta Keywords (comma separated)</label>
+                            <input
+                                value={settings.metaKeywords || ''}
+                                onChange={(e) => updateSettingsField('metaKeywords', e.target.value)}
+                                maxLength={500}
+                                placeholder="gpa calculator, cgpa calculator, ssc gpa, hsc gpa"
+                                className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Social Share Image (OG image URL)</label>
+                            <input
+                                value={settings.ogImageUrl || ''}
+                                onChange={(e) => updateSettingsField('ogImageUrl', e.target.value)}
+                                maxLength={1000}
+                                placeholder="https://... or /uploads/... (1200×630 recommended)"
+                                className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                            />
+                        </div>
+                        <div className="md:col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4">
+                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Google preview</p>
+                            <p className="truncate text-base text-blue-700 dark:text-blue-400 font-medium">{settings.metaTitle || 'GPA & CGPA Calculators — SSC, HSC, O/A Level, University'}</p>
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400">campusway › calculators</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{settings.metaDescription || 'Free academic calculators for Bangladeshi students...'}</p>
+                        </div>
                     </div>
                 </div>
             )}
