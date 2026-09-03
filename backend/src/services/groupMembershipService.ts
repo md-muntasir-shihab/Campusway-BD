@@ -12,6 +12,7 @@ import mongoose from 'mongoose';
 import StudentGroup, { IStudentGroup } from '../models/StudentGroup';
 import GroupMembership, { MembershipStatus } from '../models/GroupMembership';
 import StudentProfile from '../models/StudentProfile';
+import { withOptionalTransaction } from './txnRunner';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -77,16 +78,20 @@ export async function validateGroups(groupIds: (string | mongoose.Types.ObjectId
 
 // ─── Single membership mutations ────────────────────────────
 
-export async function addMembership(input: AddMembershipInput): Promise<boolean> {
+export async function addMembership(
+    input: AddMembershipInput,
+    session?: mongoose.ClientSession | null,
+): Promise<boolean> {
     const gid = new mongoose.Types.ObjectId(input.groupId.toString());
     const sid = new mongoose.Types.ObjectId(input.studentId.toString());
+    const opts = { session: session || undefined } as any;
 
     // Check if already active
     const existing = await GroupMembership.findOne({
         groupId: gid,
         studentId: sid,
         membershipStatus: 'active',
-    });
+    }, null, opts);
     if (existing) return false; // already a member
 
     // Reactivate archived row or create new
@@ -101,7 +106,7 @@ export async function addMembership(input: AddMembershipInput): Promise<boolean>
                 note: input.note || '',
             },
         },
-        { new: true }
+        { new: true, ...opts }
     );
 
     if (!archived) {
@@ -112,13 +117,14 @@ export async function addMembership(input: AddMembershipInput): Promise<boolean>
             joinedAtUTC: new Date(),
             addedByAdminId: input.adminId ? new mongoose.Types.ObjectId(input.adminId.toString()) : undefined,
             note: input.note || '',
-        });
+        }, opts);
     }
 
     // Sync profile
     await StudentProfile.updateOne(
         { user_id: sid },
-        { $addToSet: { groupIds: gid } }
+        { $addToSet: { groupIds: gid } },
+        opts
     );
 
     // Update cached count
@@ -127,9 +133,13 @@ export async function addMembership(input: AddMembershipInput): Promise<boolean>
     return true;
 }
 
-export async function removeMembership(input: RemoveMembershipInput): Promise<boolean> {
+export async function removeMembership(
+    input: RemoveMembershipInput,
+    session?: mongoose.ClientSession | null,
+): Promise<boolean> {
     const gid = new mongoose.Types.ObjectId(input.groupId.toString());
     const sid = new mongoose.Types.ObjectId(input.studentId.toString());
+    const opts = { session: session || undefined } as any;
 
     const result = await GroupMembership.updateOne(
         { groupId: gid, studentId: sid, membershipStatus: 'active' },
@@ -139,7 +149,8 @@ export async function removeMembership(input: RemoveMembershipInput): Promise<bo
                 removedAtUTC: new Date(),
                 note: input.note || '',
             },
-        }
+        },
+        opts
     );
 
     if (result.modifiedCount === 0) return false;
@@ -147,7 +158,8 @@ export async function removeMembership(input: RemoveMembershipInput): Promise<bo
     // Sync profile
     await StudentProfile.updateOne(
         { user_id: sid },
-        { $pull: { groupIds: gid } }
+        { $pull: { groupIds: gid } },
+        opts
     );
 
     // Update cached count
@@ -244,17 +256,23 @@ export async function moveMembers(
 ): Promise<BulkMembershipResult> {
     const result: BulkMembershipResult = { added: 0, removed: 0, skipped: 0, errors: [] };
 
-    for (const sid of studentIds) {
-        try {
-            const removed = await removeMembership({ groupId: fromGroupId, studentId: sid, adminId, note: note || 'Moved to another group' });
-            if (removed) result.removed++;
+    // Run the move inside an opt-in transaction when the DB supports it; the two
+    // membership writes + profile sync stay atomic (audit step 2). On standalone
+    // mongod it runs as before (no transaction).
+    await withOptionalTransaction(async (session) => {
+        for (const sid of studentIds) {
+            try {
+                const removed = await removeMembership({ groupId: fromGroupId, studentId: sid, adminId, note: note || 'Moved to another group' }, session);
+                if (removed) result.removed++;
 
-            const added = await addMembership({ groupId: toGroupId, studentId: sid, adminId, note: note || 'Moved from another group' });
-            if (added) result.added++;
-        } catch (err: unknown) {
-            result.errors.push(`Failed to move ${sid}: ${err instanceof Error ? err.message : String(err)}`);
+                const added = await addMembership({ groupId: toGroupId, studentId: sid, adminId, note: note || 'Moved from another group' }, session);
+                if (added) result.added++;
+            } catch (err: unknown) {
+                result.errors.push(`Failed to move ${sid}: ${err instanceof Error ? err.message : String(err)}`);
+            }
         }
-    }
+    }, { name: 'group.moveMembers' });
+
     return result;
 }
 

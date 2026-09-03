@@ -276,6 +276,7 @@ async function expireCurrentSubscriptions(
     userId: string,
     actorId?: string | null,
     exceptSubscriptionId?: string | null,
+    session?: mongoose.ClientSession | null,
 ) {
     const filter: Record<string, unknown> = {
         userId: toObjectId(userId),
@@ -292,7 +293,8 @@ async function expireCurrentSubscriptions(
                 expiresAtUTC: new Date(),
                 ...(toObjectId(actorId) ? { activatedByAdminId: toObjectId(actorId) } : {}),
             },
-        }
+        },
+        { session: session || undefined } as any
     );
 }
 
@@ -595,6 +597,7 @@ export async function assignSubscriptionLifecycle(input: SubscriptionAssignmentI
 export async function activateSubscriptionFromPayment(
     paymentLike: IManualPayment | Record<string, unknown>,
     actorId?: string | null,
+    session?: mongoose.ClientSession | null,
 ) {
     const paymentId = toObjectId(paymentLike._id);
     const studentId = toObjectId(paymentLike.studentId);
@@ -622,7 +625,7 @@ export async function activateSubscriptionFromPayment(
     const actorObjectId = toObjectId(actorId) || toObjectId((paymentLike as { recordedBy?: unknown }).recordedBy);
 
     if (!subscription) {
-        subscription = await UserSubscription.create({
+        subscription = (await UserSubscription.create({
             userId: studentId,
             planId,
             status: 'active',
@@ -631,17 +634,17 @@ export async function activateSubscriptionFromPayment(
             activatedByAdminId: actorObjectId,
             paymentId,
             notes: `Activated from payment ${String(paymentId)}`,
-        });
+        }, { session: session || undefined } as any)) as any;
     } else {
         subscription.status = 'active';
         subscription.startAtUTC = startAtUTC;
         subscription.expiresAtUTC = expiresAtUTC;
         subscription.paymentId = paymentId;
         subscription.activatedByAdminId = actorObjectId || subscription.activatedByAdminId;
-        await subscription.save();
+        await subscription.save({ session: session || undefined } as any);
     }
 
-    await expireCurrentSubscriptions(String(studentId), actorId, String(subscription._id));
+    await expireCurrentSubscriptions(String(studentId), actorId, String(subscription!._id), session);
     const cache = await syncUserSubscriptionCache({
         userId: String(studentId),
         plan: plan as unknown as LeanPlan,
