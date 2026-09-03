@@ -28,10 +28,13 @@ export default function FeaturedUniversitiesPanel() {
                 api.get(`/${ADMIN_API_PATH}/universities`, { params: { limit: 1000 } }),
                 adminGetUniversitySettings(),
             ]);
-            // Extract the universities array from the response object
-            const uniArray = Array.isArray(universitiesResponse.data)
-                ? universitiesResponse.data
-                : (universitiesResponse.data.universities || []);
+            // Interceptor unwraps the envelope: paginated → { items, page, total, pages }
+            const payload = universitiesResponse.data as { items?: ApiUniversity[]; universities?: ApiUniversity[] } | undefined;
+            const uniArray = Array.isArray(payload?.items)
+                ? payload.items
+                : Array.isArray(payload?.universities)
+                    ? payload.universities
+                    : [];
             setUniversities(uniArray);
 
             const configuredSlugs = (settingsResponse.data?.data?.featuredUniversitySlugs || [])

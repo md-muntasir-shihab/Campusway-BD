@@ -278,25 +278,43 @@ export async function fetchUniversityCategories(): Promise<UniversityCategoryDet
 export async function fetchUniversities(
     params: Record<string, string | number> = {},
 ): Promise<UniversityListResponse> {
-    const { data } = await api.get<{
-        universities: ApiUniversity[];
-        pagination: { total: number; page: number; limit: number; pages: number };
-    }>('/universities', { params });
+    const { data } = await api.get('/universities', { params });
+    // The axios interceptor unwraps the ResponseBuilder envelope:
+    // paginated lists arrive as { items, page, limit, total, pages }.
+    const payload = (data || {}) as {
+        items?: ApiUniversity[];
+        universities?: ApiUniversity[];
+        page?: number;
+        limit?: number;
+        total?: number;
+        pages?: number;
+    };
+    const universities = Array.isArray(payload.items)
+        ? payload.items
+        : Array.isArray(payload.universities)
+            ? payload.universities
+            : [];
 
     return {
-        universities: Array.isArray(data.universities)
-            ? data.universities.map(normalizeUniversityCard)
-            : [],
-        pagination: data.pagination || { total: 0, page: 1, limit: 20, pages: 0 },
+        universities: universities.map(normalizeUniversityCard),
+        pagination: {
+            total: Number(payload.total || universities.length),
+            page: Number(payload.page || 1),
+            limit: Number(payload.limit || universities.length || 20),
+            pages: Number(payload.pages || 1),
+        },
     };
 }
 
 export async function fetchUniversityBySlug(slug: string): Promise<UniversityDetail | null> {
-    const { data } = await api.get<{ university: ApiUniversity }>(`/universities/${encodeURIComponent(slug)}`);
-    if (!data.university) return null;
+    const { data } = await api.get(`/universities/${encodeURIComponent(slug)}`);
+    // Interceptor unwraps the envelope: the university object arrives directly
+    // (legacy shape { university: ... } is still tolerated).
+    const payload = (data || {}) as Record<string, unknown>;
+    const raw = (payload.university ?? payload) as unknown as Record<string, unknown> | null;
+    if (!raw || typeof raw !== 'object' || !raw.name) return null;
 
-    const raw = data.university as unknown as Record<string, unknown>;
-    const card = normalizeUniversityCard(data.university);
+    const card = normalizeUniversityCard(raw as unknown as ApiUniversity);
 
     return {
         ...card,

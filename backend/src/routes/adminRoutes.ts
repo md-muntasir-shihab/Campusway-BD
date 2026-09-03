@@ -15,7 +15,7 @@ import { examImportCommitLimit, examImportPreviewLimit } from '../middleware/exa
 import { requireSensitiveAction, trackSensitiveExport } from '../middleware/sensitiveAction';
 import { requireTwoPersonApproval } from '../middleware/twoPersonApproval';
 import { csrfProtection } from '../middleware/csrfGuard';
-import { adminDashboardCache, adminAnalyticsCache, invalidateCache } from '../middleware/cacheMiddleware';
+import { adminDashboardCache, adminAnalyticsCache, invalidateCache, invalidateNewsCache, invalidateUniversityCache } from '../middleware/cacheMiddleware';
 import {
     adminGetExams,
     adminGetExamById,
@@ -173,6 +173,8 @@ import {
 } from '../controllers/contactController';
 import {
     adminNewsV2Dashboard,
+    adminNewsV2FormatPreview,
+    adminNewsV2RefetchFullArticle,
     adminNewsV2FetchNow,
     adminNewsV2GetItems,
     adminNewsV2GetItemById,
@@ -862,7 +864,7 @@ router.put('/settings/notifications', requirePermission('notifications', 'edit')
 router.get('/settings/analytics', requirePermission('site_settings', 'view'), adminGetAnalyticsSettings);
 router.put('/settings/analytics', requirePermission('site_settings', 'edit'), adminUpdateAnalyticsSettings);
 router.get('/settings/university', requirePermission('universities', 'view'), getUniversitySettings);
-router.put('/settings/university', requirePermission('universities', 'edit'), updateUniversitySettings);
+router.put('/settings/university', requirePermission('universities', 'edit'), invalidateUniversityCache(), updateUniversitySettings);
 
 /* ── Security ── */
 router.get('/security-settings', requirePermission('security_logs', 'view'), getAdminSecuritySettings);
@@ -998,101 +1000,103 @@ router.post('/question-bank/media', requirePermission('question_bank', 'create')
 router.get('/universities', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetAllUniversities);
 router.get('/universities/categories', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityCategories);
 router.get('/university-categories', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityCategoryMaster);
-router.post('/university-categories', authorize('superadmin', 'admin', 'moderator'), adminCreateUniversityCategory);
-router.put('/university-categories/:id', authorize('superadmin', 'admin', 'moderator'), adminUpdateUniversityCategory);
-router.post('/university-categories/:id/sync-config', authorize('superadmin', 'admin', 'moderator'), adminSyncUniversityCategoryConfig);
-router.patch('/university-categories/:id/toggle', authorize('superadmin', 'admin', 'moderator'), adminToggleUniversityCategory);
-router.delete('/university-categories/:id', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'category_delete'), adminDeleteUniversityCategory);
+router.post('/university-categories', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminCreateUniversityCategory);
+router.put('/university-categories/:id', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminUpdateUniversityCategory);
+router.post('/university-categories/:id/sync-config', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminSyncUniversityCategoryConfig);
+router.patch('/university-categories/:id/toggle', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminToggleUniversityCategory);
+router.delete('/university-categories/:id', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'category_delete'), invalidateUniversityCache(), adminDeleteUniversityCategory);
 router.get('/universities/export', authorize('superadmin', 'admin', 'moderator', 'editor'), requireSensitiveExport('universities', 'export'), trackSensitiveExport({ moduleName: 'universities', actionName: 'export' }), adminExportUniversities);
 router.get('/universities/template.xlsx', authorize('superadmin', 'admin', 'moderator', 'editor'), adminDownloadUniversityImportTemplate);
-router.put('/universities/reorder-featured', authorize('superadmin', 'admin', 'moderator'), invalidateCache('universities'), adminReorderFeaturedUniversities);
-router.post('/universities/bulk-delete', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'bulk_delete'), requireTwoPersonForUniversitiesBulkDelete, invalidateCache('universities'), adminBulkDeleteUniversities);
-router.patch('/universities/bulk-update', authorize('superadmin', 'admin', 'moderator'), invalidateCache('universities'), adminBulkUpdateUniversities);
+router.put('/universities/reorder-featured', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminReorderFeaturedUniversities);
+router.post('/universities/bulk-delete', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'bulk_delete'), requireTwoPersonForUniversitiesBulkDelete, invalidateUniversityCache(), adminBulkDeleteUniversities);
+router.patch('/universities/bulk-update', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminBulkUpdateUniversities);
 router.get('/universities/import/template', authorize('superadmin', 'admin', 'moderator', 'editor'), adminDownloadUniversityImportTemplate);
 router.post('/universities/import', authorize('superadmin', 'admin'), upload.single('file'), adminInitUniversityImport);
 router.post('/universities/import/init', authorize('superadmin', 'admin'), upload.single('file'), adminInitUniversityImport);
 router.post('/universities/import/:jobId/validate', authorize('superadmin', 'admin', 'moderator'), adminValidateUniversityImport);
-router.post('/universities/import/:jobId/commit', authorize('superadmin', 'admin'), invalidateCache('universities'), adminCommitUniversityImport);
+router.post('/universities/import/:jobId/commit', authorize('superadmin', 'admin'), invalidateUniversityCache(), adminCommitUniversityImport);
 router.get('/universities/import/:jobId/errors.csv', authorize('superadmin', 'admin', 'moderator'), adminDownloadUniversityImportErrors);
 router.get('/universities/import/:jobId', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityImportJob);
 router.get('/universities/:id', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityById);
-router.post('/universities', authorize('superadmin', 'admin', 'moderator'), validateBody(createUniversitySchema), invalidateCache('universities'), adminCreateUniversity);
-router.put('/universities/:id', authorize('superadmin', 'admin', 'moderator'), validateBody(updateUniversitySchema), invalidateCache('universities'), adminUpdateUniversity);
-router.delete('/universities/:id', authorize('superadmin', 'admin'), canDeleteData, requireDestructiveStepUp('universities', 'university_delete'), invalidateCache('universities'), adminDeleteUniversity);
-router.patch('/universities/:id/toggle-status', authorize('superadmin', 'admin'), invalidateCache('universities'), adminToggleUniversityStatus);
-router.post('/universities/import-excel', authorize('superadmin', 'admin'), upload.single('file'), invalidateCache('universities'), adminBulkImportUniversities);
+router.post('/universities', authorize('superadmin', 'admin', 'moderator'), validateBody(createUniversitySchema), invalidateUniversityCache(), adminCreateUniversity);
+router.put('/universities/:id', authorize('superadmin', 'admin', 'moderator'), validateBody(updateUniversitySchema), invalidateUniversityCache(), adminUpdateUniversity);
+router.delete('/universities/:id', authorize('superadmin', 'admin'), canDeleteData, requireDestructiveStepUp('universities', 'university_delete'), invalidateUniversityCache(), adminDeleteUniversity);
+router.patch('/universities/:id/toggle-status', authorize('superadmin', 'admin'), invalidateUniversityCache(), adminToggleUniversityStatus);
+router.post('/universities/import-excel', authorize('superadmin', 'admin'), upload.single('file'), invalidateUniversityCache(), adminBulkImportUniversities);
 
 /* â”€â”€ University Clusters â”€â”€ */
 router.get('/university-clusters', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityClusters);
-router.post('/university-clusters', authorize('superadmin', 'admin', 'moderator'), adminCreateUniversityCluster);
+router.post('/university-clusters', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminCreateUniversityCluster);
 router.get('/university-clusters/:id', authorize('superadmin', 'admin', 'moderator', 'editor'), adminGetUniversityClusterById);
-router.put('/university-clusters/:id', authorize('superadmin', 'admin', 'moderator'), adminUpdateUniversityCluster);
-router.post('/university-clusters/:id/members/resolve', authorize('superadmin', 'admin', 'moderator'), adminResolveUniversityClusterMembers);
-router.patch('/university-clusters/:id/sync-dates', authorize('superadmin', 'admin', 'moderator'), adminSyncUniversityClusterDates);
-router.delete('/university-clusters/:id', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'cluster_delete'), adminDeleteUniversityCluster);
-router.delete('/university-clusters/:id/permanent', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'cluster_delete'), adminPermanentDeleteUniversityCluster);
+router.put('/university-clusters/:id', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminUpdateUniversityCluster);
+router.post('/university-clusters/:id/members/resolve', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminResolveUniversityClusterMembers);
+router.patch('/university-clusters/:id/sync-dates', authorize('superadmin', 'admin', 'moderator'), invalidateUniversityCache(), adminSyncUniversityClusterDates);
+router.delete('/university-clusters/:id', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'cluster_delete'), invalidateUniversityCache(), adminDeleteUniversityCluster);
+router.delete('/university-clusters/:id/permanent', authorize('superadmin', 'admin'), requireDestructiveStepUp('universities', 'cluster_delete'), invalidateUniversityCache(), adminPermanentDeleteUniversityCluster);
 
 /* ── Legacy News CRUD ── */
 
 /* ── News Hub (spec aliases) ── */
 router.get('/news/dashboard', requirePermission('news', 'view'), adminNewsV2Dashboard);
-router.post('/news/fetch-now', requirePermission('news', 'create'), adminNewsV2FetchNow);
+router.post('/news/fetch-now', requirePermission('news', 'create'), invalidateNewsCache(), adminNewsV2FetchNow);
+router.post('/news/format-preview', requirePermission('news', 'view'), adminNewsV2FormatPreview);
+router.post('/news/:id/refetch-full', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2RefetchFullArticle);
 router.get('/news', requirePermission('news', 'view'), adminNewsV2GetItems);
-router.post('/news', requirePermission('news', 'create'), adminNewsV2CreateItem);
-router.post('/news/bulk-approve', requirePermission('news', 'bulk'), adminNewsV2BulkApprove);
-router.post('/news/bulk-reject', requirePermission('news', 'bulk'), adminNewsV2BulkReject);
+router.post('/news', requirePermission('news', 'create'), invalidateNewsCache(), adminNewsV2CreateItem);
+router.post('/news/bulk-approve', requirePermission('news', 'bulk'), invalidateNewsCache(), adminNewsV2BulkApprove);
+router.post('/news/bulk-reject', requirePermission('news', 'bulk'), invalidateNewsCache(), adminNewsV2BulkReject);
 router.get('/news/settings', requirePermission('news', 'view'), adminNewsV2GetAllSettings);
-router.put('/news/settings', requirePermission('news', 'edit'), adminNewsV2UpdateAllSettings);
-router.patch('/news/settings', requirePermission('news', 'edit'), adminNewsV2UpdateAllSettings);
+router.put('/news/settings', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2UpdateAllSettings);
+router.patch('/news/settings', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2UpdateAllSettings);
 router.get('/news/settings/appearance', requirePermission('news', 'view'), adminNewsV2GetAppearanceSettings);
-router.put('/news/settings/appearance', requirePermission('news', 'edit'), adminNewsV2UpdateAppearanceSettings);
+router.put('/news/settings/appearance', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2UpdateAppearanceSettings);
 router.get('/news/settings/ai', requirePermission('news', 'view'), adminNewsV2GetAiSettings);
-router.put('/news/settings/ai', requirePermission('news', 'edit'), adminNewsV2UpdateAiSettings);
+router.put('/news/settings/ai', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2UpdateAiSettings);
 router.get('/news/settings/share', requirePermission('news', 'view'), adminNewsV2GetShareSettings);
-router.put('/news/settings/share', requirePermission('news', 'edit'), adminNewsV2UpdateShareSettings);
+router.put('/news/settings/share', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2UpdateShareSettings);
 router.get('/news/notices', requirePermission('support_center', 'view'), adminGetNotices);
-router.post('/news/notices', requirePermission('support_center', 'create'), adminCreateNotice);
-router.patch('/news/notices/:id/toggle', requirePermission('support_center', 'edit'), adminToggleNotice);
+router.post('/news/notices', requirePermission('support_center', 'create'), invalidateNewsCache(), adminCreateNotice);
+router.patch('/news/notices/:id/toggle', requirePermission('support_center', 'edit'), invalidateNewsCache(), adminToggleNotice);
 router.get('/news/media', requirePermission('news', 'view'), adminNewsV2GetMedia);
-router.post('/news/media/upload', requirePermission('news', 'create'), uploadMiddleware.single('file'), adminNewsV2UploadMedia);
-router.post('/news/media/from-url', requirePermission('news', 'create'), adminNewsV2MediaFromUrl);
-router.delete('/news/media/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'news_media_delete'), adminNewsV2DeleteMedia);
+router.post('/news/media/upload', requirePermission('news', 'create'), uploadMiddleware.single('file'), invalidateNewsCache(), adminNewsV2UploadMedia);
+router.post('/news/media/from-url', requirePermission('news', 'create'), invalidateNewsCache(), adminNewsV2MediaFromUrl);
+router.delete('/news/media/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'news_media_delete'), invalidateNewsCache(), adminNewsV2DeleteMedia);
 router.get('/news/export', requirePermission('news', 'export'), requireSensitiveExport('news', 'news_export'), trackSensitiveExport({ moduleName: 'news', actionName: 'news_export' }), adminNewsV2ExportNews);
 router.get('/news/exports/sources', requirePermission('news', 'export'), requireSensitiveExport('news', 'rss_sources_export'), trackSensitiveExport({ moduleName: 'news', actionName: 'rss_sources_export' }), adminNewsV2ExportSources);
 router.get('/news/exports/logs', requirePermission('news', 'export'), requireSensitiveExport('news', 'news_logs_export'), trackSensitiveExport({ moduleName: 'news', actionName: 'news_logs_export' }), adminNewsV2ExportLogs);
 router.get('/news/audit-logs', requirePermission('news', 'view'), adminNewsV2GetAuditLogs);
 router.get('/news/sources', requirePermission('news', 'view'), adminNewsV2GetSources);
-router.post('/news/sources', requirePermission('news', 'create'), adminNewsV2CreateSource);
-router.put('/news/sources/:id', requirePermission('news', 'edit'), adminNewsV2UpdateSource);
-router.delete('/news/sources/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'source_delete'), adminNewsV2DeleteSource);
-router.post('/news/sources/:id/test', requirePermission('news', 'view'), adminNewsV2TestSource);
-router.post('/news/sources/reorder', requirePermission('news', 'edit'), adminNewsV2ReorderSources);
-router.post('/news/:id/ai-check', requirePermission('news', 'view'), adminNewsV2AiCheckItem);
-router.post('/news/:id/approve', requirePermission('news', 'approve'), adminNewsV2Approve);
-router.post('/news/:id/approve-publish', requirePermission('news', 'approve'), adminNewsV2ApprovePublish);
-router.post('/news/:id/reject', requirePermission('news', 'approve'), adminNewsV2Reject);
-router.post('/news/:id/schedule', requirePermission('news', 'publish'), adminNewsV2Schedule);
-router.post('/news/:id/publish-now', requirePermission('news', 'publish'), adminNewsV2PublishNow);
-router.post('/news/:id/publish-send', requirePermission('news', 'publish'), requireSensitiveAction({ actionKey: 'news.publish_breaking', moduleName: 'news', actionName: 'publish_send' }), adminNewsV2PublishSend);
-router.post('/news/:id/move-to-draft', requirePermission('news', 'edit'), adminNewsV2MoveToDraft);
-router.post('/news/:id/archive', requirePermission('news', 'edit'), adminNewsV2Archive);
-router.post('/news/:id/restore', requirePermission('news', 'edit'), adminNewsV2RestoreItem);
-router.post('/news/:id/convert-to-notice', requirePermission('support_center', 'create'), adminNewsV2ConvertToNotice);
-router.post('/news/:id/convert-to-editable', requirePermission('news', 'edit'), adminNewsV2ConvertToEditable);
-router.post('/news/:id/publish-anyway', requirePermission('news', 'publish'), adminNewsV2PublishAnyway);
-router.post('/news/:id/merge', requirePermission('news', 'edit'), adminNewsV2MergeDuplicate);
-router.post('/news/:id/submit-review', requirePermission('news', 'edit'), adminNewsV2SubmitReview);
+router.post('/news/sources', requirePermission('news', 'create'), invalidateNewsCache(), adminNewsV2CreateSource);
+router.put('/news/sources/:id', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2UpdateSource);
+router.delete('/news/sources/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'source_delete'), invalidateNewsCache(), adminNewsV2DeleteSource);
+router.post('/news/sources/:id/test', requirePermission('news', 'view'), invalidateNewsCache(), adminNewsV2TestSource);
+router.post('/news/sources/reorder', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2ReorderSources);
+router.post('/news/:id/ai-check', requirePermission('news', 'view'), invalidateNewsCache(), adminNewsV2AiCheckItem);
+router.post('/news/:id/approve', requirePermission('news', 'approve'), invalidateNewsCache(), adminNewsV2Approve);
+router.post('/news/:id/approve-publish', requirePermission('news', 'approve'), invalidateNewsCache(), adminNewsV2ApprovePublish);
+router.post('/news/:id/reject', requirePermission('news', 'approve'), invalidateNewsCache(), adminNewsV2Reject);
+router.post('/news/:id/schedule', requirePermission('news', 'publish'), invalidateNewsCache(), adminNewsV2Schedule);
+router.post('/news/:id/publish-now', requirePermission('news', 'publish'), invalidateNewsCache(), adminNewsV2PublishNow);
+router.post('/news/:id/publish-send', requirePermission('news', 'publish'), requireSensitiveAction({ actionKey: 'news.publish_breaking', moduleName: 'news', actionName: 'publish_send' }), invalidateNewsCache(), adminNewsV2PublishSend);
+router.post('/news/:id/move-to-draft', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2MoveToDraft);
+router.post('/news/:id/archive', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2Archive);
+router.post('/news/:id/restore', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2RestoreItem);
+router.post('/news/:id/convert-to-notice', requirePermission('support_center', 'create'), invalidateNewsCache(), adminNewsV2ConvertToNotice);
+router.post('/news/:id/convert-to-editable', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2ConvertToEditable);
+router.post('/news/:id/publish-anyway', requirePermission('news', 'publish'), invalidateNewsCache(), adminNewsV2PublishAnyway);
+router.post('/news/:id/merge', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2MergeDuplicate);
+router.post('/news/:id/submit-review', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2SubmitReview);
 router.get('/news/:id', requirePermission('news', 'view'), adminNewsV2GetItemById);
-router.put('/news/:id', requirePermission('news', 'edit'), adminNewsV2UpdateItem);
-router.delete('/news/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'news_delete'), requireTwoPersonForNewsDelete, adminNewsV2DeleteItem);
-router.delete('/news/:id/purge', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'news_delete'), requireTwoPersonForNewsDelete, adminNewsV2PurgeItem);
+router.put('/news/:id', requirePermission('news', 'edit'), invalidateNewsCache(), adminNewsV2UpdateItem);
+router.delete('/news/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'news_delete'), requireTwoPersonForNewsDelete, invalidateNewsCache(), adminNewsV2DeleteItem);
+router.delete('/news/:id/purge', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'news_delete'), requireTwoPersonForNewsDelete, invalidateNewsCache(), adminNewsV2PurgeItem);
 
 /* ── News Categories ── */
 router.get('/news-category', requirePermission('news', 'view'), adminGetNewsCategories);
-router.post('/news-category', requirePermission('news', 'create'), adminCreateNewsCategory);
-router.put('/news-category/:id', requirePermission('news', 'edit'), adminUpdateNewsCategory);
-router.delete('/news-category/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'category_delete'), adminDeleteNewsCategory);
-router.patch('/news-category/:id/toggle', requirePermission('news', 'edit'), adminToggleNewsCategory);
+router.post('/news-category', requirePermission('news', 'create'), invalidateNewsCache(), adminCreateNewsCategory);
+router.put('/news-category/:id', requirePermission('news', 'edit'), invalidateNewsCache(), adminUpdateNewsCategory);
+router.delete('/news-category/:id', requirePermission('news', 'delete'), requireDestructiveStepUp('news', 'category_delete'), invalidateNewsCache(), adminDeleteNewsCategory);
+router.patch('/news-category/:id/toggle', requirePermission('news', 'edit'), invalidateNewsCache(), adminToggleNewsCategory);
 
 /* ── News V2 ── */
 

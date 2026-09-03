@@ -251,6 +251,41 @@ export async function delByPattern(pattern: string): Promise<number> {
     }
 }
 
+/**
+ * Invalidate every cached surface that displays news content.
+ *
+ * `/v1/news*` responses are cached with a 120s TTL (publicContentCache), and the
+ * home aggregation (`/v1/home*`) embeds news widgets — without purging both,
+ * publish/unpublish/edits made in the admin console would not reach visitors
+ * until the TTL expires.
+ */
+export async function invalidateNewsAndHomeCaches(): Promise<{ news: number; home: number }> {
+    const [news, home] = await Promise.all([
+        delByPattern('*news*'),
+        delByPattern('*home*'),
+    ]);
+    return { news, home };
+}
+
+/**
+ * Invalidate every cached surface that displays university content.
+ *
+ * `/universities*`, `/university-categories*` and `/home/clusters*` responses
+ * are cached with publicContentCache (120s TTL), and the home aggregation
+ * embeds featured universities/clusters — without purging them, admin edits
+ * to universities, categories or clusters would not reach visitors until the
+ * TTL expires.
+ */
+export async function invalidateUniversityAndHomeCaches(): Promise<{ universities: number; categories: number; clusters: number; home: number }> {
+    const [universities, categories, clusters, home] = await Promise.all([
+        delByPattern('*universit*'),
+        delByPattern('*categor*'),
+        delByPattern('*cluster*'),
+        delByPattern('*home*'),
+    ]);
+    return { universities, categories, clusters, home };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -260,6 +295,8 @@ export const cacheService = {
     set,
     del,
     delByPattern,
+    invalidateNewsAndHomeCaches,
+    invalidateUniversityAndHomeCaches,
     buildKey,
     parseKey,
     isRedisConfigured,

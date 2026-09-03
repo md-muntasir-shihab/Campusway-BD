@@ -27,6 +27,9 @@ export const DEFAULT_UNIVERSITY_CARD_CONFIG: HomeUniversityCardConfig = {
     showEmail: true,
     showApplicationProgress: true,
     showExamDates: true,
+    showClusterBadge: true,
+    showProgressBar: true,
+    showCategoryBadge: true,
     defaultSort: 'alphabetical',
 };
 
@@ -380,12 +383,14 @@ const UniversityCard = memo(function UniversityCard({
                                 </span>
 
                                 {/* Category badge */}
-                                <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${(category && category !== 'N/A') ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300' : 'border-slate-200/60 bg-slate-50 text-slate-400 dark:border-slate-700/60 dark:bg-slate-800/50 dark:text-slate-500'}`}>
-                                    {category && category !== 'N/A' ? category : 'N/A'}
-                                </span>
+                                {mergedConfig.showCategoryBadge !== false && (
+                                    <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${(category && category !== 'N/A') ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300' : 'border-slate-200/60 bg-slate-50 text-slate-400 dark:border-slate-700/60 dark:bg-slate-800/50 dark:text-slate-500'}`}>
+                                        {category && category !== 'N/A' ? category : 'N/A'}
+                                    </span>
+                                )}
 
                                 {/* Cluster badge */}
-                                {clusterGroup && clusterGroup !== 'N/A' ? (
+                                {mergedConfig.showClusterBadge !== false && clusterGroup && clusterGroup !== 'N/A' ? (
                                     clusterUrl ? (
                                         <Link
                                             to={clusterUrl}
@@ -692,12 +697,14 @@ const UniversityCard = memo(function UniversityCard({
                                 </span>
 
                                 {/* Category badge */}
-                                <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${(category && category !== 'N/A') ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300' : 'border-slate-200/60 bg-slate-50 text-slate-400 dark:border-slate-700/60 dark:bg-slate-800/50 dark:text-slate-500'}`}>
-                                    {category && category !== 'N/A' ? category : 'N/A'}
-                                </span>
+                                {mergedConfig.showCategoryBadge !== false && (
+                                    <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${(category && category !== 'N/A') ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300' : 'border-slate-200/60 bg-slate-50 text-slate-400 dark:border-slate-700/60 dark:bg-slate-800/50 dark:text-slate-500'}`}>
+                                        {category && category !== 'N/A' ? category : 'N/A'}
+                                    </span>
+                                )}
 
                                 {/* Cluster badge */}
-                                {clusterGroup && clusterGroup !== 'N/A' ? (
+                                {mergedConfig.showClusterBadge !== false && clusterGroup && clusterGroup !== 'N/A' ? (
                                     clusterUrl ? (
                                         <Link
                                             to={clusterUrl}
@@ -740,27 +747,31 @@ const UniversityCard = memo(function UniversityCard({
             </div>
 
             <div className="space-y-3 px-4 pb-4">
-                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700/80 dark:bg-slate-950/55">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Application Window</div>
-                            <div className="text-xs font-semibold text-slate-700 dark:text-slate-100">{appMeta.windowLabel}</div>
+                {mergedConfig.showApplicationProgress && (
+                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700/80 dark:bg-slate-950/55">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="space-y-1">
+                                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Application Window</div>
+                                <div className="text-xs font-semibold text-slate-700 dark:text-slate-100">{appMeta.windowLabel}</div>
+                            </div>
+                            <DaysLeftChip daysLeft={appMeta.daysLeft} urgencyState={appMeta.urgencyState} />
                         </div>
-                        <DaysLeftChip daysLeft={appMeta.daysLeft} urgencyState={appMeta.urgencyState} />
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <span className="font-medium text-slate-500 dark:text-slate-400">{appMeta.deadlineLabel}</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-100">
+                                {nearestExam ? formatUniversityDate(nearestExam, 'en-GB', { day: '2-digit', month: 'short' }) : 'N/A'}
+                            </span>
+                        </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <span className="font-medium text-slate-500 dark:text-slate-400">{appMeta.deadlineLabel}</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-100">
-                            {nearestExam ? formatUniversityDate(nearestExam, 'en-GB', { day: '2-digit', month: 'short' }) : 'N/A'}
-                        </span>
-                    </div>
-                </div>
+                )}
 
-                <div className="grid grid-cols-3 gap-2">
-                    <UnitDateChip label="Science" value={university.scienceExamDate || university.examDateScience} />
-                    <UnitDateChip label="Humanities" value={university.artsExamDate || university.examDateArts} />
-                    <UnitDateChip label="Business" value={university.businessExamDate || university.examDateBusiness} />
-                </div>
+                {mergedConfig.showExamDates && (
+                    <div className="grid grid-cols-3 gap-2">
+                        <UnitDateChip label="Science" value={university.scienceExamDate || university.examDateScience} />
+                        <UnitDateChip label="Humanities" value={university.artsExamDate || university.examDateArts} />
+                        <UnitDateChip label="Business" value={university.businessExamDate || university.examDateBusiness} />
+                    </div>
+                )}
                 {mergedConfig.showExamCentersPreview && examCenterPreview.length > 0 && (
                     <p className="line-clamp-1 text-xs text-slate-500 dark:text-slate-400">
                         Centers: {examCenterPreview.join(', ')}
