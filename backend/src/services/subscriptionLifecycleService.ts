@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import mongoose from 'mongoose';
 import User from '../models/User';
 import SubscriptionPlan from '../models/SubscriptionPlan';
@@ -6,6 +7,7 @@ import ManualPayment, { IManualPayment, PaymentStatus } from '../models/ManualPa
 import FinanceInvoice from '../models/FinanceInvoice';
 import StudentDueLedger from '../models/StudentDueLedger';
 import FinanceTransaction from '../models/FinanceTransaction';
+import IdempotencyKey from '../models/IdempotencyKey';
 import { createIncomeFromPayment, nextInvoiceNo, nextTxnCode } from './financeCenterService';
 import { triggerAutoSend } from './notificationOrchestrationService';
 
@@ -426,6 +428,71 @@ async function findRecentEquivalentAssignment(input: {
     };
 }
 
+/**
+ * Build a deterministic idempotency key for a subscription assignment (fix B-6).
+ * Two identical logical assignments produce the same key. Times are rounded to
+ * the nearest second so nearly-simultaneous concurrent requests collide, while
+ * distinct assignments (different plan/status/amount) still get distinct keys.
+ * Pure — no DB access.
+ */
+export function buildAssignmentIdempotencyKey(input: {
+    userId: mongoose.Types.ObjectId;
+    planId: mongoose.Types.ObjectId;
+    subscriptionStatus: UserSubscriptionStatus;
+    startAtUTC: Date;
+    expiresAtUTC: Date;
+    planIsFree: boolean;
+    planAmount: number;
+    paymentStatus: PaymentStatus | null;
+}): string {
+    const raw = [
+        input.userId.toHexString(),
+        input.planId.toHexString(),
+        input.subscriptionStatus,
+        Math.round(input.startAtUTC.getTime() / 1000),
+        Math.round(input.expiresAtUTC.getTime() / 1000),
+        input.planIsFree ? 'free' : 'paid',
+        Number.isFinite(input.planAmount) ? input.planAmount : 0,
+        input.paymentStatus ?? 'none',
+    ].join(':');
+    return crypto.createHash('sha256').update(raw).digest('hex');
+}
+
+/**
+ * Materialize the response for a re-used (already-created) assignment, so the
+ * "recent equivalent" fast-path and the B-6 idempotency-latch path share one
+ * result shape.
+ */
+async function buildEquivalentAssignmentResult(
+    userObjectId: mongoose.Types.ObjectId,
+    plan: LeanPlan,
+    input: SubscriptionAssignmentInput,
+    equivalent: NonNullable<Awaited<ReturnType<typeof findRecentEquivalentAssignment>>>,
+): Promise<SubscriptionAssignmentResult> {
+    const cache = await syncUserSubscriptionCache({
+        userId: String(userObjectId),
+        plan,
+        status: equivalent.subscription.status,
+        startAtUTC: equivalent.subscription.startAtUTC,
+        expiresAtUTC: equivalent.subscription.expiresAtUTC,
+    });
+
+    await recomputeStudentDueLedger(
+        String(userObjectId),
+        input.actorId,
+        safeString(input.notes || `Subscription sync for ${safeString(plan.name)}`),
+    );
+
+    return {
+        user: { _id: userObjectId },
+        plan,
+        subscription: equivalent.subscription,
+        payment: equivalent.payment,
+        invoice: equivalent.invoice,
+        cache,
+    };
+}
+
 export async function assignSubscriptionLifecycle(input: SubscriptionAssignmentInput): Promise<SubscriptionAssignmentResult> {
     const userObjectId = toObjectId(input.userId);
     if (!userObjectId) {
@@ -484,28 +551,56 @@ export async function assignSubscriptionLifecycle(input: SubscriptionAssignmentI
     });
 
     if (recentEquivalentAssignment) {
-        const cache = await syncUserSubscriptionCache({
-            userId: String(userObjectId),
-            plan,
-            status: recentEquivalentAssignment.subscription.status,
-            startAtUTC: recentEquivalentAssignment.subscription.startAtUTC,
-            expiresAtUTC: recentEquivalentAssignment.subscription.expiresAtUTC,
+        return buildEquivalentAssignmentResult(userObjectId, plan, input, recentEquivalentAssignment);
+    }
+
+    // Fix B-6: atomically claim this logical assignment so two concurrent
+    // identical requests cannot BOTH create a subscription + payment +
+    // finance transaction. The IdempotencyKey unique index on `key` turns a
+    // duplicate into E11000, and the loser re-reads the winner's result.
+    const assignmentKey = buildAssignmentIdempotencyKey({
+        userId: userObjectId,
+        planId: planObjectId,
+        subscriptionStatus,
+        startAtUTC,
+        expiresAtUTC,
+        planIsFree,
+        planAmount,
+        paymentStatus,
+    });
+    let claimOwned = false;
+    try {
+        await IdempotencyKey.create({
+            key: assignmentKey,
+            result: { phase: 'pending' },
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
         });
+        claimOwned = true;
+    } catch (err: any) {
+        if (err?.code !== 11000) throw err;
+    }
 
-        await recomputeStudentDueLedger(
-            String(userObjectId),
-            input.actorId,
-            safeString(input.notes || `Subscription sync for ${safeString(plan.name)}`),
-        );
-
-        return {
-            user: { _id: userObjectId },
-            plan,
-            subscription: recentEquivalentAssignment.subscription,
-            payment: recentEquivalentAssignment.payment,
-            invoice: recentEquivalentAssignment.invoice,
-            cache,
-        };
+    if (!claimOwned) {
+        // A concurrent request is handling this exact assignment. Briefly wait
+        // for it to persist, then return its result; otherwise surface a clear
+        // conflict instead of silently creating a duplicate.
+        for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            const found = await findRecentEquivalentAssignment({
+                userId: userObjectId,
+                planId: planObjectId,
+                subscriptionStatus,
+                startAtUTC,
+                expiresAtUTC,
+                planIsFree,
+                planAmount,
+                paymentStatus,
+            });
+            if (found) {
+                return buildEquivalentAssignmentResult(userObjectId, plan, input, found);
+            }
+        }
+        throw new Error('Concurrent subscription assignment already in progress.');
     }
 
     if (replaceExisting) {
