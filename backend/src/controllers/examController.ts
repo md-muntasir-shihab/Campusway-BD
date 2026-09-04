@@ -9,7 +9,6 @@ import ExamResult from '../models/ExamResult';
 import ExamSession from '../models/ExamSession';
 import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
-import StudentDashboardConfig from '../models/StudentDashboardConfig';
 import ExamEvent from '../models/ExamEvent';
 import ExamCertificate from '../models/ExamCertificate';
 import StudentDueLedger from '../models/StudentDueLedger';
@@ -23,6 +22,7 @@ import {
 import { broadcastAdminLiveEvent } from '../realtime/adminLiveStream';
 import { getExamCardMetrics } from '../services/examCardMetricsService';
 import { getSecurityConfig } from '../services/securityConfigService';
+import { getProfileCompletionThreshold } from '../services/profileScoreConfig';
 import { finalizeExamSession } from '../services/examFinalizationService';
 import SecuritySettings from '../models/SecuritySettings';
 import { mergeAntiCheatPolicy } from '../services/antiCheatEngine';
@@ -1018,15 +1018,6 @@ export async function getEligibilitySummary(exam: Record<string, unknown>, stude
         accessAllowed,
         accessDeniedReason: accessDeniedReason || undefined,
     };
-}
-
-async function getProfileCompletionThreshold(): Promise<number> {
-    const security = await getSecurityConfig(true);
-    if (security.examProtection.requireProfileScoreForExam) {
-        return Number(security.examProtection.profileScoreThreshold || 70);
-    }
-    const config = await StudentDashboardConfig.findOne().select('profileCompletionThreshold').lean();
-    return Number(config?.profileCompletionThreshold || 70);
 }
 
 function getDeviceFingerprint(userAgent: string, ipAddress: string): string {
