@@ -13,6 +13,7 @@ import StudentGroup, { IStudentGroup } from '../models/StudentGroup';
 import GroupMembership, { MembershipStatus } from '../models/GroupMembership';
 import StudentProfile from '../models/StudentProfile';
 import { withOptionalTransaction } from './txnRunner';
+import { computeGroupMembershipReconciliation } from '../utils/groupReconciliation';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -299,6 +300,120 @@ export async function syncAllGroupCounts(): Promise<number> {
         if (result.modifiedCount > 0) fixed++;
     }
     return fixed;
+}
+
+// ─── Group membership mirror reconciliation (fix C-1) ───────
+//
+// `StudentProfile.groupIds` is an operational read model that the exam-gating
+// path reads; `GroupMembership` is the canonical audited write layer. These two
+// can drift (see utils/groupReconciliation.ts). Reconcile a single student's
+// mirror back into agreement with the canonical store without ever dropping a
+// legitimately-assigned group.
+
+export async function reconcileStudentGroupMirror(
+    studentId: string | mongoose.Types.ObjectId,
+): Promise<GroupMembershipReconciliationResult> {
+    const sid = new mongoose.Types.ObjectId(studentId.toString());
+
+    const profile = await StudentProfile.findOne({ user_id: sid }).select('groupIds').lean();
+    const mirrorGroupIds = (profile?.groupIds ?? []).map((id) => id.toString());
+
+    const canonicalDocs = await GroupMembership.find({
+        studentId: sid,
+        membershipStatus: 'active',
+    }).select('groupId').lean();
+    const canonicalActiveGroupIds = canonicalDocs.map((m) => m.groupId.toString());
+
+    // Existing (non-deleted) groups, used to distinguish a stale reference to a
+    // deleted group from a legitimately-assigned (but never-materialised) group.
+    const unionGroupIds = [...new Set([...mirrorGroupIds, ...canonicalActiveGroupIds])];
+    const stillExists = unionGroupIds.length > 0
+        ? await StudentGroup.find({ _id: { $in: unionGroupIds } }).select('_id').lean()
+        : [];
+    const existingGroupIds = new Set(stillExists.map((g) => String(g._id)));
+
+    const decision = computeGroupMembershipReconciliation({
+        mirrorGroupIds,
+        canonicalActiveGroupIds,
+        existingGroupIds,
+    });
+
+    // 1. Add canonical-only groups into the mirror (repair stale mirror).
+    if (decision.toAddToMirror.length > 0) {
+        const ids = decision.toAddToMirror.map((id) => new mongoose.Types.ObjectId(id));
+        await StudentProfile.updateOne(
+            { user_id: sid },
+            { $addToSet: { groupIds: { $each: ids } } },
+        );
+    }
+
+    // 2. Pull deleted-group references out of the mirror (stop over-granting).
+    if (decision.toPullFromMirror.length > 0) {
+        const ids = decision.toPullFromMirror.map((id) => new mongoose.Types.ObjectId(id));
+        await StudentProfile.updateOne(
+            { user_id: sid },
+            { $pull: { groupIds: { $in: ids } } },
+        );
+    }
+
+    // 3. Materialise canonical memberships for mirror-only assigned groups.
+    for (const gid of decision.toMaterialize) {
+        await addMembership({
+            groupId: gid,
+            studentId: sid,
+            note: 'Reconciled from profile mirror',
+        });
+    }
+
+    return {
+        studentId: String(sid),
+        addedToMirror: decision.toAddToMirror,
+        pulledFromMirror: decision.toPullFromMirror,
+        materialized: decision.toMaterialize,
+    };
+}
+
+export interface GroupMembershipReconciliationResult {
+    studentId: string;
+    addedToMirror: string[];
+    pulledFromMirror: string[];
+    materialized: string[];
+}
+
+/**
+ * Reconcile every student that has either a mirror entry or a canonical
+ * membership. Safe to run on a schedule; idempotent (rerunning after a clean
+ * state yields no writes).
+ */
+export async function reconcileAllGroupMirrors(): Promise<{
+    reconciled: number;
+    addedToMirror: number;
+    pulledFromMirror: number;
+    materialized: number;
+}> {
+    const mirrorStudents = await StudentProfile.distinct('user_id', { groupIds: { $exists: true, $ne: [] } });
+    const canonicalStudents = await GroupMembership.distinct('studentId', { membershipStatus: 'active' });
+
+    const studentIds = [...new Set([
+        ...mirrorStudents.map((id) => id.toString()),
+        ...canonicalStudents.map((id) => id.toString()),
+    ])];
+
+    let reconciled = 0;
+    let addedToMirror = 0;
+    let pulledFromMirror = 0;
+    let materialized = 0;
+
+    for (const sid of studentIds) {
+        if (!mongoose.Types.ObjectId.isValid(sid)) continue;
+        const result = await reconcileStudentGroupMirror(sid);
+        reconciled++;
+        addedToMirror += result.addedToMirror.length;
+        pulledFromMirror += result.pulledFromMirror.length;
+        materialized += result.materialized.length;
+    }
+
+    return { reconciled, addedToMirror, pulledFromMirror, materialized };
 }
 
 // ─── Query helpers ──────────────────────────────────────────

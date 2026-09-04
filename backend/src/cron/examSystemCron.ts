@@ -18,6 +18,7 @@ import WeeklyLeagueRanking from '../models/WeeklyLeagueRanking';
 import LeagueProgress from '../models/LeagueProgress';
 import { TIER_XP_MULTIPLIERS, checkAndAwardMilestones, evaluateBadges } from '../services/GamificationService';
 import { triggerStreakWarning, triggerExamStartingSoon } from '../services/NotificationTriggerService';
+import { reconcileAllGroupMirrors } from '../services/groupMembershipService';
 
 type LeagueTier = 'iron' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'platinum';
 
@@ -222,6 +223,24 @@ async function notifyExamStartingSoon(): Promise<void> {
 }
 
 /**
+ * Reconcile the StudentProfile.groupIds mirror with the canonical
+ * GroupMembership store (fix C-1). Runs daily — repairs drift from group
+ * deletion, creation/import paths that only wrote the mirror, and
+ * rule-engine-only adds. Idempotent: a clean state yields no writes.
+ */
+async function reconcileGroupMembershipMirrors(): Promise<void> {
+    try {
+        const result = await reconcileAllGroupMirrors();
+        console.log(
+            `[CRON-EXAM] Group membership mirror reconciled: students=${result.reconciled}, ` +
+            `addedToMirror=${result.addedToMirror}, pulledFromMirror=${result.pulledFromMirror}, materialized=${result.materialized}.`,
+        );
+    } catch (err) {
+        console.error('[CRON-EXAM] Failed to reconcile group membership mirrors:', err);
+    }
+}
+
+/**
  * Expire pending battle challenges that are older than the configured timeout.
  * Runs every minute.
  *
@@ -266,6 +285,9 @@ export function startExamSystemCronJobs(): void {
 
     // 2. Streak warning — daily at 8 PM Bangladesh time (UTC+6 = 14:00 UTC)
     cron.schedule('0 14 * * *', sendStreakWarnings);
+
+    // 2b. Group membership mirror reconciliation — daily at 02:30 UTC
+    cron.schedule('30 2 * * *', reconcileGroupMembershipMirrors);
 
     // 3. Exam starting soon — every 5 minutes
     cron.schedule('*/5 * * * *', notifyExamStartingSoon);
