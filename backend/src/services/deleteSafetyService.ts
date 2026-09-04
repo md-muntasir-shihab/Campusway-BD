@@ -10,6 +10,7 @@
 import mongoose from 'mongoose';
 import GroupMembership from '../models/GroupMembership';
 import StudentGroup from '../models/StudentGroup';
+import StudentProfile from '../models/StudentProfile';
 import Exam from '../models/Exam';
 import NotificationJob from '../models/NotificationJob';
 import * as cacheService from './cacheService';
@@ -91,6 +92,16 @@ export async function executeGroupDeletion(groupId: string): Promise<void> {
                 note: 'Group deleted',
             },
         }
+    );
+
+    // Fix C-1: the mirror (StudentProfile.groupIds) is the operational read
+    // model the exam-gating path reads. Previously a deleted group was left in
+    // that array, so students could still access group-only exams targeting a
+    // group that no longer exists. Pull the deleted group id out of every
+    // profile so access is revoked.
+    await StudentProfile.updateMany(
+        { groupIds: gid },
+        { $pull: { groupIds: gid } },
     );
 
     // Delete the StudentGroup document

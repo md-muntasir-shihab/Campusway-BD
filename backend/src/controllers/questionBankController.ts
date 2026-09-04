@@ -27,6 +27,17 @@ type QBankAction = 'create' | 'edit' | 'delete' | 'approve' | 'bulk_import' | 'e
 const DEFAULT_SIMILARITY_THRESHOLD = 0.84;
 const MAX_IMPORT_PREVIEW_ROWS = 10000;
 
+// Fix C-3: the bulk-import duplicate-detection candidate pool was hardcoded to
+// the 600 most-recent questions, so in a large bank duplicates beyond that
+// window went undetected (unstable import results). Make the scan window
+// configurable and default to a much larger pool (env override for tuning).
+const DEFAULT_DUPLICATE_CANDIDATE_LIMIT = 5000;
+
+function resolveDuplicateCandidateLimit(): number {
+    const raw = Number(process.env.QBANK_DUPLICATE_CANDIDATE_LIMIT);
+    return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_DUPLICATE_CANDIDATE_LIMIT;
+}
+
 function boolFromQuery(value: unknown): boolean | undefined {
     if (value === undefined || value === null || value === '') return undefined;
     const normalized = String(value).trim().toLowerCase();
@@ -916,7 +927,7 @@ export async function bulkImportQuestions(req: AuthRequest, res: Response): Prom
         const candidateCache = await Question.find({ status: { $ne: 'archived' } })
             .select('_id question question_text options optionA optionB optionC optionD')
             .sort({ updatedAt: -1 })
-            .limit(600)
+            .limit(resolveDuplicateCandidateLimit())
             .lean();
         const syntheticCandidates: Array<{ _id: string; question: string; options: Array<{ key: string; text: string }> }> = [];
 

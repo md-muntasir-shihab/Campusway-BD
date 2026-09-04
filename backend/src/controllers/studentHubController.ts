@@ -20,7 +20,7 @@ import {
 import { getCanonicalSubscriptionSnapshot } from '../services/subscriptionAccessService';
 import { getExternalExamAttemptCount } from '../services/externalExamAttemptService';
 import { computeStudentProfileScore } from '../services/studentProfileScoreService';
-import { getSecurityConfig } from '../services/securityConfigService';
+import { getProfileCompletionThreshold } from '../services/profileScoreConfig';
 import { buildSecureUploadUrl, registerSecureUpload } from '../services/secureUploadService';
 import { ResponseBuilder } from '../utils/responseBuilder';
 
@@ -52,11 +52,10 @@ function ensureStudent(req: AuthRequest, res: Response): string | null {
 }
 
 async function getProfileScoreThreshold(): Promise<number> {
-    const security = await getSecurityConfig(true);
-    if (security.examProtection.requireProfileScoreForExam) {
-        return Number(security.examProtection.profileScoreThreshold || 70);
-    }
-    return 70;
+    // Fix C-2: use the single shared resolver so the hub and the exam gate can
+    // never disagree (the hub previously hardcoded 70 while startExam fell back
+    // to StudentDashboardConfig.profileCompletionThreshold).
+    return getProfileCompletionThreshold();
 }
 
 function normalizeObjectIdArray(input: unknown): string[] {

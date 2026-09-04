@@ -122,7 +122,7 @@ const StudentGroupSchema = new Schema<IStudentGroup>(
             enum: ['open', 'approval_required', 'invite_only', 'code_based'],
             default: 'open',
         },
-        join_code: { type: String, trim: true, sparse: true },
+        join_code: { type: String, trim: true },
         max_members: { type: Number, default: undefined },
         visibility: {
             type: String,

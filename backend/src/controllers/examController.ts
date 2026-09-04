@@ -9,7 +9,6 @@ import ExamResult from '../models/ExamResult';
 import ExamSession from '../models/ExamSession';
 import User from '../models/User';
 import StudentProfile from '../models/StudentProfile';
-import StudentDashboardConfig from '../models/StudentDashboardConfig';
 import ExamEvent from '../models/ExamEvent';
 import ExamCertificate from '../models/ExamCertificate';
 import StudentDueLedger from '../models/StudentDueLedger';
@@ -23,6 +22,7 @@ import {
 import { broadcastAdminLiveEvent } from '../realtime/adminLiveStream';
 import { getExamCardMetrics } from '../services/examCardMetricsService';
 import { getSecurityConfig } from '../services/securityConfigService';
+import { getProfileCompletionThreshold } from '../services/profileScoreConfig';
 import { finalizeExamSession } from '../services/examFinalizationService';
 import SecuritySettings from '../models/SecuritySettings';
 import { mergeAntiCheatPolicy } from '../services/antiCheatEngine';
@@ -34,6 +34,7 @@ import {
 } from '../services/externalExamAttemptService';
 import { ResponseBuilder } from '../utils/responseBuilder';
 import { safeTokenEqual } from '../utils/tokenCompare';
+import { getResultPublishMode, isExamResultPublished, certificateEligibility } from '../utils/resultPolicy';
 import { getStudentGroupIds } from '../services/groupMembershipService';
 
 /** Verify user subscription — returns true if user has ANY subscription plan (active or demo) */
@@ -1020,15 +1021,6 @@ export async function getEligibilitySummary(exam: Record<string, unknown>, stude
     };
 }
 
-async function getProfileCompletionThreshold(): Promise<number> {
-    const security = await getSecurityConfig(true);
-    if (security.examProtection.requireProfileScoreForExam) {
-        return Number(security.examProtection.profileScoreThreshold || 70);
-    }
-    const config = await StudentDashboardConfig.findOne().select('profileCompletionThreshold').lean();
-    return Number(config?.profileCompletionThreshold || 70);
-}
-
 function getDeviceFingerprint(userAgent: string, ipAddress: string): string {
     return crypto.createHash('sha256').update(`${userAgent}::${ipAddress}`).digest('hex');
 }
@@ -1114,23 +1106,6 @@ function resolveViolationAction(
         return 'submit';
     }
     return 'warn';
-}
-
-function getResultPublishMode(exam: Record<string, unknown>): 'immediate' | 'manual' | 'scheduled' {
-    const mode = String(exam.resultPublishMode || '').trim().toLowerCase();
-    if (mode === 'immediate' || mode === 'manual' || mode === 'scheduled') {
-        return mode;
-    }
-    return 'scheduled';
-}
-
-function isExamResultPublished(exam: Record<string, unknown>, now = new Date()): boolean {
-    const mode = getResultPublishMode(exam);
-    if (mode === 'immediate') return true;
-    const publishDateRaw = exam.resultPublishDate;
-    const publishDate = publishDateRaw ? new Date(String(publishDateRaw)) : null;
-    if (!publishDate || Number.isNaN(publishDate.getTime())) return false;
-    return now >= publishDate;
 }
 
 function toStringArray(input: unknown): string[] {
@@ -3077,35 +3052,6 @@ function generateCertificateId(examId: string, studentId: string, attemptNo: num
     const studentChunk = studentId.slice(-4).toUpperCase();
     const nonce = Date.now().toString(36).toUpperCase().slice(-5);
     return `CW-${examChunk}-${studentChunk}-A${attemptNo}-${nonce}`;
-}
-
-function certificateEligibility(exam: Record<string, unknown>, result: Record<string, unknown>, resultPublished: boolean): {
-    eligible: boolean;
-    reasons: string[];
-    minPercentage: number;
-    passThreshold: number;
-} {
-    const settings = ((exam.certificateSettings as Record<string, unknown> | undefined) || {});
-    const enabled = Boolean(settings.enabled);
-    const minPercentageRaw = Number(settings.minPercentage ?? 40);
-    const minPercentage = Number.isFinite(minPercentageRaw) ? minPercentageRaw : 40;
-    const passOnly = settings.passOnly === undefined ? true : Boolean(settings.passOnly);
-    const passThresholdRaw = Number((exam.passMarks as number | undefined) ?? (exam.pass_marks as number | undefined) ?? minPercentage);
-    const passThreshold = Number.isFinite(passThresholdRaw) ? passThresholdRaw : minPercentage;
-    const percentage = Number(result.percentage || 0);
-
-    const reasons: string[] = [];
-    if (!enabled) reasons.push('certificate_disabled');
-    if (!resultPublished) reasons.push('result_not_published');
-    if (percentage < minPercentage) reasons.push('minimum_percentage_not_met');
-    if (passOnly && percentage < passThreshold) reasons.push('pass_criteria_not_met');
-
-    return {
-        eligible: reasons.length === 0,
-        reasons,
-        minPercentage,
-        passThreshold,
-    };
 }
 
 export async function getExamCertificate(req: AuthRequest, res: Response): Promise<void> {
