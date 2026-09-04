@@ -8,6 +8,7 @@ import StudentProfile from '../models/StudentProfile';
 import UserSubscription from '../models/UserSubscription';
 import GroupMembership from '../models/GroupMembership';
 import StudentDueLedger from '../models/StudentDueLedger';
+import { escapeRegex } from '../utils/escapeRegex';
 
 // ---------------------------------------------------------------------------
 // Column definitions
@@ -357,8 +358,13 @@ export async function exportStudents(
   const userQuery: Record<string, unknown> = { role: 'student' };
   if (filters['status']) userQuery['status'] = filters['status'];
   if (filters['q']) {
-    const re = new RegExp(String(filters['q']), 'i');
-    userQuery['$or'] = [{ full_name: re }, { email: re }, { phone_number: re }, { username: re }];
+    const pattern = escapeRegex(String(filters['q']));
+    userQuery['$or'] = [
+      { full_name: { $regex: pattern, $options: 'i' } },
+      { email: { $regex: pattern, $options: 'i' } },
+      { phone_number: { $regex: pattern, $options: 'i' } },
+      { username: { $regex: pattern, $options: 'i' } },
+    ];
   }
 
   const mergeIdFilter = (candidateIds: mongoose.Types.ObjectId[]) => {

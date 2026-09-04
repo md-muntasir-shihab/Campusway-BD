@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import slugify from 'slugify';
 import { rowsToExcelBuffer, rowsToCsvBuffer } from '../utils/excelHelper';
 import User from '../models/User';
 import SubscriptionPlan from '../models/SubscriptionPlan';
@@ -58,11 +59,7 @@ function safeNumber(value: unknown, fallback = 0): number {
 }
 
 function normalizeSlug(value: unknown, fallback = 'plan'): string {
-    return String(value || '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || fallback;
+    return slugify(String(value || ''), { lower: true, strict: true }) || fallback;
 }
 
 function safeStringList(value: unknown, limit = 50): string[] {

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import sanitizeHtml from 'sanitize-html';
 import { escapeRegex } from '../utils/escapeRegex';
 import News from '../models/News';
 import Service from '../models/Service';
@@ -118,7 +119,12 @@ export async function adminCreateNews(req: AuthRequest, res: Response): Promise<
         if (!data.slug) data.slug = slugify(data.title, { lower: true, strict: true });
         const existing = await News.findOne({ slug: data.slug });
         if (existing) data.slug = `${data.slug}-${Date.now()}`;
-        if (!data.shortDescription) data.shortDescription = data.content?.replace(/<[^>]*>/g, '').slice(0, 200) || '';
+        if (!data.shortDescription) {
+            data.shortDescription = sanitizeHtml(String(data.content || ''), {
+                allowedTags: [],
+                allowedAttributes: {},
+            }).slice(0, 200) || '';
+        }
 
         data.createdBy = req.user?._id;
         const news = await News.create(data);

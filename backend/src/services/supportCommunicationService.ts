@@ -626,13 +626,12 @@ export async function listAdminSupportTickets(input: {
 
     const search = String(input.search || '').trim();
     if (search) {
-        // eslint-disable-next-line security/detect-non-literal-regexp
-        const regex = new RegExp(escapeRegex(search), 'i');
+        const escapedSearch = escapeRegex(search);
         filter.$or = [
-            { ticketNo: regex },
-            { subject: regex },
-            { message: regex },
-            { latestMessagePreview: regex },
+            { ticketNo: { $regex: escapedSearch, $options: 'i' } },
+            { subject: { $regex: escapedSearch, $options: 'i' } },
+            { message: { $regex: escapedSearch, $options: 'i' } },
+            { latestMessagePreview: { $regex: escapedSearch, $options: 'i' } },
         ];
     }
 

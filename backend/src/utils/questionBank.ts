@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { isIP } from 'node:net';
+import { JSDOM } from 'jsdom';
 import type { IBankQuestionOption } from '../models/QuestionBankQuestion';
 
 const BANGLA_STOPWORDS = new Set([
@@ -265,13 +267,25 @@ export function sanitizeRichHtml(raw: unknown): string {
     const html = String(raw || '');
     if (!html) return '';
 
-    return html
-        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
-        .replace(/\son\w+="[^"]*"/gi, '')
-        .replace(/\son\w+='[^']*'/gi, '')
-        .replace(/\s(href|src)\s*=\s*(['"])javascript:[^'"]*\2/gi, ' $1="#"')
-        .trim();
+    const dom = new JSDOM(`<body>${html}</body>`);
+    const { document } = dom.window;
+
+    document.querySelectorAll('script,style').forEach((node) => node.remove());
+    document.querySelectorAll('*').forEach((element) => {
+        Array.from(element.attributes).forEach((attribute) => {
+            const attrName = attribute.name.toLowerCase();
+            const attrValue = String(attribute.value || '').trim().toLowerCase();
+            if (attrName.startsWith('on')) {
+                element.removeAttribute(attribute.name);
+                return;
+            }
+            if ((attrName === 'href' || attrName === 'src') && attrValue.startsWith('javascript:')) {
+                element.setAttribute(attribute.name, '#');
+            }
+        });
+    });
+
+    return document.body.innerHTML.trim();
 }
 
 export function normalizeForSimilarity(raw: unknown): string {
@@ -670,10 +684,38 @@ export async function validateImageUrl(
 ): Promise<{ ok: boolean; reason?: string; mimeType?: string; sizeBytes?: number }> {
     const url = String(rawUrl || '').trim();
     if (!url) return { ok: true };
+
+    let parsedUrl: URL;
+    try {
+        parsedUrl = new URL(url);
+    } catch {
+        return { ok: false, reason: 'invalid_url' };
+    }
+
+    const protocol = parsedUrl.protocol.toLowerCase();
+    if (protocol !== 'http:' && protocol !== 'https:') {
+        return { ok: false, reason: 'invalid_protocol' };
+    }
+
+    const normalizedHostname = parsedUrl.hostname.toLowerCase();
+    const normalizedHost = normalizedHostname.startsWith('[') && normalizedHostname.endsWith(']')
+        ? normalizedHostname.slice(1, -1)
+        : normalizedHostname;
+    const ipType = isIP(normalizedHost);
+    if (
+        normalizedHost === 'localhost' ||
+        normalizedHost.endsWith('.localhost') ||
+        normalizedHost.endsWith('.local') ||
+        (ipType === 4 && isPrivateIpv4(normalizedHost)) ||
+        (ipType === 6 && isPrivateIpv6(normalizedHost))
+    ) {
+        return { ok: false, reason: 'private_host_not_allowed' };
+    }
+
     try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 4500);
-        const headResponse = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: controller.signal });
+        const headResponse = await fetch(parsedUrl.toString(), { method: 'HEAD', redirect: 'follow', signal: controller.signal });
         clearTimeout(timeout);
 
         if (!headResponse.ok) {
@@ -695,6 +737,32 @@ export async function validateImageUrl(
     } catch {
         return { ok: false, reason: 'image_url_unreachable' };
     }
+}
+
+function isPrivateIpv4(host: string): boolean {
+    const octets = host.split('.').map((part) => Number(part));
+    if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+        return true;
+    }
+    const [a, b] = octets;
+    return (
+        a === 0 ||
+        a === 10 ||
+        a === 127 ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168)
+    );
+}
+
+function isPrivateIpv6(host: string): boolean {
+    const normalized = host.toLowerCase();
+    return (
+        normalized === '::1' ||
+        normalized.startsWith('fe80:') ||
+        normalized.startsWith('fc') ||
+        normalized.startsWith('fd')
+    );
 }
 
 
