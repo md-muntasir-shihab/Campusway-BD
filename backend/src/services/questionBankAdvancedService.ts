@@ -8,7 +8,7 @@ import QuestionBankAnalytics from '../models/QuestionBankAnalytics';
 import QuestionBankSettings from '../models/QuestionBankSettings';
 import { ExamQuestionModel } from '../models/examQuestion.model';
 import Exam from '../models/Exam';
-import { AnswerModel } from '../models/answer.model';
+import ExamSession from '../models/ExamSession';
 import AuditLog from '../models/AuditLog';
 
 // ─── Content Hash ────────────────────────────────────────
@@ -965,6 +965,37 @@ export async function getAnalytics(params: {
     };
 }
 
+export function countExamSessionAnalytics(
+    sessions: Array<{
+        status?: string;
+        answers?: Array<{ questionId?: unknown; selectedAnswer?: unknown }>;
+    }>,
+    correctKeyMap: Map<string, string>,
+): { totalCorrect: number; totalWrong: number; totalSkipped: number } {
+    let totalCorrect = 0;
+    let totalWrong = 0;
+    let totalSkipped = 0;
+
+    for (const session of sessions) {
+        const status = String(session.status || '');
+        if (status === 'in_progress') continue;
+        for (const answer of (session.answers || [])) {
+            const correctKey = correctKeyMap.get(String(answer.questionId));
+            if (correctKey === undefined) continue;
+            const selected = String(answer.selectedAnswer || '');
+            if (!selected) {
+                totalSkipped++;
+            } else if (selected === correctKey) {
+                totalCorrect++;
+            } else {
+                totalWrong++;
+            }
+        }
+    }
+
+    return { totalCorrect, totalWrong, totalSkipped };
+}
+
 export async function refreshAnalyticsForQuestion(bankQuestionId: string) {
     // Find all exam_questions that reference this bank question
     const snapshots = await ExamQuestionModel.find({ fromBankQuestionId: bankQuestionId }).lean();
@@ -973,32 +1004,35 @@ export async function refreshAnalyticsForQuestion(bankQuestionId: string) {
     const snapshotIds = snapshots.map((s: any) => String(s._id));
     const examIds = [...new Set(snapshots.map((s: any) => s.examId))];
 
-    // Get all answers for these questions
-    const answers = await AnswerModel.find({
-        questionId: { $in: snapshotIds },
-        examId: { $in: examIds },
-    }).lean();
-
-    let totalCorrect = 0;
-    let totalWrong = 0;
-    let totalSkipped = 0;
-
-    // Build correctKey map from snapshots
+    // Build correctKey map from snapshots (snapshot id -> correct option key).
     const correctKeyMap = new Map<string, string>();
     for (const snap of snapshots) {
         correctKeyMap.set(String((snap as any)._id), (snap as any).correctKey);
     }
 
-    for (const answer of answers) {
-        const correctKey = correctKeyMap.get(String((answer as any).questionId));
-        if (!answer.selectedKey) {
-            totalSkipped++;
-        } else if (answer.selectedKey === correctKey) {
-            totalCorrect++;
-        } else {
-            totalWrong++;
-        }
-    }
+    // Fix A-2: the active exam engine stores responses in `ExamSession`
+    // (collection `exam_attempts`) as `answers[].questionId` + `answers[].selectedAnswer`
+    // (the chosen option key A–D). Previously this read `AnswerModel` (engine B),
+    // which is never written by the active flow, so analytics were always zero.
+    // We now read the real answers from ExamSession, matching the snapshot ids
+    // that `attachBankQuestionsToExam` created for this bank question.
+    const examObjectIds = examIds
+        .map((id) => (typeof id === 'string' && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null))
+        .filter((id): id is mongoose.Types.ObjectId => id !== null);
+    const examQuery: Record<string, unknown> = {};
+    if (examObjectIds.length > 0) examQuery.exam = { $in: examObjectIds };
+    const sessions = await ExamSession.find({
+        ...examQuery,
+        'answers.questionId': { $in: snapshotIds },
+    })
+        .select('answers exam status')
+        .lean();
+
+    // Count from the real ExamSession answers (see countExamSessionAnalytics).
+    const { totalCorrect, totalWrong, totalSkipped } = countExamSessionAnalytics(
+        sessions as any[],
+        correctKeyMap,
+    );
 
     const totalAppearances = totalCorrect + totalWrong + totalSkipped;
     const accuracyPercent = totalAppearances > 0
