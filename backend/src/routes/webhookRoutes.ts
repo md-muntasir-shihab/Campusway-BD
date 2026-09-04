@@ -115,8 +115,13 @@ router.post('/sslcommerz/ipn', async (req: Request, res: Response) => {
             return;
         }
 
-        // 3. Log the event (audit trail)
-        const webhookEvent = await PaymentWebhookEvent.create({
+        // 3. Log the event (audit trail) — resilient to idempotent retries (fix A-3).
+        //    If a previous attempt created this event but crashed before marking it
+        //    'processed', the unique {provider, providerEventId} index rejects a
+        //    second insert. Previously that E11000 bubbled to the outer catch and
+        //    produced HTTP 500, which SSLCommerz retries forever. We now recover by
+        //    fetching the existing event instead of failing the request.
+        let webhookEvent = await PaymentWebhookEvent.create({
             provider: 'sslcommerz',
             providerEventId: String(tran_id || crypto.randomUUID()),
             eventType: 'ipn',
@@ -124,7 +129,37 @@ router.post('/sslcommerz/ipn', async (req: Request, res: Response) => {
             requestHash,
             status: 'received',
             payload,
+        }).catch((err: any) => {
+            if (err?.code === 11000) return null;
+            throw err;
         });
+
+        if (!webhookEvent) {
+            webhookEvent = await PaymentWebhookEvent.findOne({
+                provider: 'sslcommerz',
+                providerEventId: String(tran_id),
+            });
+            if (webhookEvent && webhookEvent.status === 'processed') {
+                logger.warn('[Webhook] Duplicate IPN — already processed (recovered)', req, { tran_id });
+                res.status(200).send('OK');
+                return;
+            }
+            if (!webhookEvent) {
+                // Defensive: the event vanished between E11000 and re-fetch (should
+                // be impossible with the unique index). Never fail the request —
+                // continue processing under a unique audit id; the atomic payment
+                // claim still prevents double effects.
+                webhookEvent = await PaymentWebhookEvent.create({
+                    provider: 'sslcommerz',
+                    providerEventId: `${String(tran_id)}_recovered_${Date.now()}`,
+                    eventType: 'ipn',
+                    signatureValid: true,
+                    requestHash,
+                    status: 'received',
+                    payload,
+                });
+            }
+        }
 
         // 4. Find the matching payment
         const payment = await ManualPayment.findOne({ reference: tran_id });
@@ -154,8 +189,13 @@ router.post('/sslcommerz/ipn', async (req: Request, res: Response) => {
             // The withOptionalTransaction helper no-ops gracefully on standalone
             // mongod (audit step 2: opt-in transaction helper).
             const result = await withOptionalTransaction(async (session) => {
-                const pay = await ManualPayment.findByIdAndUpdate(
-                    payment._id,
+                // Fix A-4: claim the payment atomically with a status guard. Only
+                // the first IPN that flips pending→paid wins; a concurrent IPN (or
+                // a retry after a partial success) gets null and is treated as an
+                // idempotent no-op — preventing a double subscription activation
+                // and double income posting on standalone Mongo.
+                const pay = await ManualPayment.findOneAndUpdate(
+                    { _id: payment._id, status: { $ne: 'paid' } },
                     { status: 'paid', paymentDetails: payload, date: new Date() },
                     { new: true, session: session || undefined } as any,
                 ) as any;
@@ -168,7 +208,11 @@ router.post('/sslcommerz/ipn', async (req: Request, res: Response) => {
             }, { name: 'webhook.payment.process' });
 
             if (result.skipped) {
-                logger.warn('[Webhook] Payment disappeared during processing', req, { tran_id });
+                logger.warn('[Webhook] Payment not claimed (already paid by a concurrent request)', req, { tran_id });
+                webhookEvent.status = 'ignored';
+                webhookEvent.errorMessage = 'Payment already claimed by a concurrent IPN';
+                webhookEvent.paymentId = payment._id;
+                await webhookEvent.save();
                 res.status(200).send('OK');
                 return;
             }
