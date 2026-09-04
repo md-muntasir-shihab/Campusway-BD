@@ -317,30 +317,84 @@ export async function finalizeExamSession(input: FinalizeExamSessionInput): Prom
 
     const sessionFilter: Record<string, unknown> = { exam: examId, student: studentId };
     if (input.attemptId) sessionFilter._id = input.attemptId;
-    const session = await ExamSession.findOne(sessionFilter).sort({ attemptNo: -1 });
-    if (!session) {
-        return { ok: false, statusCode: 404, message: 'No session found to submit.' };
-    }
-    if (session.sessionLocked) {
-        return {
-            ok: false,
-            statusCode: 423,
-            message: 'Session is locked and cannot be submitted until reviewed.',
-            lockReason: String((session as any).lockReason || ''),
-        };
-    }
+
+    // ── Atomic submit guard (fix A-1 / B-1) ──────────────────────────────
+    // Two concurrent submits must not both finalize the same session. We claim
+    // the session with a single findOneAndUpdate that flips `isActive` to false
+    // only when it is still active — this is a single atomic MongoDB operation,
+    // so exactly one of the concurrent calls succeeds. The E11000 unique index
+    // on ExamResult({exam,student,attemptNo}) remains as a secondary safety net.
+    // NOTE: a withOptionalTransaction() wrapper (step 2) can later make the
+    // result create + session save fully atomic, but it is not required for the
+    // double-submit guarantee because of this claim.
+    const claimFilter: Record<string, unknown> = { ...sessionFilter, isActive: true };
     if (input.expectedRevision !== undefined && input.expectedRevision !== null) {
-        const expected = Number(input.expectedRevision);
-        const current = Number((session as any).attemptRevision || 0);
-        if (Number.isFinite(expected) && current !== expected) {
+        claimFilter.attemptRevision = Number(input.expectedRevision);
+    }
+    const claimed = await ExamSession.findOneAndUpdate(
+        claimFilter,
+        { $set: { isActive: false }, $inc: { attemptRevision: 1 } },
+        { new: true },
+    );
+    if (!claimed) {
+        const current = await ExamSession.findOne(sessionFilter).sort({ attemptNo: -1 }).lean();
+        if (!current) {
+            return { ok: false, statusCode: 404, message: 'No session found to submit.' };
+        }
+        if (current.sessionLocked) {
+            return {
+                ok: false,
+                statusCode: 423,
+                message: 'Session is locked and cannot be submitted until reviewed.',
+                lockReason: String((current as any).lockReason || ''),
+            };
+        }
+        const expected = input.expectedRevision !== undefined && input.expectedRevision !== null
+            ? Number(input.expectedRevision)
+            : undefined;
+        if (expected !== undefined && Number.isFinite(expected)
+            && Number((current as any).attemptRevision || 0) !== expected) {
             return {
                 ok: false,
                 statusCode: 409,
                 message: 'Attempt state is stale. Please refresh exam state before submit.',
-                latestRevision: current,
+                latestRevision: Number((current as any).attemptRevision || 0),
             };
         }
+        // Session was already claimed (submitted) by another request — return the
+        // existing result so the client gets a clean "alreadySubmitted" response.
+        const currentAttemptNo = Number((current as any).attemptNo || 1);
+        const existingResult = await ExamResult.findOne({
+            exam: examId,
+            student: studentId,
+            attemptNo: currentAttemptNo,
+        }).lean();
+        if (existingResult) {
+            return {
+                ok: true,
+                statusCode: 200,
+                alreadySubmitted: true,
+                exam: exam.toObject(),
+                session: current,
+                result: existingResult as unknown as Record<string, unknown>,
+                obtainedMarks: Number((existingResult as any).obtainedMarks || 0),
+                percentage: Number((existingResult as any).percentage || 0),
+                correctCount: Number((existingResult as any).correctCount || 0),
+                wrongCount: Number((existingResult as any).wrongCount || 0),
+                unansweredCount: Number((existingResult as any).unansweredCount || 0),
+            };
+        }
+        // Claimed by an in-progress concurrent submit that has not persisted the
+        // result yet. Return 409 to let the client retry shortly.
+        return {
+            ok: false,
+            statusCode: 409,
+            message: 'Submission already in progress. Please wait and retry in a moment.',
+            latestRevision: Number((current as any).attemptRevision || 0),
+        };
     }
+
+    const session = claimed as any;
 
     const currentAttemptNo = Number((session as any).attemptNo || 1);
     const existingResult = await ExamResult.findOne({
@@ -373,7 +427,7 @@ export async function finalizeExamSession(input: FinalizeExamSessionInput): Prom
         };
     }
 
-    const assignedQuestionIds = session.answers.map((answer) => String(answer.questionId || '')).filter(Boolean);
+    const assignedQuestionIds = session.answers.map((answer: any) => String(answer.questionId || '')).filter(Boolean);
     const questions = await Question.find({ _id: { $in: assignedQuestionIds } }).lean();
 
     const maxAttemptSelectByQuestion = new Map<string, number>();
@@ -382,7 +436,7 @@ export async function finalizeExamSession(input: FinalizeExamSessionInput): Prom
     }
 
     const merged = mergeAnswersWithConstraints({
-        existingAnswers: session.answers.map((answer) => ({
+        existingAnswers: session.answers.map((answer: any) => ({
             questionId: answer.questionId,
             selectedAnswer: answer.selectedAnswer,
             writtenAnswerUrl: answer.writtenAnswerUrl,

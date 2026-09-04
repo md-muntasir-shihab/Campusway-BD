@@ -1,3 +1,14 @@
+/**
+ * DEPRECATED — DO NOT MOUNT. Targeted for removal in audit clean-up step 4.
+ *
+ * This legacy admin exam router is not mounted anywhere in server.ts (only
+ * studentExamRoutes is). Worse, its results/export endpoints read from
+ * `ResultModel` (collection `results`), while the active exam engine writes
+ * results to `ExamResult` (collection `student_results`). Mounting it would
+ * expose admin screens that always show empty result lists. See audit D-2.
+ *
+ * Kept for reference only until the audit clean-up step removes it.
+ */
 import { Router } from "express";
 import { Parser as CsvParser } from "json2csv";
 import ExcelJS from "exceljs";

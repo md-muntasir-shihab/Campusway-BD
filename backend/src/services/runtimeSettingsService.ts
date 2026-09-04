@@ -21,6 +21,18 @@ export interface RuntimeFeatureFlags {
     nextStudentEnabled: boolean;
     trainingMode: boolean;
     requireDeleteKeywordConfirm: boolean;
+    /** Disabled by default: the "modern" exam auto-submit cron (examSessionService)
+     *  is built on a different schema than the active exam engine and performs an
+     *  unindexed full-collection scan every minute. See audit A-1. Re-enable only
+     *  after the legacy engine is reconciled. */
+    legacyExamEngineCronEnabled: boolean;
+    /** Disabled by default: routes/exams/adminExamRoutes.ts is dead code that
+     *  reads from the wrong collection (results vs student_results). See audit D-2. */
+    legacyExamAdminRoutesEnabled: boolean;
+    /** Disabled by default: MongoDB transactions only work on a replica set /
+     *  Atlas. On standalone mongod, startTransaction() throws. The
+     *  withOptionalTransaction helper reads this flag (audit step 2). */
+    dbTransactionsEnabled: boolean;
 }
 
 export interface RuntimeSettingsSnapshot {
@@ -56,7 +68,10 @@ const DEFAULT_FEATURE_FLAGS: RuntimeFeatureFlags = {
     nextStudentEnabled: false,
     trainingMode: false,
     requireDeleteKeywordConfirm: true,
-};
+    legacyExamEngineCronEnabled: false,
+    legacyExamAdminRoutesEnabled: false,
+    dbTransactionsEnabled: false,
+}
 
 function asBoolean(value: unknown, fallback: boolean): boolean {
     return typeof value === 'boolean' ? value : fallback;
@@ -94,6 +109,18 @@ function normalizeFeatureFlags(
         requireDeleteKeywordConfirm: asBoolean(
             raw.requireDeleteKeywordConfirm,
             DEFAULT_FEATURE_FLAGS.requireDeleteKeywordConfirm,
+        ),
+        legacyExamEngineCronEnabled: asBoolean(
+            raw.legacyExamEngineCronEnabled,
+            DEFAULT_FEATURE_FLAGS.legacyExamEngineCronEnabled,
+        ),
+        legacyExamAdminRoutesEnabled: asBoolean(
+            raw.legacyExamAdminRoutesEnabled,
+            DEFAULT_FEATURE_FLAGS.legacyExamAdminRoutesEnabled,
+        ),
+        dbTransactionsEnabled: asBoolean(
+            raw.dbTransactionsEnabled,
+            DEFAULT_FEATURE_FLAGS.dbTransactionsEnabled,
         ),
     };
 }

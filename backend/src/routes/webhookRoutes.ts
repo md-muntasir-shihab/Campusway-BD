@@ -8,6 +8,7 @@ import { getPanicSettings } from '../services/securityCenterService';
 import { logger } from '../utils/logger';
 import { createIncomeFromPayment } from '../services/financeCenterService';
 import { activateSubscriptionFromPayment, recomputeStudentDueLedger } from '../services/subscriptionLifecycleService';
+import { withOptionalTransaction } from '../services/txnRunner';
 
 const router = Router();
 
@@ -148,17 +149,33 @@ router.post('/sslcommerz/ipn', async (req: Request, res: Response) => {
 
         // 5. Process the payment status
         if (status === 'VALID' || status === 'AUTHENTICATED') {
-            payment.status = 'paid';
-            payment.paymentDetails = payload;
-            payment.date = new Date();
-            await payment.save();
+            // Wrap the payment-state transition + downstream subscription/income
+            // creation in a transaction when one is available; otherwise run as-is.
+            // The withOptionalTransaction helper no-ops gracefully on standalone
+            // mongod (audit step 2: opt-in transaction helper).
+            const result = await withOptionalTransaction(async (session) => {
+                const pay = await ManualPayment.findByIdAndUpdate(
+                    payment._id,
+                    { status: 'paid', paymentDetails: payload, date: new Date() },
+                    { new: true, session: session || undefined } as any,
+                ) as any;
+                if (!pay) return { skipped: true as const };
 
-            if (payment.entryType === 'subscription' && payment.subscriptionPlanId) {
-                await activateSubscriptionFromPayment(payment, String(payment.recordedBy || payment.studentId));
+                if (pay.entryType === 'subscription' && pay.subscriptionPlanId) {
+                    await activateSubscriptionFromPayment(pay, String(pay.recordedBy || pay.studentId), session);
+                }
+                return { skipped: false as const, pay };
+            }, { name: 'webhook.payment.process' });
+
+            if (result.skipped) {
+                logger.warn('[Webhook] Payment disappeared during processing', req, { tran_id });
+                res.status(200).send('OK');
+                return;
             }
+            const pay = result.pay;
 
             webhookEvent.status = 'processed';
-            webhookEvent.paymentId = payment._id;
+            webhookEvent.paymentId = pay._id;
             await webhookEvent.save();
 
             broadcastFinanceEvent('payment-updated', {
