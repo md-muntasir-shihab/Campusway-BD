@@ -170,6 +170,28 @@ function buildExpiryDate(startAtUTC: Date, plan: LeanPlan): Date {
     return new Date(startAtUTC.getTime() + durationDays * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Compute the expiry for a payment-driven subscription activation, preserving
+ * any remaining days on renewal (fix A-5).
+ *
+ * If the existing subscription already has a FUTURE expiry, the new period is
+ * appended to that expiry (so renewing 10 days early keeps those 10 days).
+ * Otherwise it starts fresh from `startAtUTC`.
+ *
+ * Pure helper — no DB access — so it can be unit-tested without mongod.
+ */
+export function computeActivationExpiry(
+    startAtUTC: Date,
+    durationDays: number,
+    existingExpiresAtUTC?: Date | null,
+    now: Date = new Date(),
+): Date {
+    const durationMs = Math.max(1, durationDays) * 24 * 60 * 60 * 1000;
+    const existingExpiry = existingExpiresAtUTC ? new Date(existingExpiresAtUTC) : null;
+    const base = existingExpiry && existingExpiry.getTime() > now.getTime() ? existingExpiry : startAtUTC;
+    return new Date(base.getTime() + durationMs);
+}
+
 async function resolvePlanDocument(input: {
     planId?: string;
     planCode?: string;
@@ -621,7 +643,11 @@ export async function activateSubscriptionFromPayment(
         || (paymentLike as { date?: Date | string | null }).date,
         new Date()
     ) || new Date();
-    const expiresAtUTC = buildExpiryDate(startAtUTC, plan as unknown as LeanPlan);
+    // Fix A-5: when this payment renews an existing subscription, preserve any
+    // remaining days. `expiresAtUTC` extends from the later of the current
+    // expiry or now, rather than being overwritten from the payment date.
+    const planDurationDays = Math.max(1, safeNumber((plan as unknown as LeanPlan).durationDays, 30));
+    const expiresAtUTC = computeActivationExpiry(startAtUTC, planDurationDays, subscription?.expiresAtUTC);
     const actorObjectId = toObjectId(actorId) || toObjectId((paymentLike as { recordedBy?: unknown }).recordedBy);
 
     if (!subscription) {
