@@ -271,28 +271,41 @@ export async function recomputeStudentDueLedger(studentId: string, actorId?: str
         },
     ]);
 
-    const existing = await StudentDueLedger.findOne({ studentId: studentObjectId }).lean();
     const computedDue = Math.max(0, safeNumber(totals[0]?.totalDue, 0));
-    const manualAdjustment = safeNumber(existing?.manualAdjustment, 0);
-    const waiverAmount = safeNumber(existing?.waiverAmount, 0);
-    const updatedBy = toObjectId(actorId) || existing?.updatedBy || studentObjectId;
+    const actorObjectId = toObjectId(actorId);
 
+    // Fix C-5: previously this read manualAdjustment/waiverAmount in JS and then
+    // wrote netDue, so a concurrent admin adjustment between the read and write
+    // was lost (stale netDue → wrong exam payment gate decision). Use an
+    // aggregation-pipeline update so netDue is derived from the stored fields
+    // atomically on the server, with no read-modify-write window.
     return StudentDueLedger.findOneAndUpdate(
         { studentId: studentObjectId },
-        {
-            $set: {
-                computedDue,
-                netDue: computedDue + manualAdjustment - waiverAmount,
-                updatedBy,
-                lastComputedAt: new Date(),
-                ...(note ? { note } : {}),
+        [
+            {
+                $set: {
+                    computedDue,
+                    manualAdjustment: { $ifNull: ['$manualAdjustment', 0] },
+                    waiverAmount: { $ifNull: ['$waiverAmount', 0] },
+                    updatedBy: actorObjectId
+                        ? actorObjectId
+                        : { $ifNull: ['$updatedBy', studentObjectId] },
+                    lastComputedAt: new Date(),
+                    ...(note ? { note } : {}),
+                },
             },
-            $setOnInsert: {
-                manualAdjustment,
-                waiverAmount,
+            {
+                $set: {
+                    netDue: {
+                        $subtract: [
+                            { $add: ['$computedDue', '$manualAdjustment'] },
+                            '$waiverAmount',
+                        ],
+                    },
+                },
             },
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        ],
+        { upsert: true, new: true },
     );
 }
 
